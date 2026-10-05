@@ -41,17 +41,18 @@ settlement si costruiscono le feature point-in-time, si inferisce il regime, le 
 l'allocatore li combina, il gate decide se la leva può superare 1x e gli ordini vengono messi in coda per la
 barra successiva.
 
-## Cosa devi fare tu
+## Configurazione (fatta il 5 ottobre 2026)
 
-Tre cose che il codice non può fare da sé:
+Le quattro cose che il codice non poteva fare da sé sono state completate e verificate su GitHub:
 
-1. **Attivare GitHub Pages**: Settings → Pages → Source: **GitHub Actions**. Il repository deve essere
-   **pubblico** (Pages su repo privati richiede GitHub Pro, e `raw.githubusercontent.com` chiederebbe un token
-   anche per leggere i JSON).
-2. **Permessi dei workflow**: Settings → Actions → General → Workflow permissions → **Read and write**. Servono
-   per scrivere il branch dati, aprire le issue di allerta e riattivare i cron.
-3. **Chiavi API gratuite** (opzionali ma consigliate): Settings → Secrets and variables → Actions → New
-   repository secret.
+| Cosa | Dove | Stato |
+|---|---|---|
+| Repository pubblico | Settings → General | ✅ `raw.githubusercontent.com` risponde 200: la dashboard legge il branch `data` dal vivo |
+| GitHub Pages | Settings → Pages → Source: **GitHub Actions** | ✅ online su <https://andreramolivaz.github.io/oil-paper-trading/> |
+| Permessi dei workflow | Settings → Actions → General → Workflow permissions → **Read and write** | ✅ i job scrivono il branch dati e aprono le issue di allerta |
+| Chiavi API gratuite | Settings → Secrets and variables → Actions | ✅ `EIA_API_KEY` e `FRED_API_KEY` presenti: 22 fonti su 25 verdi |
+
+Le chiavi restano **opzionali**: senza di esse il sistema gira lo stesso, con più fonti sui fallback.
 
 | Secret | Dove si ottiene | Cosa sblocca | Senza la chiave |
 |---|---|---|---|

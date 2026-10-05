@@ -121,9 +121,12 @@ job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no
 failure looked like a normal red cross. The giveaway: the run's name was the file path instead of `ci`.
 Likewise a `continue-on-error` step ending in `|| true` is always green and tells you nothing.
 
-What the owner still has to do is in README.md: make the repo public, turn Pages on with the GitHub Actions
-source (the deploy job fails on `configure-pages` until then), give the workflows write permission, and add
-the two free API keys.
+The owner's four setup actions are DONE and verified (README.md records them): the repo is public,
+Pages is on with the GitHub Actions source, the workflows have write permission, and both API keys are set.
+Verified on GitHub: `ci`, `update`, `eod` and `deploy` all green; the site is live at
+https://andreramolivaz.github.io/oil-paper-trading/; `raw.githubusercontent.com` serves the `data` branch
+(200), so the dashboard reads live JSON instead of the bundled fallback; 22 of 25 sources green, the three
+yellows being data-quality warnings rather than missing keys.
 
 ## Market context (verify at startup, never hard-code regimes)
 As of 2026-10-05 the Brent market is in a geopolitical-shock regime (US/Israel–Iran war since 2026-02-28, Hormuz
