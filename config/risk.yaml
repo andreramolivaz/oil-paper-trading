@@ -1,0 +1,63 @@
+# Risk configuration (brief §9-§10). Calibration notes in docs/VALIDATION.md once phase 6 runs.
+account:
+  initial_capital: 10000.0
+  lot_bbl: 100            # position granularity in barrels
+  dead_equity_fraction: 0.05   # equity <= 5% of initial -> trading halts until Reset
+
+leverage:
+  hard_cap: 10.0          # absolute, enforced in code and tests; cannot be raised
+  default_cap: 1.0        # without the alpha gate: net notional <= 1x equity
+  drawdown_delever:       # drawdown threshold -> multiplier applied to the leverage above 1x
+    "0.10": 0.5
+    "0.20": 0.25
+    "0.30": 0.0
+
+margin:
+  rate: 0.10              # margin requirement = 10% of notional (consistent with 10x cap)
+  stop_out_level: 0.50    # equity / margin_used below this -> forced liquidation with adverse slippage
+  stop_out_extra_slippage_bps: 25
+
+sizing:
+  vol_target_annual: 0.15     # portfolio volatility target at 1x
+  kelly_fraction: 0.25        # fractional Kelly (never full Kelly)
+  es99_budget: 0.03           # max 1-day 99% expected shortfall as fraction of equity
+  hysteresis_fraction: 0.15   # ignore target changes smaller than this fraction of current position
+
+gate:                       # "strong alpha" gate for leverage > 1x (all conditions must hold)
+  min_ensemble_prob: 0.62   # chosen out-of-sample in phase 6; placeholder until then
+  min_families_agree: 3
+  max_family_correlation: 0.5
+  min_regime_confidence: 0.70
+  min_prob_sharpe: 0.90
+  require_physical_confirmation_for_geo_longs: true
+  hours_before_binary_event: 24
+  max_drawdown_for_leverage: 0.10
+  max_data_age_minutes: 90
+
+event_delever:
+  weekend_geo_risk_multiplier: 0.5     # leverage multiplier into the weekend when GPR/GDELT is elevated
+  pre_event_multiplier: 0.5            # before OPEC+/EIA/FOMC in the next 24h
+  geo_index_percentile_high: 0.90
+
+breakers:
+  daily_loss: 0.05        # loss on the day > 5% of start-of-day equity -> flat until next session
+  stale_with_leverage_to: 1.0   # stale data with leverage > 1x -> reduce to 1x
+
+staleness:
+  intraday_minutes: 90
+  eod_days: 3
+
+costs:
+  commission_per_lot_usd: 1.20       # per 100-bbl lot per side (scaled from ~12 $/contract all-in)
+  base_spread_bps: 1.5               # half-spread in bps of price, normal vol
+  spread_vol_multiplier: 1.0         # half-spread scales with (realized vol / 25%)
+  event_spread_multiplier: 2.0       # around scheduled binary events
+  slippage_bps_per_turn: 1.0         # market impact proxy per equity-turn of notional
+  roll_cost_bps: 2.0
+  double_costs_sensitivity: true
+
+monte_carlo:
+  n_paths: 20000
+  horizon_days: 250
+  ruin_threshold: 0.5                 # ruin = losing 50% of equity
+  max_ruin_probability: 0.05

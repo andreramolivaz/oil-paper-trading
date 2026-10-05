@@ -1,0 +1,29 @@
+# Scheduled event calendar (brief §6). Dates verified where possible; `confirmed: false` = provisional.
+# Times are local to the stated timezone. The engine computes "hours to next binary event" from this file
+# plus rule-based recurring events (EIA WPSR Wednesdays 10:30 ET, COT Fridays, ICE Brent expiries).
+recurring:
+  - {id: eia_wpsr, name: "EIA Weekly Petroleum Status Report", rule: weekly, weekday: 2, time: "10:30", tz: America/New_York, binary: true, shift_after_us_holiday: true}
+  - {id: cot, name: "COT CFTC/ICE", rule: weekly, weekday: 4, time: "15:30", tz: America/New_York, binary: false}
+  - {id: baker_hughes, name: "Baker Hughes rig count", rule: weekly, weekday: 4, time: "13:00", tz: America/New_York, binary: false}
+  - {id: ice_brent_expiry, name: "Scadenza ICE Brent", rule: ice_brent_expiry, time: "19:30", tz: Europe/London, binary: false}
+  - {id: eia_steo, name: "EIA STEO", rule: monthly_first_tuesday_after_first_thursday, time: "12:00", tz: America/New_York, binary: false}
+  - {id: hurricane_season, name: "Stagione uragani Atlantico", rule: season, start: "06-01", end: "11-30", binary: false}
+oneoff:
+  - {id: opec_2026_11, name: "Riunione OPEC+ (8 paesi, mensile)", date: 2026-11-01, time: "12:00", tz: Europe/Vienna, binary: true, confirmed: false}
+  - {id: opec_2026_11_30, name: "Riunione ministeriale OPEC+ (ONOMM)", date: 2026-11-30, time: "12:00", tz: Europe/Vienna, binary: true, confirmed: false}
+  - {id: opec_2026_12, name: "Riunione OPEC+ (8 paesi, mensile)", date: 2026-12-06, time: "12:00", tz: Europe/Vienna, binary: true, confirmed: false}
+  - {id: fomc_2026_10, name: "FOMC", date: 2026-10-28, time: "14:00", tz: America/New_York, binary: true, confirmed: true}
+  - {id: fomc_2026_12, name: "FOMC", date: 2026-12-09, time: "14:00", tz: America/New_York, binary: true, confirmed: true}
+  - {id: opec_momr_2026_10, name: "OPEC Monthly Oil Market Report", date: 2026-10-13, time: "12:30", tz: Europe/Vienna, binary: false, confirmed: false}
+  - {id: iea_omr_2026_10, name: "IEA Oil Market Report", date: 2026-10-14, time: "10:00", tz: Europe/Paris, binary: false, confirmed: false}
+  - {id: opec_momr_2026_11, name: "OPEC Monthly Oil Market Report", date: 2026-11-12, time: "12:30", tz: Europe/Vienna, binary: false, confirmed: false}
+  - {id: iea_omr_2026_11, name: "IEA Oil Market Report", date: 2026-11-13, time: "10:00", tz: Europe/Paris, binary: false, confirmed: false}
+historical_episodes:   # for stress tests (brief §4, §12)
+  - {id: gulf_war_1990, name: "Guerra del Golfo", start: 1990-08-02, end: 1991-03-01, note: "Raddoppio poi -33% il 17/1/1991"}
+  - {id: gfc_2008, name: "Crisi finanziaria", start: 2008-07-01, end: 2009-03-01}
+  - {id: glut_2014, name: "Eccesso d'offerta OPEC", start: 2014-06-01, end: 2016-02-29}
+  - {id: abqaiq_2019, name: "Attacco ad Abqaiq", start: 2019-09-13, end: 2019-10-15}
+  - {id: covid_2020, name: "Covid e WTI negativo", start: 2020-02-20, end: 2020-06-01}
+  - {id: russia_2022, name: "Invasione russa dell'Ucraina", start: 2022-02-20, end: 2022-07-31}
+  - {id: iran_war_2026, name: "Guerra USA/Israele-Iran e Hormuz", start: 2026-02-28, end: null}
+  - {id: truce_2026, name: "Tregua di giugno-luglio 2026", start: 2026-06-15, end: 2026-07-20, note: "Brent 71-76 $"}

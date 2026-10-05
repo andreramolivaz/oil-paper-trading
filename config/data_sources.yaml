@@ -1,0 +1,68 @@
+# Verified 2026-10-05 (docs/DATA_SOURCES.md). Order within a block = fallback order.
+prices:
+  brent_spot:
+    - {adapter: eia, series: RBRTE, needs_key: true}
+    - {adapter: eia_xls, url: "https://www.eia.gov/dnav/pet/hist_xls/RBRTEd.xls"}
+    - {adapter: fred, series: DCOILBRENTEU, needs_key: true}
+    - {adapter: fred_csv, series: DCOILBRENTEU}
+  wti_spot:
+    - {adapter: eia, series: RWTC, needs_key: true}
+    - {adapter: fred, series: DCOILWTICO, needs_key: true}
+    - {adapter: fred_csv, series: DCOILWTICO}
+  brent_front:
+    - {adapter: yahoo, symbol: "BZ=F"}
+  wti_front:
+    - {adapter: yahoo, symbol: "CL=F"}
+  rbob_front:
+    - {adapter: yahoo, symbol: "RB=F"}
+  ho_front:
+    - {adapter: yahoo, symbol: "HO=F"}
+  brent_curve:
+    - {adapter: yahoo_curve, root: BZ, months: 36}
+  wti_curve:
+    - {adapter: yahoo_curve, root: CL, months: 12}
+  wti_curve_hist:
+    - {adapter: eia, series: [RCLC1, RCLC2, RCLC3, RCLC4], needs_key: true, note: "ended 2024-04-05"}
+volatility_macro:
+  ovx:
+    - {adapter: fred, series: OVXCLS, needs_key: true}
+    - {adapter: yahoo, symbol: "^OVX"}
+    - {adapter: fred_csv, series: OVXCLS}
+  vix:
+    - {adapter: fred, series: VIXCLS, needs_key: true}
+    - {adapter: yahoo, symbol: "^VIX"}
+  dxy:
+    - {adapter: fred, series: DTWEXBGS, needs_key: true}
+    - {adapter: yahoo, symbol: "DX-Y.NYB"}
+  spx:
+    - {adapter: yahoo, symbol: "^GSPC"}
+  copper:
+    - {adapter: yahoo, symbol: "HG=F"}
+  us10y:
+    - {adapter: fred, series: DGS10, needs_key: true}
+    - {adapter: fred_csv, series: DGS10}
+  breakeven10y:
+    - {adapter: fred, series: T10YIE, needs_key: true}
+    - {adapter: fred_csv, series: T10YIE}
+fundamentals:
+  wpsr:
+    - {adapter: eia_wpsr, needs_key: true}
+    - {adapter: eia_wpsr_csv, url: "https://ir.eia.gov/wpsr/table1.csv"}
+  steo_brent:
+    - {adapter: eia_steo, series: BREPUUS, needs_key: true}
+  rig_count:
+    - {adapter: baker_hughes, url: "https://rigcount.bakerhughes.com/na-rig-count"}
+positioning:
+  cot_wti:
+    - {adapter: cftc_socrata, market_code: "067651"}
+    - {adapter: cftc_file, url: "https://www.cftc.gov/dea/newcot/f_disagg.txt"}
+  cot_brent:
+    - {adapter: ice_cot, market: "ICE Brent Crude Futures - ICE Futures Europe", first_year: 2011}
+  cot_gasoil:
+    - {adapter: ice_cot, market: "ICE Gasoil Futures - ICE Futures Europe", first_year: 2011}
+news:
+  gdelt_events:
+    - {adapter: gdelt_files, base: "https://data.gdeltproject.org/gdeltv2/"}
+    - {adapter: gdelt_doc_api, min_interval_seconds: 6}
+  gpr:
+    - {adapter: gpr, url: "https://www.matteoiacoviello.com/gpr_files/data_gpr_daily_recent.xls"}
