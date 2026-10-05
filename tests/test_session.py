@@ -1,0 +1,230 @@
+"""TradingSession: next-bar fills, roll, shadow accounts, idempotency, 1x cap, persistence.
+
+All market data here is SYNTHETIC (tests/synthetic.py) and labelled as such; the point of these tests is the
+mechanics of the event loop, not any market claim.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+
+import pandas as pd
+import pytest
+
+from engine.backtest.runner import run_backtest, trading_days
+from engine.backtest.session import SessionState, TradingSession
+from engine.broker.paper import PaperBroker
+from engine.core.config import RiskConfig
+from engine.core.events import Direction, Signal
+from engine.core.store import StateStore
+from engine.core.timeutil import settlement_ts
+from engine.features import catalog as cat
+from engine.portfolio.base import CappedEqualWeightAllocator
+from engine.regime.base import LABEL_LOWVOL_RANGE, RegimeState
+from engine.strategies.base import Family, MarketContext, Strategy
+from tests.synthetic import make_market_data
+
+
+class StubRegime:
+    """Always the same readable regime, high confidence: keeps the session deterministic."""
+
+    name = "stub"
+
+    def fit(self, features: pd.DataFrame) -> None:  # pragma: no cover - nothing to fit
+        return None
+
+    def infer(self, features: pd.DataFrame, ts: datetime) -> RegimeState:
+        return RegimeState(
+            ts=ts,
+            regime_id=0,
+            label=LABEL_LOWVOL_RANGE,
+            confidence=0.9,
+            probabilities={LABEL_LOWVOL_RANGE: 0.9},
+            model="stub",
+        )
+
+    def history(self, features: pd.DataFrame) -> pd.DataFrame:
+        return pd.DataFrame(index=features.index)
+
+
+class MiniBuilder:
+    """Minimal feature builder: only what the toy strategy needs, computed from md.prices."""
+
+    def build(self, md, asof):  # noqa: ANN001, ANN201
+        close = md.prices["brent_front_close"].dropna().astype(float)
+        close = close.loc[: pd.Timestamp(asof.date())]
+        frame = pd.DataFrame(index=close.index)
+        frame[cat.PX] = close
+        frame[cat.PX_FRONT] = close
+        frame[cat.RET_1] = close.pct_change()
+        frame[cat.RET_21] = close.pct_change(21)
+        frame[cat.RV_YZ_21] = close.pct_change().rolling(21).std() * (252**0.5)
+        frame[cat.ATR_14] = (
+            ((md.prices["brent_front_high"] - md.prices["brent_front_low"]).reindex(close.index) / close)
+            .rolling(14)
+            .mean()
+        )
+        return frame
+
+
+class ToyLong(Strategy):
+    """Long when the 21-day return is positive, flat otherwise. Deterministic, no magic."""
+
+    id = "T1"
+    name = "Toy momentum"
+    family = Family.TREND
+    horizon_days = 5
+    warmup_days = 30
+    requires = (cat.RET_21, cat.RV_YZ_21)
+
+    def generate(self, ctx: MarketContext) -> Signal | None:
+        r = ctx.f(cat.RET_21)
+        if pd.isna(r) or r <= 0:
+            return None
+        vol = ctx.f(cat.RV_YZ_21, 0.3)
+        return self.make_signal(
+            ctx,
+            Direction.LONG,
+            prob=0.6,
+            expected_return=0.01,
+            expected_vol=max(vol, 0.05),
+            rationale=f"Test: rendimento 21g positivo ({r:.3f}).",
+            stop_pct=0.05,
+        )
+
+
+def build_session(tmp_path, n_days: int = 300, strict_pit: bool = False, md=None):  # noqa: ANN001, ANN201
+    risk = RiskConfig.load()
+    md = md if md is not None else make_market_data(n_days=n_days, vol=0.012, drift=0.0006)
+    store = StateStore(tmp_path / "state")
+    master = PaperBroker("master", risk, store=None)
+    session = TradingSession(
+        md=md,
+        strategies=[ToyLong()],
+        master=master,
+        risk=risk,
+        allocator=CappedEqualWeightAllocator(),
+        feature_builder=MiniBuilder(),
+        regime_model=StubRegime(),
+        store=store,
+        strict_pit=strict_pit,
+        state=SessionState(),
+    )
+    return session, md, risk, store
+
+
+def test_fill_happens_on_the_next_bar_open(tmp_path):
+    session, md, risk, _ = build_session(tmp_path)
+    days = [d.date() for d in pd.DatetimeIndex(md.prices.index)][:120]
+    # run until the toy strategy queues its first order
+    queued_day = None
+    for day in days:
+        session.run_day(day)
+        if session.master.pending_orders():
+            queued_day = day
+            break
+    assert queued_day is not None, "the toy strategy never produced an order"
+    order = session.master.pending_orders()[0]
+    assert order.ts == settlement_ts(queued_day)
+    assert not session.master.positions, "nothing may be filled on the decision day"
+
+    next_day = days[days.index(queued_day) + 1]
+    session.run_day(next_day)
+    pos = session.master.positions[order.instrument]
+    open_next = float(md.prices.loc[pd.Timestamp(next_day), "brent_front_open"])
+    close_decision = float(md.prices.loc[pd.Timestamp(queued_day), "brent_front_close"])
+    # filled at the NEXT day's open plus adverse costs, never at the price that generated the signal
+    assert pos.avg_price >= open_next
+    assert pos.avg_price == pytest.approx(open_next, rel=0.01)
+    assert pos.avg_price != pytest.approx(close_decision, rel=1e-9)
+
+
+def test_master_and_shadow_tracked_and_capped_at_1x(tmp_path):
+    session, md, risk, store = build_session(tmp_path)
+    for day in [d.date() for d in pd.DatetimeIndex(md.prices.index)][:150]:
+        session.run_day(day)
+    asof = settlement_ts(date(2024, 1, 2))
+    assert "T1" in session.shadows
+    snap = session.master.snapshot(session.master.state.last_mark_ts or asof)
+    assert snap.leverage <= 1.0 + 1e-9
+    shadow_snap = session.shadows["T1"].snapshot(session.shadows["T1"].state.last_mark_ts or asof)
+    assert shadow_snap.leverage <= 1.0 + 1e-9
+    assert snap.equity > 0 and shadow_snap.equity > 0
+    # the store received the audit trail
+    assert store.read_jsonl("equity")
+    assert store.read_jsonl("signals")
+    assert store.read_jsonl("regime")
+    assert store.exists("session.json")
+
+
+def test_run_day_is_idempotent(tmp_path):
+    session, md, _, store = build_session(tmp_path)
+    days = [d.date() for d in pd.DatetimeIndex(md.prices.index)][:80]
+    for day in days:
+        session.run_day(day)
+    equity_rows = len(store.read_jsonl("equity"))
+    fills = session.master.state.n_fills
+    positions = {k: v.qty_bbl for k, v in session.master.positions.items()}
+    for day in days:  # replay the whole range: must change nothing
+        res = session.run_day(day)
+        assert res.skipped == "already processed"
+    assert len(store.read_jsonl("equity")) == equity_rows
+    assert session.master.state.n_fills == fills
+    assert {k: v.qty_bbl for k, v in session.master.positions.items()} == positions
+
+
+def test_roll_on_calendar_date(tmp_path):
+    session, md, _, store = build_session(tmp_path, n_days=400)
+    days = [d.date() for d in pd.DatetimeIndex(md.prices.index)]
+    rolls: list[tuple[date, str, str]] = []
+    for day in days[:200]:
+        res = session.run_day(day)
+        if res.rolled:
+            rolls.append((day, *res.rolled))
+    assert rolls, "no roll happened in 200 trading days (one is expected every month)"
+    first = rolls[0]
+    # the roll moved to the contract the calendar says is the front on that day
+    assert first[2] == session.front_code(first[0])
+    assert first[1] != first[2]
+    logged = store.read_jsonl("rolls")
+    assert logged and logged[0]["to"] == first[2]
+    # with a real curve the roll is not flagged approximate
+    assert logged[0]["approx"] is False
+
+
+def test_session_state_roundtrip(tmp_path):
+    session, md, risk, store = build_session(tmp_path)
+    days = [d.date() for d in pd.DatetimeIndex(md.prices.index)][:60]
+    for day in days:
+        session.run_day(day)
+    session.save()
+    reloaded, _, _, _ = build_session(tmp_path, md=md)
+    reloaded.store = store
+    reloaded.load()
+    assert reloaded.state.last_day == days[-1].isoformat()
+    assert reloaded.master.state.cash == pytest.approx(session.master.state.cash)
+    assert set(reloaded.master.positions) == set(session.master.positions)
+    # a replayed day is still a no-op after a reload
+    assert reloaded.run_day(days[-1]).skipped == "already processed"
+
+
+def test_runner_produces_equity_and_metrics(tmp_path):
+    risk = RiskConfig.load()
+    md = make_market_data(n_days=250, vol=0.012, drift=0.0006)
+    store = StateStore(tmp_path / "state")
+    res = run_backtest(
+        md,
+        [ToyLong()],
+        risk,
+        allocator=CappedEqualWeightAllocator(),
+        feature_builder=MiniBuilder(),
+        regime_model=StubRegime(),
+        store=store,
+    )
+    assert not res.equity.empty
+    assert "master" in res.equity.columns and "T1" in res.equity.columns and "buy_hold" in res.equity.columns
+    assert res.equity["buy_hold"].iloc[0] == pytest.approx(risk.initial_capital, rel=1e-6)
+    assert "master" in res.summary
+    assert res.summary["master"].n_obs == len(res.equity)
+    assert len(res.days) == len(trading_days(md, None, None))
+    assert res.meta["initial_capital"] == risk.initial_capital

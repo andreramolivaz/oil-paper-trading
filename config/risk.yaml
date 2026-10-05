@@ -1,7 +1,11 @@
 # Risk configuration (brief §9-§10). Calibration notes in docs/VALIDATION.md once phase 6 runs.
 account:
   initial_capital: 10000.0
-  lot_bbl: 100            # position granularity in barrels
+  # Position granularity in barrels. The brief suggests 100 bbl, but with 10 000 $ of capital and Brent near
+  # 100 $/bbl one 100-bbl lot is already ~10 000 $ of notional, i.e. ~1x the whole account: sizing would be
+  # binary (flat or 1x) and volatility targeting / fractional Kelly (brief §9) could not work at all. 10 bbl
+  # gives 10% granularity of a 1x position, which is the smallest size that keeps the sizing rules meaningful.
+  lot_bbl: 10
   dead_equity_fraction: 0.05   # equity <= 5% of initial -> trading halts until Reset
 
 leverage:
