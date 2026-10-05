@@ -25,15 +25,28 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch the bundled data snapshot from the data branch
+      # Refresh the fallback snapshot bundled in the build from the live data branch. If the branch is not
+      # reachable the committed copy under site/public/site-data stands in — that is what it is for — so this
+      # step may fail without failing the deploy. It must still SAY which of the two shipped.
+      - name: Refresh the bundled data snapshot from the data branch
         continue-on-error: true
         run: |
-          set -eux
-          git fetch origin data --depth 1 || exit 0
-          mkdir -p site/public/site-data
-          git --work-tree=/tmp/data-branch checkout origin/data -- site-data 2>/dev/null || true
-          if [ -d site-data ]; then cp -r site-data/. site/public/site-data/ ; fi
-          ls -la site/public/site-data || true
+          set -eu
+          if ! git fetch --depth 1 origin data; then
+            echo "data branch unreachable: shipping the snapshot committed in the repo"
+            exit 0
+          fi
+          rm -rf /tmp/data-branch && mkdir -p /tmp/data-branch
+          git --work-tree=/tmp/data-branch checkout FETCH_HEAD -- site-data
+          git reset --quiet          # the checkout above staged those paths into the workspace index
+          if [ -d /tmp/data-branch/site-data ]; then
+            mkdir -p site/public/site-data
+            cp -r /tmp/data-branch/site-data/. site/public/site-data/
+            echo "snapshot refreshed from the data branch:"
+            ls -la site/public/site-data
+          else
+            echo "the data branch carries no site-data/: shipping the snapshot committed in the repo"
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22

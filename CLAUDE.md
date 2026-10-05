@@ -110,11 +110,20 @@ weekly compaction of raw snapshots to parquet. Never rewrite history; revisions 
 - Secrets only via GitHub Secrets: `EIA_API_KEY`, `FRED_API_KEY` (both optional; system degrades gracefully).
 
 ## State of play (2026-10-05)
-Everything in `docs/PLAN.md` phases 1-9 is implemented and committed. Verified by running it: 618 offline
+Everything in `docs/PLAN.md` phases 1-9 is implemented and committed. Verified by running it: 624 offline
 tests, ruff/format/mypy clean, a real fetch recovering 23 of 25 sources with no API keys, an end-to-end
 `eod` producing signals and 20 archived forecasts, and the dashboard rendering the real curve, COT and
-geopolitical series. What the owner still has to do is in README.md: make the repo public, turn Pages on with
-the GitHub Actions source, give the workflows write permission, and add the two free API keys.
+geopolitical series. The 18.5-year validation promoted NOTHING (see `docs/VALIDATION.md`): the master is
+flat by construction and the dashboard says so.
+
+Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
+job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
+failure looked like a normal red cross. The giveaway: the run's name was the file path instead of `ci`.
+Likewise a `continue-on-error` step ending in `|| true` is always green and tells you nothing.
+
+What the owner still has to do is in README.md: make the repo public, turn Pages on with the GitHub Actions
+source (the deploy job fails on `configure-pages` until then), give the workflows write permission, and add
+the two free API keys.
 
 ## Market context (verify at startup, never hard-code regimes)
 As of 2026-10-05 the Brent market is in a geopolitical-shock regime (US/Israel–Iran war since 2026-02-28, Hormuz
