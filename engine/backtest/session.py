@@ -383,6 +383,7 @@ class TradingSession:
         orders = list(self.allocator.decide(signals, ctx, snapshot, list(self.master.positions.values()), self.risk))
         for order in orders:
             self.master.submit(order)
+        self._record_decision(asof, signals, orders)
 
         # shadow accounts: one strategy each, 1x, no gate
         by_strategy: dict[str, list[Signal]] = {}
@@ -396,6 +397,27 @@ class TradingSession:
 
         self.state.n_decisions += 1
         return signals, orders, regime
+
+    def _record_decision(self, asof: datetime, signals: list[Signal], orders: list[Order]) -> None:
+        """Persist the gate and leverage outcome even when no order follows: being flat has a reason too."""
+        if self.store is None:
+            return
+        debug = getattr(self.allocator, "last_debug", None)
+        record: dict[str, Any] = {
+            "ts": iso(asof),
+            "n_signals": len(signals),
+            "n_orders": len(orders),
+            "instruments": sorted({o.instrument for o in orders}),
+            "strategies": sorted({s.strategy_id for s in signals}),
+        }
+        if debug is not None:
+            as_dict = debug.to_dict() if hasattr(debug, "to_dict") else {}
+            record["gate"] = as_dict.get("gate")
+            record["leverage"] = as_dict.get("leverage")
+            record["net_score"] = as_dict.get("net_score")
+            record["target_qty"] = as_dict.get("target_qty")
+            record["vol_used"] = as_dict.get("vol_used")
+        self.store.append_jsonl("decisions", record, ts=asof)
 
     def run_day(self, day: date, decide: bool = True) -> DayResult:
         """Process one trading day: bars (fills) -> roll -> decision. Idempotent per London trading date."""

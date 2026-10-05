@@ -300,13 +300,15 @@ def _forecasts(runner: LiveRunner, session: Any, day: date) -> dict[str, Any]:
         log.warning("forecast modules unavailable (%s): skipped", exc)
         return {"skipped": str(exc)}
     try:
-        features = session.features_at(day)
-        price = float(features["px_front"].dropna().iloc[-1])
-        curve = session.curve_row(day)
-        asof = session.features_at(day).attrs.get("asof")
         from engine.core.timeutil import settlement_ts
 
-        asof = asof or settlement_ts(day)
+        features = session.features_at(day)
+        price_series = features["px_front"].dropna()
+        if price_series.empty:
+            price_series = features["px"].dropna()
+        price = float(price_series.iloc[-1])
+        curve = session.curve_row(day)
+        asof = settlement_ts(day)  # frame.attrs['asof'] is an ISO string, the forecasters want a datetime
         models: list[Any] = [RandomWalkForecaster(), FuturesCurveForecaster()]
         for cls in (GarchForecaster, QuantileGbmForecaster):
             try:

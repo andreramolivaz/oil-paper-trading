@@ -174,8 +174,27 @@ def _runner() -> Any:
 
 
 def _report(outcome: Any) -> int:
+    """One line per job plus a compact detail block; nested dictionaries are summarised, never dumped."""
     print(f"[{outcome.status}] {outcome.message}")
     for key, value in (outcome.detail or {}).items():
+        if key == "sources" and isinstance(value, dict):
+            srcs = value.get("sources") or []
+            by_status: dict[str, int] = {}
+            for entry in srcs:
+                by_status[str(entry.get("status"))] = by_status.get(str(entry.get("status")), 0) + 1
+            degraded = [
+                f"{entry.get('source')} ({entry.get('message', '')[:60]})"
+                for entry in srcs
+                if entry.get("status") != "green"
+            ]
+            counts = ", ".join(f"{k}: {v}" for k, v in sorted(by_status.items()))
+            print(f"  fonti: {counts} | complessivo {value.get('overall')}")
+            for line in degraded:
+                print(f"    - {line}")
+            continue
+        if isinstance(value, dict | list) and len(str(value)) > 200:
+            print(f"  {key}: {type(value).__name__} con {len(value)} elementi")
+            continue
         print(f"  {key}: {value}")
     return int(outcome.exit_code)
 

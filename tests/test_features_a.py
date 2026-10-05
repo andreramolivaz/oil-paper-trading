@@ -200,8 +200,15 @@ def test_px_fallback_and_spot_backfill() -> None:
     ratio = md3.prices["brent_cont"].iloc[100] / md3.prices["brent_spot"].iloc[100]
     assert np.allclose(f3[cat.PX].iloc[:100], md3.prices["brent_spot"].iloc[:100] * ratio)
     assert np.allclose(f3[cat.PX].iloc[100:], md3.prices["brent_cont"].iloc[100:])
+    # With the splice disabled there is no PX before the first futures print, and the feature frame runs on the
+    # Brent trading calendar: those 100 price-less days are simply absent (no NaN rows poisoning the rolling
+    # windows, and no invented values either). The frame therefore starts at the first real futures print.
     f4 = FullFeatureBuilder({"px_backfill_spot": False}, modules=["price"]).build(md3, eod_asof(md3.prices.index[-1]))
-    assert f4[cat.PX].iloc[:100].isna().all() and f4.attrs["px_backfill"] is None
+    assert f4.attrs["px_backfill"] is None
+    assert len(f4) == len(md3.prices) - 100
+    assert f4.index[0] == md3.prices.index[100]
+    assert f4[cat.PX].notna().all()
+    assert np.allclose(f4[cat.PX].to_numpy(), md3.prices["brent_cont"].iloc[100:].to_numpy())
 
 
 def test_describe_is_json_able(frame: pd.DataFrame) -> None:

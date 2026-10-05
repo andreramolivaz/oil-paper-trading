@@ -174,25 +174,25 @@ class SiteExporter:
         prev = float(close.iloc[-2]) if len(close) > 1 else None
         ovx = prices["ovx"].dropna() if "ovx" in prices.columns else pd.Series(dtype=float)
         spot = prices["brent_spot"].dropna() if "brent_spot" in prices.columns else pd.Series(dtype=float)
-        sources = self.md.meta.get("sources") or {}
+        sources = self.md.meta.get("source") or self.md.meta.get("sources") or {}
         return {
             "value": float(close.iloc[-1]),
             "asof": last_ts.date().isoformat(),
-            "source": str(sources.get("brent_front_close", self.md.meta.get("prices_source", "n/d"))),
+            "source": str(sources.get("brent_front_close") or self.md.meta.get("prices_source") or "n/d"),
             "change_1d": None if prev in (None, 0) else float(close.iloc[-1] / prev - 1.0),
             "ovx": None
             if ovx.empty
             else {
                 "value": float(ovx.iloc[-1]),
                 "asof": pd.Timestamp(ovx.index[-1]).date().isoformat(),
-                "source": str(sources.get("ovx", "n/d")),
+                "source": str(sources.get("ovx") or "n/d"),
             },
             "spot": None
             if spot.empty
             else {
                 "value": float(spot.iloc[-1]),
                 "asof": pd.Timestamp(spot.index[-1]).date().isoformat(),
-                "source": str(sources.get("brent_spot", "n/d")),
+                "source": str(sources.get("brent_spot") or "n/d"),
             },
         }
 
@@ -204,6 +204,8 @@ class SiteExporter:
         last_snapshot = equity.iloc[-1].to_dict() if not equity.empty else {}
         orders = self.store.read_jsonl("orders")
         last_order = orders[-1] if orders else {}
+        decisions = self.store.read_jsonl("decisions")
+        last_decision = decisions[-1] if decisions else {}
         regime = (self.store.read_json("regime.json") or {}).get("current") or {}
         health = self.health()
         initial = float(self.risk.initial_capital)
@@ -212,7 +214,10 @@ class SiteExporter:
 
         pnl_total = equity_now - initial
         leverage = last_snapshot.get("leverage")
-        lev_block = last_order.get("leverage") or {}
+        # The allocator records its gate and leverage at EVERY settlement, order or not: a flat account still
+        # has a reason for being flat, and the dashboard must be able to show it.
+        lev_block = last_decision.get("leverage") or last_order.get("leverage") or {}
+        gate_block = last_decision.get("gate") or last_order.get("gate") or {}
         payload = self._stamp(
             brent=self._price_block(),
             regime={
@@ -249,9 +254,16 @@ class SiteExporter:
                 "net_notional": last_snapshot.get("net_notional"),
                 "liquidation_price": last_snapshot.get("liquidation_price"),
                 "leverage": {
-                    "value": leverage,
+                    "value": leverage if leverage is not None else lev_block.get("value"),
                     "limited_by": lev_block.get("limited_by"),
                     "components": lev_block.get("components"),
+                },
+                "gate": {
+                    "passed": gate_block.get("passed"),
+                    "reason": gate_block.get("reason"),
+                    "conditions": gate_block.get("conditions"),
+                    "families_agreeing": gate_block.get("families_agreeing"),
+                    "ensemble_prob": gate_block.get("ensemble_prob"),
                 },
                 "positions": positions,
                 "asof": last_snapshot.get("ts"),
