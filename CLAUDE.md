@@ -58,13 +58,30 @@ tests/         pytest; `network` marker for tests hitting real sources
 ```
 
 ### Data flow
-1. `fetch` writes raw snapshots to `state/raw/<source>/<asof>.parquet|json` with `(observed_at, published_at)`.
-   Features only use rows with `published_at <= decision_time` (point-in-time).
+1. `fetch` writes raw snapshots to `state/raw/<source>/<key>/<observed_at>.parquet` (plus `latest.parquet`).
+   Features only use rows with `published_at <= decision_time` (point-in-time). The weekly job compacts the
+   archive to the last two snapshots plus the first of each ISO week, which keeps revisions (the GPR index is
+   recomputed when its file grows) without growing the data branch.
 2. `eod` builds features → regime → strategy signals → allocator → gate → orders → paper broker fills
    at the **next** available price (never the signal price). Everything appended to `state/*.jsonl`.
 3. `update` (30 min) marks positions, evaluates stops/targets intrabar, enforces circuit breakers, refreshes health.
 4. `export-site` writes compact JSON to `site-data/`; the dashboard fetches it from the `data` branch
    (`raw.githubusercontent.com`, ~5-min CDN cache) with a bundled fallback snapshot.
+
+### Things that are easy to get wrong here
+- **The session has two paths and they must agree.** `strict_pit=True` rebuilds the features from
+  `md.truncate(settlement)` for every day; the default builds the history once and slices it, and precomputes
+  the regime walk-forward. The fast path is only legitimate because every feature is causal, which
+  `tests/test_no_lookahead.py` pins down. If you add a feature that is not causal, that test must fail.
+- **Multi-leg instruments need a price AND a registration.** A spread symbol gets its price from its legs
+  (`TradingSession.price_instrument`) and its legs from `register_instrument`, and the outright legs (WTI,
+  RBOB, heating oil fronts) are marked daily so the broker can measure a spread notional against the first
+  leg's outright price. Skip either and every spread order is rejected for a missing reference price.
+- **A backtest must never write into the live state.** `run_backtest_report` logs into a store under its own
+  report directory; the live store only receives `validation.json` and the trials registry.
+- **A missing feature is not always a reason to stop.** When a feature decides the DIRECTION (the curve for
+  S4-S7, the inventory releases for S11) a strategy that cannot see it must return None. When it only decides
+  the SIZE (the curve slope in S1) the honest behaviour is the conservative size, labelled in the signal.
 
 ### State on the `data` branch
 `state/account.json`, `state/positions.json`, `state/trades.jsonl`, `state/equity.jsonl`,
@@ -91,6 +108,13 @@ weekly compaction of raw snapshots to parquet. Never rewrite history; revisions 
 - Tests are offline by default; fixtures under `tests/fixtures/` are small real snapshots (dated, sourced).
 - One commit per completed phase; messages `phase N: ...`.
 - Secrets only via GitHub Secrets: `EIA_API_KEY`, `FRED_API_KEY` (both optional; system degrades gracefully).
+
+## State of play (2026-10-05)
+Everything in `docs/PLAN.md` phases 1-9 is implemented and committed. Verified by running it: 618 offline
+tests, ruff/format/mypy clean, a real fetch recovering 23 of 25 sources with no API keys, an end-to-end
+`eod` producing signals and 20 archived forecasts, and the dashboard rendering the real curve, COT and
+geopolitical series. What the owner still has to do is in README.md: make the repo public, turn Pages on with
+the GitHub Actions source, give the workflows write permission, and add the two free API keys.
 
 ## Market context (verify at startup, never hard-code regimes)
 As of 2026-10-05 the Brent market is in a geopolitical-shock regime (US/Israel–Iran war since 2026-02-28, Hormuz
