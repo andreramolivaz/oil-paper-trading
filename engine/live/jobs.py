@@ -120,6 +120,7 @@ def eod(runner: LiveRunner, job_id: str, day: date | None = None, force: bool = 
         runner.apply_health_gate(session)
         res = session.run_day(target)
         forecasts = _forecasts(runner, session, target)
+        _risk(runner, session, monte_carlo=False, stress=False)
         runner.write_regime_file(session)
         runner.write_strategies_file(session)
         session.save()
@@ -161,6 +162,7 @@ def weekly(runner: LiveRunner, job_id: str) -> JobOutcome:
         detail["weights"] = runner.update_weights(session)
         detail["regime_refit"] = _refit_regime(runner, session)
         detail["validation"] = _validation(runner, md, session)
+        detail["risk"] = _risk(runner, session, monte_carlo=True, stress=True)
         detail["compaction"] = _compact(runner)
         runner.write_strategies_file(session)
         session.save()
@@ -349,6 +351,32 @@ def _forecasts(runner: LiveRunner, session: Any, day: date) -> dict[str, Any]:
     except Exception as exc:
         log.warning("forecasts failed: %s", exc)
         return {"error": str(exc)}
+
+
+def _risk(runner: LiveRunner, session: Any, monte_carlo: bool, stress: bool) -> dict[str, Any]:
+    """Write state/risk.json. The end-of-day job keeps it cheap; the weekly one adds ruin and stress."""
+    try:
+        from engine.monitoring.risk_report import write_risk_file
+
+        # Historical analogs want the LONGEST real series: the EIA Brent spot starts in 1987 and is what makes
+        # the Gulf War test possible at all (brief §6), while the futures only start in 2007. No splicing: a
+        # spliced series would carry a junction that never traded.
+        prices = None
+        if session is not None and not session.md.prices.empty:
+            candidates = [session.md.prices.get(c) for c in ("brent_spot", "brent_front_close", "brent_cont")]
+            usable = [c.dropna() for c in candidates if c is not None and not c.dropna().empty]
+            prices = max(usable, key=len) if usable else None
+        payload = write_risk_file(
+            runner.store, runner.risk, prices=prices, run_monte_carlo=monte_carlo, run_stress=stress
+        )
+        return {
+            "var": bool(payload.get("var")),
+            "ruin": None if not payload.get("ruin") else payload["ruin"].get("prob_ruin"),
+            "unavailable": payload.get("unavailable", []),
+        }
+    except Exception as exc:
+        log.warning("risk report skipped: %s", exc)
+        return {"skipped": str(exc)}
 
 
 def _refit_regime(runner: LiveRunner, session: Any) -> dict[str, Any]:
