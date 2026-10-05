@@ -88,7 +88,7 @@ def update(runner: LiveRunner, job_id: str, force: bool = False) -> JobOutcome:
             "health": gate_msg,
             "sources": fetched,
         }
-        runner.finish_run(rec, "ok", gate_msg, **detail)
+        runner.finish_run(rec, "ok", gate_msg, detail)
         return JobOutcome("ok", gate_msg, detail)
     except Exception as exc:
         log.exception("update failed")
@@ -140,7 +140,7 @@ def eod(runner: LiveRunner, job_id: str, day: date | None = None, force: bool = 
             if res.skipped is None
             else f"nessuna decisione: {res.skipped}"
         )
-        runner.finish_run(rec, "ok", msg, **detail)
+        runner.finish_run(rec, "ok", msg, detail)
         return JobOutcome("ok", msg, detail)
     except Exception as exc:
         log.exception("eod failed")
@@ -167,11 +167,11 @@ def weekly(runner: LiveRunner, job_id: str) -> JobOutcome:
         runner.write_strategies_file(session)
         session.save()
         msg = "aggiornamento settimanale completato"
-        runner.finish_run(rec, "ok", msg, **detail)
+        runner.finish_run(rec, "ok", msg, detail)
         return JobOutcome("ok", msg, detail)
     except Exception as exc:
         log.exception("weekly failed")
-        runner.finish_run(rec, "failed", str(exc), **detail)
+        runner.finish_run(rec, "failed", str(exc), detail)
         return JobOutcome("failed", str(exc), detail)
 
 
@@ -200,7 +200,7 @@ def reset(runner: LiveRunner, job_id: str, actor: str = "unknown") -> JobOutcome
             "new_epoch": None if epoch is None else epoch.epoch + 1,
         }
         msg = f"conto riportato a {runner.risk.initial_capital:,.0f} $ da {actor}".replace(",", ".")
-        runner.finish_run(rec, "ok", msg, **detail)
+        runner.finish_run(rec, "ok", msg, detail)
         return JobOutcome("ok", msg, detail)
     except Exception as exc:
         log.exception("reset failed")

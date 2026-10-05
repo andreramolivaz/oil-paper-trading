@@ -19,7 +19,12 @@ from engine.core.events import AccountSnapshot, AccountStatus, Direction, Signal
 from engine.features import catalog as cat
 from engine.portfolio.allocator import MasterAllocator
 from engine.portfolio.gate import AlphaGate
-from engine.portfolio.leverage import compute_leverage, es99_one_day, student_t_es
+from engine.portfolio.leverage import (
+    SYNTHETIC_LIMITS,
+    compute_leverage,
+    es99_one_day,
+    student_t_es,
+)
 from engine.regime.base import LABEL_BACKWARDATION_HIGHVOL_GEO, LABEL_LOWVOL_RANGE, RegimeState
 from engine.strategies.base import Family, MarketContext
 
@@ -64,7 +69,7 @@ def test_leverage_never_breaches_the_hard_rules(
     if not gate_passed:
         assert d.chosen <= RISK.default_max_leverage + 1e-12, "leverage above 1x without the gate"
     assert d.limited_by, "the binding constraint must always be named"
-    assert d.limited_by_key in d.components or d.limited_by_key == "gate"
+    assert d.limited_by_key in d.components or d.limited_by_key in SYNTHETIC_LIMITS
 
 
 def test_es_formula_matches_a_hand_computed_value():

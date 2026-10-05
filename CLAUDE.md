@@ -89,7 +89,7 @@ tests/         pytest; `network` marker for tests hitting real sources
 `state/regime.json`, `state/strategies.json`, `state/raw/...`. Rotation: monthly rollover of jsonl files,
 weekly compaction of raw snapshots to parquet. Never rewrite history; revisions are new observations.
 
-## Hard rules (enforced by tests in `tests/test_invariants.py`)
+## Hard rules (enforced by `tests/test_leverage_invariants.py` and `tests/test_no_lookahead.py`)
 - Leverage ≤ 10x always; > 1x only when `AlphaGate.passed` is true (all 7 conditions).
 - Margin requirement = 10% notional; stop-out when equity/margin < 50%; account dead when equity ≤ 5% of 10 000 $ → trading halts until reset.
 - Fills happen at the first price strictly after the signal timestamp.

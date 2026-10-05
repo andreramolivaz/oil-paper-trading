@@ -106,20 +106,42 @@ class LiveRunner:
                 out[str(entry["id"])] = str(entry.get("lifecycle", "research"))
         except Exception as exc:
             log.warning("could not read strategy lifecycles: %s", exc)
-        validation = self.store.read_json(VALIDATION_FILE) or {}
-        for sid, rec in (validation.get("strategies") or {}).items():
+        for sid, rec in self._validation_records().items():
             lc = rec.get("lifecycle")
             if lc:
                 out[str(sid)] = str(lc)
         return out
 
-    def oos_stats(self) -> dict[str, dict[str, float]]:
+    def _validation_records(self) -> dict[str, dict[str, Any]]:
+        """Per-strategy validation records keyed by id.
+
+        `state/validation.json` carries `strategies` as a LIST of records (that is what the report writes, so
+        the markdown and the JSON stay in the same order); older snapshots used a mapping. Accept both.
+        """
         validation = self.store.read_json(VALIDATION_FILE) or {}
+        raw = validation.get("strategies")
+        if isinstance(raw, dict):
+            return {str(k): dict(v) for k, v in raw.items() if isinstance(v, dict)}
+        out: dict[str, dict[str, Any]] = {}
+        for rec in raw or []:
+            if isinstance(rec, dict) and rec.get("id"):
+                out[str(rec["id"])] = dict(rec)
+        return out
+
+    def oos_stats(self) -> dict[str, dict[str, float]]:
+        """Probabilistic Sharpe per strategy, which gate condition 3 needs. Absent means the gate fails closed."""
         out: dict[str, dict[str, float]] = {}
-        for sid, rec in (validation.get("strategies") or {}).items():
-            psr = rec.get("psr_current_regime", rec.get("psr"))
-            if psr is not None:
-                out[str(sid)] = {"psr": float(psr)}
+        for sid, rec in self._validation_records().items():
+            metrics = rec.get("metrics") or {}
+            psr = rec.get("psr_current_regime", rec.get("psr", metrics.get("psr")))
+            if psr is None:
+                continue
+            try:
+                value = float(psr)
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(value):
+                out[str(sid)] = {"psr": value}
         return out
 
     def market_data(self, refresh: bool = False) -> MarketData:
@@ -212,11 +234,15 @@ class LiveRunner:
             london_date=london_date.isoformat() if london_date else None,
         )
 
-    def finish_run(self, rec: RunRecord, status: str, message: str = "", **detail: Any) -> RunRecord:
+    def finish_run(
+        self, rec: RunRecord, status: str, message: str = "", detail: dict[str, Any] | None = None
+    ) -> RunRecord:
+        """Close a run record. `detail` is a plain dict, not keyword arguments: a job's detail legitimately
+        contains keys like `status`, which as keywords would collide with this function's own parameters."""
         rec.finished = now_utc()
         rec.status = status
         rec.message = message
-        rec.detail.update(detail)
+        rec.detail.update(detail or {})
         self.store.append_jsonl(RUNS_LOG, rec.to_dict(), ts=rec.finished)
         return rec
 
@@ -326,13 +352,27 @@ class LiveRunner:
             },
         )
 
+    def _weight_explanation(self, strategy_id: str, lifecycles: dict[str, str]) -> str:
+        """Why this strategy carries the weight it does — never an unexplained zero.
+
+        The weight set is recomputed weekly, so right after a reset (or on a fresh epoch) there is no stored
+        explanation yet. The lifecycle alone already answers the question in that case.
+        """
+        stored = self._weights.current.explanations.get(strategy_id, "")
+        if stored:
+            return stored
+        lc = lifecycles.get(strategy_id, "research")
+        if lc == "active":
+            return "Attiva: peso in attesa del prossimo ricalcolo settimanale."
+        return f"Peso zero: ciclo di vita «{lc}» (solo conto ombra, nessun rischio nel master)."
+
     def write_strategies_file(self, session: TradingSession) -> None:
         """Shadow-account leaderboard plus the current signal and lifecycle of every strategy."""
         from engine.backtest.metrics import summarise
 
         curves = session.shadow_equity_from_store()
         lifecycles = self.lifecycles()
-        validation = self.store.read_json(VALIDATION_FILE) or {}
+        records = self._validation_records()
         signals = self.store.read_jsonl("signals")
         latest_signal: dict[str, dict[str, Any]] = {}
         for row in signals[-2000:]:
@@ -341,7 +381,7 @@ class LiveRunner:
         for strat in session.strategies:
             curve = curves.get(strat.id)
             perf = summarise(curve) if curve is not None and len(curve) > 1 else None
-            rec = (validation.get("strategies") or {}).get(strat.id, {})
+            rec = records.get(strat.id, {})
             sig = latest_signal.get(strat.id)
             out.append(
                 {
@@ -350,7 +390,7 @@ class LiveRunner:
                     "family": strat.family,
                     "lifecycle": lifecycles.get(strat.id, "research"),
                     "weight": float(self._weights.current.weights.get(strat.id, 0.0)),
-                    "weight_explanation": self._weights.current.explanations.get(strat.id, ""),
+                    "weight_explanation": self._weight_explanation(strat.id, lifecycles),
                     "performance": None if perf is None else perf.to_dict(),
                     "validation": rec or None,
                     "signal": None

@@ -86,12 +86,23 @@ export interface AccountBlock {
   asof?: string | null;
 }
 
+export interface PortfolioBlock {
+  n_strategies?: Num;
+  n_active?: Num;
+  lifecycle_counts?: Record<string, number> | null;
+  master_flat_by_design?: boolean | null;
+  explanation?: string | null;
+  source?: string | null;
+  asof?: string | null;
+}
+
 export interface SummaryDoc {
   generated_at?: string | null;
   brent?: PriceBlock | null;
   regime?: RegimeBlock | null;
   data_status?: { overall?: string | null; checked_at?: string | null; sources?: SourceHealth[] } | null;
   account?: AccountBlock | null;
+  portfolio?: PortfolioBlock | null;
   last_run?: { job?: string | null; ts?: string | null; status?: string | null; message?: string | null; cron_lag_minutes?: Num } | null;
   reset?: { workflow_url?: string; dispatch_api?: string; confirm_text?: string } | null;
   disclaimer?: string | null;

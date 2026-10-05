@@ -29,8 +29,13 @@ from engine.portfolio.kelly import fractional_kelly_leverage
 TRADING_DAYS = 252
 ES_DF = 4.0  # Student-t degrees of freedom for the tail: fat, as Brent gaps demand
 
+# Keys that name a *reason* rather than one of the numeric components ("the gate held it to 1x",
+# "there was nothing to size"). The dashboard resolves these to a label only, not to a component value.
+SYNTHETIC_LIMITS = frozenset({"gate", "no_signal"})
+
 LIMIT_LABELS = {
     "gate": "gate non superato: 1x",
+    "no_signal": "nessun segnale netto: nessuna esposizione",
     "kelly": "limitata dal Kelly frazionario",
     "vol": "limitata dalla volatilità",
     "drawdown": "limitata dal drawdown",
@@ -159,6 +164,9 @@ def compute_leverage(
         candidates["gate"] = min(default_cap, hard_cap)
     binding = min(candidates, key=lambda k: (candidates[k], k != "gate"))
     chosen = max(0.0, min(*candidates.values(), hard_cap))
+    if chosen <= 0.0 and abs(expected_return) <= 0.0:
+        # No conviction at all: the cap is zero because there is nothing to size, not because Kelly bit.
+        binding = "no_signal"
     return LeverageDecision(
         chosen=float(chosen),
         components=components,

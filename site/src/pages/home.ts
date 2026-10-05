@@ -3,7 +3,7 @@ import { addLine, baseChart, cssVar, fit, toLineData } from "../charts/base";
 import { load } from "../data";
 import { dateTime, escapeHtml, leverage as fmtLev, num, percent, relative, signedPercent, signedUsd, usd } from "../format";
 import { card, empty, healthTable, legend, originBanner, originChip, pageTitle, src, statusChip, tile } from "../components/ui";
-import type { EquityDoc, SummaryDoc } from "../types";
+import type { EquityDoc, PortfolioBlock, SummaryDoc } from "../types";
 
 export async function renderHome(el: HTMLElement): Promise<void> {
   const [summary, equity] = await Promise.all([load<SummaryDoc>("summary.json"), load<EquityDoc>("equity.json")]);
@@ -43,6 +43,8 @@ export async function renderHome(el: HTMLElement): Promise<void> {
       ${originChip(summary.origin)}
     </div>
   </div>`;
+
+  const portfolio = portfolioBlock(s.portfolio ?? null);
 
   const resetHero = dead
     ? `<section class="card" style="border-color:var(--critical)">
@@ -106,6 +108,7 @@ export async function renderHome(el: HTMLElement): Promise<void> {
     originBanner(summary, s.generated_at) +
     resetHero +
     hero +
+    portfolio +
     tiles +
     card("Equity contro buy & hold", `<div id="equity-chart" class="chart"></div>${
       legend([
@@ -127,6 +130,30 @@ export async function renderHome(el: HTMLElement): Promise<void> {
   } else if (chartEl) {
     chartEl.outerHTML = empty("Storico equity non ancora disponibile: serve almeno un ciclo di paper trading.");
   }
+}
+
+/** Why the master holds what it holds: with nothing promoted, "flat" is the designed outcome, not a gap. */
+function portfolioBlock(p: PortfolioBlock | null): string {
+  if (!p || !p.explanation) return "";
+  const flat = Boolean(p.master_flat_by_design);
+  const counts = Object.entries(p.lifecycle_counts ?? {})
+    .map(([k, v]) => `${v} ${escapeHtml(lifecycleLabel(k))}`)
+    .join(" · ");
+  return `<div class="banner stack ${flat ? "warn" : "info"}" style="margin-bottom:12px">
+    <strong>${flat ? "Nessuna strategia attiva: il master resta fermo" : `${num(p.n_active, 0)} strategie attive nel master`}</strong>
+    <p style="margin:6px 0 0">${escapeHtml(p.explanation)}</p>
+    ${counts ? `<p class="muted" style="margin:6px 0 0">${counts} · ${src(p.source, p.asof)}</p>` : ""}
+  </div>`;
+}
+
+function lifecycleLabel(key: string): string {
+  const map: Record<string, string> = {
+    research: "in ricerca",
+    incubation: "in incubazione",
+    active: "attive",
+    retired: "ritirate",
+  };
+  return map[key] ?? key;
 }
 
 function componentLabel(key: string): string {

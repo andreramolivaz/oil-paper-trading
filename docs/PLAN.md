@@ -92,3 +92,16 @@ Queste sono le cose che solo l'esecuzione reale ha fatto emergere; sono document
 6. **Feature mancanti come modificatori.** S1 richiedeva la pendenza della curva, che però usa solo per
    scegliere tra size piena e dimezzata: senza storico di curva taceva per anni. Ora degrada alla size
    prudente e lo dichiara. S4-S7 e S11 restano correttamente silenziose: curva e scorte sono la loro sostanza.
+
+## Il risultato, detto chiaramente
+
+Il sistema è completo e verificato su dati veri, e il suo primo verdetto è negativo: **su 18,5 anni di storia
+reale nessuna delle 18 strategie passa la validazione** (DSR 0,00 per tutte, PBO 0,457, Sharpe del master
+-0,77). Nessuna viene promossa, tutte restano in incubazione a peso zero e il master è in contanti a 10 000 $.
+La dashboard lo dichiara in prima pagina invece di mostrare un conto fermo senza spiegazione.
+
+Nove strategie su diciotto non hanno aperto nessuna operazione nella finestra: le feature che richiedono
+(curva lontana, scorte, macro, OPEC+, stagionalità, opzioni) non coprono tutto il periodo. Le loro tesi non
+sono smentite, sono non testate — e questo è scritto dove si leggono i risultati, non lasciato intendere.
+
+I numeri completi, incluso il Monte Carlo di rovina sui rendimenti reali dal 1987, sono in `docs/VALIDATION.md`.

@@ -268,6 +268,7 @@ class SiteExporter:
                 "positions": positions,
                 "asof": last_snapshot.get("ts"),
             },
+            portfolio=self._portfolio_block(),
             last_run=self.last_run(),
             reset={
                 "workflow_url": self._workflow_url(),
@@ -277,6 +278,44 @@ class SiteExporter:
             disclaimer=DISCLAIMER,
         )
         self._write("summary.json", payload, indent=2)
+
+    def _portfolio_block(self) -> dict[str, Any]:
+        """Why the master holds what it holds — in terms of the strategy lifecycle.
+
+        A flat account is only honest if the dashboard says WHY it is flat: with no strategy promoted out of
+        incubation, the master has nothing to allocate and stays in cash by construction, not by accident.
+        """
+        doc = self.store.read_json("strategies.json") or {}
+        rows = doc.get("strategies") or []
+        counts: dict[str, int] = {}
+        for row in rows:
+            lc = str(row.get("lifecycle") or "research")
+            counts[lc] = counts.get(lc, 0) + 1
+        n_active = counts.get("active", 0)
+        n_total = len(rows)
+        if n_total == 0:
+            explanation = "Nessuna strategia registrata: il motore non ha ancora pubblicato i conti ombra."
+        elif n_active == 0:
+            explanation = (
+                f"Nessuna delle {n_total} strategie ha superato la validazione out-of-sample: tutte hanno peso "
+                "zero e girano solo sul conto ombra. Il master resta quindi fermo, in contanti, e la leva "
+                "resta a 1x o meno. È il comportamento voluto, non un errore: una strategia entra nel "
+                "portafoglio solo con DSR, PBO e Sharpe out-of-sample al netto del doppio dei costi in regola."
+            )
+        else:
+            explanation = (
+                f"{n_active} strategie su {n_total} sono attive e hanno peso nel master; le altre restano sul "
+                "conto ombra con peso zero."
+            )
+        return {
+            "n_strategies": n_total,
+            "n_active": n_active,
+            "lifecycle_counts": counts,
+            "master_flat_by_design": n_active == 0,
+            "explanation": explanation,
+            "source": "engine/validation (ciclo di vita delle strategie)",
+            "asof": doc.get("generated_at"),
+        }
 
     def _repo(self) -> str:
         if self.settings is not None:
@@ -302,11 +341,16 @@ class SiteExporter:
         if self.md is not None and not self.md.prices.empty:
             close = self.md.prices["brent_front_close"].dropna()
             if not close.empty:
+                # The equity curve can carry several rows for one calendar day (the 30-min `update` ticks), so
+                # align the daily Brent close on the UNIQUE days and only then map it back onto every row:
+                # reindexing a series whose index has duplicates is an error in pandas.
                 idx = pd.DatetimeIndex(series["ts"]).tz_convert(None).normalize()
-                aligned = close.reindex(close.index.union(idx)).ffill().reindex(idx)
-                first = aligned.dropna()
+                days = pd.DatetimeIndex(idx.unique())
+                daily = close.reindex(close.index.union(days)).ffill().reindex(days)
+                first = daily.dropna()
                 if not first.empty:
-                    buy_hold = (self.risk.initial_capital * aligned / float(first.iloc[0])).to_numpy()
+                    curve = self.risk.initial_capital * daily / float(first.iloc[0])
+                    buy_hold = curve.reindex(idx).to_numpy()
         rows = []
         for i, (_, r) in enumerate(series.iterrows()):
             rows.append(
