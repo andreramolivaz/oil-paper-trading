@@ -361,6 +361,43 @@ class TradingSession:
             broker.instruments[symbol] = instrument
         return instrument
 
+    def leg_prices(self, day: date) -> dict[str, float]:
+        """Outright prices of the legs a multi-leg instrument may reference (WTI, RBOB, heating oil fronts).
+
+        The broker measures a spread's notional, its bps costs and its percentage stops against the FIRST
+        LEG's outright price. For the 3-2-1 crack that leg is a product, and nothing else in the session
+        quotes products, so without these marks every crack order is refused for want of a reference price.
+        Products are quoted in USD per gallon and converted to the barrel equivalent, which is the unit the
+        crack is expressed in.
+        """
+        row = self._price_row(day)
+        if row is None:
+            return {}
+        out: dict[str, float] = {}
+        wti = self._f(row, "wti_front_close")
+        if wti is not None and wti > 0:
+            y, m = front_month("CL", day, self.roll_buffer_days)
+            out[contract_code("CL", y, m)] = wti
+        for column, root in (("rbob_close", "RB"), ("ho_close", "HO")):
+            value = self._f(row, column)
+            if value is None or value <= 0:
+                continue
+            y, m = front_month(root, day, self.roll_buffer_days)
+            out[contract_code(root, y, m)] = value * GALLONS_PER_BARREL
+        return out
+
+    def mark_legs(self, day: date) -> None:
+        """Feed the leg prices to every broker so multi-leg references resolve."""
+        prices = self.leg_prices(day)
+        if not prices:
+            return
+        ts = settlement_ts(day)
+        source = str(self.md.meta.get("prices_source", "md"))
+        for symbol in prices:
+            self.register_instrument(symbol)
+        for broker in [self.master, *self.shadows.values()]:
+            broker.mark(prices, ts, source, None)
+
     def auxiliary_bars(self, day: date) -> list[Bar]:
         """Bars for the non-front instruments that have a pending order or an open position.
 
@@ -638,6 +675,7 @@ class TradingSession:
         self.register_instrument(bar.symbol)
         res.fills += self.on_bar(bar)
         res.bars += 1
+        self.mark_legs(day)
         for aux in self.auxiliary_bars(day):
             res.fills += self.on_bar(aux)
             res.bars += 1
