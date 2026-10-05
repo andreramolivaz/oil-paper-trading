@@ -59,3 +59,33 @@ jobs:
         working-directory: site
       - run: npm run typecheck --if-present && npm run build
         working-directory: site
+
+  # Guard: the engine must build the dashboard JSON even with no state at all, and the site must build from it.
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPT_OFFLINE: "1"
+      OPT_STATE_DIR: ${{ github.workspace }}/state-empty
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.lock
+      - name: Export the dashboard JSON from an empty state
+        run: |
+          .venv/bin/python -m engine.cli export-site --out site-data-empty
+          test -f site-data-empty/summary.json
+          .venv/bin/python - <<'PY'
+          import json, math, pathlib
+          # strict JSON only: NaN or Infinity would break JSON.parse in the browser
+          for path in sorted(pathlib.Path("site-data-empty").glob("*.json")):
+              text = path.read_text()
+              assert "NaN" not in text and "Infinity" not in text, f"{path} contiene NaN/Infinity"
+              json.loads(text)
+          print("ok:", len(list(pathlib.Path('site-data-empty').glob('*.json'))), "file JSON validi")
+          PY
