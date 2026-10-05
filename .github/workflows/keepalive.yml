@@ -1,0 +1,25 @@
+name: keepalive (prevent 60-day schedule auto-disable)
+
+# GitHub disables scheduled workflows after 60 days without repository activity. The data branch receives
+# commits daily, but to be safe this job re-enables every scheduled workflow monthly via the API.
+on:
+  schedule:
+    - cron: "15 6 1 * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Re-enable scheduled workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for wf in update.yml eod.yml weekly.yml keepalive.yml; do
+            gh workflow enable "$wf" --repo "${{ github.repository }}" || echo "could not enable $wf"
+          done

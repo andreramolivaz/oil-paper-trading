@@ -1,0 +1,57 @@
+name: eod (after ICE settlement)
+
+# ICE Brent settles 19:28-19:30 London. 18:40 UTC is 19:40 London in BST, 19:40 UTC is 19:40 London in GMT.
+# The in-job guard runs the EOD only once per London trading date (idempotent), whichever cron fires first after 19:35 London.
+on:
+  schedule:
+    - cron: "40 18 * * 1-5"
+    - cron: "40 19 * * 1-5"
+    - cron: "10 21 * * 1-5"   # late retry if GitHub delayed the earlier runs
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "London trading date to process (YYYY-MM-DD); default = today"
+        required: false
+      force:
+        description: "Run even if the guard says it is not time yet"
+        type: boolean
+        default: false
+
+concurrency:
+  group: trading-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  eod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      OPT_STATE_DIR: ${{ github.workspace }}/state-repo/state
+      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - name: Install
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.lock
+      - name: Checkout data branch
+        run: scripts/data_branch.sh checkout state-repo
+      - name: End of day (idempotent per London date)
+        run: >
+          .venv/bin/python -m engine.cli eod --job-id "${{ github.run_id }}"
+          ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
+          ${{ inputs.force && '--force' || '' }}
+      - name: Export site data
+        run: .venv/bin/python -m engine.cli export-site --out state-repo/site-data
+      - name: Push state
+        run: scripts/data_branch.sh push state-repo "eod $(date -u +%Y-%m-%d) run ${{ github.run_id }}"
+      - name: Alerts
+        run: .venv/bin/python -m engine.cli alerts --repo "${{ github.repository }}" || true

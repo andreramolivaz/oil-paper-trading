@@ -1,0 +1,42 @@
+name: weekly (COT, rigs, retrain, full backtest)
+
+on:
+  schedule:
+    - cron: "30 3 * * 6"   # Saturday 03:30 UTC: COT (Fri 15:30 ET) and rig count (Fri 13:00 ET) are published
+  workflow_dispatch:
+
+concurrency:
+  group: trading-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      OPT_STATE_DIR: ${{ github.workspace }}/state-repo/state
+      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - name: Install
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.lock
+      - name: Checkout data branch
+        run: scripts/data_branch.sh checkout state-repo
+      - name: Weekly job (fetch slow sources, retrain, validate, backtest, compact)
+        run: .venv/bin/python -m engine.cli weekly --job-id "${{ github.run_id }}"
+      - name: Export site data
+        run: .venv/bin/python -m engine.cli export-site --out state-repo/site-data
+      - name: Push state
+        run: scripts/data_branch.sh push state-repo "weekly $(date -u +%Y-%m-%d) run ${{ github.run_id }}"
+      - name: Alerts
+        run: .venv/bin/python -m engine.cli alerts --repo "${{ github.repository }}" || true

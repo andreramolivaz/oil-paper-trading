@@ -1,0 +1,72 @@
+name: update (intraday 30 min)
+
+# Every 30 minutes, all day in UTC. The job itself exits early outside ICE Brent hours
+# (Mon-Fri 01:00-23:00 London, DST-aware) so a single cron line is correct all year.
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Run even outside market hours"
+        type: boolean
+        default: false
+
+concurrency:
+  group: trading-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OPT_STATE_DIR: ${{ github.workspace }}/state-repo/state
+      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      OPT_FORCE: ${{ inputs.force && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Market-hours guard
+        id: guard
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os
+          from datetime import datetime, UTC
+          from zoneinfo import ZoneInfo
+          now = datetime.now(UTC).astimezone(ZoneInfo("Europe/London"))
+          open_ = now.weekday() < 5 and 1 <= now.hour < 23
+          print(f"run={'true' if (open_ or os.environ.get('OPT_FORCE') == '1') else 'false'}")
+          print(f"london={now.isoformat()}")
+          PY
+      - name: Skip outside market hours
+        if: steps.guard.outputs.run != 'true'
+        run: echo "Market closed (London ${{ steps.guard.outputs.london }}); nothing to do."
+      - uses: astral-sh/setup-uv@v5
+        if: steps.guard.outputs.run == 'true'
+        with: { enable-cache: true }
+      - name: Install
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.lock
+      - name: Checkout data branch
+        if: steps.guard.outputs.run == 'true'
+        run: scripts/data_branch.sh checkout state-repo
+      - name: Intraday update
+        if: steps.guard.outputs.run == 'true'
+        run: .venv/bin/python -m engine.cli update --job-id "${{ github.run_id }}"
+      - name: Export site data
+        if: steps.guard.outputs.run == 'true'
+        run: .venv/bin/python -m engine.cli export-site --out state-repo/site-data
+      - name: Push state
+        if: steps.guard.outputs.run == 'true'
+        run: scripts/data_branch.sh push state-repo "update $(date -u +%Y-%m-%dT%H:%MZ) run ${{ github.run_id }}"
+      - name: Alerts
+        if: steps.guard.outputs.run == 'true'
+        run: .venv/bin/python -m engine.cli alerts --repo "${{ github.repository }}" || true

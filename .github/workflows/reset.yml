@@ -1,0 +1,48 @@
+name: reset (account back to 10 000 $)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type RESET to confirm: archives the current epoch, closes positions, restarts from 10 000 $"
+        required: true
+        type: string
+
+concurrency:
+  group: trading-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ inputs.confirm == 'RESET' }}
+    env:
+      OPT_STATE_DIR: ${{ github.workspace }}/state-repo/state
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - name: Install
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.lock
+      - name: Checkout data branch
+        run: scripts/data_branch.sh checkout state-repo
+      - name: Reset
+        run: .venv/bin/python -m engine.cli reset --confirm RESET --job-id "${{ github.run_id }}" --actor "${{ github.actor }}"
+      - name: Export site data
+        run: .venv/bin/python -m engine.cli export-site --out state-repo/site-data
+      - name: Push state
+        run: scripts/data_branch.sh push state-repo "reset by ${{ github.actor }} run ${{ github.run_id }}"
+  refused:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.confirm != 'RESET' }}
+    steps:
+      - run: |
+          echo "::error::Confirmation text must be exactly RESET. Nothing was changed."
+          exit 1
