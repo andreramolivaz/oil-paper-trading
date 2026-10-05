@@ -9,39 +9,104 @@ export interface Pt {
 function scale(values: number[], size: number, pad: number, invert = false): (v: number) => number {
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const span = max - min || 1;
+  const usable = size - 2 * pad;
+  // A constant series has no span: centre it instead of pinning every point to one edge.
+  if (!(max > min)) return () => pad + usable / 2;
+  // 8% headroom so a line never touches the frame.
+  const headroom = (max - min) * 0.08;
+  const lo = min - headroom;
+  const span = max - min + 2 * headroom;
   return (v: number) => {
-    const t = (v - min) / span;
-    return invert ? pad + (1 - t) * (size - 2 * pad) : pad + t * (size - 2 * pad);
+    const t = (v - lo) / span;
+    return invert ? pad + (1 - t) * usable : pad + t * usable;
   };
 }
 
-/** Forward curve: M1..Mn with a 2px line and labelled ends (the brief's "curva futures"). */
+/** Horizontal rules with their value, the terminal convention: a price ladder, never a grid. */
+function gridLines(sy: (v: number) => number, values: number[], w: number, pad: number, fmt: (v: number) => string): string {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (!(max > min)) return "";
+  const ticks = [min, min + (max - min) / 2, max];
+  return ticks
+    .map((v) => {
+      const y = sy(v).toFixed(1);
+      return `<line class="grid-line" x1="${pad}" y1="${y}" x2="${w - pad}" y2="${y}" />
+        <text x="${w - pad + 4}" y="${y}" dominant-baseline="middle">${fmt(v)}</text>`;
+    })
+    .join("");
+}
+
+/** A flat inline sparkline: no library, no axes, honest when the series never moves. */
+export function sparkline(points: number[], color: string, opts: { w?: number; h?: number } = {}): string {
+  const w = opts.w ?? 72;
+  const h = opts.h ?? 20;
+  if (points.length < 2) {
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="storico non disponibile">
+      <line x1="1" y1="${h / 2}" x2="${w - 1}" y2="${h / 2}" stroke="var(--border-strong)" stroke-width="1" stroke-dasharray="2 3" />
+    </svg>`;
+  }
+  const sy = scale(points, h, 2, true);
+  const step = (w - 2) / (points.length - 1);
+  const d = points.map((v, i) => `${i ? "L" : "M"}${(1 + i * step).toFixed(1)},${sy(v).toFixed(1)}`).join(" ");
+  const flat = Math.max(...points) === Math.min(...points);
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img"
+      aria-label="andamento su ${points.length} osservazioni${flat ? ", piatto" : ""}">
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"
+      vector-effect="non-scaling-stroke" ${flat ? 'stroke-dasharray="3 3"' : ""} />
+  </svg>`;
+}
+
+/** Forward curve: the shape of the term structure, read left to right.
+ *
+ * Plotted by INDEX, not by contract rank: the real ranks are 1..15 then 19, 25, 31, so a linear rank axis
+ * crammed the front thirteen months into 40% of the width and put a visible kink at M15. Equal spacing shows
+ * the shape the curve actually has; the labels still carry the real months.
+ */
 export function curveChart(points: { rank: number; price: number }[], opts: { height?: number; approx?: boolean } = {}): string {
   if (points.length < 2) return "";
   const w = 640;
-  const h = opts.height ?? 200;
-  const pad = 28;
-  const xs = points.map((p) => p.rank);
+  const h = opts.height ?? 220;
+  const padL = 28;
+  const padR = 52; // room for the price ladder on the right
+  const padY = 26;
   const ys = points.map((p) => p.price);
-  const sx = scale(xs, w, pad);
-  const sy = scale(ys, h, pad, true);
-  const path = points.map((p, i) => `${i ? "L" : "M"}${sx(p.rank).toFixed(1)},${sy(p.price).toFixed(1)}`).join(" ");
+  const sy = scale(ys, h, padY, true);
+  const step = (w - padL - padR) / (points.length - 1);
+  const sx = (i: number) => padL + i * step;
+  const path = points.map((p, i) => `${i ? "L" : "M"}${sx(i).toFixed(1)},${sy(p.price).toFixed(1)}`).join(" ");
+  const area = `${path} L${sx(points.length - 1).toFixed(1)},${h - padY} L${sx(0).toFixed(1)},${h - padY} Z`;
   const first = points[0];
   const last = points[points.length - 1];
-  const dots = points
-    .map((p) => `<circle cx="${sx(p.rank).toFixed(1)}" cy="${sy(p.price).toFixed(1)}" r="3" fill="var(--series-1)" />`)
-    .join("");
   const fmt = (v: number) => v.toFixed(2).replace(".", ",");
+  const everyNth = Math.max(1, Math.ceil(points.length / 7));
+  const dots = points
+    .map((p, i) =>
+      i === 0 || i === points.length - 1 || i % everyNth === 0
+        ? `<circle cx="${sx(i).toFixed(1)}" cy="${sy(p.price).toFixed(1)}" r="2.5" fill="var(--series-1)" />`
+        : "",
+    )
+    .join("");
+  const xLabels = points
+    .map((p, i) =>
+      i === 0 || i === points.length - 1 || i % everyNth === 0
+        ? `<text x="${sx(i).toFixed(1)}" y="${h - 6}" text-anchor="${i === 0 ? "start" : i === points.length - 1 ? "end" : "middle"}">M${p.rank}</text>`
+        : "",
+    )
+    .join("");
+  const slope = last.price - first.price;
   return `<svg viewBox="0 0 ${w} ${h}" class="svg-chart" role="img"
-      aria-label="Curva dei futures Brent da M${first.rank} a M${last.rank}" preserveAspectRatio="none" style="width:100%;height:${h}px">
-    <path d="${path}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" />
+      aria-label="Curva dei futures Brent da M${first.rank} (${fmt(first.price)} dollari) a M${last.rank} (${fmt(last.price)} dollari)">
+    ${gridLines(sy, ys, w, padY, fmt)}
+    <path d="${area}" fill="var(--series-1)" fill-opacity="0.08" stroke="none" />
+    <path d="${path}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"
+      vector-effect="non-scaling-stroke" />
     ${dots}
-    <text x="${pad}" y="${h - 8}" fill="var(--text-muted)" font-size="11">M${first.rank}</text>
-    <text x="${w - pad}" y="${h - 8}" fill="var(--text-muted)" font-size="11" text-anchor="end">M${last.rank}</text>
-    <text x="${sx(first.rank) + 6}" y="${sy(first.price) - 8}" fill="var(--text-secondary)" font-size="11">${fmt(first.price)} $</text>
-    <text x="${sx(last.rank) - 6}" y="${sy(last.price) - 8}" fill="var(--text-secondary)" font-size="11" text-anchor="end">${fmt(last.price)} $</text>
-    ${opts.approx ? `<text x="${w / 2}" y="16" fill="var(--series-4)" font-size="11" text-anchor="middle">≈ curva approssimata</text>` : ""}
+    ${xLabels}
+    <text class="value" x="${sx(0) + 6}" y="${(sy(first.price) - 9).toFixed(1)}">${fmt(first.price)}</text>
+    <text class="value" x="${(sx(points.length - 1) - 6).toFixed(1)}" y="${(sy(last.price) - 9).toFixed(1)}" text-anchor="end">${fmt(last.price)}</text>
+    <text x="${padL}" y="14">M${first.rank}\u2192M${last.rank} ${slope >= 0 ? "+" : "\u2212"}${fmt(Math.abs(slope))} $ ${slope < 0 ? "(backwardation)" : "(contango)"}</text>
+    ${opts.approx ? `<text class="approx" x="${w - padR}" y="14" text-anchor="end" fill="var(--series-4)">\u2248 approssimata</text>` : ""}
   </svg>`;
 }
 
@@ -77,7 +142,7 @@ export function fanChart(
     .join("");
   const nowY = sy(priceNow).toFixed(1);
   return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Previsioni per orizzonte con intervalli di confidenza"
-      preserveAspectRatio="none" style="width:100%;height:${h}px">
+      class="svg-chart">
     <line x1="${padX - 12}" x2="${w - padX + 12}" y1="${nowY}" y2="${nowY}" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="4 4" />
     <text x="${padX - 14}" y="${nowY}" dy="4" fill="var(--text-muted)" font-size="10" text-anchor="end">${fmt(priceNow)}</text>
     ${body}
@@ -106,7 +171,7 @@ export function bandChart(
   const mean = band.map((b, i) => `${i ? "L" : "M"}${sx(b.week).toFixed(1)},${sy(b.mean).toFixed(1)}`).join(" ");
   const now = current.map((c, i) => `${i ? "L" : "M"}${sx(c.week).toFixed(1)},${sy(c.v).toFixed(1)}`).join(" ");
   return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Scorte di greggio contro il range stagionale a 5 anni"
-      preserveAspectRatio="none" style="width:100%;height:${h}px">
+      class="svg-chart">
     <path d="${top} ${bottom} Z" fill="var(--text-muted)" fill-opacity="0.16" />
     <path d="${mean}" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="5 4" />
     <path d="${now}" fill="none" stroke="var(--series-2)" stroke-width="2.5" stroke-linejoin="round" />
@@ -145,7 +210,7 @@ export function regimeStack(
     )
     .join("");
   return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Storico dei regimi con la relativa confidenza"
-      preserveAspectRatio="none" style="width:100%;height:${h}px">
+      class="svg-chart">
     ${bars}
     <text x="0" y="${h - 4}" fill="var(--text-muted)" font-size="10">${escapeHtml(first)}</text>
     <text x="${w}" y="${h - 4}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(last)}</text>

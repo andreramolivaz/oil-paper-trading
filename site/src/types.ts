@@ -64,6 +64,22 @@ export interface LeverageBlock {
   components?: Record<string, Num> | null;
 }
 
+export interface GateCondition {
+  name?: string | null;
+  ok?: boolean | null;
+  detail?: string | null;
+  value?: Num;
+  threshold?: Num;
+}
+
+export interface GateBlock {
+  passed?: boolean | null;
+  reason?: string | null;
+  conditions?: GateCondition[] | Record<string, GateCondition> | null;
+  families_agreeing?: Num;
+  ensemble_prob?: Num;
+}
+
 export interface AccountBlock {
   epoch?: Num;
   status?: string | null;
@@ -82,6 +98,7 @@ export interface AccountBlock {
   net_notional?: Num;
   liquidation_price?: Num;
   leverage?: LeverageBlock | null;
+  gate?: GateBlock | null;
   positions?: PositionRow[];
   asof?: string | null;
 }

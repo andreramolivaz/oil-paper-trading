@@ -4,8 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#12151a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fcfcfb" media="(prefers-color-scheme: light)" />
     <meta name="description" content="Paper trading sul Brent: simulazione a scopo di studio su dati reali. Nessun consiglio finanziario." />
     <title>Oil Paper Trading — Brent</title>
+    <!-- Read the stored theme BEFORE first paint: applying it from main.ts flashed dark at light-theme users. -->
+    <script>
+      try {
+        var t = localStorage.getItem("opt_theme");
+        document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+      } catch (e) {}
+    </script>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314161a'/%3E%3Cpath d='M9 22l5-9 4 5 5-9' stroke='%233987e5' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   </head>
   <body>
