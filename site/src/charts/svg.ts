@@ -22,17 +22,27 @@ function scale(values: number[], size: number, pad: number, invert = false): (v:
   };
 }
 
-/** Horizontal rules with their value, the terminal convention: a price ladder, never a grid. */
-function gridLines(sy: (v: number) => number, values: number[], w: number, pad: number, fmt: (v: number) => string): string {
+/** Horizontal rules with their value, the terminal convention: a price ladder, never a grid.
+ *  `padR` must be the chart's RIGHT padding: sizing the ladder off the vertical padding pushed every
+ *  label past the viewBox edge, where it was clipped. */
+function gridLines(
+  sy: (v: number) => number,
+  values: number[],
+  w: number,
+  padL: number,
+  padR: number,
+  fmt: (v: number) => string,
+): string {
   const min = Math.min(...values);
   const max = Math.max(...values);
   if (!(max > min)) return "";
   const ticks = [min, min + (max - min) / 2, max];
+  const right = w - padR;
   return ticks
     .map((v) => {
       const y = sy(v).toFixed(1);
-      return `<line class="grid-line" x1="${pad}" y1="${y}" x2="${w - pad}" y2="${y}" />
-        <text x="${w - pad + 4}" y="${y}" dominant-baseline="middle">${fmt(v)}</text>`;
+      return `<line class="grid-line" x1="${padL}" y1="${y}" x2="${right}" y2="${y}" />
+        <text x="${right + 5}" y="${y}" dominant-baseline="middle">${fmt(v)}</text>`;
     })
     .join("");
 }
@@ -97,7 +107,7 @@ export function curveChart(points: { rank: number; price: number }[], opts: { he
   const slope = last.price - first.price;
   return `<svg viewBox="0 0 ${w} ${h}" class="svg-chart" role="img"
       aria-label="Curva dei futures Brent da M${first.rank} (${fmt(first.price)} dollari) a M${last.rank} (${fmt(last.price)} dollari)">
-    ${gridLines(sy, ys, w, padY, fmt)}
+    ${gridLines(sy, ys, w, padL, padR, fmt)}
     <path d="${area}" fill="var(--series-1)" fill-opacity="0.08" stroke="none" />
     <path d="${path}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"
       vector-effect="non-scaling-stroke" />
