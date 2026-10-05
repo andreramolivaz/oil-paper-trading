@@ -43,6 +43,7 @@ DEFAULT_MODULES: list[str] = [
     "macro",
     "fundamentals",
     "positioning",
+    "insider",
     "news",
     "events",
     "intermarket",
@@ -143,6 +144,12 @@ EXPECTED_COLUMNS: dict[str, list[str]] = {
         cat.COT_MM_NET_WTI_PCTL,
         cat.COT_MM_NET_CHG_4W,
         cat.COT_CROWDING,
+    ],
+    "insider": [
+        cat.INSIDER_SCORE,
+        cat.INSIDER_BUY_RATIO,
+        cat.INSIDER_N_TX,
+        cat.INSIDER_BREADTH,
     ],
     "news": [
         cat.GPR,

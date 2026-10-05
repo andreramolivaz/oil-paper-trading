@@ -94,6 +94,20 @@ def _empty(columns: list[str], index_name: str = "date") -> pd.DataFrame:
     return df
 
 
+INSIDER_COLUMNS = [
+    "ticker",
+    "executive",
+    "role",
+    "security_type",
+    "side",
+    "shares",
+    "price",
+    "value_usd",
+    "open_market",
+    "ten_percent_owner",
+]
+
+
 @dataclass
 class MarketData:
     prices: pd.DataFrame = field(default_factory=lambda: _empty(PRICE_COLUMNS))
@@ -102,6 +116,7 @@ class MarketData:
     wpsr: pd.DataFrame = field(default_factory=lambda: _empty(WPSR_COLUMNS, "published_at"))
     cot: pd.DataFrame = field(default_factory=lambda: _empty(COT_COLUMNS, "published_at"))
     news: pd.DataFrame = field(default_factory=lambda: _empty(NEWS_COLUMNS))
+    insider: pd.DataFrame = field(default_factory=lambda: _empty(INSIDER_COLUMNS, "published_at"))
     rigs: pd.Series = field(default_factory=lambda: pd.Series(dtype=float, name="rigs"))
     intraday: pd.DataFrame | None = None
     published_at: dict[str, pd.Series] = field(default_factory=dict)  # table -> published_at per row (UTC)
@@ -130,6 +145,15 @@ class MarketData:
             pub_aligned = pub.reindex(df.index)
             return df.loc[(pub_aligned <= asof_ts).to_numpy()]
 
+        def cut_insider(df: pd.DataFrame) -> pd.DataFrame:
+            """Form 4 rows are indexed by TRANSACTION date but become knowable at the FILING deadline, which
+            the adapter stores per row. Cutting on the index would hand the engine a transaction days before
+            anyone could have read the filing."""
+            if df.empty or "published_at" not in df.columns:
+                return df
+            pub = pd.to_datetime(df["published_at"], utc=True)
+            return df.loc[(pub <= asof_ts).to_numpy()]
+
         def cut_release(df: pd.DataFrame) -> pd.DataFrame:
             if df.empty:
                 return df
@@ -147,6 +171,7 @@ class MarketData:
             wpsr=cut_release(self.wpsr),
             cot=cut_release(self.cot),
             news=cut_by_pub(self.news, "news"),
+            insider=cut_insider(self.insider),
             rigs=self.rigs.loc[cut_release(self.rigs.to_frame()).index] if len(self.rigs) else self.rigs,
             intraday=None if self.intraday is None else cut_release(self.intraday),
             published_at={k: v.loc[v <= asof_ts] for k, v in self.published_at.items()},

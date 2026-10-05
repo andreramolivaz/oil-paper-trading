@@ -104,6 +104,11 @@ GEO_SPIKE = "geo_spike"  # 1 if GEO_INDEX jumped > threshold vs 10d mean
 GDELT_TONE = "gdelt_tone"  # NaN before go-live
 GDELT_VOLUME_Z = "gdelt_volume_z"
 DEESCALATION_FLAG = "deescalation_flag"  # 1 when tone improves sharply and volume stays high
+# --- insider (SEC Form 4, oil complex) ---------------------------------------------------------
+INSIDER_SCORE = "insider_score"  # net open-market conviction, [-1, +1], approx (filing deadline inferred)
+INSIDER_BUY_RATIO = "insider_buy_ratio"  # purchases / (purchases + sales) by count, [0, 1]
+INSIDER_N_TX = "insider_n_tx"  # qualifying transactions in the trailing window
+INSIDER_BREADTH = "insider_breadth"  # distinct tickers with at least one purchase in the window
 # --- calendar / events -------------------------------------------------------------------------
 HOURS_TO_EVENT = "hours_to_event"  # hours to next binary event (EIA, OPEC+, FOMC)
 NEXT_EVENT_ID = "next_event_id"

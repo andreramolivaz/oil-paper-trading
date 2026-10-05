@@ -107,7 +107,7 @@ weekly compaction of raw snapshots to parquet. Never rewrite history; revisions 
 - Approximations (synthetic options, curve proxies, GDELT gaps) are labelled `approx=true` in JSON and "≈" in the UI.
 - Tests are offline by default; fixtures under `tests/fixtures/` are small real snapshots (dated, sourced).
 - One commit per completed phase; messages `phase N: ...`.
-- Secrets only via GitHub Secrets: `EIA_API_KEY`, `FRED_API_KEY` (both optional; system degrades gracefully).
+- Secrets only via GitHub Secrets: `EIA_API_KEY`, `FRED_API_KEY`, `ALPHAVANTAGE_API_KEY` (all optional; system degrades gracefully).
 
 ## State of play (2026-10-05)
 Everything in `docs/PLAN.md` phases 1-9 is implemented and committed. Verified by running it: 624 offline

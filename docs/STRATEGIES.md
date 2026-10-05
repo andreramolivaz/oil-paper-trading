@@ -254,3 +254,62 @@ Stato di validazione: vedi `docs/VALIDATION.md` (generato dalla fase 6) e la pag
 | event | S12, S13 |
 | volatility | S16, S17, S18 |
 | ml | S19 (sovrascrive la prob degli altri), S20 (allocatore) |
+
+## S21 — Convinzione degli insider (SEC Form 4)
+
+**Dato**: le dichiarazioni Form 4 che dirigenti, consiglieri e soci al 10% devono depositare quando trattano
+azioni della propria società. Sono atti pubblici e dovuti per legge: qui non c'è nulla di non pubblico, e
+nulla di tutto questo è un consiglio finanziario. Fonte: Alpha Vantage, che ripubblica i depositi SEC.
+
+**Tesi economica**: chi dirige una società di esplorazione e produzione conosce il proprio costo marginale, i
+tassi di declino dei giacimenti e il libro di copertura. Quando più dirigenti comprano azioni della propria
+società sul mercato, con denaro proprio e già tassato, stanno esprimendo una view sull'economia del greggio a
+termine che nessuna serie pubblicata contiene ancora. È una delle anomalie documentate più antiche
+(Lakonishok e Lee 2001; Cohen, Malloy e Pomorski 2012 sulla differenza fra insider «di routine» e
+«opportunisti»).
+
+**Chi sta dall'altra parte**: chi legge gli stessi depositi come una nota di governance invece che come una
+previsione sulla materia prima, e i flussi sistematici che prezzano il greggio solo su curva e scorte.
+
+**Regimi favorevoli**: fasi laterali e punti di svolta, dove curva e momentum non dicono niente. È l'opposto
+di una strategia da shock: un evento geopolitico muove il greggio molto prima di quanto chiunque possa
+depositare un Form 4.
+
+**Invalidazione**: il segnale salta quando il flusso è guidato da fatti societari — una fusione, una finestra
+di riacquisto, un fondo che accumula una partecipazione — invece che dalla materia prima.
+
+### Le tre trappole, misurate sui dati veri
+
+| Trappola | Misura | Cosa fa il codice |
+|---|---|---|
+| La retribuzione non è convinzione | su ConocoPhillips solo **729 righe su 2.951 (25%)** sono operazioni di mercato in azioni ordinarie a un prezzo vero; il resto sono assegnazioni, maturazioni, esercizi di opzioni e ritenute fiscali, quasi tutte a prezzo 0 | solo le righe `open_market` entrano nel punteggio |
+| Un socio al 10% non è un insider, ai fini di questa tesi | su Occidental **146 dei 258 acquisti di mercato** sono di un «10% Owner», mediana **17,2 M$**, massimo **564 M$**: è un fondo che accumula una partecipazione, cioè una view su un'azione, non sul greggio | i soci al 10% sono etichettati ed esclusi |
+| Una sola operazione non può essere il punteggio | le dimensioni coprono quattro ordini di grandezza | ogni operazione è divisa per la mediana storica di quel ticker e troncata a ±3: un acquisto da 500 M$ e uno da 5 M$ dicono entrambi «ha comprato» |
+
+### Il punto che decide tutto: la data di pubblicazione
+
+Il feed porta **solo la data della transazione, mai quella di deposito**. Un Form 4 va depositato entro **due
+giorni lavorativi** (17 CFR 240.16a-3), quindi trattare la data di transazione come il momento in cui il
+mercato lo ha saputo sarebbe look-ahead — esattamente il difetto che `tests/test_no_lookahead.py` esiste per
+catturare. Il motore usa quindi `published_at = data transazione + 2 giorni lavorativi`, che è il **più tardi**
+in cui il deposito può legalmente comparire: i depositi reali sono spesso immediati, quindi la stima è
+prudente e il motore non vede mai un'operazione prima di quando avrebbe potuto. È un'inferenza, non
+un'osservazione, perciò la serie è sempre marcata `approx=true` e la dashboard mostra «≈».
+
+### Segnale
+
+* **Long** quando `insider_score` > 0,5 (quartile superiore del proprio storico a tre anni) **e** almeno
+  **3 società distinte** hanno comprato nella finestra. La soglia di ampiezza è ciò che impedisce alla storia
+  di una singola società di muovere il master.
+* **Short** quando il punteggio < −0,7. L'asticella è più alta di proposito: un insider vende per comprare
+  casa, per un divorzio o per una regola di diversificazione; per comprare c'è una ragione sola.
+* **Nessun segnale** sotto 6 operazioni qualificanti nella finestra. Con circa nove acquisti di mercato per
+  società all'anno, un trimestre silenzioso è normale, e il silenzio non va letto come una view piatta.
+* Orizzonte **42 sedute (due mesi)**.
+
+### Perché non è «tempo reale»
+
+Non può esserlo, e vale la pena dirlo invece di lasciarlo intendere. La sola finestra di deposito è di due
+giorni lavorativi; il flusso utile è di circa nove acquisti di mercato per società all'anno, quindi servono
+settimane perché la finestra dica qualcosa. Il job che aggiorna la fonte è quello **settimanale**. Chi tratta
+questo fattore in giornata sta trattando rumore.

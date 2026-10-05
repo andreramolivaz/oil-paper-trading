@@ -44,6 +44,7 @@ jobs:
         env:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
         run: .venv/bin/pytest -q -m network --maxfail=20
 
   site:

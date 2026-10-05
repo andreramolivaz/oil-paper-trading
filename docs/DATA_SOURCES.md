@@ -69,3 +69,39 @@ rendimento dello spot EIA, e la verifica del 2026-09-28 dà uno spread stimato d
 3. **Open interest/volumi per scadenza**: solo Yahoo (parziali). Fonti a pagamento: ICE Data, CME DataMine.
 4. **Notizie**: GDELT dal go-live; storico via GPR (indice di notizie di 10 quotidiani, non specifico petrolio).
 5. **Intraday**: Yahoo ritardato ~15 min; il job ogni 30 min marca il conto su quel prezzo e lo dichiara.
+
+## Insider SEC Form 4 (Alpha Vantage) — verificata il 5 ottobre 2026
+
+| | |
+|---|---|
+| Endpoint | `https://www.alphavantage.co/query?function=INSIDER_TRANSACTIONS&symbol=<ticker>` |
+| Chiave | `ALPHAVANTAGE_API_KEY`, **opzionale** (come EIA e FRED): senza, la fonte è gialla e `insider_score` resta NaN |
+| Cadenza | settimanale (job `weekly`) |
+| Universo | 12 nomi **long sul greggio**: XOM, CVX, COP, EOG, OXY, DVN, FANG, APA, HES, SLB, HAL, BKR |
+| Approssimata | **sì, sempre** — `published_at` è dedotta, non osservata |
+
+**Verifica eseguita da questo container.** HTTP 200. ConocoPhillips ha restituito **2.951 righe dal 2008 al
+2026**, Occidental **1.637**. Campi: `transaction_date`, `ticker`, `executive`, `executive_title`,
+`security_type`, `acquisition_or_disposal`, `shares`, `share_price`.
+
+**Manca la data di deposito.** È l'unico limite serio del feed e condiziona tutto il resto: senza di essa,
+usare la data di transazione sarebbe look-ahead. Regola adottata: `published_at = transazione + 2 giorni
+lavorativi alle 22:00 UTC`, la scadenza di legge del Form 4 (17 CFR 240.16a-3), cioè il momento **più tardo**
+in cui il deposito può comparire. Chi volesse la data vera deve passare da EDGAR, che la pubblica ma richiede
+di interpretare l'XML dei singoli depositi.
+
+**Qualità del dato misurata, non supposta:**
+
+* solo il **25%** delle righe di ConocoPhillips sono operazioni di mercato in azioni ordinarie a prezzo reale;
+  il resto sono assegnazioni e meccanica retributiva, quasi tutte a `share_price = 0`;
+* su Occidental **146 acquisti di mercato su 258** sono di un socio al 10% (mediana 17,2 M$): un fondo che
+  accumula, non un dirigente che si espone. Etichettati ed esclusi dal punteggio;
+* gli acquisti di mercato sono **circa nove per società all'anno**. È un fattore lento e rado: qualunque
+  lettura infragiornaliera sarebbe rumore.
+
+**Limiti del piano gratuito**: 25 chiamate al giorno. Con 12 nomi aggiornati una volta a settimana il margine è
+ampio. Il piano gratuito e quello a pagamento restituiscono lo stesso schema; il codice tratta `Note`,
+`Information` e `Error Message` come indisponibilità e degrada a giallo invece di inventare.
+
+Fixture reale per i test offline: `tests/fixtures/insider/alphavantage_form4_COP_OXY.json` (COP e OXY,
+catturata il 2026-10-05, tutte le righe di mercato più un campione di ogni classe di rumore).

@@ -52,6 +52,15 @@ fundamentals:
     - {adapter: eia_steo, series: BREPUUS, needs_key: true}
   rig_count:
     - {adapter: baker_hughes, url: "https://rigcount.bakerhughes.com/na-rig-count"}
+
+  # SEC Form 4 insider transactions for the oil complex, via Alpha Vantage. Public, legally disclosed filings.
+  # published_at is INFERRED from the two-business-day statutory deadline (17 CFR 240.16a-3), never observed,
+  # so the series is always approx. The key is optional like EIA/FRED: without it the source goes yellow, the
+  # insider features stay NaN and S21 returns None. Weekly cadence — the flow is ~9 open-market purchases per
+  # name per year, and the free Alpha Vantage tier allows 25 calls a day against a 12-name universe.
+  insider_form4:
+    - {adapter: alphavantage_insider, needs_key: true, approx: true, cadence: weekly,
+       url: "https://www.alphavantage.co/query?function=INSIDER_TRANSACTIONS"}
 positioning:
   cot_wti:
     - {adapter: cftc_socrata, market_code: "067651"}

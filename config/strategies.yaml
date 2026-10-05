@@ -25,4 +25,7 @@ strategies:
   - {id: S17, class: engine.strategies.s17_reversal.S17ShortReversal,            enabled: true, lifecycle: incubation, params: {}}
   - {id: S18, class: engine.strategies.s18_synthetic_options.S18SyntheticOptions, enabled: true, lifecycle: research, params: {}}
   - {id: S19, class: engine.strategies.s19_meta_labeling.S19MetaLabeling,        enabled: false, lifecycle: research, params: {}}
+  # S21 needs ALPHAVANTAGE_API_KEY. Without it the insider feature stays NaN, the strategy returns None and
+  # the source goes yellow — the same graceful degradation as the EIA and FRED keys.
+  - {id: S21, class: engine.strategies.s21_insider.S21InsiderConviction,         enabled: true,  lifecycle: research, params: {}}
 # S20 is the allocator (engine/portfolio/allocator.py), configured in config/risk.yaml.
