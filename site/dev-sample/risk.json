@@ -1,0 +1,61 @@
+{
+ "sample": true,
+ "generated_at": "2026-10-05T19:40:00Z",
+ "available": true,
+ "var": {
+  "95% 1g": 0.041,
+  "99% 1g": 0.078
+ },
+ "es": {
+  "97,5% 1g": 0.062,
+  "99% 1g": 0.116
+ },
+ "margin": {
+  "richiesto": 1040.0,
+  "livello": 10.02
+ },
+ "ruin": {
+  "prob_ruin": 0.018,
+  "prob_dead": 0.004,
+  "median_terminal": 11240.0,
+  "geometric_growth": 0.061,
+  "orizzonte_giorni": 250,
+  "soglia_rovina": 0.5
+ },
+ "stress": {
+  "episodes": [
+   {
+    "name": "ESEMPIO — Guerra del Golfo 1990-91",
+    "total_return": -0.31,
+    "max_drawdown": -0.36,
+    "worst_day": -0.33,
+    "margin_call": true,
+    "liquidated": false
+   },
+   {
+    "name": "ESEMPIO — Abqaiq 2019",
+    "total_return": 0.11,
+    "max_drawdown": -0.04,
+    "worst_day": -0.03,
+    "margin_call": false,
+    "liquidated": false
+   },
+   {
+    "name": "ESEMPIO — Tregua 2026",
+    "available": false,
+    "reason": "prezzi non coperti nell'esempio"
+   }
+  ],
+  "scenarios": [
+   {
+    "name": "ESEMPIO — riapertura −30% in 3 giorni",
+    "synthetic": true,
+    "total_return": -0.3,
+    "max_drawdown": -0.3,
+    "worst_day": -0.12,
+    "margin_call": true,
+    "liquidated": false
+   }
+  ]
+ }
+}

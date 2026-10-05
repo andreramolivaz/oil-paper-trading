@@ -1,0 +1,108 @@
+{
+ "sample": true,
+ "generated_at": "2026-10-05T19:40:00Z",
+ "asof": "2026-10-05T19:40:00Z",
+ "price": 101.41,
+ "models": {
+  "random_walk": {
+   "h1d": 101.41
+  },
+  "ensemble": {
+   "h1d": 101.6
+  }
+ },
+ "horizons": {
+  "h1d": {
+   "horizon": "h1d",
+   "asof": "2026-10-05T19:40:00Z",
+   "price_now": 101.41,
+   "median": 101.6,
+   "q05": 97.2,
+   "q25": 99.8,
+   "q75": 103.4,
+   "q95": 106.1,
+   "p_up": 0.52,
+   "expected_vol": 0.48,
+   "drivers": [
+    "ESEMPIO: momentum 21g",
+    "ESEMPIO: backwardation"
+   ],
+   "model": "ensemble"
+  },
+  "h1w": {
+   "horizon": "h1w",
+   "asof": "2026-10-05T19:40:00Z",
+   "price_now": 101.41,
+   "median": 102.3,
+   "q05": 91.0,
+   "q25": 97.9,
+   "q75": 106.5,
+   "q95": 112.8,
+   "p_up": 0.54,
+   "expected_vol": 0.49,
+   "drivers": [
+    "ESEMPIO"
+   ],
+   "model": "ensemble"
+  },
+  "h1m": {
+   "horizon": "h1m",
+   "asof": "2026-10-05T19:40:00Z",
+   "price_now": 101.41,
+   "median": 100.2,
+   "q05": 80.1,
+   "q25": 92.0,
+   "q75": 109.0,
+   "q95": 122.5,
+   "p_up": 0.49,
+   "expected_vol": 0.51,
+   "drivers": [
+    "ESEMPIO"
+   ],
+   "model": "ensemble",
+   "approx": true
+  },
+  "h3m": {
+   "horizon": "h3m",
+   "asof": "2026-10-05T19:40:00Z",
+   "price_now": 101.41,
+   "median": 96.0,
+   "q05": 68.0,
+   "q25": 85.0,
+   "q75": 108.0,
+   "q95": 128.0,
+   "p_up": 0.45,
+   "expected_vol": 0.5,
+   "drivers": [
+    "ESEMPIO"
+   ],
+   "model": "ensemble",
+   "approx": true
+  }
+ },
+ "track_record": {
+  "n_forecasts": 48,
+  "n_resolved": 24,
+  "models": {
+   "ensemble": {
+    "h1d": {
+     "n": 24,
+     "theil_u": 0.98,
+     "dm_p_one_sided": 0.21,
+     "dir_hit_rate": 0.54,
+     "crps": 1.9,
+     "beats_rw": false,
+     "verdict": "ESEMPIO: non batte il random walk"
+    }
+   }
+  }
+ },
+ "ovx_implied_range": {
+  "low": 86.2,
+  "high": 119.3,
+  "days": 21,
+  "approx": true,
+  "source": "ESEMPIO OVX"
+ },
+ "source": "ESEMPIO"
+}

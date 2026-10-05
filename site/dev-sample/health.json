@@ -1,0 +1,26 @@
+{
+ "sample": true,
+ "generated_at": "2026-10-05T19:40:00Z",
+ "overall": "yellow",
+ "checked_at": "2026-10-05T19:40:00Z",
+ "cron_lag_minutes": 0,
+ "sources": [
+  {
+   "key": "brent_front",
+   "source": "yahoo",
+   "status": "green",
+   "rows": 4773,
+   "data_asof": "2026-10-05T22:00:00Z",
+   "message": "ESEMPIO"
+  },
+  {
+   "key": "brent_spot",
+   "source": "eia",
+   "status": "yellow",
+   "rows": 0,
+   "data_asof": null,
+   "message": "ESEMPIO: chiave assente",
+   "fallback_used": "eia_xls"
+  }
+ ]
+}

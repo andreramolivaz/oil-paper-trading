@@ -1,0 +1,78 @@
+{
+ "sample": true,
+ "generated_at": "2026-10-05T19:40:00Z",
+ "source": "ESEMPIO",
+ "strategies": [
+  {
+   "id": "S1",
+   "name": "ESEMPIO — Momentum filtrato dal carry",
+   "family": "trend",
+   "lifecycle": "incubation",
+   "weight": 0.0,
+   "weight_explanation": "ESEMPIO — Peso zero: ciclo di vita «incubation» (solo conto ombra).",
+   "performance": {
+    "sharpe": 0.74,
+    "sortino": 0.962,
+    "max_drawdown": -0.18,
+    "hit_rate": 0.52,
+    "profit_factor": 1.21,
+    "n_trades": 64,
+    "total_return": 0.09,
+    "by_year": {
+     "2026": 0.09
+    }
+   },
+   "signal": {
+    "ts": "2026-10-05T19:40:00Z",
+    "direction": "long",
+    "prob": 0.61,
+    "horizon_days": 10,
+    "rationale": "ESEMPIO — Momentum 63g +1,4 sigma concorde con la backwardation."
+   },
+   "validation": null
+  },
+  {
+   "id": "S4",
+   "name": "ESEMPIO — Carry e roll yield",
+   "family": "carry",
+   "lifecycle": "active",
+   "weight": 0.35,
+   "weight_explanation": "ESEMPIO — Peso 35%: Sharpe out-of-sample 1,02 nel regime corrente.",
+   "performance": {
+    "sharpe": 1.02,
+    "sortino": 1.326,
+    "max_drawdown": -0.12,
+    "hit_rate": 0.57,
+    "profit_factor": 1.44,
+    "n_trades": 88,
+    "total_return": 0.14,
+    "by_year": {
+     "2026": 0.14
+    }
+   },
+   "signal": {
+    "ts": "2026-10-05T19:40:00Z",
+    "direction": "long",
+    "prob": 0.66,
+    "horizon_days": 21,
+    "rationale": "ESEMPIO — Roll yield annualizzato +14% (percentile 0,82)."
+   },
+   "validation": {
+    "dsr_prob": 0.96,
+    "pbo": 0.31,
+    "oos_sharpe_double_cost": 0.44
+   }
+  },
+  {
+   "id": "S18",
+   "name": "ESEMPIO — Opzioni sintetiche",
+   "family": "volatility",
+   "lifecycle": "research",
+   "weight": 0.0,
+   "weight_explanation": "ESEMPIO — Peso zero: approssimazione, mai in portafoglio.",
+   "performance": null,
+   "signal": null,
+   "validation": null
+  }
+ ]
+}

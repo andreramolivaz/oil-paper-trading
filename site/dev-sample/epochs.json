@@ -1,0 +1,18 @@
+{
+ "sample": true,
+ "generated_at": "2026-10-05T19:40:00Z",
+ "epochs": [
+  {
+   "epoch": 1,
+   "started_ts": "2026-04-06T18:30:00Z",
+   "ended_ts": null,
+   "start_equity": 10000.0,
+   "end_equity": null,
+   "max_equity": 10640.0,
+   "min_equity": 9780.0,
+   "end_reason": null,
+   "n_trades": 3,
+   "current": true
+  }
+ ]
+}

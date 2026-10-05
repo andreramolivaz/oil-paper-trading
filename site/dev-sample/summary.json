@@ -1,0 +1,111 @@
+{
+ "sample": true,
+ "generated_at": "2026-10-05T19:40:00Z",
+ "brent": {
+  "value": 101.41,
+  "asof": "2026-10-05",
+  "source": "ESEMPIO",
+  "change_1d": -0.0082,
+  "ovx": {
+   "value": 51.0,
+   "asof": "2026-10-02",
+   "source": "ESEMPIO"
+  },
+  "spot": {
+   "value": 113.96,
+   "asof": "2026-09-29",
+   "source": "ESEMPIO"
+  }
+ },
+ "regime": {
+  "label": "ESEMPIO — Backwardation + vol alta + rischio geopolitico",
+  "confidence": 0.78,
+  "probabilities": {
+   "Backwardation + vol alta + rischio geopolitico": 0.78,
+   "Shock/crash": 0.12
+  },
+  "change_point_prob": 0.08,
+  "asof": "2026-10-05T19:40:00Z",
+  "source": "ESEMPIO",
+  "approx": false
+ },
+ "data_status": {
+  "overall": "yellow",
+  "checked_at": "2026-10-05T19:40:00Z",
+  "sources": [
+   {
+    "key": "brent_front",
+    "status": "green",
+    "rows": 4773,
+    "data_asof": "2026-10-05T22:00:00Z",
+    "message": "ESEMPIO"
+   },
+   {
+    "key": "brent_spot",
+    "status": "yellow",
+    "rows": 0,
+    "data_asof": null,
+    "message": "ESEMPIO: chiave EIA assente",
+    "fallback_used": "eia_xls"
+   }
+  ]
+ },
+ "account": {
+  "epoch": 1,
+  "status": "active",
+  "dead": false,
+  "initial_capital": 10000.0,
+  "equity": 10418.22,
+  "cash": 9120.0,
+  "pnl_day": 38.5,
+  "pnl_total": 418.22,
+  "pnl_total_pct": 0.0418,
+  "drawdown": 0.021,
+  "peak_equity": 10640.0,
+  "margin_used": 1040.0,
+  "margin_level": 10.02,
+  "gross_notional": 10400.0,
+  "net_notional": 10400.0,
+  "liquidation_price": 12.4,
+  "leverage": {
+   "value": 1.0,
+   "limited_by": "ESEMPIO — gate non superato: 1x",
+   "components": {
+    "kelly": 1.9,
+    "vol": 1.03,
+    "drawdown": 10.0,
+    "event": 10.0,
+    "cap": 10.0,
+    "default": 1.0
+   }
+  },
+  "positions": [
+   {
+    "instrument": "BZZ26",
+    "qty_bbl": 100,
+    "avg_price": 100.2,
+    "last_price": 101.41,
+    "stop_price": 96.0,
+    "strategies": [
+     "S1",
+     "S4"
+    ],
+    "opened_ts": "2026-10-05T19:40:00Z"
+   }
+  ],
+  "asof": "2026-10-05T19:40:00Z"
+ },
+ "last_run": {
+  "job": "eod",
+  "ts": "2026-10-05T19:40:00Z",
+  "status": "ok",
+  "message": "ESEMPIO: 4 segnali, 1 ordine",
+  "cron_lag_minutes": 0
+ },
+ "reset": {
+  "workflow_url": "https://github.com/andreramolivaz/oil-paper-trading/actions/workflows/reset.yml",
+  "dispatch_api": "https://api.github.com/repos/andreramolivaz/oil-paper-trading/actions/workflows/reset.yml/dispatches",
+  "confirm_text": "RESET"
+ },
+ "disclaimer": "ESEMPIO — Simulazione a scopo di studio. Nessun consiglio finanziario."
+}

@@ -1,0 +1,31 @@
+{
+ "sample": true,
+ "generated_at": "2026-10-05T19:40:00Z",
+ "n_total": 3,
+ "csv_url": "trades.csv",
+ "source": "ESEMPIO",
+ "trades": [
+  {
+   "ts": "2026-10-05T19:40:00Z",
+   "instrument": "BZZ26",
+   "qty_bbl": 100,
+   "price": 100.24,
+   "reference_price": 100.2,
+   "slippage": 0.04,
+   "commission": 1.2,
+   "realized_pnl": 0.0,
+   "reason": "signal",
+   "price_source": "ESEMPIO",
+   "regime": "Backwardation + vol alta + rischio geopolitico",
+   "rationale": "ESEMPIO — Posizione long su BZZ26. Pro: S1, S4. Leva 1,00x — gate non superato: 1x.",
+   "strategies_for": [
+    "S1",
+    "S4"
+   ],
+   "strategies_against": [],
+   "gate_passed": false,
+   "leverage": 1.0,
+   "leverage_limited_by": "gate non superato: 1x"
+  }
+ ]
+}

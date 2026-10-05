@@ -1,0 +1,19 @@
+{
+ "sample": true,
+ "generated_at": "2026-10-05T19:40:00Z",
+ "available": true,
+ "strategies": {
+  "S4": {
+   "lifecycle": "active",
+   "dsr_prob": 0.96,
+   "pbo": 0.31,
+   "explanation": "ESEMPIO — Attiva: DSR 0,96 > 0,95; PBO 0,31 < 0,5."
+  },
+  "S1": {
+   "lifecycle": "incubation",
+   "dsr_prob": 0.72,
+   "pbo": 0.54,
+   "explanation": "ESEMPIO — Peso zero: PBO 0,54 > 0,5."
+  }
+ }
+}

@@ -1,0 +1,72 @@
+name: deploy (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+  # The data branch changes ~48 times a day: the site does NOT redeploy for that. It reads the JSON at runtime
+  # from raw.githubusercontent.com and only carries a bundled snapshot as a fallback (docs/PLAN.md, option b).
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the bundled data snapshot from the data branch
+        continue-on-error: true
+        run: |
+          set -eux
+          git fetch origin data --depth 1 || exit 0
+          mkdir -p site/public/site-data
+          git --work-tree=/tmp/data-branch checkout origin/data -- site-data 2>/dev/null || true
+          if [ -d site-data ]; then cp -r site-data/. site/public/site-data/ ; fi
+          ls -la site/public/site-data || true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+        working-directory: site
+      - run: npm run typecheck
+        working-directory: site
+      - name: Build
+        working-directory: site
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_OWNER: ${{ github.repository_owner }}
+          VITE_REPO: ${{ github.event.repository.name }}
+        run: npm run build
+      - name: Guard against sample data in the build
+        working-directory: site
+        run: |
+          if grep -rl '"sample": true' dist 2>/dev/null; then
+            echo "::error::i file di esempio sono finiti nella build"; exit 1
+          fi
+          echo "nessun dato di esempio nella build"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
