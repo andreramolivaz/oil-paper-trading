@@ -46,7 +46,12 @@ class S1MomentumCarry(Strategy):
     family = Family.TREND
     horizon_days = 21
     warmup_days = 300
-    requires = (TSMOM_10, TSMOM_21, TSMOM_63, TSMOM_126, TSMOM_252, RV_YZ_21, SLOPE_M1_M6, ATR_14)
+    # SLOPE_M1_M6 is deliberately NOT required: it decides the SIZE (full when trend and curve agree, halved
+    # when they diverge), never the direction. Before the curve archive exists (and without the EIA proxy) the
+    # slope is structurally unavailable for years of history; refusing to trade would silence the strategy
+    # instead of degrading it. With no slope we take the CONSERVATIVE branch - the reduced size - and label the
+    # signal, which is the honest reading of "ridotta quando divergono" when agreement cannot be verified.
+    requires = (TSMOM_10, TSMOM_21, TSMOM_63, TSMOM_126, TSMOM_252, RV_YZ_21, ATR_14)
 
     @classmethod
     def default_params(cls) -> dict[str, Any]:
@@ -92,8 +97,9 @@ class S1MomentumCarry(Strategy):
         rv = ctx.f(RV_YZ_21)
         atr = ctx.f(ATR_14)
         slope = ctx.f(SLOPE_M1_M6)
-        if math.isnan(rv) or math.isnan(atr) or math.isnan(slope) or rv <= 0 or atr <= 0:
+        if math.isnan(rv) or math.isnan(atr) or rv <= 0 or atr <= 0:
             return None
+        slope_known = not math.isnan(slope)
 
         # crowding veto: COT_CROWDING is |pctl-0.5|*2, the crowded side comes from the percentile itself
         crowding = ctx.f(COT_CROWDING)
@@ -106,7 +112,7 @@ class S1MomentumCarry(Strategy):
             if crowded_side == direction.sign:
                 return None
 
-        carry_agrees = sign(slope) == direction.sign and sign(slope) != 0
+        carry_agrees = slope_known and sign(slope) == direction.sign and sign(slope) != 0
         carry_mult = 1.0 if carry_agrees else float(self.params["divergence_size_mult"])
         strength = clamp(vol_scale(float(self.params["target_vol"]), rv) * carry_mult, 0.0, 1.0)
 
@@ -117,11 +123,13 @@ class S1MomentumCarry(Strategy):
         stop_pct = float(self.params["stop_atr_mult"]) * atr
 
         verso = "long" if direction is Direction.LONG else "short"
-        curva = "backwardation" if slope > 0 else "contango"
+        curva = ("backwardation" if slope > 0 else "contango") if slope_known else "curva non disponibile"
         accordo = "concorde" if carry_agrees else "discorde (size dimezzata)"
         rationale = (
             f"Momentum multi-orizzonte {fmt_num(score)} (z {fmt_num(z)} sigma) {accordo} "
-            f"con la curva in {curva} (M1-M6 {fmt_pct(slope)}): {verso}, stop {fmt_pct(stop_pct)}."
+            f"con {curva}"
+            + (f" (M1-M6 {fmt_pct(slope)})" if slope_known else " (size ridotta per prudenza)")
+            + f": {verso}, stop {fmt_pct(stop_pct)}."
         )
 
         return self.make_signal(
@@ -137,7 +145,8 @@ class S1MomentumCarry(Strategy):
             meta={
                 "trend_score": score,
                 "trend_z": z_raw,
-                "slope_m1_m6": slope,
+                "slope_m1_m6": None if not slope_known else slope,
+                "curve_unavailable": not slope_known,
                 "carry_agrees": carry_agrees,
                 "cot_crowding": None if math.isnan(crowding) else crowding,
                 "crowded_side": crowded_side,

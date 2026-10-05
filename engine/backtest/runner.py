@@ -144,13 +144,22 @@ def run_backtest(
             equity["buy_hold"] = risk.initial_capital * (close / float(first.iloc[0]))
 
     trades = pd.DataFrame(trade_rows)
+    # Fill counts per account. Shadow brokers deliberately run without a store (one store per shadow would
+    # multiply the state files by 18), so their fills are counted from the broker's own audit counter.
+    fills_by_account = {"master": int(master.state.n_fills)}
+    for sid, broker in session.shadows.items():
+        fills_by_account[sid] = int(broker.state.n_fills)
+
     summary: dict[str, PerfSummary] = {}
     if not equity.empty:
         for col in equity.columns:
             curve = equity[col].dropna()
             if len(curve) > 1:
                 t = trades if col == "master" else None
-                summary[col] = summarise(curve, trades=t)
+                perf = summarise(curve, trades=t)
+                if col in fills_by_account and not perf.n_trades:
+                    perf.n_trades = fills_by_account[col]
+                summary[col] = perf
 
     return BacktestResult(
         equity=equity,
@@ -161,6 +170,7 @@ def run_backtest(
         summary=summary,
         days=day_rows,
         meta={
+            "fills_by_account": fills_by_account,
             "start": iso(day_list[0]) if day_list else None,
             "end": iso(day_list[-1]) if day_list else None,
             "n_strategies": len(strategies),

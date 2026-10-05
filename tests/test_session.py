@@ -228,3 +228,69 @@ def test_runner_produces_equity_and_metrics(tmp_path):
     assert res.summary["master"].n_obs == len(res.equity)
     assert len(res.days) == len(trading_days(md, None, None))
     assert res.meta["initial_capital"] == risk.initial_capital
+
+
+def test_spread_instruments_are_priced_from_their_legs(tmp_path):
+    """Multi-leg symbols the strategies emit must be priceable, or they could never execute."""
+    session, md, _, _ = build_session(tmp_path, n_days=120)
+    day = [d.date() for d in pd.DatetimeIndex(md.prices.index)][-1]
+    row = md.prices.loc[pd.Timestamp(day)]
+    codes = session.curve_codes(day)
+
+    # Brent-WTI: the difference of the two front closes
+    bw = session.price_instrument(f"{codes['M1']}/CLZ26", day)
+    assert bw == pytest.approx(float(row["brent_front_close"]) - float(row["wti_front_close"]))
+
+    # 3-2-1 crack from RBOB and heating oil per barrel against WTI
+    crack = session.price_instrument("CRACK321-CLZ26", day)
+    expected = (2 * float(row["rbob_close"]) * 42 + float(row["ho_close"]) * 42) / 3 - float(row["wti_front_close"])
+    assert crack == pytest.approx(expected)
+
+    # calendar spread and butterfly come from the curve
+    cal = session.price_instrument(f"{codes['M1']}-{codes['M3']}", day)
+    assert cal == pytest.approx(
+        float(md.curve.loc[pd.Timestamp(day), "M1"]) - float(md.curve.loc[pd.Timestamp(day), "M3"])
+    )
+    fly = session.price_instrument(f"FLY-{codes['M1']}-{codes['M3']}-{codes['M6']}", day)
+    m1 = float(md.curve.loc[pd.Timestamp(day), "M1"])
+    m3 = float(md.curve.loc[pd.Timestamp(day), "M3"])
+    m6 = float(md.curve.loc[pd.Timestamp(day), "M6"])
+    assert fly == pytest.approx(m1 - 2 * m3 + m6)
+
+    # an unknown symbol is simply not tradeable, never guessed
+    assert session.price_instrument("NOPE-XYZ", day) is None
+    assert session.price_instrument("FLY-BZZ99-BZF99", day) is None
+
+
+def test_auxiliary_bars_cover_open_spread_positions(tmp_path):
+    """A pending order on a spread must receive a bar, otherwise it could never fill."""
+    from engine.core.events import Order, OrderType
+
+    session, md, risk, _ = build_session(tmp_path, n_days=120)
+    days = [d.date() for d in pd.DatetimeIndex(md.prices.index)]
+    # Run a day first: the broker needs the front outright marked before it can size a spread (the leverage
+    # check measures a multi-leg notional against its first leg's outright price).
+    for d in days[:-2]:
+        session.run_day(d, decide=False)
+    day = days[-2]
+    codes = session.curve_codes(day)
+    symbol = f"{codes['M1']}/CLZ26"
+    session.register_instrument(symbol)
+    key = "test-spread-order"
+    session.master.submit(
+        Order(
+            order_id=key,
+            idempotency_key=key,
+            ts=settlement_ts(day),
+            account_id="master",
+            instrument=symbol,
+            qty_bbl=100.0,
+            order_type=OrderType.MARKET,
+        )
+    )
+    bars = session.auxiliary_bars(days[-1])
+    assert [b.symbol for b in bars] == [symbol]
+    assert bars[0].open == bars[0].close  # synthetic spread: no observable intrabar extremes
+    fills = session.on_bar(bars[0])
+    assert fills == 1
+    assert session.master.positions[symbol].qty_bbl == pytest.approx(100.0)

@@ -33,6 +33,7 @@ from engine.core.config import RiskConfig
 from engine.core.errors import DataUnavailable
 from engine.core.eventcal import EventCalendar
 from engine.core.events import AccountSnapshot, Bar, Order, Signal
+from engine.core.instruments import GALLONS_PER_BARREL, Future, Instrument, Kind, Leg
 from engine.core.store import StateStore
 from engine.core.timeutil import ensure_utc, iso, settlement_ts
 from engine.data.market_data import MarketData
@@ -104,6 +105,7 @@ class TradingSession:
         events: EventCalendar | None = None,
         roll_buffer_days: int = ROLL_BUFFER_DAYS,
         strict_pit: bool = False,
+        precompute_regime: bool = True,
         shadow_accounts: bool = True,
         state: SessionState | None = None,
         strategy_params: dict[str, dict[str, Any]] | None = None,
@@ -118,10 +120,13 @@ class TradingSession:
         self.events = events if events is not None else EventCalendar()
         self.roll_buffer_days = int(roll_buffer_days)
         self.strict_pit = bool(strict_pit)
+        self.precompute_regime = bool(precompute_regime)
         self.strategy_params = dict(strategy_params or {})
         self.state = state or SessionState.from_dict(store.read_json(SESSION_FILE) if store else None)
         self._features: pd.DataFrame | None = None
         self._features_asof: datetime | None = None
+        self._features_full: pd.DataFrame | None = None
+        self._regime_rows: pd.DataFrame | None = None
         self._regime_history: list[RegimeState] = []
 
         if feature_builder is None:
@@ -251,23 +256,222 @@ class TradingSession:
                 log.debug("curve M1_code %s differs from calendar front %s on %s", archived, out.get("M1"), day)
         return out
 
+    # ------------------------------------------------------------------ multi-leg instruments
+    def price_instrument(self, symbol: str, day: date) -> float | None:
+        """Daily price of a symbol a strategy may trade, in USD per barrel of its first leg.
+
+        The strategies emit four shapes besides the outright front:
+
+        * ``BZZ26-BZG27``   calendar spread   -> M(near) - M(far) from the archived Brent curve
+        * ``BZZ26/CLK26``   Brent-WTI spread  -> Brent front close - WTI front close
+        * ``CRACK321-CLK26`` 3-2-1 crack      -> (2*RBOB + HO) * 42 / 3 - WTI front close
+        * ``FLY-a-b-c``     curve butterfly   -> M(a) - 2*M(b) + M(c) from the curve
+
+        Returns None when any leg is unknown: an instrument we cannot price is simply not tradeable that day,
+        which is why the calendar spread and the butterfly stay silent until the curve archive has history.
+        """
+        row = self._price_row(day)
+        curve = self.curve_row(day)
+
+        def curve_price(code: str) -> float | None:
+            if curve is None:
+                return None
+            codes = self.curve_codes(day)
+            for rank, rank_code in codes.items():
+                if rank_code == code and rank in curve.index:
+                    return self._f(curve, rank)
+            return None
+
+        if symbol.startswith("FLY-"):
+            parts = symbol.split("-")[1:]
+            if len(parts) != 3:
+                return None
+            legs = [curve_price(c) for c in parts]
+            if any(v is None for v in legs):
+                return None
+            near, mid, far = (float(v) for v in legs)  # type: ignore[arg-type]
+            return near - 2.0 * mid + far
+        if symbol.startswith("CRACK321-"):
+            if row is None:
+                return None
+            rbob, ho, wti = (self._f(row, "rbob_close"), self._f(row, "ho_close"), self._f(row, "wti_front_close"))
+            if rbob is None or ho is None or wti is None:
+                return None
+            return (2.0 * rbob * GALLONS_PER_BARREL + ho * GALLONS_PER_BARREL) / 3.0 - wti
+        if "/" in symbol:
+            if row is None:
+                return None
+            brent, wti = self._f(row, "brent_front_close"), self._f(row, "wti_front_close")
+            if brent is None or wti is None:
+                return None
+            return brent - wti
+        if "-" in symbol:
+            near_code, far_code = symbol.split("-", 1)
+            near_leg, far_leg = curve_price(near_code), curve_price(far_code)
+            if near_leg is None or far_leg is None:
+                return None
+            return near_leg - far_leg
+        return None
+
+    def register_instrument(self, symbol: str) -> Instrument | None:
+        """Teach every broker the legs of a multi-leg symbol.
+
+        The broker needs them to resolve the FIRST LEG's outright price, which is what the notional, the
+        bps costs and the percentage stops are measured against (see the broker's module docstring). Without
+        the registration a spread order is rejected because the leverage check has no reference price.
+        """
+        existing = self.master.instruments.get(symbol)
+        if existing is not None:
+            return existing
+        if symbol.startswith("SYNOPT-"):
+            # S18's synthetic option structures are an explicit approximation: the paper broker holds futures,
+            # not options, so they are informational only and carry zero weight in the master by design.
+            log.debug("%s is a synthetic option structure: informational only, never traded", symbol)
+            return None
+        instrument: Instrument | None = None
+        try:
+            if symbol.startswith("FLY-"):
+                codes = symbol.split("-")[1:]
+                if len(codes) == 3:
+                    legs = (
+                        Leg(Future.from_code(codes[0]), 1.0),
+                        Leg(Future.from_code(codes[1]), -2.0),
+                        Leg(Future.from_code(codes[2]), 1.0),
+                    )
+                    instrument = Instrument(symbol, Kind.CALENDAR_SPREAD, legs, "Butterfly di curva")
+            elif symbol.startswith("CRACK321-"):
+                crude = Future.from_code(symbol.split("-", 1)[1])
+                rbob = Future("RB", crude.year, crude.month)
+                ho = Future("HO", crude.year, crude.month)
+                instrument = Instrument.crack_321(crude, rbob, ho)
+            elif "/" in symbol:
+                left, right = symbol.split("/", 1)
+                instrument = Instrument.brent_wti(Future.from_code(left), Future.from_code(right))
+            elif "-" in symbol:
+                near, far = symbol.split("-", 1)
+                instrument = Instrument.calendar_spread(Future.from_code(near), Future.from_code(far))
+            else:
+                instrument = Instrument.future(Future.from_code(symbol))
+        except (ValueError, KeyError, IndexError) as exc:
+            log.warning("cannot build an instrument for %s: %s", symbol, exc)
+            return None
+        if instrument is None:
+            return None
+        for broker in [self.master, *self.shadows.values()]:
+            broker.instruments[symbol] = instrument
+        return instrument
+
+    def auxiliary_bars(self, day: date) -> list[Bar]:
+        """Bars for the non-front instruments that have a pending order or an open position.
+
+        Spreads are built from leg CLOSES, so open = high = low = close: the intrabar extremes of a synthetic
+        spread are not observable from daily leg data, and inventing them would make stops fire on moves that
+        may never have happened. Protective stops on spreads are therefore evaluated at the close only, which
+        is the conservative reading.
+        """
+        wanted: set[str] = set()
+        for broker in [self.master, *self.shadows.values()]:
+            wanted |= {o.instrument for o in broker.pending_orders()}
+            wanted |= {sym for sym, pos in broker.positions.items() if pos.qty_bbl != 0}
+        wanted.discard(self.front_code(day))
+        bars: list[Bar] = []
+        for symbol in sorted(wanted):
+            price = self.price_instrument(symbol, day)
+            if price is None:
+                continue
+            bars.append(
+                Bar(
+                    symbol=symbol,
+                    ts=settlement_ts(day),
+                    open=price,
+                    high=price,
+                    low=price,
+                    close=price,
+                    interval="1d",
+                    source=f"{self.md.meta.get('prices_source', 'md')} (gambe)",
+                    is_settlement=True,
+                )
+            )
+        return bars
+
     # ------------------------------------------------------------------ features and regime
     def features_at(self, day: date) -> pd.DataFrame:
+        """The feature frame as it was knowable at the settlement of `day`.
+
+        Two paths, and they must agree:
+
+        * `strict_pit=True` rebuilds from `md.truncate(settlement)` for every single day. It is the slow,
+          obviously-correct path, used by the no-look-ahead tests.
+        * the default path builds the whole history ONCE and slices it at `day`. This is equivalent only
+          because every feature is causal (trailing windows, expanding fits, publication-filtered releases),
+          which is what `tests/test_no_lookahead.py` pins down: rows up to T are identical whether or not
+          later data exists, and both paths give the same signals and fills. Without this a multi-year
+          backtest would rebuild a 9 000-row frame on each of its ~3 000 days.
+        """
         asof = settlement_ts(day)
-        if self._features is not None and self._features_asof == asof:
-            return self._features
-        md = self.md.truncate(asof) if self.strict_pit else self.md
-        frame = self.feature_builder.build(md, asof)
-        self._features, self._features_asof = frame, asof
-        return frame
+        if self.strict_pit:
+            if self._features is not None and self._features_asof == asof:
+                return self._features
+            frame = self.feature_builder.build(self.md.truncate(asof), asof)
+            self._features, self._features_asof = frame, asof
+            return frame
+        return self._full_features().loc[: pd.Timestamp(day)]
+
+    def _full_features(self) -> pd.DataFrame:
+        """Build (once) the feature frame over the whole available history."""
+        if self._features_full is None:
+            last = pd.Timestamp(self.md.prices.index.max()).date() if not self.md.prices.empty else None
+            asof = settlement_ts(last) if last is not None else datetime.now(tz=UTC)
+            self._features_full = self.feature_builder.build(self.md, asof)
+        return self._features_full
 
     def regime_at(self, features: pd.DataFrame, day: date) -> RegimeState:
+        """The regime inferred at the settlement of `day`.
+
+        On the fast path the walk-forward history is computed once over the whole frame and the row for `day`
+        is read back: the regime model's own tests prove `history()` is byte-identical on rows up to T when
+        later rows are appended, so this is the same number at a fraction of the cost. `infer` stays the path
+        used live (one day at a time) and under `strict_pit`.
+        """
         asof = settlement_ts(day)
         try:
-            return self.regime_model.infer(features, asof)
+            if self.strict_pit or not self.precompute_regime:
+                return self.regime_model.infer(features, asof)
+            row = self._regime_row(day)
+            return self.regime_model.infer(features, asof) if row is None else self._state_from_row(row, asof)
         except Exception as exc:  # a regime failure must never stop trading: fall back to "transition"
             log.warning("regime inference failed on %s: %s", day, exc)
             return RegimeState(ts=asof, regime_id=-1, label=LABEL_TRANSITION, confidence=0.0, model="fallback")
+
+    def _regime_row(self, day: date) -> pd.Series | None:
+        if self._regime_rows is None:
+            history = self.regime_model.history(self._full_features())
+            self._regime_rows = history if isinstance(history, pd.DataFrame) else pd.DataFrame()
+        ts = pd.Timestamp(day)
+        if self._regime_rows.empty or ts not in self._regime_rows.index:
+            return None
+        row = self._regime_rows.loc[ts]
+        return row.iloc[0] if isinstance(row, pd.DataFrame) else row
+
+    @staticmethod
+    def _state_from_row(row: pd.Series, asof: datetime) -> RegimeState:
+        probabilities = {
+            str(col)[len("regime_p_") :]: float(row[col])
+            for col in row.index
+            if str(col).startswith("regime_p_") and not pd.isna(row[col])
+        }
+        regime_id = row.get("regime_id")
+        conf = row.get("regime_conf")
+        cp = row.get("bocpd_cp_prob")
+        return RegimeState(
+            ts=asof,
+            regime_id=int(regime_id) if regime_id is not None and not pd.isna(regime_id) else -1,
+            label=str(row.get("regime_label") or LABEL_TRANSITION),
+            confidence=float(conf) if conf is not None and not pd.isna(conf) else 0.0,
+            probabilities=probabilities,
+            change_point_prob=float(cp) if cp is not None and not pd.isna(cp) else 0.0,
+            model="history",
+        )
 
     def context(self, day: date, features: pd.DataFrame, regime: RegimeState, price: float) -> MarketContext:
         asof = settlement_ts(day)
@@ -370,6 +574,7 @@ class TradingSession:
                 log.warning("strategy %s failed on %s: %s", strat.id, day, exc)
                 continue
             if sig is not None:
+                self.register_instrument(sig.instrument)
                 signals.append(sig)
 
         if self.store is not None:
@@ -430,8 +635,12 @@ class TradingSession:
             res.skipped = "no price"
             return res
 
+        self.register_instrument(bar.symbol)
         res.fills += self.on_bar(bar)
         res.bars += 1
+        for aux in self.auxiliary_bars(day):
+            res.fills += self.on_bar(aux)
+            res.bars += 1
         res.rolled = self._roll_if_needed(day, bar.close)
 
         if decide:
