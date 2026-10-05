@@ -1,0 +1,118 @@
+{
+  "bz_f_1d_5d.json": {
+    "symbol": "BZ=F",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?period1=1790577896&period2=1791182696&interval=1d",
+    "params": {
+      "period1": 1790577896,
+      "period2": 1791182696,
+      "interval": "1d"
+    },
+    "status": 200,
+    "bytes": 1873,
+    "n_timestamps": 6,
+    "captured_at": "2026-10-05T06:44:56+00:00"
+  },
+  "bzz26_nym_1d_5d.json": {
+    "symbol": "BZZ26.NYM",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/BZZ26.NYM?period1=1790577896&period2=1791182696&interval=1d",
+    "params": {
+      "period1": 1790577896,
+      "period2": 1791182696,
+      "interval": "1d"
+    },
+    "status": 200,
+    "bytes": 1839,
+    "n_timestamps": 6,
+    "captured_at": "2026-10-05T06:44:57+00:00"
+  },
+  "bzf27_nym_1d_5d.json": {
+    "symbol": "BZF27.NYM",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/BZF27.NYM?period1=1790577896&period2=1791182696&interval=1d",
+    "params": {
+      "period1": 1790577896,
+      "period2": 1791182696,
+      "interval": "1d"
+    },
+    "status": 200,
+    "bytes": 1850,
+    "n_timestamps": 6,
+    "captured_at": "2026-10-05T06:44:59+00:00"
+  },
+  "bzg27_nym_1d_5d.json": {
+    "symbol": "BZG27.NYM",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/BZG27.NYM?period1=1790577896&period2=1791182696&interval=1d",
+    "params": {
+      "period1": 1790577896,
+      "period2": 1791182696,
+      "interval": "1d"
+    },
+    "status": 200,
+    "bytes": 1799,
+    "n_timestamps": 6,
+    "captured_at": "2026-10-05T06:45:00+00:00"
+  },
+  "ovx_1d_5d.json": {
+    "symbol": "^OVX",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EOVX?period1=1790577896&period2=1791182696&interval=1d",
+    "params": {
+      "period1": 1790577896,
+      "period2": 1791182696,
+      "interval": "1d"
+    },
+    "status": 200,
+    "bytes": 1694,
+    "n_timestamps": 5,
+    "captured_at": "2026-10-05T06:45:01+00:00"
+  },
+  "bz_f_1h_7d.json": {
+    "symbol": "BZ=F",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?range=7d&interval=1h",
+    "params": {
+      "range": "7d",
+      "interval": "1h"
+    },
+    "status": 200,
+    "bytes": 13035,
+    "n_timestamps": 148,
+    "captured_at": "2026-10-05T06:45:03+00:00"
+  },
+  "bzx26_nym_404.json": {
+    "symbol": "BZX26.NYM",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/BZX26.NYM?period1=1790577896&period2=1791182696&interval=1d",
+    "params": {
+      "period1": 1790577896,
+      "period2": 1791182696,
+      "interval": "1d"
+    },
+    "status": 404,
+    "bytes": 108,
+    "n_timestamps": 0,
+    "captured_at": "2026-10-05T06:45:04+00:00"
+  },
+  "bz_f_1d_2009-04_nulls.json": {
+    "symbol": "BZ=F",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?period1=1239580800&period2=1240617600&interval=1d",
+    "params": {
+      "period1": 1239580800,
+      "period2": 1240617600,
+      "interval": "1d"
+    },
+    "status": 200,
+    "bytes": 1783,
+    "n_timestamps": 10,
+    "captured_at": "2026-10-05T06:45:06+00:00"
+  },
+  "bz_f_1d_pre_history_400.json": {
+    "symbol": "BZ=F",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?period1=315532800&period2=631152000&interval=1d",
+    "params": {
+      "period1": 315532800,
+      "period2": 631152000,
+      "interval": "1d"
+    },
+    "status": 400,
+    "bytes": 138,
+    "n_timestamps": 0,
+    "captured_at": "2026-10-05T06:45:07+00:00"
+  }
+}
