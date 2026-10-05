@@ -116,7 +116,7 @@ def utc_now() -> datetime:
 
 
 def ensure_published_at(frame: pd.DataFrame, default_lag: pd.Timedelta | None = None) -> pd.DataFrame:
-    """Guarantee a `published_at` column (UTC). Default: index + lag (e.g. daily settlement known same day 23:00 UTC)."""
+    """Guarantee a `published_at` column (UTC). Default: index + lag (daily settlement known same day 23:00 UTC)."""
     if "published_at" in frame.columns:
         return frame
     idx = pd.DatetimeIndex(frame.index)

@@ -11,7 +11,7 @@ Column/attribute contract (daily frequency, index = London trading date as tz-na
                            'gasoline_stocks','distillate_stocks','refinery_inputs','crude_production','crude_imports',
                            'crude_exports','gasoline_supplied','distillate_supplied'] (kbbl or kbbl/d)
   cot         : DataFrame  index = release timestamp (UTC), columns ['period','market','oi','mm_long','mm_short',
-                           'mm_net','prod_long','prod_short','swap_long','swap_short'] for market in {brent, wti, gasoil}
+                           'mm_net','prod_long','prod_short','swap_long','swap_short'] market in {brent,wti,gasoil}
   news        : DataFrame  index = date, columns ['gpr','gpr_act','gpr_threat','gdelt_volume','gdelt_tone',
                            'gdelt_goldstein','gdelt_conflict_share'] (GDELT NaN before go-live)
   rigs        : Series     index = release date, US oil rig count

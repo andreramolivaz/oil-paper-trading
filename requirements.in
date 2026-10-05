@@ -21,3 +21,4 @@ pandas-stubs
 types-PyYAML
 types-requests
 hypothesis>=6.100
+pyxlsb>=1.0
