@@ -1,0 +1,28 @@
+# Strategy universe (docs/STRATEGIES.md). Schema per entry:
+#   id: S1            unique id used everywhere (signals, shadow accounts, dashboard)
+#   class: dotted path to the Strategy subclass
+#   enabled: true     if false the strategy is not instantiated at all
+#   lifecycle: research | incubation | active | retired   (incubation/research = shadow account only, weight 0 in master)
+#   params: {...}     overrides of Strategy.default_params()
+# Lifecycle is promoted/demoted ONLY by the validation report (phase 6) — never by hand without a note here.
+strategies:
+  - {id: S1,  class: engine.strategies.s01_momentum.S1MomentumCarry,            enabled: true, lifecycle: incubation, params: {}}
+  - {id: S2,  class: engine.strategies.s02_breakout.S2CompressionBreakout,       enabled: true, lifecycle: incubation, params: {}}
+  - {id: S3,  class: engine.strategies.s03_kalman_trend.S3KalmanTrend,           enabled: true, lifecycle: incubation, params: {}}
+  - {id: S4,  class: engine.strategies.s04_carry.S4CarryRollYield,               enabled: true, lifecycle: incubation, params: {}}
+  - {id: S5,  class: engine.strategies.s05_calendar_spread.S5CalendarSpread,     enabled: true, lifecycle: incubation, params: {}}
+  - {id: S6,  class: engine.strategies.s06_butterfly.S6CurveButterfly,           enabled: true, lifecycle: incubation, params: {}}
+  - {id: S7,  class: engine.strategies.s07_physical_confirmation.S7PhysicalConfirmation, enabled: true, lifecycle: incubation, params: {}}
+  - {id: S8,  class: engine.strategies.s08_brent_wti.S8BrentWti,                 enabled: true, lifecycle: incubation, params: {}}
+  - {id: S9,  class: engine.strategies.s09_crack.S9CrackSpread,                  enabled: true, lifecycle: incubation, params: {}}
+  - {id: S10, class: engine.strategies.s10_macro_fv.S10MacroFairValue,           enabled: true, lifecycle: incubation, params: {}}
+  - {id: S11, class: engine.strategies.s11_eia_surprise.S11EiaSurprise,          enabled: true, lifecycle: incubation, params: {}}
+  - {id: S12, class: engine.strategies.s12_opec.S12OpecPlaybook,                 enabled: true, lifecycle: incubation, params: {}}
+  - {id: S13, class: engine.strategies.s13_geopolitical.S13GeopoliticalPremium,  enabled: true, lifecycle: incubation, params: {}}
+  - {id: S14, class: engine.strategies.s14_seasonality.S14Seasonality,           enabled: true, lifecycle: incubation, params: {}}
+  - {id: S15, class: engine.strategies.s15_cot.S15CotPositioning,                enabled: true, lifecycle: incubation, params: {}}
+  - {id: S16, class: engine.strategies.s16_vol_regime.S16VolRegime,              enabled: true, lifecycle: incubation, params: {}}
+  - {id: S17, class: engine.strategies.s17_reversal.S17ShortReversal,            enabled: true, lifecycle: incubation, params: {}}
+  - {id: S18, class: engine.strategies.s18_synthetic_options.S18SyntheticOptions, enabled: true, lifecycle: research, params: {}}
+  - {id: S19, class: engine.strategies.s19_meta_labeling.S19MetaLabeling,        enabled: false, lifecycle: research, params: {}}
+# S20 is the allocator (engine/portfolio/allocator.py), configured in config/risk.yaml.

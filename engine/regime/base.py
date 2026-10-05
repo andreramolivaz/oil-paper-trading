@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Protocol
+
+import pandas as pd
 
 from engine.core.events import Record
 
@@ -40,3 +43,17 @@ class RegimeState(Record):
     @property
     def is_transition(self) -> bool:
         return self.regime_id < 0
+
+
+class RegimeModel(Protocol):
+    """Walk-forward regime model. `fit` may be called weekly; `infer` is point-in-time at `ts`."""
+
+    name: str
+
+    def fit(self, features: pd.DataFrame) -> None: ...
+
+    def infer(self, features: pd.DataFrame, ts: datetime) -> RegimeState: ...
+
+    def history(self, features: pd.DataFrame) -> pd.DataFrame:
+        """Per-row regime probabilities (columns regime_p_<label>) and label, computed walk-forward."""
+        ...
