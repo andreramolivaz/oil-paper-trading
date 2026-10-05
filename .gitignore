@@ -1,0 +1,21 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+# engine local state (lives on the `data` branch, never on main)
+/state/
+/out/
+/site-data/
+# node
+site/node_modules/
+site/dist/
+# misc
+.DS_Store
+*.log
+.env
