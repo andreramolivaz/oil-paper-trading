@@ -1,1 +1,70 @@
-"""validation module."""
+"""Validation and anti-overfitting toolkit (brief §12): performance metrics, purged/combinatorial CV, PBO,
+Deflated Sharpe Ratio with a trials registry, cost sensitivity, CUSUM decay detection, lifecycle decisions."""
+
+from engine.validation.costs import breakeven_cost, cost_sensitivity, net_returns
+from engine.validation.cpcv import CPCVPlan, PBOResult, cpcv_plan, n_backtest_paths, probability_of_backtest_overfitting
+from engine.validation.cusum import BreakTest, CusumResult, cusum_filter, min_live_sample_size, structural_break_test
+from engine.validation.cv import PurgedKFold, purged_train_indices, walk_forward_splits
+from engine.validation.dsr import Haircut, TrialLog, deflated_sharpe_ratio, expected_max_sharpe, haircut_sharpe
+from engine.validation.lifecycle import Lifecycle, Thresholds, checks, decide_lifecycle, explain
+from engine.validation.metrics import (
+    Drawdown,
+    annualised_vol,
+    cagr,
+    calmar,
+    hit_rate,
+    kurtosis,
+    max_drawdown,
+    min_track_record_length,
+    probabilistic_sharpe_ratio,
+    profit_factor,
+    sharpe,
+    skew,
+    sortino,
+    summary,
+    turnover,
+)
+
+__all__ = [
+    "BreakTest",
+    "CPCVPlan",
+    "CusumResult",
+    "Drawdown",
+    "Haircut",
+    "Lifecycle",
+    "PBOResult",
+    "PurgedKFold",
+    "Thresholds",
+    "TrialLog",
+    "annualised_vol",
+    "breakeven_cost",
+    "cagr",
+    "calmar",
+    "checks",
+    "cost_sensitivity",
+    "cpcv_plan",
+    "cusum_filter",
+    "decide_lifecycle",
+    "deflated_sharpe_ratio",
+    "expected_max_sharpe",
+    "explain",
+    "haircut_sharpe",
+    "hit_rate",
+    "kurtosis",
+    "max_drawdown",
+    "min_live_sample_size",
+    "min_track_record_length",
+    "n_backtest_paths",
+    "net_returns",
+    "probabilistic_sharpe_ratio",
+    "probability_of_backtest_overfitting",
+    "profit_factor",
+    "purged_train_indices",
+    "sharpe",
+    "skew",
+    "sortino",
+    "structural_break_test",
+    "summary",
+    "turnover",
+    "walk_forward_splits",
+]
