@@ -165,7 +165,7 @@ class AlphaGate:
         data_age_minutes: float | None = None,
     ) -> GateResult:
         live = _tradeable(signals)
-        direction, conviction = net_direction(live, weights)
+        direction, _conviction = net_direction(live, weights)
         prob = ensemble_probability(live, direction, weights)
         agreeing = [s for s in live if s.direction is direction]
         conditions: dict[str, Condition] = {}
