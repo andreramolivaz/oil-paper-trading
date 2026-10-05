@@ -266,8 +266,12 @@ def check_divergence(
 
 
 def check_nonpositive(series: pd.Series, table: str = "", column: str | None = None) -> list[QualityIssue]:
-    """Prices must be strictly positive (WTI went negative once, in April 2020, but Brent never has, and a zero
-    is always a parsing accident). Error."""
+    """Non-positive prices: an error.
+
+    Scope matters. WTI really settled at **-37.63 $ on 2020-04-20** (and the EIA spot at -36.98 $), so running
+    this over a full history flags a genuine print; callers pass the recent tail (see
+    :data:`engine.data.fetch.NONPOSITIVE_TAIL_ROWS`), where a zero or a negative number is a parsing accident.
+    """
     name = _label(series, column)
     ser = _numeric(series).dropna()
     bad = ser[ser <= 0]

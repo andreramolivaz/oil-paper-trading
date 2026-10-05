@@ -86,8 +86,10 @@ def bocpd_run_length(
     out = np.zeros(n, dtype="float64")
     if n == 0:
         return out
-    r_max = max(int(run_length_max), short_run + 1)
-    k = min(r_max, n + 1)
+    # The number of run-length buckets is a CONSTANT of the model, never a function of the sample length:
+    # a truncation that grew with n would make the probability of an early day depend on how many rows were
+    # appended afterwards, which is exactly the look-ahead this module must not have.
+    k = max(int(run_length_max), short_run + 1)
 
     # Constant part of the Student-t log predictive, indexed by run length r = 0..k-1.
     r = np.arange(k, dtype="float64")
@@ -157,12 +159,18 @@ def bocpd_series(
     return pd.Series(arr, index=values.index, name=cat.BOCPD_CP_PROB, dtype="float64")
 
 
+def _log_diff(s: pd.Series) -> pd.Series:
+    """Causal log change of a positive series (NaN where the level is missing or non positive)."""
+    x = pd.to_numeric(s, errors="coerce").astype("float64")
+    pos = x.where(x > 0.0)
+    return pd.Series(np.log(pos.to_numpy(dtype="float64")), index=x.index, dtype="float64").diff()
+
+
 def _return_channel(features: pd.DataFrame) -> pd.Series | None:
     if cat.RET_1 in features.columns and features[cat.RET_1].notna().any():
         return features[cat.RET_1]
     if cat.PX in features.columns and features[cat.PX].notna().any():
-        px = pd.to_numeric(features[cat.PX], errors="coerce").astype("float64")
-        return np.log(px.where(px > 0)).diff()
+        return _log_diff(features[cat.PX])
     if cat.RET_21 in features.columns and features[cat.RET_21].notna().any():
         return features[cat.RET_21].diff()
     return None
@@ -170,8 +178,7 @@ def _return_channel(features: pd.DataFrame) -> pd.Series | None:
 
 def _vol_channel(features: pd.DataFrame) -> pd.Series | None:
     if cat.RV_YZ_21 in features.columns and features[cat.RV_YZ_21].notna().any():
-        rv = pd.to_numeric(features[cat.RV_YZ_21], errors="coerce").astype("float64")
-        return np.log(rv.where(rv > 0)).diff()
+        return _log_diff(features[cat.RV_YZ_21])
     return None
 
 

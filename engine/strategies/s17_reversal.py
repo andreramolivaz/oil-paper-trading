@@ -31,6 +31,10 @@ from engine.strategies.base import Family, MarketContext, Strategy
 from engine.strategies.common import clamp, expected_move, fmt_num, ou_half_life, prob_from_z, sign, vol_scale
 
 
+def _giorni(n: int) -> str:
+    return "1 giorno" if n == 1 else f"{n} giorni"
+
+
 class S17ShortReversal(Strategy):
     id = "S17"
     name = "Reversal di breve"
@@ -102,8 +106,9 @@ class S17ShortReversal(Strategy):
         hl_txt = f"half-life OU {fmt_num(half_life)} giorni" if half_life is not None else "half-life OU non stimabile"
         verso = "rimbalzo" if side > 0 else "rientro"
         rationale = (
-            f"Hurst {fmt_num(hurst, 2)} sotto 0,5 e movimento 5g di {fmt_num(ret_5 * 100)}% pari a "
-            f"{fmt_num(z)} sigma senza conferma fondamentale: {verso} atteso su {horizon} giorni ({hl_txt})."
+            f"Hurst {fmt_num(hurst, 2)} sotto {fmt_num(float(p['max_hurst']), 2)} e movimento 5g di "
+            f"{fmt_num(ret_5 * 100)}% pari a {fmt_num(z)} sigma senza conferma fondamentale: "
+            f"{verso} atteso su {_giorni(horizon)} ({hl_txt})."
         )
         return self.make_signal(
             ctx,

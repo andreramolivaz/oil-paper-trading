@@ -10,8 +10,9 @@ implements the filtering recursion itself from the fitted parameters
 
     alpha_t(j) ∝ P(x_t | state=j) * sum_i transmat[i, j] * alpha_{t-1}(i)
 
-renormalised at every step (the log of the normaliser accumulates the log-likelihood, so nothing underflows
-even over 9 000 days). The posterior reported for day t therefore uses rows <= t only.
+renormalised at every step, with the emission log-densities shifted by their row maximum before they are
+exponentiated, so nothing underflows even over 9 000 days. The posterior reported for day t therefore uses
+rows <= t only.
 
 Why `covariance_type="diag"`
 ----------------------------
@@ -73,6 +74,7 @@ def _single_threaded() -> Iterator[None]:
         return
     with threadpool_limits(limits=1):
         yield
+
 
 F64 = npt.NDArray[np.float64]
 
@@ -271,6 +273,10 @@ class WalkForwardHmm:
             log.debug("regime fit %s: dropping all-NaN features %s", fit_date.date(), dropped)
         names = [columns[j] for j in keep]
         tr = train[:, keep]
+        # The slope can also disappear *per window*: the column exists in the frame (so `_select_columns`
+        # kept it) but is empty in this training window, e.g. a curve history that only starts recently.
+        # Such a fit is as approximate as one with no slope column at all.
+        fit_slope_missing = slope_missing or not any(n in (SLOPE_PRIMARY, SLOPE_FALLBACK) for n in names)
 
         # 2. training moments (median for imputation, 1/99 winsorisation, mean/std standardisation)
         with warnings.catch_warnings():
@@ -323,7 +329,7 @@ class WalkForwardHmm:
             loglik=float(model.score(z)),
             bic=float(bic),
             canonical_ids=list(range(k)),
-            slope_missing=slope_missing,
+            slope_missing=fit_slope_missing,
             n_train=int(z.shape[0]),
         )
         self.fit_cache[key] = fit
@@ -421,10 +427,12 @@ class WalkForwardHmm:
         # no-look-ahead comparison. With k < 8 the scalar path is used and the result is reproducible.
         # +, -, * and / are exactly rounded by IEEE 754, so the rest of the recursion is already stable.
         buf = np.empty(k, dtype="float64")
+        alpha = uniform
         for t in range(z.shape[0]):
             np.copyto(buf, logb[t])
             np.exp(buf, out=buf)
-            alpha = buf * fit.startprob if t == 0 else buf * (trans.T @ alpha)
+            prior = fit.startprob if t == 0 else trans.T @ alpha
+            alpha = buf * prior
             total = alpha.sum()
             alpha = alpha / total if total > 0 else uniform
             out[t] = alpha
@@ -466,7 +474,10 @@ class WalkForwardHmm:
             )
             fits.append(fit)
             previous = fit
-            start = 0 if i == 0 else fit_positions[i - 1] + 1
+            # Fit i is estimated on rows 0..pos_i, so it may only label rows pos_i+1 .. pos_{i+1}.
+            # The first fit additionally covers its own (in-sample) training window: those rows are the
+            # warm-up and are flagged as such.
+            start = 0 if i == 0 else pos + 1
             stop = fit_positions[i + 1] if i + 1 < len(fit_positions) else n - 1
             blocks.append((start, stop, fit))
 

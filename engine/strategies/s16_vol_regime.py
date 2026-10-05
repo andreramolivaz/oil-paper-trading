@@ -30,6 +30,10 @@ from engine.strategies.base import Family, MarketContext, Strategy
 from engine.strategies.common import TRADING_DAYS, clamp, expected_move, fmt_num, prob_from_z, sign, vol_scale
 
 
+def _giorni(n: int) -> str:
+    return "1 giorno" if n == 1 else f"{n} giorni"
+
+
 class S16VolRegime(Strategy):
     id = "S16"
     name = "Regime di volatilità"
@@ -101,7 +105,7 @@ class S16VolRegime(Strategy):
                 rationale = (
                     f"Premio per il rischio di volatilità al percentile {fmt_num(pctl, 2)} e nessun evento entro "
                     f"{fmt_num(hours, 0)} ore: movimento di {fmt_num(ret_1 * 100)}% pari a {fmt_num(z)} sigma, "
-                    f"rientro atteso su {horizon} giorni."
+                    f"rientro atteso su {_giorni(horizon)}."
                 )
                 return self.make_signal(
                     ctx,

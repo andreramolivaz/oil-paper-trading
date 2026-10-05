@@ -60,6 +60,7 @@ class S9CrackSpread(Strategy):
             "lead_sigma_window": 252,  # window for the product_lead sigma
             "lead_horizon_days": 5,  # docs: long crude for about one week
             "crack_entry_z": 2.5,  # docs: |crack_321_z| > 2.5
+            "crack_sigma_window": 252,  # window for the crack sigma
             "crack_horizon_days": 10,
             "roll_buffer_days": 3,
             "target_vol": 0.15,
@@ -133,7 +134,7 @@ class S9CrackSpread(Strategy):
         if instr is None or ctx.price <= 0:
             return None
         horizon = int(self.params["crack_horizon_days"])
-        sigma_usd = _horizon_sigma(ctx.hist(CRACK_321, int(self.params["lead_sigma_window"])), horizon)
+        sigma_usd = _horizon_sigma(ctx.hist(CRACK_321, int(self.params["crack_sigma_window"])), horizon)
         if math.isnan(sigma_usd):
             return None
         sigma_h = sigma_usd / float(ctx.price)

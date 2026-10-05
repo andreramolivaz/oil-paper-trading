@@ -31,6 +31,17 @@ Where ``s_d`` comes from, in order of preference (recorded per row in ``roll_adj
 
 ``roll_adj_source`` is per row and describes the roll applied **on that date**: a non-roll date is ``none``
 because no adjustment event happens there.
+
+Known approximation
+-------------------
+``BZ=F`` is Yahoo's *front-month* series: it switches contract on its own schedule, which we cannot read from
+the bars (there is no contract code per bar). The roll dates here come from the ICE expiry calendar
+(:func:`roll_dates_from_calendar`), so they can be a day or two away from Yahoo's actual switch. When that
+happens the adjustment is applied to a day that carried no roll (and the real roll day keeps its jump). With
+the ``spot_return`` method the damage is bounded - that day's futures return is replaced by the physical-market
+return - but it IS an approximation: it is recorded per row in ``roll_adj_source`` and summarised in
+``attrs["roll_sources"]`` so downstream code can label it ``approx``. Once the daily curve archive is deep
+enough, the ``curve`` method (the real M2-M1 settlement spread) replaces it.
 """
 
 from __future__ import annotations
@@ -51,6 +62,7 @@ log = logging.getLogger(__name__)
 ROLL_SOURCES = ("curve", "wti_proxy", "spot_return", "none")
 WTI_PROXY_ATTR = "wti_proxy"
 DEFAULT_ROLL_BUFFER_DAYS = 2
+MAX_SPREAD_STALENESS_DAYS = 5  # a curve snapshot older than this is not carried forward onto a roll date
 CONT_COLUMN = "cont"
 SOURCE_COLUMN = "roll_adj_source"
 CURVE_TABLE_COLUMNS = [*CURVE_COLUMNS, "M1_code", "published_at"]
@@ -169,11 +181,15 @@ def build_roll_adjusted(
     return out
 
 
-def curve_spreads_from_table(curve: pd.DataFrame, roll_dates: list[date]) -> pd.Series:
+def curve_spreads_from_table(
+    curve: pd.DataFrame, roll_dates: list[date], max_staleness_days: int = MAX_SPREAD_STALENESS_DAYS
+) -> pd.Series:
     """``M2 - M1`` of the archived curve table on the roll dates (the real Brent roll spread).
 
-    The spread is taken from the LAST curve row at or before the roll date (the curve snapshot of the previous
-    session is what a roll executed at that session's settlement would have paid).
+    The spread is taken from the last curve row at or before the roll date - the snapshot of the previous
+    session is what a roll executed at that settlement would have paid - but only within
+    ``max_staleness_days`` calendar days. A curve older than that is NOT carried forward: the roll falls back
+    to the WTI proxy or to the spot return, which is honest about what we actually knew.
     """
     if curve is None or curve.empty or "M1" not in curve.columns or "M2" not in curve.columns:
         return pd.Series(dtype="float64")
@@ -188,7 +204,7 @@ def curve_spreads_from_table(curve: pd.DataFrame, roll_dates: list[date]) -> pd.
     wanted = pd.DatetimeIndex(sorted({pd.Timestamp(d) for d in roll_dates}))
     if len(wanted) == 0:
         return pd.Series(dtype="float64")
-    aligned = spread.reindex(spread.index.union(wanted)).ffill().reindex(wanted)
+    aligned = spread.reindex(wanted, method="ffill", tolerance=pd.Timedelta(days=max_staleness_days))
     return aligned.dropna()
 
 

@@ -306,6 +306,17 @@ class FullFeatureBuilder:
             if backfill:
                 attrs["px_backfill"] = backfill
 
+        # Keep only the days Brent actually traded. `md.prices` is indexed on the UNION of every source, so a
+        # day when (say) the VIX printed but ICE was closed leaves PX empty; those rows would then sit inside
+        # every rolling window and turn most trailing statistics into NaN. Decisions only exist on Brent
+        # trading days anyway (the session needs a front price to act), so the feature calendar is PX's.
+        traded = px.notna().to_numpy()
+        dropped = int((~traded).sum())
+        if dropped:
+            attrs["non_trading_rows_dropped"] = dropped
+        px_df = px_df.loc[traded]
+        px = px.loc[traded]
+
         cols: dict[str, pd.Series] = {cat.PX: px}
         cols[cat.PX_FRONT] = self._col(px_df, "brent_front_close")
         cols[cat.SPOT] = self._col(px_df, "brent_spot")

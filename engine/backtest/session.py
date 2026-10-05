@@ -145,16 +145,25 @@ class TradingSession:
         if self.store is None:
             return
         self.store.write_json(SESSION_FILE, self.state.to_dict())
-        self.store.write_json("broker_master.json", self.master.state.to_dict())
+        if self.master.store is None:
+            # the master does not persist itself (backtest): keep a copy here so a reload can resume
+            self.store.write_json("broker_master.json", self.master.state.to_dict())
         self.store.write_json(
             "broker_shadows.json", {sid: b.state.to_dict() for sid, b in sorted(self.shadows.items())}
         )
 
-    def load(self) -> None:
-        """Reload session + broker state from the store (live runner calls this on every invocation)."""
+    def load(self, session_only: bool = False) -> None:
+        """Reload session + broker state from the store (live runner calls this on every invocation).
+
+        With `session_only=True` only the session bookkeeping is reloaded: the live runner builds its brokers
+        with `PaperBroker.load`, whose `account.json` is the canonical account state, so reloading the session's
+        own copy would risk two sources of truth.
+        """
         if self.store is None:
             return
         self.state = SessionState.from_dict(self.store.read_json(SESSION_FILE))
+        if session_only:
+            return
         from engine.broker.paper import BrokerState
 
         raw_master = self.store.read_json("broker_master.json")

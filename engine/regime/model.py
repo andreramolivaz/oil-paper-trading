@@ -87,5 +87,7 @@ def make_regime_model(config: dict[str, Any] | None = None) -> RegimeModel:
     try:
         return FullRegimeModel(cfg)
     except Exception as exc:
-        log.warning("regime: FullRegimeModel could not be built (%s); falling back to %s", exc, ConstantRegimeModel.name)
+        log.warning(
+            "regime: FullRegimeModel could not be built (%s); falling back to %s", exc, ConstantRegimeModel.name
+        )
         return ConstantRegimeModel(cfg)

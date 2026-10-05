@@ -190,7 +190,7 @@ class S13GeopoliticalPremium(Strategy):
         atr = ctx.f(cat.ATR_14)
         stop_pct = float(p["fade_stop_atr"]) * atr if not math.isnan(atr) else float(p["stop_sigma"]) * em
         rationale = (
-            f"Picco geopolitico di {days_ago} sedute fa senza conferma fisica (spread {fmt_num(spread_chg * 100)}%, "
+            f"Picco geopolitico {days_ago} sedute fa senza conferma fisica (spread {fmt_num(spread_chg * 100)}%, "
             f"premio spot {fmt_num(prem_chg * 100)}%): short sul premio con {condition}."
         )
         return self.make_signal(

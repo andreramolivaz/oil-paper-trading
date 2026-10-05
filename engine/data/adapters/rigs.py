@@ -35,6 +35,7 @@ from __future__ import annotations
 import io
 import logging
 import re
+import warnings
 from datetime import UTC, date, datetime
 from datetime import time as dtime
 from typing import Any
@@ -63,6 +64,9 @@ LINK_PATTERNS = (
 )
 PIVOT_PATTERN = re.compile(r"pivot|by[\s_]*state|workover|annual|monthly[\s_]*average", re.IGNORECASE)
 REPORT_DATE_RE = re.compile(r"(\d{2})-(\d{2})-(\d{4})")
+# openpyxl warns "Unknown extension is not supported and will be removed" on the Baker Hughes workbooks (they
+# carry Excel extension records openpyxl drops). It is harmless and would spam every weekly job log.
+OPENPYXL_EXTENSION_WARNING = "Unknown extension is not supported"
 ANCHOR_RE = re.compile(r"<a\s+([^>]*?)>(.*?)</a>", re.IGNORECASE | re.DOTALL)
 ATTR_RE = re.compile(r"""([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*"([^"]*)"|([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*'([^']*)'""")
 TAG_RE = re.compile(r"<[^>]+>")
@@ -250,11 +254,27 @@ def parse_rig_workbook(content: bytes, extension: str = ".xlsx") -> pd.DataFrame
     Both published layouts are supported (long ``NAM Weekly`` table, wide ``US Oil & Gas Split`` sheet); the
     first sheet that parses wins. ``DataUnavailable`` is raised when no sheet matches either layout.
     """
-    engine = ENGINE_BY_EXTENSION.get(extension.lower())
-    try:
-        book = pd.ExcelFile(io.BytesIO(content), engine=engine)  # type: ignore[arg-type]
-    except Exception as e:  # openpyxl/pyxlsb/xlrd raise many error types on HTML error pages or truncated files
-        raise DataUnavailable(f"Baker Hughes workbook ({extension}): cannot open ({e})") from e
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=OPENPYXL_EXTENSION_WARNING, category=UserWarning)
+        return _parse_rig_workbook(content, extension)
+
+
+def _parse_rig_workbook(content: bytes, extension: str) -> pd.DataFrame:
+    """Implementation of :func:`parse_rig_workbook` (wrapped there by the openpyxl warnings filter)."""
+    # the anchor's extension is a hint, not a guarantee (the links are opaque /static-files/<uuid> URLs and the
+    # published type attribute has been wrong before), so fall back to pandas' own sniffing and then to pyxlsb
+    engines: list[str | None] = [ENGINE_BY_EXTENSION.get(extension.lower())]
+    engines += [e for e in (None, "openpyxl", "pyxlsb") if e not in engines]
+    book: pd.ExcelFile | None = None
+    opening: list[str] = []
+    for engine in engines:
+        try:
+            book = pd.ExcelFile(io.BytesIO(content), engine=engine)  # type: ignore[arg-type]
+            break
+        except Exception as e:  # openpyxl/pyxlsb/xlrd raise many error types on HTML pages or truncated files
+            opening.append(f"{engine or 'auto'}: {e}")
+    if book is None:
+        raise DataUnavailable(f"Baker Hughes workbook ({extension}): cannot open ({'; '.join(opening[:3])})")
     errors: list[str] = []
     for sheet in sorted(book.sheet_names, key=_sheet_priority):
         try:

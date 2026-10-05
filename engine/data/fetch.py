@@ -38,7 +38,9 @@ from engine.data.base import FetchResult, Health, SourceHealth, utc_now
 from engine.data.quality import (
     QualityIssue,
     check_duplicates,
+    check_gaps,
     check_nonpositive,
+    check_outliers,
     check_stale,
     health_from_issues,
     overall_health,
@@ -57,6 +59,12 @@ INTRADAY_LOOKBACK_DAYS = 730
 MAX_ACCUMULATED_SLOTS = 96 * 400  # ~1 year of 15-minute slots kept in the accumulating GDELT table
 
 
+# Yahoo rate-limits a long burst with HTTP 429 and retrying does not clear it (the quota is per IP), so the
+# shared adapter paces requests 1.2 s apart and gives up after two attempts with a long backoff: a full fetch
+# makes ~60 Yahoo calls and must not spend half a minute retrying a non-critical index.
+YAHOO_KWARGS: dict[str, Any] = {"min_interval": 1.2, "retries": 1, "backoff": 4.0}
+
+
 @dataclass(frozen=True)
 class AdapterSpec:
     """How to build and call one adapter named in the YAML."""
@@ -66,12 +74,15 @@ class AdapterSpec:
     method: str
     key: str | None = None  # "eia" | "fred": the Settings field required by `needs_key`
     ctor_takes_key: bool = False
+    ctor_kwargs: dict[str, Any] = field(default_factory=dict)
 
 
 ADAPTERS: dict[str, AdapterSpec] = {
-    "yahoo": AdapterSpec("engine.data.adapters.yahoo", "YahooAdapter", "fetch_daily"),
-    "yahoo_curve": AdapterSpec("engine.data.adapters.yahoo", "YahooAdapter", "fetch_curve"),
-    "yahoo_intraday": AdapterSpec("engine.data.adapters.yahoo", "YahooAdapter", "fetch_intraday"),
+    "yahoo": AdapterSpec("engine.data.adapters.yahoo", "YahooAdapter", "fetch_daily", ctor_kwargs=YAHOO_KWARGS),
+    "yahoo_curve": AdapterSpec("engine.data.adapters.yahoo", "YahooAdapter", "fetch_curve", ctor_kwargs=YAHOO_KWARGS),
+    "yahoo_intraday": AdapterSpec(
+        "engine.data.adapters.yahoo", "YahooAdapter", "fetch_intraday", ctor_kwargs=YAHOO_KWARGS
+    ),
     "eia": AdapterSpec("engine.data.adapters.eia", "EiaAdapter", "fetch_spot", "eia", True),
     "eia_futures": AdapterSpec("engine.data.adapters.eia", "EiaAdapter", "fetch_futures_hist", "eia", True),
     "eia_wpsr": AdapterSpec("engine.data.adapters.eia", "EiaAdapter", "fetch_wpsr", "eia", True),
@@ -119,8 +130,16 @@ FRESHNESS: dict[str, timedelta] = {
     INTRADAY_KEY: timedelta(hours=36),
 }
 DEFAULT_FRESHNESS = timedelta(days=10)
-# columns that must be strictly positive wherever they appear
+# columns that must be strictly positive. Only the TAIL is checked: WTI really settled at -37.63 $ on
+# 2020-04-20 and that historical print must not turn the source red forever - what matters for new risk is
+# whether the CURRENT quotes make sense.
 PRICE_LIKE = ("value", "close", "M1", "settle", "price")
+NONPOSITIVE_TAIL_ROWS = 30
+# the outlier and business-day-gap checks also run on the recent tail only: a 19-year history always contains
+# some exchange closure the UK/US calendars do not know, and a 2008 outlier says nothing about today's feed.
+RECENT_TAIL_ROWS = 60
+OUTLIER_Z = 6.0
+MAX_BUSINESS_GAP = 3
 
 
 @dataclass
@@ -145,20 +164,26 @@ class EntryResult:
 
 
 def _asof_of(frame: pd.DataFrame) -> datetime | None:
+    """Newest observation timestamp of a fetched frame.
+
+    The index is the natural answer for a time-indexed table; the curve snapshots are indexed by CONTRACT CODE
+    (``BZZ26``), so ``published_at`` is used there. Anything unparseable returns None rather than raising: this
+    is metadata for the health report, never a trading input.
+    """
     if frame.empty:
         return None
-    idx = pd.DatetimeIndex(frame.index) if not isinstance(frame.index, pd.DatetimeIndex) else frame.index
-    try:
+    for candidate in (frame.index, frame.get("published_at")):
+        if candidate is None or not pd.api.types.is_datetime64_any_dtype(candidate):
+            continue  # a non-temporal index is normal (the curve is indexed by contract code)
+        try:
+            idx = pd.DatetimeIndex(pd.to_datetime(pd.Index(candidate), errors="raise", utc=True))
+        except Exception:  # an unparseable timestamp is metadata we can live without
+            continue
         ts = pd.Timestamp(idx.max())
-    except (TypeError, ValueError):
-        pub = frame.get("published_at")
-        if pub is None:
-            return None
-        ts = pd.Timestamp(pd.DatetimeIndex(pub).max())
-    if pd.isna(ts):
-        return None
-    ts = ts.tz_localize(UTC) if ts.tzinfo is None else ts.tz_convert(UTC)
-    return ts.to_pydatetime()
+        if pd.isna(ts):
+            continue
+        return ts.tz_convert(UTC).to_pydatetime() if ts.tzinfo else ts.tz_localize(UTC).to_pydatetime()
+    return None
 
 
 def quality_issues(entry: str, frame: pd.DataFrame, now: datetime) -> list[QualityIssue]:
@@ -170,9 +195,18 @@ def quality_issues(entry: str, frame: pd.DataFrame, now: datetime) -> list[Quali
         probe = frame.iloc[:, 0] if frame.shape[1] else pd.Series(dtype="float64", index=index)
         issues += check_stale(pd.Series(probe.to_numpy(), index=index), now, max_age, entry, "index")
     issues += check_duplicates(index, entry)
+    tail = frame.tail(NONPOSITIVE_TAIL_ROWS)
+    recent = frame.tail(RECENT_TAIL_ROWS)
+    daily = isinstance(index, pd.DatetimeIndex) and len(index) > 5 and str(index.dtype).startswith("datetime")
     for col in frame.columns:
-        if str(col) in PRICE_LIKE:
-            issues += check_nonpositive(frame[col], entry, str(col))
+        if str(col) not in PRICE_LIKE:
+            continue
+        issues += check_nonpositive(tail[col], entry, str(col))
+        if daily:
+            values = pd.to_numeric(recent[col], errors="coerce").astype("float64")
+            issues += check_outliers(values.diff() / values.shift(1), OUTLIER_Z, 30, entry, f"{col} (ret)")
+    if daily and entry not in {"wpsr", "rig_count", "cot_wti", "cot_brent", "cot_gasoil", "steo_brent"}:
+        issues += check_gaps(pd.DatetimeIndex(recent.index), MAX_BUSINESS_GAP, entry, "index")
     return issues
 
 
@@ -196,7 +230,7 @@ class Fetcher:
         cls = getattr(module, spec.cls, None)
         if cls is None:
             raise DataUnavailable(f"adapter {name!r}: {spec.module} has no class {spec.cls}")
-        kwargs: dict[str, Any] = {}
+        kwargs: dict[str, Any] = dict(spec.ctor_kwargs)
         if spec.ctor_takes_key:
             kwargs["api_key"] = self.settings.eia_api_key if spec.key == "eia" else self.settings.fred_api_key
         instance = cls(**kwargs)
@@ -435,14 +469,29 @@ class Fetcher:
         return report
 
     def write_health(self, report: dict[str, Any]) -> None:
-        """Persist ``state/health.json`` (``checked_at``, ``sources``, ``overall``)."""
+        """Persist ``state/health.json`` (``checked_at``, ``sources``, ``overall``).
+
+        A group-filtered run MERGES its sources into the existing file instead of truncating it: the intraday
+        job fetches prices only, and the dashboard must still see the status of the weekly sources it did not
+        touch. Entries this run checked replace the old ones; untouched entries keep their previous record (and
+        their older ``checked_at``), and ``overall`` is recomputed over the merged set.
+        """
         if self.state is None:
             return
+        fresh: list[dict[str, Any]] = list(report["sources"])
+        names = {str(s.get("source")) for s in fresh}
+        previous = self.state.read_json(HEALTH_FILE) or {}
+        kept = [s for s in previous.get("sources", []) if str(s.get("source")) not in names]
+        merged = sorted([*fresh, *kept], key=lambda s: str(s.get("source")))
+        statuses = {str(s.get("status")) for s in merged}
+        overall = "red" if "red" in statuses else ("yellow" if "yellow" in statuses else "green")
         self.state.write_json(
             HEALTH_FILE,
             {
                 "checked_at": report["checked_at"],
-                "sources": report["sources"],
-                "overall": report["overall"],
+                "sources": merged,
+                "overall": overall,
+                "groups_checked": sorted(report["groups"]),
             },
         )
+        report["overall_merged"] = overall

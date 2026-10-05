@@ -65,6 +65,7 @@ class _Details:
     model: pd.Series
     fit_date: pd.Series
     warmup: pd.Series
+    approx: pd.Series  # per row: the active fit had no curve slope, so the label is a best effort
     features_used: list[str]
     slope_missing: bool
 
@@ -141,7 +142,7 @@ class FullRegimeModel:
             change_point_prob=cp,
             features_used=list(det.features_used),
             model=str(det.model.loc[at]),
-            approx=bool(det.slope_missing),
+            approx=bool(det.approx.loc[at]),
         )
 
     # ---- persistence --------------------------------------------------------
@@ -163,6 +164,20 @@ class FullRegimeModel:
         with p.open("wb") as f:
             pickle.dump(payload, f, protocol=pickle.HIGHEST_PROTOCOL)
         return p
+
+    def save_file(self, path: str | Path) -> Path:
+        """Alias of `save` under the name the live runner duck-types (`engine/live/jobs.py`)."""
+        return self.save(path)
+
+    def load_file(self, path: str | Path) -> None:
+        """Merge a cache written by `save` into THIS model, keeping this model's own configuration.
+
+        The live runner builds the model from the current config and then warms it with the weekly cache,
+        so only the fitted parameters travel; a cache entry is keyed by (fit position, training-data
+        digest) and is therefore ignored automatically when the data behind it has changed.
+        """
+        other = type(self).load(path)
+        self.hmm.fit_cache.update(other.hmm.fit_cache)
 
     @classmethod
     def load(cls, path: str | Path) -> FullRegimeModel:
@@ -216,10 +231,11 @@ class FullRegimeModel:
         probs = np.zeros((n, n_labels), dtype="float64")
         best_id = np.full((n, n_labels), -1, dtype="int64")
         model_str = pd.Series("", index=idx, dtype="object")
+        approx = pd.Series(bool(res.slope_missing), index=idx, dtype="bool")
 
         post = res.posteriors
         cols = list(post.columns)
-        col_of = {cid: j for j, cid in enumerate(cols)}
+        col_of: dict[Any, int] = {cid: j for j, cid in enumerate(cols)}
         vals = post.to_numpy(dtype="float64") if cols else np.zeros((n, 0), dtype="float64")
 
         for fit in res.fits:
@@ -228,6 +244,7 @@ class FullRegimeModel:
                 continue
             fit_labels = label_states(fit.means, fit.feature_names)
             model_str[rows] = f"hmm{fit.n_states}-wf-{fit.fit_date.date().isoformat()}"
+            approx[rows] = bool(fit.slope_missing)
             for li, lab in enumerate(STATE_LABELS):
                 cids = [cid for cid, lb in zip(fit.canonical_ids, fit_labels) if lb == lab]
                 if not cids:
@@ -265,6 +282,7 @@ class FullRegimeModel:
             model=model_str,
             fit_date=res.fit_date,
             warmup=res.warmup,
+            approx=approx,
             features_used=list(res.features_used),
             slope_missing=bool(res.slope_missing),
         )

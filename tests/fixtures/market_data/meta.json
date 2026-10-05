@@ -1,0 +1,85 @@
+{
+  "captured_at": "2026-10-05T16:30:01.550881Z",
+  "note": "snapshot reale catturato con `engine.cli fetch --snapshot` + build_market_data; nessun valore modificato",
+  "sources": {
+    "brent_spot": "eia_xls",
+    "wti_spot": "fred_csv",
+    "brent_front_open": "yahoo",
+    "brent_front_high": "yahoo",
+    "brent_front_low": "yahoo",
+    "brent_front_close": "yahoo",
+    "brent_front_volume": "yahoo",
+    "brent_front_oi": "yahoo",
+    "wti_front_close": "yahoo",
+    "rbob_close": "yahoo",
+    "ho_close": "yahoo",
+    "ovx": "yahoo",
+    "vix": "yahoo",
+    "dxy": "yahoo",
+    "spx": "yahoo",
+    "copper": "yahoo",
+    "us10y": "fred_csv",
+    "breakeven10y": "fred_csv",
+    "brent_cont": "yahoo + roll adj",
+    "wti_cont": "yahoo + roll adj",
+    "curve": "yahoo (2 snapshot)",
+    "wpsr": "eia_xls",
+    "cot_wti": "cftc_socrata",
+    "cot_brent": "ice_cot",
+    "cot_gasoil": "ice_cot",
+    "gdelt": "gdelt_files",
+    "gpr": "gpr",
+    "rigs": "baker_hughes",
+    "intraday": "yahoo"
+  },
+  "adapters": {
+    "brent_spot": "eia_xls",
+    "wti_spot": "fred_csv",
+    "brent_front": "yahoo",
+    "wti_front": "yahoo",
+    "rbob_front": "yahoo",
+    "ho_front": "yahoo",
+    "ovx": "yahoo",
+    "vix": "yahoo",
+    "dxy": "yahoo",
+    "spx": "yahoo",
+    "copper": "yahoo",
+    "us10y": "fred_csv",
+    "breakeven10y": "fred_csv",
+    "wpsr": "eia_xls",
+    "cot_wti": "cftc_socrata",
+    "cot_brent": "ice_cot",
+    "cot_gasoil": "ice_cot",
+    "gpr": "gpr",
+    "rig_count": "baker_hughes"
+  },
+  "fallbacks": {
+    "brent_spot": "eia_xls",
+    "wti_spot": "fred_csv",
+    "ovx": "yahoo",
+    "vix": "yahoo",
+    "dxy": "yahoo",
+    "us10y": "fred_csv",
+    "breakeven10y": "fred_csv",
+    "wpsr": "eia_xls"
+  },
+  "missing": [
+    "wti_curve_hist"
+  ],
+  "approx": {
+    "curve_wti_proxy": false,
+    "brent_cont_rolls": {
+      "curve": 0,
+      "wti_proxy": 0,
+      "spot_return": 219,
+      "none": 0
+    },
+    "wti_cont_rolls": {
+      "curve": 0,
+      "wti_proxy": 0,
+      "spot_return": 276,
+      "none": 0
+    }
+  },
+  "prices_start": "1987-05-20"
+}

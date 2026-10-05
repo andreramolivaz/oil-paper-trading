@@ -142,9 +142,7 @@ def _rule_backwardation_geo(z: dict[str, float]) -> bool:
 def _rule_contango_glut(z: dict[str, float]) -> bool:
     """Negative slope (contango), negative trend and stocks above the 5y seasonal mean."""
     return (
-        _get(z, cat.SLOPE_M1_M6) <= -0.30
-        and _get(z, cat.TSMOM_63) <= -0.30
-        and _get(z, cat.CRUDE_STOCKS_VS_5Y) >= 0.30
+        _get(z, cat.SLOPE_M1_M6) <= -0.30 and _get(z, cat.TSMOM_63) <= -0.30 and _get(z, cat.CRUDE_STOCKS_VS_5Y) >= 0.30
     )
 
 

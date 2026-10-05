@@ -1,0 +1,21 @@
+{
+  "_comment": "HAND-WRITTEN JSON SHAPE, NOT REAL DATA. The GDELT DOC API answers HTTP 429 from this container (see gdelt_doc_api_429.txt), so the parser is tested on the documented reply shape with invented values.",
+  "timeline": [
+    {
+      "series": "Volume Intensity",
+      "data": [
+        {"date": "20260701T000000Z", "value": 0.0123, "norm": 100000},
+        {"date": "20260702T000000Z", "value": 0.0456, "norm": 100000},
+        {"date": "20260703T000000Z", "value": 0.0789, "norm": 100000}
+      ]
+    },
+    {
+      "series": "Average Tone",
+      "data": [
+        {"date": "20260701T000000Z", "value": -3.5},
+        {"date": "20260702T000000Z", "value": -4.25},
+        {"date": "20260703T000000Z", "value": null}
+      ]
+    }
+  ]
+}
