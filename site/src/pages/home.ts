@@ -121,14 +121,20 @@ export async function renderHome(el: HTMLElement): Promise<void> {
 
   const chartEl = document.getElementById("equity-chart");
   const series = equity.data?.series ?? [];
-  if (chartEl && series.length > 1) {
+  // A curve that spans a single calendar day is not a chart: the axis would zoom onto cent-level noise.
+  const days = new Set(series.map((p) => String(p.t).slice(0, 10)));
+  if (chartEl && series.length > 1 && days.size > 1) {
     const chart = baseChart(chartEl);
     addLine(chart, toLineData(series.map((p) => ({ t: p.t, v: p.master }))), cssVar("--series-1"), { title: "Master" });
     const bh = toLineData(series.map((p) => ({ t: p.t, v: p.buy_hold_brent ?? null })));
     if (bh.length > 1) addLine(chart, bh, cssVar("--series-2"), { dashed: true, title: "Buy & hold" });
     fit(chart);
   } else if (chartEl) {
-    chartEl.outerHTML = empty("Storico equity non ancora disponibile: serve almeno un ciclo di paper trading.");
+    chartEl.outerHTML = empty(
+      days.size === 1
+        ? "Un solo giorno di storico: il grafico compare dalla seconda sessione di paper trading."
+        : "Storico equity non ancora disponibile: serve almeno un ciclo di paper trading.",
+    );
   }
 }
 

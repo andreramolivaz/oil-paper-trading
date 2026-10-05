@@ -1,1 +1,1 @@
-{"generated_at": "2026-10-05T18:09:26.258550Z", "epochs": []}
+{"generated_at": "2026-10-05T18:45:04.646783Z", "epochs": [{"epoch": 1, "started_ts": "2026-10-05T11:00:00Z", "ended_ts": "2026-10-05T18:30:14.164020Z", "start_equity": 10000.0, "end_equity": 10000.0, "max_equity": 10000.0, "min_equity": 10000.0, "end_reason": "reset_manual", "n_trades": 0}, {"epoch": 2, "started_ts": "2026-10-05T18:30:14.164020Z", "start_equity": 10000.0, "max_equity": 10000.0, "min_equity": 10000.0, "end_equity": null, "end_reason": null, "n_trades": 0, "current": true}]}

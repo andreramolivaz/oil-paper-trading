@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-10-05T18:09:26.258550Z",
+  "generated_at": "2026-10-05T18:45:04.646783Z",
   "brent": {
-    "value": 100.76000213623047,
+    "value": 100.26000213623047,
     "asof": "2026-10-05",
     "source": "yahoo",
-    "change_1d": -0.014572106247134786,
+    "change_1d": -0.019462081797257058,
     "ovx": {
-      "value": 49.43000030517578,
+      "value": 49.290000915527344,
       "asof": "2026-10-05",
       "source": "yahoo"
     },
@@ -33,15 +33,15 @@
   },
   "data_status": {
     "overall": "yellow",
-    "checked_at": "2026-10-05T17:19:03.671492Z",
+    "checked_at": "2026-10-05T18:42:28.259179Z",
     "sources": [
       {
         "source": "breakeven10y",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:39.937497Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:44:04.496897Z",
         "data_asof": "2026-10-02T00:00:00Z",
-        "latency_ms": 933,
+        "latency_ms": 971,
         "message": "adapter fred_csv | fallback: fred_csv",
         "fallback_used": "fred_csv",
         "rows": 5943
@@ -49,10 +49,10 @@
       {
         "source": "brent_curve",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:00.309875Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:43:24.828872Z",
         "data_asof": "2026-10-05T22:00:00Z",
-        "latency_ms": 43052,
+        "latency_ms": 43128,
         "message": "adapter yahoo",
         "fallback_used": null,
         "rows": 18
@@ -60,10 +60,10 @@
       {
         "source": "brent_front",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:19:06.361153Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:42:30.905918Z",
         "data_asof": "2026-10-05T00:00:00Z",
-        "latency_ms": 1334,
+        "latency_ms": 1375,
         "message": "adapter yahoo",
         "fallback_used": null,
         "rows": 4775
@@ -71,21 +71,21 @@
       {
         "source": "brent_intraday_1h",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:16.127527Z",
-        "data_asof": "2026-10-05T17:00:00Z",
-        "latency_ms": 1371,
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:43:40.667415Z",
+        "data_asof": "2026-10-05T18:00:00Z",
+        "latency_ms": 1419,
         "message": "adapter yahoo",
         "fallback_used": null,
-        "rows": 13608
+        "rows": 13609
       },
       {
         "source": "brent_spot",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:19:04.369595Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:42:28.966520Z",
         "data_asof": "2026-09-29T00:00:00Z",
-        "latency_ms": 698,
+        "latency_ms": 707,
         "message": "adapter eia_xls | fallback: eia_xls",
         "fallback_used": "eia_xls",
         "rows": 9097
@@ -93,10 +93,10 @@
       {
         "source": "copper",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:38.811242Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:44:03.305326Z",
         "data_asof": "2026-10-05T00:00:00Z",
-        "latency_ms": 3613,
+        "latency_ms": 3594,
         "message": "adapter yahoo | [warning] close (ret): variazione anomala: z robusto 7.3 (soglia 6)",
         "fallback_used": null,
         "rows": 6553
@@ -104,10 +104,10 @@
       {
         "source": "cot_brent",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:57.697514Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:44:21.982359Z",
         "data_asof": "2026-09-29T00:00:00Z",
-        "latency_ms": 7659,
+        "latency_ms": 7672,
         "message": "adapter ice_cot",
         "fallback_used": null,
         "rows": 822
@@ -115,10 +115,10 @@
       {
         "source": "cot_gasoil",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:21:05.706296Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:44:30.010736Z",
         "data_asof": "2026-09-29T00:00:00Z",
-        "latency_ms": 8001,
+        "latency_ms": 8020,
         "message": "adapter ice_cot",
         "fallback_used": null,
         "rows": 822
@@ -126,10 +126,10 @@
       {
         "source": "cot_wti",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:50.027307Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:44:14.301539Z",
         "data_asof": "2026-09-29T00:00:00Z",
-        "latency_ms": 1108,
+        "latency_ms": 739,
         "message": "adapter cftc_socrata",
         "fallback_used": null,
         "rows": 1060
@@ -137,10 +137,10 @@
       {
         "source": "dxy",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:29.162813Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:43:53.670785Z",
         "data_asof": "2026-10-05T00:00:00Z",
-        "latency_ms": 5965,
+        "latency_ms": 5956,
         "message": "adapter yahoo | fallback: yahoo",
         "fallback_used": "yahoo",
         "rows": 11914
@@ -148,21 +148,21 @@
       {
         "source": "gdelt_events",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:21:06.244381Z",
-        "data_asof": "2026-10-05T17:15:00Z",
-        "latency_ms": 529,
-        "message": "adapter gdelt_files | slot accumulati 3, giorni 1",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:44:30.530099Z",
+        "data_asof": "2026-10-05T18:45:00Z",
+        "latency_ms": 510,
+        "message": "adapter gdelt_files | slot accumulati 5, giorni 1",
         "fallback_used": null,
         "rows": 1
       },
       {
         "source": "gpr",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:21:07.561187Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:44:31.429291Z",
         "data_asof": "2026-10-05T00:00:00Z",
-        "latency_ms": 1259,
+        "latency_ms": 845,
         "message": "adapter gpr",
         "fallback_used": null,
         "rows": 15253
@@ -170,10 +170,10 @@
       {
         "source": "ho_front",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:19:17.238317Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:42:41.678038Z",
         "data_asof": "2026-10-05T00:00:00Z",
-        "latency_ms": 3647,
+        "latency_ms": 3597,
         "message": "adapter yahoo",
         "fallback_used": null,
         "rows": 6551
@@ -181,10 +181,10 @@
       {
         "source": "ovx",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:18.384553Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:43:42.868078Z",
         "data_asof": "2026-10-05T00:00:00Z",
-        "latency_ms": 2233,
+        "latency_ms": 2172,
         "message": "adapter yahoo | fallback: yahoo",
         "fallback_used": "yahoo",
         "rows": 4882
@@ -192,10 +192,10 @@
       {
         "source": "rbob_front",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:19:13.570760Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:42:38.055137Z",
         "data_asof": "2026-10-05T00:00:00Z",
-        "latency_ms": 3573,
+        "latency_ms": 3595,
         "message": "adapter yahoo",
         "fallback_used": null,
         "rows": 6512
@@ -203,10 +203,10 @@
       {
         "source": "rig_count",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:48.910171Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:44:13.553248Z",
         "data_asof": "2026-10-02T00:00:00Z",
-        "latency_ms": 8299,
+        "latency_ms": 8471,
         "message": "adapter baker_hughes",
         "fallback_used": null,
         "rows": 2047
@@ -214,10 +214,10 @@
       {
         "source": "spx",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:35.168798Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:43:59.665870Z",
         "data_asof": "2026-10-05T00:00:00Z",
-        "latency_ms": 5982,
+        "latency_ms": 5963,
         "message": "adapter yahoo",
         "fallback_used": null,
         "rows": 11785
@@ -225,7 +225,7 @@
       {
         "source": "steo_brent",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
         "last_success_at": null,
         "data_asof": null,
         "latency_ms": null,
@@ -236,10 +236,10 @@
       {
         "source": "us10y",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:38.984446Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:44:03.498495Z",
         "data_asof": "2026-10-01T00:00:00Z",
-        "latency_ms": 153,
+        "latency_ms": 174,
         "message": "adapter fred_csv | fallback: fred_csv",
         "fallback_used": "fred_csv",
         "rows": 16173
@@ -247,10 +247,10 @@
       {
         "source": "vix",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:23.162630Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:43:47.689723Z",
         "data_asof": "2026-10-05T00:00:00Z",
-        "latency_ms": 4761,
+        "latency_ms": 4802,
         "message": "adapter yahoo | fallback: yahoo",
         "fallback_used": "yahoo",
         "rows": 9259
@@ -258,10 +258,10 @@
       {
         "source": "wpsr",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:40.602624Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:44:05.075436Z",
         "data_asof": "2026-09-25T00:00:00Z",
-        "latency_ms": 647,
+        "latency_ms": 563,
         "message": "adapter eia_xls | fallback: eia_xls",
         "fallback_used": "eia_xls",
         "rows": 1
@@ -269,10 +269,10 @@
       {
         "source": "wti_curve",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:20:14.748033Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:43:39.228927Z",
         "data_asof": "2026-10-05T22:00:00Z",
-        "latency_ms": 14429,
+        "latency_ms": 14392,
         "message": "adapter yahoo",
         "fallback_used": null,
         "rows": 12
@@ -280,7 +280,7 @@
       {
         "source": "wti_curve_hist",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
         "last_success_at": null,
         "data_asof": null,
         "latency_ms": null,
@@ -291,10 +291,10 @@
       {
         "source": "wti_front",
         "status": "green",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:19:09.977972Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:42:34.440625Z",
         "data_asof": "2026-10-05T00:00:00Z",
-        "latency_ms": 3599,
+        "latency_ms": 3516,
         "message": "adapter yahoo",
         "fallback_used": null,
         "rows": 6557
@@ -302,10 +302,10 @@
       {
         "source": "wti_spot",
         "status": "yellow",
-        "checked_at": "2026-10-05T17:19:03.671492Z",
-        "last_success_at": "2026-10-05T17:19:04.984974Z",
+        "checked_at": "2026-10-05T18:42:28.259179Z",
+        "last_success_at": "2026-10-05T18:42:29.488227Z",
         "data_asof": "2026-09-29T00:00:00Z",
-        "latency_ms": 565,
+        "latency_ms": 488,
         "message": "adapter fred_csv | fallback: fred_csv",
         "fallback_used": "fred_csv",
         "rows": 9512
@@ -313,43 +313,116 @@
     ]
   },
   "account": {
-    "epoch": null,
-    "status": null,
+    "epoch": 2,
+    "status": "active",
     "dead": false,
     "initial_capital": 10000.0,
     "equity": 10000.0,
-    "cash": null,
-    "pnl_day": null,
+    "cash": 10000.0,
+    "pnl_day": 0.0,
     "pnl_total": 0.0,
     "pnl_total_pct": 0.0,
-    "drawdown": null,
-    "peak_equity": null,
-    "margin_used": null,
+    "drawdown": 0.0,
+    "peak_equity": 10000.0,
+    "margin_used": 0.0,
     "margin_level": null,
-    "gross_notional": null,
-    "net_notional": null,
+    "gross_notional": 0.0,
+    "net_notional": 0.0,
     "liquidation_price": null,
     "leverage": {
-      "value": null,
-      "limited_by": null,
-      "components": null
+      "value": 0.0,
+      "limited_by": "limitata dal Kelly frazionario",
+      "components": {
+        "kelly": 0.0,
+        "vol": 0.932,
+        "drawdown": 10.0,
+        "event": 10.0,
+        "cap": 10.0,
+        "default": 1.0
+      }
     },
     "gate": {
-      "passed": null,
-      "reason": null,
-      "conditions": null,
-      "families_agreeing": null,
-      "ensemble_prob": null
+      "passed": false,
+      "reason": "Gate non superato (nessuna direzione netta tra i segnali; 0 famiglie poco correlate d'accordo (nessuna), ne servono 3; correlazioni non ancora stimabili; regime «Squeeze rialzista» con confidenza 58% (soglia 70%); nessuna statistica out-of-sample disponibile per le strategie d'accordo).",
+      "conditions": {
+        "ensemble_prob": {
+          "ok": false,
+          "value": 0.5,
+          "threshold": 0.62,
+          "detail": "nessuna direzione netta tra i segnali"
+        },
+        "families_agree": {
+          "ok": false,
+          "value": 0,
+          "threshold": 3,
+          "detail": "0 famiglie poco correlate d'accordo (nessuna), ne servono 3; correlazioni non ancora stimabili"
+        },
+        "regime_quality": {
+          "ok": false,
+          "value": {
+            "regime_confidence": 0.584,
+            "min_psr": null
+          },
+          "threshold": {
+            "regime_confidence": 0.7,
+            "min_psr": 0.9
+          },
+          "detail": "regime «Squeeze rialzista» con confidenza 58% (soglia 70%); nessuna statistica out-of-sample disponibile per le strategie d'accordo"
+        },
+        "physical_confirmation": {
+          "ok": true,
+          "value": true,
+          "threshold": true,
+          "detail": "non richiesta (nessun picco geopolitico o posizione non long)"
+        },
+        "no_binary_event": {
+          "ok": true,
+          "value": 44.0,
+          "threshold": 24.0,
+          "detail": "prossimo evento binario «EIA Weekly Petroleum Status Report» tra 44.0 h"
+        },
+        "data_fresh": {
+          "ok": false,
+          "value": {
+            "health": "yellow",
+            "age_minutes": 2.1
+          },
+          "threshold": {
+            "health": "green",
+            "age_minutes": 90.0
+          },
+          "detail": "stato dati «yellow», ultimo aggiornamento 2 min fa"
+        },
+        "drawdown_ok": {
+          "ok": true,
+          "value": 0.0,
+          "threshold": 0.1,
+          "detail": "drawdown 0.0% contro il limite 10%"
+        }
+      },
+      "families_agreeing": [],
+      "ensemble_prob": 0.5
     },
     "positions": [],
-    "asof": null
+    "asof": "2026-10-05T18:40:38.374029Z"
+  },
+  "portfolio": {
+    "n_strategies": 18,
+    "n_active": 0,
+    "lifecycle_counts": {
+      "incubation": 18
+    },
+    "master_flat_by_design": true,
+    "explanation": "Nessuna delle 18 strategie ha superato la validazione out-of-sample: tutte hanno peso zero e girano solo sul conto ombra. Il master resta quindi fermo, in contanti, e la leva resta a 1x o meno. È il comportamento voluto, non un errore: una strategia entra nel portafoglio solo con DSR, PBO e Sharpe out-of-sample al netto del doppio dei costi in regola.",
+    "source": "engine/validation (ciclo di vita delle strategie)",
+    "asof": "2026-10-05T18:44:52.518453Z"
   },
   "last_run": {
     "job": "eod",
-    "ts": "2026-10-05T17:21:46.123313Z",
+    "ts": "2026-10-05T18:44:52.529063Z",
     "status": "ok",
     "message": "nessuna decisione: already processed",
-    "cron_lag_minutes": null
+    "cron_lag_minutes": 0.0
   },
   "reset": {
     "workflow_url": "https://github.com/andreramolivaz/oil-paper-trading/actions/workflows/reset.yml",
