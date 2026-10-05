@@ -24,7 +24,14 @@ margin:
 sizing:
   vol_target_annual: 0.15     # portfolio volatility target at 1x
   kelly_fraction: 0.25        # fractional Kelly (never full Kelly)
-  es99_budget: 0.03           # max 1-day 99% expected shortfall as fraction of equity
+  # Max 1-day 99% expected shortfall as a fraction of equity, measured with a Student-t(4) tail on the most
+  # conservative volatility available. Calibration note: at Brent's current implied vol (OVX ~50) a 1x position
+  # already carries an ES99 of about 11.6% of notional, so a tighter budget (e.g. 3%) would pin the leverage
+  # cap below 1x permanently and make the whole gate of §9 pointless. 0.12 puts the cap near 1x in today's
+  # regime, about 2x at 25% vol and about 3.4x at 15% vol, so the 10x ceiling is reached essentially never —
+  # which is the intent of the brief. The weekly Monte Carlo (engine/portfolio/montecarlo.py) re-checks this
+  # value against the max_ruin_probability constraint below.
+  es99_budget: 0.12
   hysteresis_fraction: 0.15   # ignore target changes smaller than this fraction of current position
 
 gate:                       # "strong alpha" gate for leverage > 1x (all conditions must hold)
