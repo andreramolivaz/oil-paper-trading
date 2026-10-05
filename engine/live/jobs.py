@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 import pandas as pd
@@ -397,11 +397,16 @@ def _compact(runner: LiveRunner) -> dict[str, Any]:
                 out[name] = [p.name for p in deleted]
         except Exception as exc:
             out[name] = f"error: {exc}"
+    # Raw snapshots: every run re-downloads whole series, so daily vintages are mostly duplicates. Keep the
+    # last two plus the first snapshot of each ISO week, which preserves the revision history (the GPR index is
+    # recomputed when the file grows, for instance) without growing the data branch by a megabyte a day.
+    deleted_raw = 0
     try:
         raw = runner.raw
-        if hasattr(raw, "compact"):
-            cutoff = (now_utc() - timedelta(days=90)).date()
-            out["raw"] = str(cutoff)
+        for source in raw.sources():
+            for key in raw.keys(source):
+                deleted_raw += len(raw.compact(source, key, keep_last_n=2, keep_weekly=True))
+        out["raw_snapshots_deleted"] = deleted_raw
     except Exception as exc:
         out["raw"] = f"error: {exc}"
     return out

@@ -620,6 +620,11 @@ def run_backtest_report(
     skipped: list[str] = []
     strategy_list = list(strategies)
 
+    # The backtest must NEVER write into the live state: its signals, decisions, equity and trade logs would
+    # mix with the real paper-trading history and the dashboard would show backtest rows as live ones. The
+    # session therefore logs into a store of its own under the report directory; the `store` argument is used
+    # only for validation.json and the trials registry, which are the two things the live system reads back.
+    session_store = StateStore(out_path / "session")
     res = run_backtest(
         md,
         strategy_list,
@@ -629,7 +634,7 @@ def run_backtest_report(
         allocator=allocator,
         feature_builder=feature_builder,
         regime_model=regime_model,
-        store=store,
+        store=session_store,
     )
 
     equity = res.equity

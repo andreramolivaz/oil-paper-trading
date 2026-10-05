@@ -55,11 +55,40 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
 ## Stato delle fasi
 
 - [x] 1. Esplorazione, brief, CLAUDE.md, piano
-- [ ] 2. Data layer
-- [ ] 3. Broker paper e backtest
-- [ ] 4. Regimi e strategie
-- [ ] 5. Previsioni
-- [ ] 6. Portafoglio, gate, leva, validazione
-- [ ] 7. Live su Actions e reset
-- [ ] 8. Dashboard e deploy
-- [ ] 9. Monitoraggio e rifiniture
+- [x] 2. Data layer: 10 adattatori con catena di fallback, store point-in-time con vintage, controlli di
+  qualità, serie continua roll-adjusted, salute per fonte. Verificato in esecuzione reale: 23 voci su 25
+  senza alcuna chiave API.
+- [x] 3. Broker paper e motore event-driven: esecuzione alla barra successiva, costi, margine al 10%,
+  stop-out, liquidazione, roll, idempotenza. Una sola `TradingSession` per backtest e live.
+- [x] 4. Regimi (HMM walk-forward con filtro causale scritto a mano + BOCPD) e strategie S1-S18 con 18
+  schede in `docs/STRATEGIES.md`.
+- [x] 5. Previsioni a 1g/1s/1m/3m con 5 modelli, benchmark random walk e curva, valutazione (Theil U,
+  Diebold-Mariano, CRPS, pinball, copertura) e archivio append-only.
+- [x] 6. Portafoglio master: pesi S20, gate alpha a sette condizioni, componenti della leva, Monte Carlo del
+  rischio di rovina, stress test storici e sintetici, report di backtest con DSR e PBO.
+- [x] 7. Paper trading live su Actions: cinque job idempotenti, branch dati, reset con archivio delle epoche.
+- [x] 8. Dashboard su Pages: sette pagine in italiano, tema scuro, mobile-first, grafici con palette validata.
+- [x] 9. Monitoraggio: salute per fonte, ritardo del cron, issue automatiche, keepalive, README in italiano.
+
+## Cosa ha richiesto una correzione rispetto al piano iniziale
+
+Queste sono le cose che solo l'esecuzione reale ha fatto emergere; sono documentate nei commit e nel codice.
+
+1. **Granularità dei lotti.** Con 10.000 $ e il Brent a ~100 $, un lotto da 100 barili è già ~1x del conto:
+   il sizing diventava binario e il volatility targeting del §9 non poteva funzionare. Default portato a 10 bbl.
+2. **Budget di expected shortfall.** Con il Brent al 50% di volatilità implicita, 1x porta un ES 99% a un
+   giorno di circa l'11,6% del nozionale: un budget al 3% avrebbe bloccato la leva sotto 1x per sempre,
+   rendendo inutile tutto il gate. Portato al 12% con l'aritmetica in un commento, e il Monte Carlo
+   settimanale lo riverifica contro il vincolo sul rischio di rovina.
+3. **Calendario delle feature.** `md.prices` è indicizzato sull'unione delle fonti: i giorni in cui il Brent
+   non tratta restavano nel frame e avvelenavano ogni finestra mobile (70% di NaN nel 2026). Le feature ora
+   vivono sul calendario di negoziazione del Brent.
+4. **Costo del walk-forward.** Feature e regimi venivano ricostruiti per ogni singolo giorno: un backtest di
+   11 anni era impraticabile. Ora si costruiscono una volta e si affettano per data, cosa lecita solo perché
+   ogni feature è causale (è esattamente ciò che verifica `tests/test_no_lookahead.py`).
+5. **Strumenti multi-gamba.** La sessione quotava solo il front: spread, crack e butterfly venivano rifiutati
+   per prezzo di riferimento mancante e quelle strategie non potevano eseguire. Ora gli spread sono quotati
+   dalle gambe e le gambe outright vengono marcate ogni giorno.
+6. **Feature mancanti come modificatori.** S1 richiedeva la pendenza della curva, che però usa solo per
+   scegliere tra size piena e dimezzata: senza storico di curva taceva per anni. Ora degrada alla size
+   prudente e lo dichiara. S4-S7 e S11 restano correttamente silenziose: curva e scorte sono la loro sostanza.
