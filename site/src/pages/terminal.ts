@@ -422,7 +422,7 @@ function options(doc: DeskDoc): string {
 function backtest(doc: DeskDoc): string {
   const bt = doc.backtest;
   if (!bt) {
-    return section("Backtest", `<div class="t-empty">Il backtest viene calcolato dal lavoro settimanale: non è ancora stato pubblicato.</div>`);
+    return section("Backtest", `<div class="t-empty">Il backtest viene calcolato al primo giro che ha i dati e poi ogni settimana: non è ancora stato pubblicato.</div>`);
   }
   const names = new Map(doc.books.map((b) => [b.id, b.name]));
   const rows = Object.entries(bt.books)

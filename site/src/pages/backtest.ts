@@ -268,8 +268,8 @@ export async function renderBacktest(el: HTMLElement): Promise<void> {
   const loaded = await load<BacktestDoc>("desk_backtest.json");
   const doc = loaded.data;
   if (!doc || !doc.books) {
-    el.innerHTML = `<div class="term"><div class="t-empty">Backtest non ancora pubblicato: lo calcola il lavoro settimanale
-      (o <code>python -m engine.cli desk-backtest</code>).</div></div>`;
+    el.innerHTML = `<div class="term"><div class="t-empty">Backtest non ancora pubblicato: lo calcola il primo giro che ha i dati,
+      poi il lavoro settimanale (o <code>python -m engine.cli desk-backtest</code>).</div></div>`;
     return;
   }
   const names = new Map(doc.books_config.map((b) => [b.id, b.name]));

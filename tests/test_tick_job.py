@@ -369,12 +369,17 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
     assert fetched == [["desk_intraday", "options"]]
     assert (settings.state_dir / "desk" / "prudente" / "account.json").exists()
     assert (settings.state_dir / "desk" / "opzioni" / "book.json").exists()
+    # a desk that never had a backtest computes it on its first tick, so the terminal is whole from day one;
+    # after that it is the weekly job's
+    assert first.detail["desk_backtest"] == "calcolato: mancava"
+    assert (settings.state_dir / "desk" / "backtest.json").exists()
 
     assert jobs.tick(runner, "t-1", legacy=False).status == "skipped"  # the same run, replayed
     again = jobs.tick(runner, "t-2", legacy=False)
     assert (
         again.status == "ok" and again.detail["desk"]["decisions"] == [] and again.detail["options"]["decisions"] == []
     )
+    assert "desk_backtest" not in again.detail
 
     # a red fund table blocks the fund's books and nothing else
     runner.store.write_json("health.json", {"overall": "red", "sources": [_source("bno_daily", "red"), *green[1:]]})
