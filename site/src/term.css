@@ -146,6 +146,17 @@ select {
   position: sticky; left: 0; background: var(--surface-0); z-index: 1;
 }
 
+/* phone: the terminal's backtest summary keeps the four figures that decide; leverage, ruin and the cost
+   check are one tap away on the backtest page (whose own table scrolls sideways with every column) */
+@media (max-width: 640px) {
+  .t-summary th:nth-child(n + 6), .t-summary td:nth-child(n + 6) { display: none; }
+  .t-summary thead th { white-space: normal; vertical-align: bottom; }
+  .t-summary tbody th[scope="row"] { white-space: normal; min-width: 12ch; }
+  .t-summary td small { white-space: normal; }
+  .t-summary th, .t-summary td { padding-right: 10px; }
+  .t-summary th:nth-child(5), .t-summary td:nth-child(5) { padding-right: 0; }
+}
+
 /* phone: the books table becomes one block per book, each figure under its own label */
 @media (max-width: 640px) {
   .t-books thead { display: none; }

@@ -800,8 +800,12 @@ def _gate(
     checks: list[tuple[str, bool, str]] = []
     checks.append(("conto attivo", book.status == "active", "conto fermo: equity sotto il 5% del capitale"))
     fresh = chain is not None and chain.age_minutes(now) <= cfg.max_quote_age_minutes
-    age = "nessuna catena" if chain is None else f"quotazioni di {chain.age_minutes(now):.0f} minuti fa"
-    checks.append(("quotazioni fresche", fresh, f"{age}: servono meno di {cfg.max_quote_age_minutes} minuti"))
+    age = (
+        "nessuna catena scaricata"
+        if chain is None
+        else f"quotazioni di {chain.age_minutes(now):.0f} minuti fa: servono meno di {cfg.max_quote_age_minutes} minuti"
+    )
+    checks.append(("quotazioni fresche", fresh, age))
     ok_forecast = forecast is not None and forecast >= cfg.forecast_threshold
     checks.append(
         (

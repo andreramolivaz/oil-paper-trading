@@ -388,6 +388,7 @@ function optionRow(u: OptionUnderlying): string {
 
 function candidateLine(u: OptionUnderlying): string {
   const c = u.candidate;
+  if (u.price === undefined || u.price === null) return ""; // no chain: the table row already says so
   if (!c) {
     return u.no_candidate_reason
       ? `<p class="t-dim">${escapeHtml(u.symbol)}: nessuna struttura negoziabile adesso. ${escapeHtml(u.no_candidate_reason)}.</p>`
@@ -404,8 +405,12 @@ function candidateLine(u: OptionUnderlying): string {
 function options(doc: DeskDoc): string {
   const book = doc.books.find((b) => b.kind === "options");
   const mon = book?.monitor;
-  if (!book || !mon || !mon.underlyings.length) {
-    return section("Opzioni", `<div class="t-empty">Il libro delle opzioni non ha ancora letto una catena.</div>`);
+  if (!book || !mon || !mon.underlyings.some((u) => u.price !== undefined && u.price !== null)) {
+    return section(
+      "Opzioni",
+      `<div class="t-empty">Il libro delle opzioni non ha ancora letto una catena: le quotazioni si scaricano nelle ore di
+      mercato di New York, e la decisione si prende una volta al giorno dopo le 15:00.</div>`,
+    );
   }
   const body = `<div class="t-scroll"><table class="t-table t-options">
     <thead><tr><th>Sottostante</th><th class="n">Prezzo</th><th class="n">Vol. implicita</th><th class="n">Vol. realizzata</th>
@@ -463,7 +468,7 @@ function backtest(doc: DeskDoc): string {
         <td class="n down">${percent(bt.options.stats.max_drawdown ?? null, 0)}</td><td></td><td></td><td></td>
       </tr>`
     : "";
-  const body = `<div class="t-scroll"><table class="t-table t-backtest">
+  const body = `<div class="t-scroll"><table class="t-table t-backtest t-summary">
     <thead><tr><th>Libro</th><th class="n">Rend. annuo</th><th class="n">Volatilità</th><th class="n">Sharpe</th>
       <th class="n">Perdita max</th><th class="n">Leva 95°</th><th class="n">P(${MINUS}50% in 1 anno)</th>
       <th class="n">Sharpe a costi doppi</th></tr></thead>

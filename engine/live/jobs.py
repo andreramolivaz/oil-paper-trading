@@ -384,11 +384,14 @@ def _blocked_vehicles(runner: LiveRunner) -> dict[str, str]:
 
 
 def _options_due(runner: LiveRunner, now: Any) -> bool:
-    """Option chains are refreshed hourly while the US market is open, and on the tick that owes the options
-    book its daily decision (the book only trades on quotes less than 45 minutes old)."""
+    """Option chains are refreshed hourly while the US market is open, on the tick that owes the options book
+    its daily decision (the book only trades on quotes less than 45 minutes old), and once when they have
+    never been read."""
     from engine.desk.live import NEW_YORK
     from engine.desk.options import decision_due
 
+    if _source_attempted_at(runner, "uso_options") is None:
+        return True  # never read: the last quotes of the session are still worth showing, whatever the hour
     local = ensure_utc(now).astimezone(NEW_YORK)
     if local.weekday() >= 5 or not (9 <= local.hour < 17):
         return False
