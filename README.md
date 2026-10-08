@@ -103,9 +103,14 @@ workflow su GitHub, dove parte con un clic. **Il token resta nel tuo browser e n
 
 ## Se il motore si ferma
 
-Il terminale lo dice in alto («motore in ritardo» o «motore fermo»). Il watchdog lo riavvia da solo entro
-un'ora circa; per farlo subito: **Actions → runner → Run workflow**. Non c'è nulla da recuperare a mano: al
-primo giro il motore riprende da dove era rimasto.
+Il terminale lo dice in alto («motore in ritardo» o «motore fermo»). Ogni runner avvia il proprio successore;
+se la catena si spezza la riaccende il watchdog, che però è su una pianificazione di GitHub e può tardare anche
+di ore. Per farlo subito: **Actions → runner → Run workflow**. Non c'è nulla da recuperare a mano: al primo
+giro il motore riprende da dove era rimasto, e le barre arrivate nel frattempo vengono lette nell'ordine e ai
+prezzi in cui sono avvenute.
+
+Nell'elenco delle esecuzioni un runner «cancelled» è normale: ogni modifica al motore su `main` ferma quello
+in corso e ne avvia uno sul codice nuovo.
 
 ## Limiti, dichiarati
 
