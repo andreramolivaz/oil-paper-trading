@@ -9,6 +9,10 @@ on:
         description: "Loop length in seconds (default 19200 = 5 h 20 min; the hosted-runner limit is 6 h)"
         required: false
         default: "19200"
+      restarts:
+        description: "Set by the hand-over: how many loops in a row ended early (do not fill in by hand)"
+        required: false
+        default: "0"
   # A runner checks the code out once and keeps it for five hours. When the engine changes on main, the loop
   # that is running is on the OLD code: this starts a new one, which replaces it (see concurrency below).
   push:
@@ -43,7 +47,10 @@ jobs:
       ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
       GH_TOKEN: ${{ github.token }}
       RUNNER_SECONDS: ${{ inputs.seconds || '19200' }}
+      RUNNER_RESTARTS: ${{ inputs.restarts || '0' }}
     steps:
+      - name: Note the start time
+        run: echo "RUNNER_STARTED=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
@@ -62,18 +69,31 @@ jobs:
       # Starting it with the workflow token is allowed for workflow_dispatch (it is the documented exception to
       # "a token-made event starts no workflow"). On Saturday nothing is started: the watchdog restarts the
       # chain on Sunday.
+      #
+      # A job that starts its own successor must not be able to do it for ever at full speed. A loop that ends
+      # in less than fifteen minutes did not do its work (a broken install, a script error): it is retried at
+      # once three times, then the chain stops and the watchdog - which is on a schedule - takes over.
       - name: Hand over to the next runner
         if: ${{ !cancelled() }}
         run: |
           dow=$(TZ=America/New_York date +%u); hm=$(TZ=America/New_York date +%H%M)
           if [ "$dow" = "6" ] || { [ "$dow" = "5" ] && [ "$hm" -ge 1830 ]; } || { [ "$dow" = "7" ] && [ "$hm" -lt 1730 ]; }; then
-            echo "weekend: no successor"
-          else
-            for attempt in 1 2 3; do
-              if gh workflow run runner.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}"; then
-                echo "successor started"; exit 0
-              fi
-              sleep $((attempt * 20))
-            done
-            echo "::warning::could not start the successor: the watchdog will"
+            echo "weekend: no successor"; exit 0
           fi
+          elapsed=$(( $(date +%s) - ${RUNNER_STARTED:-0} ))
+          restarts=0
+          if [ "$elapsed" -lt 900 ] && [ "${RUNNER_SECONDS:-19200}" -ge 900 ]; then
+            restarts=$(( ${RUNNER_RESTARTS:-0} + 1 ))
+            if [ "$restarts" -gt 3 ]; then
+              echo "::error::the loop ended early four times in a row: no successor, the watchdog will restart the chain"
+              exit 1
+            fi
+            echo "::warning::the loop ended after ${elapsed}s: quick restart number $restarts"
+          fi
+          for attempt in 1 2 3; do
+            if gh workflow run runner.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}" -f restarts="$restarts"; then
+              echo "successor started"; exit 0
+            fi
+            sleep $((attempt * 20))
+          done
+          echo "::warning::could not start the successor: the watchdog will"

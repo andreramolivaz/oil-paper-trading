@@ -201,7 +201,12 @@ export interface Book {
   n_closed?: number;
   n_wins?: number;
   realized_pnl?: Num;
-  monitor?: { generated_at: string; underlyings: OptionUnderlying[]; rules: Record<string, unknown> } | null;
+  monitor?: {
+    generated_at: string;
+    session_open?: boolean;
+    underlyings: OptionUnderlying[];
+    rules: Record<string, unknown>;
+  } | null;
 }
 
 export interface DecisionRow {
