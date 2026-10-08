@@ -386,15 +386,21 @@ function optionRow(u: OptionUnderlying): string {
   </tr>`;
 }
 
-function candidateLine(u: OptionUnderlying): string {
+function candidateLine(u: OptionUnderlying, open: boolean): string {
   const c = u.candidate;
   if (u.price === undefined || u.price === null) return ""; // no chain: the table row already says so
   if (!c) {
     return u.no_candidate_reason
-      ? `<p class="t-dim">${escapeHtml(u.symbol)}: nessuna struttura negoziabile adesso. ${escapeHtml(u.no_candidate_reason)}.</p>`
+      ? `<p class="t-dim">${escapeHtml(u.symbol)}: nessuna struttura negoziabile ${
+          open ? "adesso" : "sulle ultime quotazioni della seduta"
+        }. ${escapeHtml(u.no_candidate_reason)}.</p>`
       : "";
   }
-  return `<p><span class="t-dim">${escapeHtml(u.symbol)}, la struttura che il libro venderebbe ora:</span> put ${num(
+  // after the close the chain holds the session's last quotes: nothing can be sold "now"
+  const lead = open
+    ? "la struttura che il libro venderebbe ora:"
+    : "a mercato chiuso, sulle ultime quotazioni della seduta la struttura sarebbe:";
+  return `<p><span class="t-dim">${escapeHtml(u.symbol)}, ${lead}</span> put ${num(
     c.short.strike,
     0,
   )}/${num(c.long.strike, 0)} scadenza ${escapeHtml(day(c.expiry))} (${c.dte} giorni) · incasso ${num(c.credit, 2)} $ per azione
@@ -416,7 +422,7 @@ function options(doc: DeskDoc): string {
     <thead><tr><th>Sottostante</th><th class="n">Prezzo</th><th class="n">Vol. implicita</th><th class="n">Vol. realizzata</th>
       <th class="n">Mossa prezzata</th><th class="n">Denaro-lettera</th><th class="n">Previsione</th><th>Oggi</th></tr></thead>
     <tbody>${mon.underlyings.map(optionRow).join("")}</tbody></table></div>
-    ${mon.underlyings.map(candidateLine).join("")}
+    ${mon.underlyings.map((u) => candidateLine(u, mon.session_open !== false)).join("")}
     <p class="t-dim">«Mossa prezzata» è il costo di call più put alla pari: quanto deve muoversi il fondo, in su o in giù, perché
     comprare entrambe vada in pari. Dal 2007 quel prezzo è stato in media più alto della mossa che è seguita: comprare tutte e due
     le direzioni ha perso, e il libro non lo fa.</p>`;

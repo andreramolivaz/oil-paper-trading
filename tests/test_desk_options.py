@@ -271,6 +271,9 @@ def test_stale_quotes_and_closed_markets_never_trade(tmp_path):
     saturday = datetime(2026, 10, 10, 18, 30, tzinfo=UTC)
     assert op.options_tick(tmp_path / "other", RISK, _data(9.0), store, saturday, CFG)["decisions"] == []
     assert op.session_day(saturday) is None and op.decision_window(CFG, NOW) and not op.decision_window(CFG, closed)
+    # the page is told when the chain on file is the session's last quotes and not something that can be sold now
+    assert op.session_open(NOW) and not op.session_open(closed) and not op.session_open(saturday)
+    assert not op.session_open(datetime(2026, 10, 8, 13, 29, tzinfo=UTC)) and monitor["session_open"] is True
 
 
 def test_a_structure_is_settled_by_the_tick_on_the_official_close(tmp_path):

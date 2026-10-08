@@ -103,7 +103,9 @@ How a tick works (`engine/live/jobs.py::tick`, driven by `scripts/runner_loop.sh
   turn the overall status red; `DESK_REQUIRES` (jobs.py) is what each vehicle needs for NEW decisions. Bars,
   stops, rolls and marks never wait for a download.
 - **The runner checks the code out once.** It restarts on a push to main that touches engine, config or
-  scripts (`runner.yml`); a change merged without such a push is not live until the next hand-over.
+  scripts (`runner.yml`); a change merged without such a push is not live until the next hand-over. A loop
+  that ends in under fifteen minutes is restarted at once three times, then the chain stops and the scheduled
+  watchdog takes over: a job that starts its own successor must not be able to respawn for ever.
 - **Yahoo rate limits by address, and a limit costs the tick its bars.** Measured 2026-10-08: about two
   hundred chart requests in an hour, then HTTP 429 on everything for minutes. The "prices" group alone is
   sixty requests (36 + 12 curve months), so the tick never asks for a whole group it reads three tables of

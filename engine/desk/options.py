@@ -66,6 +66,7 @@ OPTIONS_BOOK_ID = "opzioni"
 STATE_FILE = "book.json"
 MONITOR_FILE = "monitor.json"
 MULTIPLIER = 100.0  # shares per contract
+MARKET_OPEN_NY = time(9, 30)
 MARKET_CLOSE_NY = time(16, 0)
 SETTLE_AFTER_NY = time(16, 15)
 SETTLE_FALLBACK_DAYS = 4  # no official close this long after the expiry -> settle on the last known price, approx
@@ -616,6 +617,13 @@ def session_day(now: datetime) -> date | None:
     return day if is_business_day(day, "US") else None
 
 
+def session_open(now: datetime) -> bool:
+    """True during the regular US option session. Outside it the chain on file holds the last quotes of the
+    session, however recently its file was written (the fund keeps trading after hours and refreshes it)."""
+    local = ensure_utc(now).astimezone(NEW_YORK)
+    return session_day(now) is not None and MARKET_OPEN_NY <= local.time() < MARKET_CLOSE_NY
+
+
 def decision_window(cfg: OptionsConfig, now: datetime) -> bool:
     """True between the decision time and the close of a US session."""
     local = ensure_utc(now).astimezone(NEW_YORK)
@@ -697,7 +705,12 @@ def options_tick(
 
     report: dict[str, Any] = {"settled": len(settled), "opened": 0, "decisions": []}
     day = session_day(now)
-    monitor: dict[str, Any] = {"generated_at": iso(now), "underlyings": [], "rules": _rules(cfg)}
+    monitor: dict[str, Any] = {
+        "generated_at": iso(now),
+        "session_open": session_open(now),
+        "underlyings": [],
+        "rules": _rules(cfg),
+    }
     # With no fresh chain at all there is nothing to decide ON: the decision stays owed, the scheduler keeps
     # refreshing the chains (``decision_due``) and the next tick inside the session takes it. The monitor below
     # still says, every tick, why nothing can be traded.
