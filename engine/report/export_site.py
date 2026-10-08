@@ -145,7 +145,8 @@ class SiteExporter:
             "ts": last.get("finished") or last.get("started"),
             "status": last.get("status"),
             "message": last.get("message"),
-            "cron_lag_minutes": cron_lag_minutes(self.store, "update", 30, self.generated_at),
+            # the scheduler's unit of work is the tick (it runs the end of day itself when one is due)
+            "cron_lag_minutes": cron_lag_minutes(self.store, "tick", 30, self.generated_at),
         }
 
     # ------------------------------------------------------------------ helpers

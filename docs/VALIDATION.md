@@ -1,5 +1,69 @@
 # Validazione e anti-overfitting
 
+## I libri del desk (ottobre 2026)
+
+I quattro libri non passano dal ciclo di promozione descritto più sotto, e non per aggirarlo: quel ciclo misura
+se una strategia *scelta fra molte* ha qualcosa, e il suo verdetto sul primo sistema è stato «nessuna». Qui non
+c'è scelta: tre regole pubblicate, parametri pubblicati, pesi uguali. La difesa dall'overfitting è non avere
+niente da adattare, e mostrare tutto ciò che potrebbe smentire il risultato.
+
+`python -m engine.cli desk-backtest` rifà il conto con lo stesso motore del paper trading (lotti interi,
+commissioni e spread dello strumento, interessi sul margine, roll cinque sedute prima della scadenza) e scrive
+`state/desk/backtest.json`. Il lavoro settimanale lo rigenera.
+
+| Libro | Periodo | Rend. annuo | Vol. | Sharpe | t | Perdita max | Costi doppi | Stessa chiusura | P(−25%) | P(−50%) in un anno |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Prudente | 2011-2026 | +3,0% | 8,5% | 0,39 | 1,5 | −25,4% | 0,37 | 0,35 | 0,0% | 0,0% |
+| Dinamico | 2011-2026 | +5,1% | 17,4% | 0,37 | 1,5 | −47,4% | 0,35 | 0,33 | 8,4% | 0,0% |
+| Spinto | 1986-2026 | +10,6% | 49,2% | 0,45 | 2,9 | −89,0% | 0,37 | 0,51 | 88,0% | 20,3% |
+| BNO tenuto | 2011-2026 | +4,0% | 34,9% | 0,29 | 1,1 | −87,1% | | | | |
+| WTI tenuto | 1986-2026 | +4,2% | 39,0% | 0,31 | 1,9 | −98,7% | | | | |
+
+Componenti su un conto di riferimento senza effetto lotto (apertura successiva / stessa chiusura):
+
+| | Trend | Carry | Carry-momentum | Le tre |
+|---|---|---|---|---|
+| BNO, solo long | 0,28 / 0,25 | 0,22 / 0,19 | 0,23 / 0,18 | 0,36 / 0,31 |
+| WTI, long e short | 0,29 / 0,29 | 0,47 / 0,51 | 0,18 / 0,33 | 0,43 / 0,50 |
+
+Che cosa dicono questi numeri, senza abbellirli:
+
+- **Nessun libro sul Brent arriva a t = 2.** Quindici anni non bastano per uno Sharpe di 0,4. Il libro sul WTI
+  ci arriva perché ha quarant'anni di storia, non perché sia migliore.
+- **Il vantaggio sul comprare e tenere è nel rischio, non nel rendimento.** Il libro prudente rende meno del
+  fondo tenuto (3,0% contro 4,0%) con un quarto della volatilità e un terzo della perdita massima.
+- **Gli ultimi anni:** prudente 2023 −3,8%, 2024 −5,1%, 2025 −6,8%, 2026 +27,0%.
+- **Il libro spinto è ciò che dichiara.** −89% di perdita massima, un giorno a −30%.
+- **La rovina è stimata per difetto:** il bootstrap non può contenere un giorno peggiore del peggiore già visto.
+
+Il libro delle opzioni non ha un backtest: ha una **simulazione su modello** (≈), che dà uno Sharpe fra 0,42 e
+0,71 secondo lo smile e i costi ipotizzati, +1,9-4,2% l'anno, perdita massima −14%, 9 operazioni l'anno. È
+marcata come approssimazione ovunque compaia e non decide nulla.
+
+Ciò che i test garantiscono (`tests/test_desk_*.py`, `tests/test_tick_job.py`):
+
+- troncare i dati al giorno T non cambia nessuna previsione fino a T, né nelle funzioni di segnale né nel
+  costruttore delle serie;
+- nessuna decisione, per qualunque previsione, volatilità e prezzo, punta a più del tetto del libro o di 10x
+  (test di proprietà);
+- un ordine si esegue sulla prima barra che *inizia* dopo la decisione, mai su quella in corso;
+- il rendimento in un giorno di roll è quello del contratto detenuto, mai la differenza fra due contratti;
+- un giro ripetuto non duplica né decisioni né eseguiti; un contratto mai visto non viene marcato su barre
+  vecchie di giorni;
+- una nuova decisione sostituisce l'ordine ancora in coda e non si somma a esso: due decisioni senza una barra
+  in mezzo lasciano un solo ordine e, dopo l'esecuzione, la posizione voluta e non il doppio;
+- una barra viene mostrata ai broker solo quando il flusso in ritardo l'ha consegnata tutta (quindici minuti
+  dopo la sua fine);
+- un roll avviene solo con i due contratti prezzati nella stessa mezz'ora, e un libro rimasto sul contratto
+  vecchio non decide sul nuovo;
+- un giro chiede solo le tabelle che la sua decisione legge, e dopo un rifiuto di Yahoo per troppe richieste
+  smette di chiedere per due minuti invece di insistere;
+- una struttura di opzioni non perde mai più del rischio definito all'apertura.
+
+---
+
+## Il primo sistema: ciclo di vita e risultati
+
 Con 18 strategie e molti parametri il rischio principale non è sbagliare un segnale: è innamorarsi di un
 backtest. Questo documento descrive come il sistema si difende e dove leggere i risultati.
 

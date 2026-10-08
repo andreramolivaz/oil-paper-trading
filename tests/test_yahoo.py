@@ -255,6 +255,32 @@ def test_retry_on_empty_body_and_429_then_success():
     assert len(s.calls) == 3 and len(res.frame) == 6
 
 
+def test_a_rate_limit_that_survives_the_retries_stops_every_further_request_for_a_while(monkeypatch):
+    """Measured on 2026-10-08: seventeen contracts asked one after the other, ninety seconds, all HTTP 429.
+    Asking again only prolongs it. After one request has used up its retries, the others fail at once."""
+    a, s = adapter({"BZ=F": (429, b"Too Many Requests"), "CL=F": (200, fixture_bytes("bz_f_1d_5d.json"))})
+    with pytest.raises(DataUnavailable, match="429"):
+        a.fetch_daily("BZ=F", date(2026, 9, 28), date(2026, 10, 5))
+    assert len(s.calls) == 3  # the first try and two retries
+    with pytest.raises(DataUnavailable, match="rate limited"):
+        a.fetch_daily("CL=F", date(2026, 9, 28), date(2026, 10, 5))
+    other, s2 = adapter({"CL=F": (200, fixture_bytes("bz_f_1d_5d.json"))})
+    with pytest.raises(DataUnavailable, match="rate limited"):  # another instance, the same address
+        other.fetch_daily("CL=F", date(2026, 9, 28), date(2026, 10, 5))
+    assert len(s.calls) == 3 and s2.calls == []  # nothing more went out
+    # once the cool-off has passed the adapter asks again
+    monkeypatch.setattr(YahooAdapter, "_rate_limited_until", 0.0)
+    assert len(other.fetch_daily("CL=F", date(2026, 9, 28), date(2026, 10, 5)).frame) == 6
+
+
+def test_a_rate_limit_cured_by_a_retry_starts_no_cool_off():
+    replies = [(429, b"Too Many Requests"), (200, fixture_bytes("bz_f_1d_5d.json"))]
+    a, s = adapter({"BZ=F": replies, "CL=F": (200, fixture_bytes("bz_f_1d_5d.json"))})
+    assert len(a.fetch_daily("BZ=F", date(2026, 9, 28), date(2026, 10, 5)).frame) == 6
+    assert len(a.fetch_daily("CL=F", date(2026, 9, 28), date(2026, 10, 5)).frame) == 6
+    assert YahooAdapter._rate_limited_until == 0.0
+
+
 def test_unprocessable_range_is_not_retried():
     body = {
         "chart": {

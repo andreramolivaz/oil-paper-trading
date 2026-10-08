@@ -164,6 +164,46 @@ def test_no_lookahead(transactions: pd.DataFrame, features: pd.DataFrame, cut: s
         assert same.all(), f"{column} cambia prima del {cut}"
 
 
+def test_every_default_feature_module_has_the_entry_point_the_builder_calls() -> None:
+    """The insider module shipped with ``build`` and no ``compute``: the builder logged a warning at every run
+    and its columns stayed NaN, so S21 never saw a score. No module may be listed without the entry point."""
+    import importlib
+
+    from engine.features.builder import DEFAULT_MODULES
+
+    assert "insider" in DEFAULT_MODULES
+    for name in DEFAULT_MODULES:
+        assert callable(getattr(importlib.import_module(f"engine.features.{name}"), "compute", None)), name
+
+
+def test_compute_follows_the_builder_contract_and_counts_a_filing_only_after_the_settlement(
+    transactions: pd.DataFrame,
+) -> None:
+    base = pd.DataFrame(index=CALENDAR)
+    out = feat.compute(_MD(transactions), pd.Timestamp("2026-10-05 22:00", tz="UTC").to_pydatetime(), base)
+    assert out.index.equals(base.index) and list(out.columns) == feat.COLUMNS
+    assert out.attrs["approx_columns"] == feat.COLUMNS and out[cat.INSIDER_SCORE].notna().any()
+    # A deadline falls at 22:00 UTC, after that day's settlement: the builder's rule counts the filing from the
+    # NEXT trading date, the calendar-day rule on the same one. The counts differ by exactly that shift.
+    loose = feat.build(_MD(transactions), index=CALENDAR)
+    assert (out[cat.INSIDER_N_TX] <= loose[cat.INSIDER_N_TX]).all()
+    assert (out[cat.INSIDER_N_TX] < loose[cat.INSIDER_N_TX]).any()
+    empty = feat.compute(_MD(transactions.iloc[:0]), pd.Timestamp("2026-10-05", tz="UTC").to_pydatetime(), base)
+    assert empty[cat.INSIDER_SCORE].isna().all() and empty.attrs["approx_columns"] == []
+
+
+def test_the_builder_runs_the_insider_module(transactions: pd.DataFrame) -> None:
+    from engine.features.builder import FullFeatureBuilder
+    from tests.synthetic import make_market_data
+
+    md = make_market_data(n_days=400)
+    md.insider = transactions
+    asof = (pd.Timestamp(md.prices.index[-1]) + pd.Timedelta(hours=22)).tz_localize("UTC").to_pydatetime()
+    frame = FullFeatureBuilder(modules=["price", "insider"]).build(md, asof)
+    assert frame.attrs["modules_failed"] == {} and "insider" in frame.attrs["modules_ok"]
+    assert frame[cat.INSIDER_N_TX].notna().all() and cat.INSIDER_SCORE in frame.attrs["approx_columns"]
+
+
 def test_empty_input_gives_empty_features() -> None:
     out = feat.build(_MD(pd.DataFrame()), index=CALENDAR)
     assert out[cat.INSIDER_SCORE].isna().all()

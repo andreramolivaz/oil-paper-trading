@@ -35,9 +35,18 @@ jobs:
         run: scripts/data_branch.sh checkout state-repo
       - name: Weekly job (fetch slow sources, retrain, validate, backtest, compact)
         run: .venv/bin/python -m engine.cli weekly --job-id "${{ github.run_id }}"
+      - name: Desk backtest (linear books and the approximate options replay)
+        run: .venv/bin/python -m engine.cli desk-backtest || echo "desk backtest failed (the live books are unaffected)"
+      # A failed export must not keep the state from being pushed: the next tick rebuilds the site data.
       - name: Export site data
-        run: .venv/bin/python -m engine.cli export-site --out state-repo/site-data
+        run: >
+          .venv/bin/python -m engine.cli export-site --out state-repo/site-data
+          || echo "::warning::site export failed: the state is pushed anyway"
       - name: Push state
         run: scripts/data_branch.sh push state-repo "weekly $(date -u +%Y-%m-%d) run ${{ github.run_id }}"
+      # The runner is asleep for the weekend, so nothing else is pushing: collapse the week's history to one
+      # commit (scripts/data_branch.sh explains why; a concurrent push makes the squash give up, never lose data).
+      - name: Squash the data-branch history
+        run: scripts/data_branch.sh squash state-repo || echo "squash skipped"
       - name: Alerts
         run: .venv/bin/python -m engine.cli alerts --repo "${{ github.repository }}" || true

@@ -1,12 +1,10 @@
-name: eod (after ICE settlement)
+name: eod (manual re-run of one London date)
 
-# ICE Brent settles 19:28-19:30 London. 18:40 UTC is 19:40 London in BST, 19:40 UTC is 19:40 London in GMT.
-# The in-job guard runs the EOD only once per London trading date (idempotent), whichever cron fires first after 19:35 London.
+# The end of day is no longer on a schedule: GitHub fired these crons four to six hours late, after midnight in
+# London, and two days out of three the job found "today" not settled yet and did nothing. The runner's tick
+# (runner.yml) now runs the end of day by itself as soon as a settled London date has none. This workflow is
+# kept for re-running one date by hand. ICE Brent settles 19:28-19:30 London.
 on:
-  schedule:
-    - cron: "40 18 * * 1-5"
-    - cron: "40 19 * * 1-5"
-    - cron: "10 21 * * 1-5"   # late retry if GitHub delayed the earlier runs
   workflow_dispatch:
     inputs:
       date:
@@ -50,8 +48,11 @@ jobs:
           .venv/bin/python -m engine.cli eod --job-id "${{ github.run_id }}"
           ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
           ${{ inputs.force && '--force' || '' }}
+      # A failed export must not keep the state from being pushed: the next tick rebuilds the site data.
       - name: Export site data
-        run: .venv/bin/python -m engine.cli export-site --out state-repo/site-data
+        run: >
+          .venv/bin/python -m engine.cli export-site --out state-repo/site-data
+          || echo "::warning::site export failed: the state is pushed anyway"
       - name: Push state
         run: scripts/data_branch.sh push state-repo "eod $(date -u +%Y-%m-%d) run ${{ github.run_id }}"
       - name: Alerts

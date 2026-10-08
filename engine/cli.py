@@ -177,6 +177,18 @@ def _report(outcome: Any) -> int:
     """One line per job plus a compact detail block; nested dictionaries are summarised, never dumped."""
     print(f"[{outcome.status}] {outcome.message}")
     for key, value in (outcome.detail or {}).items():
+        if key == "sources" and isinstance(value, dict) and "sources" not in value:
+            # the tick's compact summary: counts and the names of what is red, not the whole table
+            red = ", ".join(str(name) for name in value.get("red") or []) or "nessuna"
+            groups = ", ".join(str(g) for g in value.get("groups") or [])
+            if "error" in value:
+                print(f"  fonti ({groups}): errore {value['error']}")
+            else:
+                print(
+                    f"  fonti ({groups}): {value.get('ok')} scaricate, {value.get('failed')} non riuscite | "
+                    f"complessivo {value.get('overall')} | rosse: {red}"
+                )
+            continue
         if key == "sources" and isinstance(value, dict):
             srcs = value.get("sources") or []
             by_status: dict[str, int] = {}
@@ -214,6 +226,31 @@ def cmd_eod(args: argparse.Namespace) -> int:
     return _report(jobs.eod(_runner(), _job_id(args, "eod"), day=day, force=bool(getattr(args, "force", False))))
 
 
+def cmd_tick(args: argparse.Namespace) -> int:
+    from engine.live import jobs
+
+    return _report(jobs.tick(_runner(), _job_id(args, "tick"), legacy=not bool(getattr(args, "no_legacy", False))))
+
+
+def cmd_desk_backtest(args: argparse.Namespace) -> int:
+    """Replay the desk books over the archived history and write the result where the dashboard reads it."""
+    from datetime import date as _date
+    from pathlib import Path as _Path
+
+    from engine.desk.report import run_desk_backtest
+
+    runner = _runner()
+    start = _date.fromisoformat(args.start) if getattr(args, "start", None) else None
+    end = _date.fromisoformat(args.end) if getattr(args, "end", None) else None
+    out = _Path(args.report) if getattr(args, "report", None) else None
+    summary = run_desk_backtest(
+        runner.raw, runner.settings, runner.risk, runner.store, start=start, end=end, out_dir=out
+    )
+    for line in summary.get("lines", []):
+        print(line)
+    return EXIT_OK
+
+
 def cmd_weekly(args: argparse.Namespace) -> int:
     from engine.live import jobs
 
@@ -226,7 +263,14 @@ def cmd_reset(args: argparse.Namespace) -> int:
     if getattr(args, "confirm", None) != "RESET":
         print("reset: serve --confirm RESET (nulla è stato modificato)")
         return EXIT_ERROR
-    return _report(jobs.reset(_runner(), _job_id(args, "reset"), actor=str(getattr(args, "actor", None) or "cli")))
+    return _report(
+        jobs.reset(
+            _runner(),
+            _job_id(args, "reset"),
+            actor=str(getattr(args, "actor", None) or "cli"),
+            book=str(getattr(args, "book", None) or "all"),
+        )
+    )
 
 
 def cmd_alerts(args: argparse.Namespace) -> int:
@@ -251,6 +295,14 @@ def cmd_export_site(args: argparse.Namespace) -> int:
     print(f"scritti {len(res.files)} file in {args.out}: {', '.join(res.files)}")
     for w in res.warnings:
         print(f"  attenzione: {w}")
+    try:  # the terminal page: one file for the desk books. Independent of the legacy export above.
+        from engine.desk.export import export_desk
+
+        desk_files = export_desk(runner.settings, runner.raw, runner.risk, runner.store, _Path(args.out))
+        print(f"desk: {', '.join(desk_files)}")
+    except Exception as exc:
+        print(f"attenzione: export del desk non riuscito ({type(exc).__name__}: {exc})")
+        return EXIT_ERROR
     return EXIT_OK
 
 
@@ -329,6 +381,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_reset.add_argument("--confirm", default=None, help="deve valere RESET")
     p_reset.add_argument("--job-id", default=None)
     p_reset.add_argument("--actor", default=None)
+    p_reset.add_argument("--book", default="all", help="id di un libro del desk, oppure all (default)")
+    p_tick = sub.add_parser("tick", help="un tick dello scheduler: aggiorna ciò che serve, esegue, decide, marca")
+    p_tick.add_argument("--job-id", default=None)
+    p_tick.add_argument("--no-legacy", action="store_true", help="salta la fine giornata del motore storico")
+    p_tick.set_defaults(func=cmd_tick)
+    p_desk = sub.add_parser("desk-backtest", help="backtest dei libri del desk sullo storico archiviato")
+    p_desk.add_argument("--start", default=None)
+    p_desk.add_argument("--end", default=None)
+    p_desk.add_argument("--report", default=None, help="cartella per il report leggibile (facoltativa)")
+    p_desk.set_defaults(func=cmd_desk_backtest)
     p_back = sub.add_parser("backtest", help=NOT_IMPLEMENTED["backtest"][1])
     p_back.add_argument("--start", default=None)
     p_back.add_argument("--end", default=None)

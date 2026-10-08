@@ -23,9 +23,9 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from engine.core.calendar import contract_code, listed_months  # noqa: E402
-from engine.core.instruments import Future  # noqa: E402
-from engine.data.adapters.yahoo import YahooAdapter  # noqa: E402
+from engine.core.calendar import contract_code, listed_months
+from engine.core.instruments import Future
+from engine.data.adapters.yahoo import YahooAdapter
 
 DAILY = [
     "BZ=F", "CL=F", "MCL=F", "QM=F", "HO=F", "RB=F", "NG=F",
@@ -68,17 +68,27 @@ def main() -> int:
 
     safe = lambda s: s.replace("=", "_").replace("^", "_").replace(".", "_")  # noqa: E731
     for symbol in DAILY:
-        run(f"daily/{symbol}", lambda s=symbol: yahoo.fetch_daily(s, date(2000, 1, 1), today), out / "daily" / f"{safe(symbol)}.parquet")
+        run(
+            f"daily/{symbol}",
+            lambda s=symbol: yahoo.fetch_daily(s, date(2000, 1, 1), today),
+            out / "daily" / f"{safe(symbol)}.parquet",
+        )
     for root, months in CURVE_MONTHS.items():
         for year, month in listed_months(root, today, months):
             code = contract_code(root, year, month)
-            run(f"contract/{code}", lambda c=code: yahoo.fetch_contract_history(c), out / "contract" / f"{code}.parquet")
+            run(
+                f"contract/{code}", lambda c=code: yahoo.fetch_contract_history(c), out / "contract" / f"{code}.parquet"
+            )
     for symbol in INTRADAY_1H:
         run(f"1h/{symbol}", lambda s=symbol: yahoo.fetch_intraday(s, "1h", 730), out / "1h" / f"{safe(symbol)}.parquet")
     for root, months in CONTRACT_INTRADAY_MONTHS.items():
         for year, month in listed_months(root, today, months):
             fut = Future(root, year, month)
-            run(f"1h/{fut.code}", lambda f=fut: yahoo.fetch_intraday(f.yahoo_symbol, "1h", 730), out / "1h" / f"{fut.code}.parquet")
+            run(
+                f"1h/{fut.code}",
+                lambda f=fut: yahoo.fetch_intraday(f.yahoo_symbol, "1h", 730),
+                out / "1h" / f"{fut.code}.parquet",
+            )
             for interval in SHORT_INTERVALS:
                 run(
                     f"{interval}/{fut.code}",
@@ -96,7 +106,11 @@ def main() -> int:
     for code in ("BZZ26", "BZZ27", "CLZ26", "CLZ27", "CLM27"):
         if f"1h/{code}" not in manifest["ok"]:
             fut = Future.from_code(code)
-            run(f"1h/{code}", lambda f=fut: yahoo.fetch_intraday(f.yahoo_symbol, "1h", 730), out / "1h" / f"{code}.parquet")
+            run(
+                f"1h/{code}",
+                lambda f=fut: yahoo.fetch_intraday(f.yahoo_symbol, "1h", 730),
+                out / "1h" / f"{code}.parquet",
+            )
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1))
     print(f"\n{len(manifest['ok'])} ok, {len(manifest['failed'])} failed, {yahoo.requests_made} requests")
     return 0

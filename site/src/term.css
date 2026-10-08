@@ -1,0 +1,167 @@
+/* The terminal.
+ *
+ * One typeface (the mono stack), one column of text, hairline rules. Figures align because every one of them is
+ * tabular; colour is spent only on sign (gain / loss) and on state (ok / attention / broken), never on
+ * decoration. Everything here is prefixed t- and builds on the tokens of styles.css, so both themes work.
+ */
+:root { --nav-h: 0px; }
+
+.topbar .brand { color: var(--text-primary); text-decoration: none; letter-spacing: 0.08em; font-family: var(--mono); }
+.topbar .brand:hover { text-decoration: none; }
+.tnav { display: flex; gap: 2px; margin-left: 10px; font-family: var(--mono); font-size: var(--t-sm); overflow-x: auto; }
+.tnav a {
+  color: var(--text-muted); padding: 5px 9px; border-radius: var(--radius-sm); text-decoration: none; white-space: nowrap;
+}
+.tnav a:hover { color: var(--text-primary); background: var(--surface-2); text-decoration: none; }
+.tnav a[aria-current="page"] { color: var(--text-primary); background: var(--surface-3); }
+@media (max-width: 560px) {
+  .topbar .container { flex-wrap: wrap; row-gap: 6px; }
+  .topbar .brand small { display: none; }
+  .tnav { order: 3; flex: 1 0 100%; margin-left: -9px; }
+}
+
+.term {
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum" 1, "zero" 1;
+  color: var(--text-secondary);
+}
+.term b, .term strong { color: var(--text-primary); font-weight: 600; }
+.term p { margin: 8px 0; max-width: 92ch; text-wrap: pretty; }
+.term code { font-family: inherit; color: var(--text-primary); background: var(--surface-2); padding: 1px 5px; border-radius: 2px; }
+.term a { color: var(--series-1); }
+
+.t-dim { color: var(--text-muted); }
+.term .warn { color: var(--warning-ink); }
+.term .bad { color: var(--critical-ink); }
+.term .ok { color: var(--good-ink); }
+.t-nowrap { white-space: nowrap; }
+
+/* status line: when the data is from, is the engine alive, is the data sound */
+.t-status { display: flex; flex-wrap: wrap; gap: 2px 18px; color: var(--text-muted); font-size: var(--t-xs); margin-bottom: 4px; }
+.t-dot::before {
+  content: ""; display: inline-block; inline-size: 7px; block-size: 7px; border-radius: 50%;
+  background: currentColor; margin-right: 6px; vertical-align: 0.05em;
+}
+.t-dot.dim { color: var(--text-muted); }
+.t-dot.dim::before { background: transparent; box-shadow: inset 0 0 0 1px currentColor; }
+
+/* section heading: a label and a rule that runs to the edge */
+.t-sec { margin-top: 22px; }
+.t-h {
+  display: flex; align-items: baseline; gap: 12px; margin: 0 0 8px;
+  font-family: var(--mono); font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-primary);
+}
+.t-h::after { content: ""; flex: 1; border-top: 1px solid var(--border); order: 2; transform: translateY(-0.3em); }
+.t-h small {
+  order: 3; font-size: var(--t-micro); font-weight: 450; letter-spacing: 0.02em; text-transform: none;
+  color: var(--text-muted); text-align: right; max-width: 60%;
+}
+.t-sub { font-family: var(--mono); font-size: var(--t-xs); font-weight: 550; color: var(--text-secondary); margin: 14px 0 6px; letter-spacing: 0.02em; }
+@media (max-width: 640px) {
+  .t-h { flex-wrap: wrap; }
+  .t-h small { order: 4; flex: 1 0 100%; max-width: none; text-align: left; }
+}
+
+/* market strip */
+.t-quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 22px; }
+.t-quote .k { font-size: var(--t-xs); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
+.t-quote .k .t-dim { text-transform: none; letter-spacing: 0; }
+.t-quote .v { font-size: var(--t-lg); color: var(--text-primary); font-weight: 550; line-height: 1.25; white-space: nowrap; }
+.t-quote .v span { font-size: var(--t-sm); font-weight: 450; margin-left: 4px; }
+.t-quote .s { font-size: var(--t-micro); color: var(--text-muted); line-height: 1.35; }
+
+/* tables: no boxes, hairlines between rows, numbers to the right */
+.t-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.t-scroll.t-tall { max-height: 430px; overflow-y: auto; }
+.t-table { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+.t-table th, .t-table td {
+  padding: 5px 16px 5px 0; text-align: left; vertical-align: baseline; white-space: nowrap;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.t-table th:last-child, .t-table td:last-child { padding-right: 0; }
+.t-table thead th {
+  font-size: var(--t-micro); font-weight: 550; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em;
+  border-bottom-color: var(--border); position: sticky; top: 0; background: var(--surface-0);
+}
+.t-table tbody th { font-weight: 550; color: var(--text-primary); }
+.t-table .n { text-align: right; color: var(--text-primary); }
+.t-table .w { white-space: normal; min-width: 26ch; max-width: 78ch; text-wrap: pretty; }
+.t-table small { display: block; font-size: var(--t-micro); font-weight: 450; color: var(--text-muted); line-height: 1.3; }
+.t-table tbody tr:last-child > * { border-bottom: none; }
+.t-table tfoot th, .t-table tfoot td { border-top: 1px solid var(--border); border-bottom: none; padding-top: 7px; }
+.t-table .t-total > * { border-top: 1px solid var(--border); }
+.t-table .t-bench th { font-weight: 450; color: var(--text-secondary); }
+.t-table .t-bench .n { color: var(--text-secondary); }
+.t-table .up, .term .up { color: var(--pos); }
+.t-table .down, .term .down { color: var(--neg); }
+.t-log td { vertical-align: top; }
+.t-forecast { max-width: 720px; }
+.t-years { max-width: 760px; }
+
+/* the colour key that ties a row to its line in the chart */
+.t-key { display: inline-block; inline-size: 9px; block-size: 9px; background: var(--sw); margin-right: 8px; border-radius: 1px; }
+
+.t-chart { margin-top: 12px; }
+.t-lines .base-line { stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 2 4; }
+.term .legend { font-family: var(--mono); }
+.term .legend b { margin-left: 4px; }
+
+.t-details {
+  border: none; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 0; background: transparent; padding: 7px 0;
+}
+.t-details + .t-details { margin-top: 0; }
+.t-details:first-of-type { margin-top: 12px; }
+.t-details summary { font-family: var(--mono); font-weight: 450; }
+.t-details summary .t-dim { margin-left: 8px; }
+.t-details[open] { padding-bottom: 12px; }
+.t-details p { margin-left: 17px; }
+
+.t-empty { color: var(--text-muted); border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
+
+select {
+  width: 100%; padding: 10px 12px; font-size: var(--t-base); font-family: var(--mono);
+  background: var(--surface-0); color: var(--text-primary);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+
+/* phone: a log row becomes two lines (who and when, then the text) instead of a three-column squeeze */
+@media (max-width: 640px) {
+  .t-stack tr { display: grid; grid-template-columns: max-content 1fr; column-gap: 12px; padding: 6px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+  .t-stack td { border-bottom: none !important; padding: 0; }
+  .t-stack td.w { grid-column: 1 / -1; min-width: 0; padding-top: 2px; }
+  .t-stack tr:last-child { border-bottom: none; }
+  .t-forecast tbody th { white-space: normal; min-width: 15ch; }
+  .t-table th, .t-table td { padding-right: 12px; }
+}
+.t-forecast tbody th small { white-space: normal; max-width: 44ch; }
+
+/* a wide table scrolls sideways; its first column stays put so a figure never loses its row */
+.t-scroll .t-table tbody th[scope="row"], .t-scroll .t-table tfoot th[scope="row"] {
+  position: sticky; left: 0; background: var(--surface-0); z-index: 1;
+}
+
+/* phone: the books table becomes one block per book, each figure under its own label */
+@media (max-width: 640px) {
+  .t-books thead { display: none; }
+  .t-books tr {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 10px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  }
+  .t-books th[scope="row"] { grid-column: 1 / -1; position: static; }
+  .t-books th[scope="row"] small { display: inline; margin-left: 8px; }
+  .t-books th, .t-books td { border: none !important; padding: 0; white-space: normal; }
+  .t-books td.n { text-align: left; }
+  .t-books td[data-l]::before {
+    content: attr(data-l); display: block; font-size: var(--t-micro); color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.07em; line-height: 1.4;
+  }
+  .t-books td.w, .t-books td.s { grid-column: 1 / -1; min-width: 0; }
+  .t-books td.x { display: none; }
+  .t-books tfoot tr { border-bottom: none; border-top: 1px solid var(--border); }
+}

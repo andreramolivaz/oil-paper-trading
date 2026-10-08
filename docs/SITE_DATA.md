@@ -23,3 +23,9 @@ un conto fermo ha comunque un motivo per esserlo, e la dashboard deve poterlo mo
 | `epochs.json` | Storico vite: epoch, inizio, fine, equity max/min/finale, causa fine, n trade | reset, eod |
 | `health.json` | Per fonte: status, ultimo successo, asof dato, latenza, fallback usato, messaggio; `cron_lag_minutes`; `overall` | update, eod |
 | `validation.json` | Report backtest OOS: per strategia Sharpe/DSR/PBO/costi x2/per regime/crisi; lifecycle; strategie a peso zero e perché | weekly |
+| `desk.json` | **Il terminale.** `market` (Brent, WTI e BNO con prezzo, orario e variazione sulla chiusura precedente; OVX; Hormuz), `forecast` per strumento (trend, carry, carry-momentum, combinata, volatilità, pendenza e su quali contratti, `approx`), `books` (quattro: regole, equity, P&L di oggi e totale, calo dal massimo, leva e tetto di oggi, posizioni, ordini in coda, costi pagati, ultima decisione con la motivazione, curva di equity; per il libro delle opzioni anche strutture aperte, rischio massimo e il blocco `monitor` con la catena letta e la struttura candidata), `decisions`, `fills`, `health` (stato dei dati, ultimo giro, giri nelle 24 ore), `backtest` (riassunto) | tick |
+| `desk_backtest.json` | Copia di `state/desk/backtest.json`: per libro statistiche, anni, costi, rovina e curva; stessa cosa a costi doppi e con esecuzione alla stessa chiusura; le tre componenti una alla volta; `options` con la simulazione su modello (`approx: true`); provenienza dei rendimenti | weekly, `desk-backtest` |
+
+`desk.json` pesa circa 20 kB e viene riscritto a ogni giro. Tutto ciò che il terminale mostra è lì dentro: la
+pagina non calcola nulla.
+

@@ -34,6 +34,7 @@ from engine.data.fetch import FRESHNESS, GDELT_DAILY_KEY, INTRADAY_KEY, quality_
 from engine.data.market_data import (
     COT_COLUMNS,
     CURVE_COLUMNS,
+    INSIDER_COLUMNS,
     NEWS_COLUMNS,
     PRICE_COLUMNS,
     WPSR_COLUMNS,
@@ -458,6 +459,26 @@ def _rigs_series(loader: Loader) -> tuple[pd.Series, pd.Series, dict[str, str]]:
     return rigs, published, {"rigs": loader.used.get("rig_count", "?")}
 
 
+def _insider_table(loader: Loader) -> tuple[pd.DataFrame, dict[str, str]]:
+    """SEC Form 4 transactions for S21. The table was fetched and archived but never read back: the strategy
+    saw an empty frame and stayed silent whatever the key said. Rows keep their ``published_at`` (the filing
+    deadline), which is what :meth:`MarketData.truncate` cuts on."""
+    empty = pd.DataFrame(columns=[*INSIDER_COLUMNS, "published_at"], index=pd.DatetimeIndex([], name="published_at"))
+    frame = loader.load("weekly_alt", "insider_form4")
+    if frame is None or frame.empty or "published_at" not in frame.columns:
+        return empty, {}
+    missing = [c for c in INSIDER_COLUMNS if c not in frame.columns]
+    if missing:
+        log.warning("insider table without columns %s: ignored", missing)
+        return empty, {}
+    table = frame[[*INSIDER_COLUMNS, "published_at"]].copy()
+    table.index = pd.DatetimeIndex(_dates(frame.index), name="transaction_date")
+    table["published_at"] = pd.to_datetime(table["published_at"], utc=True, errors="coerce")
+    usable = table.index.notna() & table["published_at"].notna().to_numpy()
+    table = table[usable].sort_index(kind="stable")
+    return table, {"insider": loader.used.get("insider_form4", "?")}
+
+
 def _intraday(loader: Loader) -> tuple[pd.DataFrame | None, dict[str, str]]:
     for adapter in loader.store.keys(INTRADAY_KEY):
         frame = loader.store.load_latest(INTRADAY_KEY, adapter)
@@ -557,6 +578,7 @@ def build_market_data(store: RawStore, settings: Settings, asof: datetime | None
     news, news_pub, news_sources = _news_table(loader)
     rigs, rigs_pub, rigs_sources = _rigs_series(loader)
     intraday, intraday_sources = _intraday(loader)
+    insider, insider_sources = _insider_table(loader)
 
     if curve_pub is not None and len(curve_pub):
         published["curve"] = pd.to_datetime(curve_pub, utc=True)
@@ -573,6 +595,7 @@ def build_market_data(store: RawStore, settings: Settings, asof: datetime | None
         cot=cot,
         news=news,
         rigs=rigs,
+        insider=insider,
         intraday=intraday,
         published_at=published,
         health=_health(loader, now),
@@ -588,6 +611,7 @@ def build_market_data(store: RawStore, settings: Settings, asof: datetime | None
             **news_sources,
             **rigs_sources,
             **intraday_sources,
+            **insider_sources,
         },
         "adapters": dict(loader.used),
         "fallbacks": {k: v for k, v in loader.fallbacks.items() if v},

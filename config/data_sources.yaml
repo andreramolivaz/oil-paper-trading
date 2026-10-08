@@ -53,14 +53,6 @@ fundamentals:
   rig_count:
     - {adapter: baker_hughes, url: "https://rigcount.bakerhughes.com/na-rig-count"}
 
-  # SEC Form 4 insider transactions for the oil complex, via Alpha Vantage. Public, legally disclosed filings.
-  # published_at is INFERRED from the two-business-day statutory deadline (17 CFR 240.16a-3), never observed,
-  # so the series is always approx. The key is optional like EIA/FRED: without it the source goes yellow, the
-  # insider features stay NaN and S21 returns None. Weekly cadence — the flow is ~9 open-market purchases per
-  # name per year, and the free Alpha Vantage tier allows 25 calls a day against a 12-name universe.
-  insider_form4:
-    - {adapter: alphavantage_insider, needs_key: true, approx: true, cadence: weekly,
-       url: "https://www.alphavantage.co/query?function=INSIDER_TRANSACTIONS"}
 positioning:
   cot_wti:
     - {adapter: cftc_socrata, market_code: "067651"}
@@ -75,3 +67,57 @@ news:
     - {adapter: gdelt_doc_api, min_interval_seconds: 6}
   gpr:
     - {adapter: gpr, url: "https://www.matteoiacoviello.com/gpr_files/data_gpr_daily_recent.xls"}
+
+# ---------------------------------------------------------------------------------------------------------
+# The desk (engine/desk): series with no roll jump in them. Verified 2026-10-08 on a GitHub runner.
+# ---------------------------------------------------------------------------------------------------------
+desk:
+  bno_daily:
+    - {adapter: yahoo, symbol: "BNO"}
+  uso_daily:
+    - {adapter: yahoo, symbol: "USO"}
+  # One long table per root with the full daily history of every listed contract. BZ=F and CL=F are not a
+  # contract: near an expiry Yahoo interleaves two of them inside the same bar. These tables are cumulative
+  # (engine/data/fetch.py merges each download with the archive), because Yahoo forgets a contract at expiry.
+  cl_contracts:
+    - {adapter: yahoo_contracts, root: CL, months: 14, far_decembers: 3}
+  bz_contracts:
+    - {adapter: yahoo_contracts, root: BZ, months: 14, far_decembers: 3}
+  # Tanker transits through the Strait of Hormuz and Bab el-Mandeb, from AIS positions (IMF PortWatch).
+  # Weekly publication, a week at a time: context and a risk input, never a trading signal on its own.
+  hormuz:
+    - {adapter: portwatch, chokepoint: "Strait of Hormuz"}
+  bab_el_mandeb:
+    - {adapter: portwatch, chokepoint: "Bab el-Mandeb Strait"}
+
+# Refreshed on every tick: what the paper brokers fill and mark against.
+desk_intraday:
+  bno_intraday:
+    - {adapter: yahoo_intraday, symbol: "BNO", interval: "30m", lookback_days: 10}
+  cl_intraday:
+    - {adapter: yahoo_intraday_contracts, root: CL, contracts: 2, interval: "30m", lookback_days: 10}
+  # No book trades this one (ICE Brent futures are not on Robinhood): it is the Brent price the terminal shows.
+  bz_intraday:
+    - {adapter: yahoo_intraday_contracts, root: BZ, contracts: 2, interval: "30m", lookback_days: 5}
+
+# Real option chains with bid and ask (Cboe delayed quotes, 15 minutes, no key).
+options:
+  bno_options:
+    - {adapter: cboe_chain, symbol: "BNO"}
+  uso_options:
+    - {adapter: cboe_chain, symbol: "USO"}
+
+# Refreshed by the weekly job only: the free Alpha Vantage tier allows 25 calls a day and this table needs 12.
+weekly_alt:
+  # SEC Form 4 insider transactions for the oil complex, via Alpha Vantage. Public, legally disclosed filings.
+  # published_at is INFERRED from the two-business-day statutory deadline (17 CFR 240.16a-3), never observed,
+  # so the series is always approx. The key is optional like EIA/FRED: without it the source goes yellow, the
+  # insider features stay NaN and S21 returns None. Weekly cadence — the flow is ~9 open-market purchases per
+  # name per year, and the free Alpha Vantage tier allows 25 calls a day against a 12-name universe.
+  insider_form4:
+    - {adapter: alphavantage_insider, needs_key: true, approx: true, cadence: weekly,
+       url: "https://www.alphavantage.co/query?function=INSIDER_TRANSACTIONS"}
+
+# Only these can turn the overall status red and stop new risk. Everything else degrades the features that
+# read it and nothing more.
+critical_sources: [brent_front, wti_front, bno_daily]

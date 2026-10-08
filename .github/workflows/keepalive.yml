@@ -20,6 +20,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for wf in update.yml eod.yml weekly.yml keepalive.yml; do
+          for wf in watchdog.yml runner.yml weekly.yml keepalive.yml; do
             gh workflow enable "$wf" --repo "${{ github.repository }}" || echo "could not enable $wf"
           done

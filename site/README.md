@@ -30,13 +30,15 @@ Override a build time: `VITE_OWNER`, `VITE_REPO`, `VITE_DATA_BRANCH`, `VITE_DATA
 
 | Rotta | Contenuto |
 |---|---|
-| `#/` | Prezzo Brent con fonte e orario, OVX, badge del regime, stato dati, equity, P&L, drawdown, posizione, leva con il motivo del limite, prezzo di liquidazione, equity contro buy & hold |
-| `#/previsioni` | Fan chart a 1 giorno / 1 settimana / 1 mese / 3 mesi, quantili, probabilità di rialzo, driver, range implicito nell'OVX, track record contro random walk e curva |
-| `#/strategie` | Classifica dei conti ombra (Sharpe, Sortino, max drawdown, hit rate, profit factor, segnale) e scheda per strategia |
-| `#/mercato` | Curva dei futures, storico dei regimi, scorte contro il range a 5 anni, Brent−WTI, COT, indice geopolitico, calendario eventi |
-| `#/operazioni` | Log delle operazioni con motivazione, slippage, gate e leva; export CSV |
-| `#/rischio` | Margini, storico della leva, VaR ed ES, rischio di rovina Monte Carlo, stress test |
-| `#/reset` | Spiegazione, token opzionale nel browser, avvio del workflow di reset, storico delle epoche |
+| `#/` | **Il terminale**: mercato (Brent, WTI, BNO, OVX, pendenza della curva, Hormuz), previsione, i quattro libri con equity, leva, posizione e ultima decisione, decisioni ed eseguiti recenti, catene di opzioni lette, riassunto del backtest, stato di dati e motore. Legge solo `desk.json`. |
+| `#/backtest` | Risultato per libro, curve su scala logaritmica contro lo strumento comprato e tenuto, rischio di rovina, sensibilità a costi ed esecuzione, le tre componenti una alla volta, anno per anno, simulazione delle opzioni (≈), provenienza dei dati, ciò che è stato scartato. Legge `desk_backtest.json`. |
+| `#/reset` | Stato dei libri, scelta di che cosa azzerare, token facoltativo nel browser, avvio del workflow, storico delle vite. |
+| `#/archivio` | Porta d'ingresso alle pagine del primo sistema, che restano aggiornate: `#/conto-storico`, `#/strategie`, `#/previsioni`, `#/mercato`, `#/operazioni`, `#/rischio`. |
+
+Il terminale è testo in carattere monospaziato: tabelle senza riquadri, cifre tabulari, il colore usato solo
+per il segno (guadagno o perdita) e per lo stato (a posto, attenzione, guasto). Sul telefono la tabella dei
+libri diventa un blocco per libro e le righe del registro vanno su due linee. I due grafici a linee sono SVG
+disegnati alla larghezza reale del contenitore (`src/charts/lines.ts`), senza libreria.
 
 ## Convenzioni di presentazione
 
