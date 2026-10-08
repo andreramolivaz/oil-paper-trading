@@ -128,6 +128,19 @@ def test_the_weekly_table_is_retried_by_a_tick_at_most_once_a_day(tmp_path):
     assert jobs._weekly_alt_due(_runner(tmp_path, insider("yellow", 30, ok_days_ago=9)), now) is True
 
 
+def test_option_chains_are_read_once_at_first_start_then_only_in_market_hours(tmp_path):
+    evening = datetime(2026, 10, 8, 21, 17, tzinfo=UTC)  # 17:17 New York: the desk's first tick on 8 October
+    assert jobs._options_due(_runner(tmp_path, []), evening) is True  # never read: show the session's last quotes
+    stamp = evening.isoformat()
+    read = [{"source": "uso_options", "status": "green", "checked_at": stamp, "last_success_at": stamp}]
+    assert jobs._options_due(_runner(tmp_path, read), evening + timedelta(minutes=31)) is False
+    refused = [{"source": "uso_options", "status": "red", "checked_at": stamp}]
+    assert jobs._options_due(_runner(tmp_path, refused), evening + timedelta(minutes=31)) is False  # not at night
+    morning = datetime(2026, 10, 9, 13, 48, tzinfo=UTC)  # 09:48 New York: market open, quotes more than an hour old
+    assert jobs._options_due(_runner(tmp_path, read), morning) is True
+    assert jobs._options_due(_runner(tmp_path, refused), morning) is True
+
+
 def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
     """The whole "prices" group is about sixty requests to Yahoo and the desk reads three of its tables. Asking
     for all of it at every refresh got the address rate limited, and a rate limit costs the tick its bars."""

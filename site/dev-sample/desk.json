@@ -802,37 +802,31 @@
  ],
  "health": {
   "overall": "yellow",
-  "checked_at": "2026-10-08T19:03:54.836393Z",
+  "checked_at": "2026-10-08T21:19:47.092207Z",
   "critical": [
    "bno_daily",
    "brent_front",
    "wti_front"
   ],
-  "n_sources": 37,
-  "n_green": 30,
+  "n_sources": 35,
+  "n_green": 31,
   "not_green": [
-   {
-    "source": "bno_intraday",
-    "status": "yellow",
-    "message": "adapter yahoo | [warning] close (ret): variazione anomala: z robusto 10.7 (soglia 6) | [warning] close (ret): variazione anomala: z robusto 6.5 (soglia 6)",
-    "asof": "2026-10-08T19:00:00Z"
-   },
-   {
-    "source": "brent_spot",
-    "status": "yellow",
-    "message": "adapter eia_xls | fallback: eia_xls",
-    "asof": "2026-10-06T00:00:00Z"
-   },
    {
     "source": "copper",
     "status": "yellow",
-    "message": "adapter yahoo | [warning] close (ret): variazione anomala: z robusto 7.4 (soglia 6)",
-    "asof": "2026-10-06T00:00:00Z"
+    "message": "adapter yahoo | [warning] close (ret): variazione anomala: z robusto 7.0 (soglia 6)",
+    "asof": "2026-10-08T00:00:00Z"
    },
    {
-    "source": "insider_form4",
+    "source": "dxy",
+    "status": "yellow",
+    "message": "adapter fred | [warning] index: ultimo dato 2026-10-02 (165.3 h, limite 144.0 h)",
+    "asof": "2026-10-02T00:00:00Z"
+   },
+   {
+    "source": "rig_count",
     "status": "red",
-    "message": "alphavantage_insider: adapter non registrato",
+    "message": "baker_hughes: DataUnavailable: Baker Hughes page https://rigcount.bakerhughes.com/na-rig-count: GET https://rigcount.bakerhughes.com/na-rig-count failed after 3",
     "asof": null
    },
    {
@@ -840,18 +834,6 @@
     "status": "yellow",
     "message": "adapter eia | [warning] value (ret): variazione anomala: z robusto 8.0 (soglia 6)",
     "asof": "2027-12-01T00:00:00Z"
-   },
-   {
-    "source": "wti_curve_hist",
-    "status": "yellow",
-    "message": "chiave assente: eia (EIA_API_KEY)",
-    "asof": null
-   },
-   {
-    "source": "wti_spot",
-    "status": "yellow",
-    "message": "adapter fred_csv | fallback: fred_csv",
-    "asof": "2026-10-06T00:00:00Z"
    }
   ],
   "last_tick": {
