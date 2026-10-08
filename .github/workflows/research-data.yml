@@ -1,0 +1,35 @@
+name: research data (manual)
+
+# Downloads the per-contract and ETF bars the scheduled jobs do not archive and uploads them as an artifact.
+# Nothing is written to the data branch: this is a research tool, not part of the trading loop.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["research-fetch"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-data
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - name: Install
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.lock
+      - name: Fetch
+        run: .venv/bin/python scripts/research_fetch.py --out out/research
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-data
+          path: out/research
+          retention-days: 14
