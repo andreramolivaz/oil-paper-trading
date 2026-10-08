@@ -73,6 +73,7 @@ How a tick works (`engine/live/jobs.py::tick`, driven by `scripts/runner_loop.sh
    most one decision per book per US session, taken at the first tick after the vehicle's decision time. A
    decision at 15:18 New York fills at the 15:30 open, and the fill shows up at the 16:18 tick.
 3. `options_tick`: settle expired structures on the official close, mark at mid, decide once a session.
+   A desk with no `desk/backtest.json` computes it here once; after that the weekly job refreshes it.
 4. Last, because it takes minutes: the first system's end of day, if the latest SETTLED London date has none
    (at most three attempts per date).
 5. `export-site`, push the data branch.

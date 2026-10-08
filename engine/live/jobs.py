@@ -315,6 +315,18 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
             log.warning("options book skipped: %s", exc)
             detail["options"] = {"error": str(exc)[:200]}
 
+        # The terminal shows the backtest beside the live books. The weekly job refreshes it; a desk that has
+        # never had one computes it once here (about twenty seconds), so the page is whole from its first day.
+        if {"BNO", "MCL"} <= set(data.series) and not _desk_backtest_on_file(runner):
+            try:
+                from engine.desk.report import run_desk_backtest
+
+                run_desk_backtest(runner.raw, runner.settings, runner.risk, runner.store)
+                detail["desk_backtest"] = "calcolato: mancava"
+            except Exception as exc:  # a replay on the side must never cost the tick
+                log.warning("desk backtest skipped: %s", exc)
+                detail["desk_backtest"] = f"non riuscito: {str(exc)[:160]}"
+
         # The first system's end of day comes LAST: it takes minutes (features, regime, forecasts) and the books
         # must not wait for it. It is tried at most LEGACY_EOD_ATTEMPTS times per date: a date that keeps failing
         # must not cost five minutes of every tick for the rest of the day.
@@ -342,6 +354,13 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         log.exception("tick failed")
         runner.finish_run(rec, "failed", str(exc), detail)
         return JobOutcome("failed", str(exc), detail)
+
+
+def _desk_backtest_on_file(runner: LiveRunner) -> bool:
+    from engine.desk.live import DESK_DIR
+    from engine.desk.report import BACKTEST_FILE
+
+    return (runner.settings.state_dir / DESK_DIR / BACKTEST_FILE).exists()
 
 
 # What each vehicle's daily decision cannot do without: every table of at least one of the listed sets must be
