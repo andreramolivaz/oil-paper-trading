@@ -276,16 +276,19 @@ def check_nonpositive(series: pd.Series, table: str = "", column: str | None = N
     ser = _numeric(series).dropna()
     bad = ser[ser <= 0]
     issues: list[QualityIssue] = []
-    for ts in list(bad.index)[-20:]:
+    # Iterated by POSITION: a table with several rows on one day (per-contract bars, insider transactions) has
+    # a non-unique index, and `bad.loc[ts]` then returns a Series that float() cannot take - the check that was
+    # meant to flag a bad price crashed the whole health report instead.
+    for ts, value in list(zip(bad.index, bad.to_numpy(), strict=True))[-20:]:
         issues.append(
             QualityIssue(
                 table,
                 name,
                 "nonpositive",
                 "error",
-                f"valore non positivo {float(bad.loc[ts]):.4f}",
+                f"valore non positivo {float(value):.4f}",
                 _utc(ts),
-                {"value": float(bad.loc[ts])},
+                {"value": float(value)},
             )
         )
     return issues

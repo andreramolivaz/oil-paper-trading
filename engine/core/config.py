@@ -22,6 +22,7 @@ class Settings:
     fred_api_key: str | None
     github_repo: str
     offline: bool  # True in tests / CI unit stage: adapters must not touch the network
+    alphavantage_api_key: str | None = None  # optional: only the weekly insider table needs it
 
     @staticmethod
     def from_env() -> Settings:
@@ -32,6 +33,7 @@ class Settings:
             fred_api_key=os.environ.get("FRED_API_KEY") or None,
             github_repo=os.environ.get("GITHUB_REPOSITORY", "andreramolivaz/oil-paper-trading"),
             offline=os.environ.get("OPT_OFFLINE", "0") == "1",
+            alphavantage_api_key=os.environ.get("ALPHAVANTAGE_API_KEY") or None,
         )
 
 

@@ -1,6 +1,41 @@
 # Piano di lavoro — oil-paper-trading
 
-Aggiornato: 2026-10-05. Stato per fase in fondo.
+Aggiornato: 2026-10-08. Stato per fase in fondo.
+
+## Che cosa è cambiato l'8 ottobre 2026 (fase 10)
+
+Dopo tre giorni il conto era fermo e non aveva fatto nessuna operazione. Le cause erano quattro (dettaglio in
+`docs/RESEARCH.md`, §1) e tre delle decisioni della tabella qui sotto si sono rivelate sbagliate *in esercizio*:
+
+| Decisione originale | Che cosa è successo | Che cosa c'è adesso |
+|---|---|---|
+| Cron `*/30` con guardia sull'orario | GitHub lo ha eseguito circa quattro volte al giorno | Un lavoro `runner` che resta acceso e fa un giro ogni 30 minuti; il cron (`watchdog`) lo riaccende soltanto |
+| Fine giornata su cron alle 18:40 e 19:40 UTC | Partiva dopo la mezzanotte di Londra, chiedeva «oggi» e usciva con «troppo presto» | Il giro stesso rifà la fine giornata dell'ultima data **già chiusa**, a qualunque ora parta |
+| Qualsiasi fonte rossa blocca il nuovo rischio | Una tabella facoltativa mai scaricata ha fermato il conto | Solo le fonti in `critical_sources` possono farlo; le altre spengono ciò che le legge |
+| Un conto che opera solo con strategie validate | Nessuna validata → conto fermo per costruzione | Quattro libri che comprano una previsione fatta di regole pubblicate, senza selezione (`engine/desk`) |
+
+Altre decisioni della fase 10, con il motivo:
+
+- **Strumenti reali.** BNO per il Brent e /MCL per la leva, con lotti, margini e commissioni di Robinhood: su
+  quell'intermediario un future sul Brent non esiste. Il vecchio conto operava su un future Brent a passi di
+  10 barili che nessuno può comprare.
+- **Serie per contratto.** Il prezzo continuo di Yahoo mescola due scadenze vicino al roll; i libri leggono il
+  fondo o il singolo contratto, e la tabella dei contratti è cumulativa.
+- **Leva come risultato.** Nessun gate: `previsione / 10 × obiettivo di volatilità / volatilità`. Gli
+  obiettivi sono frazioni di Kelly, il tetto di 10x resta nel broker.
+- **Storia del branch dati compressa ogni settimana.** A 48 giri al giorno la storia di git cresceva di
+  decine di megabyte al giorno per file che nessuno rileggerà; il registro che conta sta *dentro* i file.
+- **Il runner riparte a ogni push sul motore.** Un lavoro acceso da cinque ore gira sul codice di cinque ore
+  prima.
+- **I giri cadono ai minuti :18 e :48.** Il flusso dei prezzi è in ritardo di 10-15 minuti: tre minuti dopo la
+  fine di una barra ne manca ancora un quarto d'ora. Una barra è «chiusa» quindici minuti dopo la sua fine.
+- **Una decisione sostituisce l'ordine in coda.** Sui dati veri dell'8 ottobre due decisioni a mezz'ora di
+  distanza avevano comprato due volte lo stesso obiettivo.
+- **Si scarica solo ciò che la decisione legge.** Due aggiornamenti completi in un'ora (circa duecento
+  richieste) bastano perché Yahoo rifiuti tutto per minuti, e un rifiuto costa al giro le sue barre. Ogni
+  libro chiede le proprie tabelle al momento di decidere; tutto insieme una volta dopo la chiusura.
+- **Sito a una pagina.** Il terminale sostituisce la home; le sette pagine del primo sistema restano
+  raggiungibili dall'archivio.
 
 ## Decisioni di architettura (con motivazione in una riga)
 
@@ -69,6 +104,9 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
 - [x] 7. Paper trading live su Actions: cinque job idempotenti, branch dati, reset con archivio delle epoche.
 - [x] 8. Dashboard su Pages: sette pagine in italiano, tema scuro, mobile-first, grafici con palette validata.
 - [x] 9. Monitoraggio: salute per fonte, ritardo del cron, issue automatiche, keepalive, README in italiano.
+- [x] 10. Desk: serie investibili per contratto, tre libri lineari e un libro di opzioni su quotazioni reali,
+  backtest con sensibilità a costi ed esecuzione, runner a giro continuo, terminale a una pagina, ricerca
+  documentata con le fonti (`docs/RESEARCH.md`).
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

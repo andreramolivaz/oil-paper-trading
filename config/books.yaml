@@ -1,0 +1,82 @@
+# The desk's paper books (engine/desk). Each book starts from account.initial_capital in config/risk.yaml.
+#
+# The three linear books read the SAME forecast (trend + carry + carry-momentum, equal weights) and differ only
+# in how much of it they buy. The volatility targets are Kelly fractions of an assumed Sharpe ratio of 0.5,
+# which is what the sleeves measured on real data and what the literature reports for one oil market
+# (docs/RESEARCH.md): the growth-optimal volatility is then 50 % a year, half of it 25 %, a quarter 12 %.
+# Running above 50 % does not raise the expected growth, it lowers it and raises the chance of ruin.
+#
+#   vol_target            annualised volatility the book aims for when the forecast is at its normal size (10)
+#   max_leverage          ceiling on gross notional / equity; never above the hard 10x enforced by the broker
+#   weekend_max_leverage  lower ceiling applied at the last decision before a closure of more than one day
+#   long_only             a fund book cannot be short (the fund is not shorted; shorts live in the futures book)
+#   buffer                no trade while the target is within this fraction of a normal-size position
+#   daily_loss_breaker    loss on the day, as a fraction of the day's opening equity, that flattens the book
+books:
+  - id: prudente
+    name: Prudente
+    vehicle: BNO
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    daily_loss_breaker: 0.05
+    description: >-
+      Un quarto di Kelly sul fondo Brent, mai a leva. È il libro che si potrebbe tenere su un conto senza
+      margine: compra BNO quando trend e curva dicono long, sta in contanti negli altri casi.
+
+  - id: dinamico
+    name: Dinamico
+    vehicle: BNO
+    vol_target: 0.25
+    max_leverage: 2.0
+    weekend_max_leverage: 1.5
+    long_only: true
+    daily_loss_breaker: 0.08
+    description: >-
+      Mezzo Kelly sul fondo Brent, fino a 2x a margine (il massimo che la Regulation T consente overnight).
+      Stesse previsioni del libro prudente, il doppio del rischio.
+
+  - id: spinto
+    name: Spinto
+    vehicle: MCL
+    vol_target: 0.50
+    max_leverage: 10.0
+    weekend_max_leverage: 3.0
+    long_only: false
+    daily_loss_breaker: 0.15
+    description: >-
+      Kelly pieno sul future micro WTI, long e short, fino a 10x. La leva non è scelta: esce dal rapporto fra
+      l'obiettivo di volatilità e la volatilità del momento. Con il greggio al 50% di volatilità resta fra
+      1x e 2x; servono mercati calmi e una previsione forte per vederla salire. Può azzerare il conto.
+
+# The options book (engine/desk/options.py): put credit spreads sold below the market when the forecast is
+# long, priced on the real delayed bid and ask. Its replay is a model and is labelled approx everywhere; the
+# book exists to measure the idea on real quotes. Every number here is a rule of the book, not a fitted value:
+# the threshold is the same "half a normal conviction" the research used before any result was seen, the
+# delta is the middle of the usual 15-30 range, and the wing is as wide as the risk budget allows.
+options_book:
+  enabled: true
+  id: opzioni
+  name: Opzioni
+  forecast_threshold: 5.0        # combined forecast needed to sell a put spread
+  short_delta: 0.20              # delta of the put sold
+  dte_min: 21                    # days to expiry: listed expiry closest to dte_target inside [dte_min, dte_max]
+  dte_target: 30
+  dte_max: 45
+  risk_per_structure: 0.05       # maximum loss of one structure as a fraction of equity
+  max_open: 2                    # structures open at the same time (so at most 10 % of equity at risk)
+  min_business_days_between_entries: 10
+  min_width_pct: 0.03            # a wing narrower than this fraction of the price is not worth its cost
+  min_credit_to_width: 0.10
+  max_leg_spread: 0.25           # a leg quoted wider than this fraction of its mid-price is not tradeable
+  max_quote_age_minutes: 45      # the feed is 15 minutes late by itself
+  fill_fraction: 0.25            # sells fill at bid + 25 % of the spread, buys at ask - 25 %
+  fee_per_contract: 0.05         # regulatory and clearing fees; Robinhood charges no commission on options
+  decision_time_ny: [15, 0]
+  underlyings:
+    - {symbol: USO, chain: uso_options, daily: uso_daily, forecast: MCL, label: "fondo WTI"}
+    - {symbol: BNO, chain: bno_options, daily: bno_daily, forecast: BNO, label: "fondo Brent"}
+  description: >-
+    Spread di put a credito su USO (e su BNO quando le quotazioni lo consentono), venduti sotto il mercato
+    quando trend e curva dicono long. Perdita massima definita all'apertura: 5% del conto per struttura, due
+    strutture al massimo. Sperimentale: la simulazione è un modello, il libro serve a misurarlo sui prezzi veri.

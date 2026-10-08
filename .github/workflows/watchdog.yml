@@ -1,0 +1,38 @@
+name: watchdog (keeps the runner alive)
+
+# The only job on a schedule during the week. It does not trade: it checks that a runner is alive and starts one
+# if none is. The schedule itself is unreliable (GitHub fired the old */30 one about four times a day), which is
+# exactly why the ticking is done by a long-lived runner and this is only the safety net behind its hand-over.
+on:
+  schedule:
+    - cron: "13,43 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Start a runner if none is alive and the market week is open
+        run: |
+          dow=$(TZ=America/New_York date +%u); hm=$(TZ=America/New_York date +%H%M)
+          if [ "$dow" = "6" ] || { [ "$dow" = "5" ] && [ "$hm" -ge 1830 ]; } || { [ "$dow" = "7" ] && [ "$hm" -lt 1730 ]; }; then
+            echo "weekend: nothing to do"; exit 0
+          fi
+          alive=$(gh run list --repo "${{ github.repository }}" --workflow runner.yml --limit 20 --json status \
+                  --jq '[.[] | select(.status == "in_progress" or .status == "queued" or .status == "pending" or .status == "waiting" or .status == "requested")] | length')
+          echo "runner runs alive: $alive"
+          if [ "$alive" = "0" ]; then
+            gh workflow run runner.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}"
+            echo "runner started"
+          fi

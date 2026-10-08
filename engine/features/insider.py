@@ -100,8 +100,34 @@ def _normalised_size(frame: pd.DataFrame) -> pd.Series:
     return pd.Series(out.clip(-CLIP, CLIP).to_numpy(), index=frame.index)
 
 
-def build(md: MarketData, index: pd.DatetimeIndex | None = None) -> pd.DataFrame:
-    """Insider features on the Brent trading calendar."""
+def compute(md: MarketData, asof: datetime, base: pd.DataFrame) -> pd.DataFrame:
+    """Entry point of the feature builder (``engine/features/builder.py``): the features on ``base``'s dates.
+
+    The builder's rule is stricter than a calendar day: a transaction counts on a trading date only if its
+    filing deadline had passed by that date's ICE settlement. ``base`` already stops at the last date settled
+    before ``asof``, so nothing later than ``asof`` can enter. Without this function the module was listed
+    in the builder and never ran: the insider columns stayed NaN and S21 could not operate even with the data.
+    """
+    del asof  # the dates of `base` carry it
+    from engine.features.events import settlement_index
+
+    dates = pd.DatetimeIndex(base.index)
+    out = build(md, dates, cutoffs=settlement_index(dates) if len(dates) else None)
+    insider = getattr(md, "insider", None)
+    # published_at is the statutory deadline, inferred and never observed: every column is an approximation
+    out.attrs["approx_columns"] = list(COLUMNS) if insider is not None and len(insider) else []
+    return out
+
+
+def build(
+    md: MarketData, index: pd.DatetimeIndex | None = None, cutoffs: pd.DatetimeIndex | None = None
+) -> pd.DataFrame:
+    """Insider features on the Brent trading calendar.
+
+    ``cutoffs`` is the instant, one per date, by which a filing must have been published to count on that date.
+    Without it a transaction counts on the calendar day of its deadline (the stand-alone research convention);
+    the feature builder passes the settlement time of each date.
+    """
     dates = pd.DatetimeIndex(md.prices.index) if index is None else index
     empty = pd.DataFrame(np.nan, index=dates, columns=COLUMNS)
     empty[cat.INSIDER_N_TX] = 0.0
@@ -146,8 +172,13 @@ def build(md: MarketData, index: pd.DatetimeIndex | None = None) -> pd.DataFrame
     pub = pd.DatetimeIndex(work["published"])
     asof = pd.DatetimeIndex([pd.Timestamp(d) for d in dates])
     asof_utc = asof.tz_localize("UTC") if asof.tz is None else asof.tz_convert("UTC")
-    # settlement_index gives calendar dates; a transaction counts once the filing deadline has passed.
-    end = pub.searchsorted(asof_utc + pd.Timedelta(hours=23, minutes=59), side="right")
+    # a transaction counts once the filing deadline has passed: by the end of the day, or by the cutoff given
+    if cutoffs is None:
+        known_by = asof_utc + pd.Timedelta(hours=23, minutes=59)
+    else:
+        given = pd.DatetimeIndex(cutoffs)
+        known_by = given.tz_localize("UTC") if given.tz is None else given.tz_convert("UTC")
+    end = pub.searchsorted(known_by, side="right")
     start = pub.searchsorted(asof_utc - pd.Timedelta(days=WINDOW_DAYS), side="left")
 
     flows = work["flow"].to_numpy()

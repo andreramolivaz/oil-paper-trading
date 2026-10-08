@@ -145,6 +145,7 @@ class BrokerState:
     realized_pnl: float = 0.0
     total_commission: float = 0.0
     total_slippage_usd: float = 0.0
+    total_financing: float = 0.0  # interest on borrowed cash (funds held on margin), charged by the desk
     last_equity: float = 10_000.0
     last_bar_ts: dict[str, datetime] = field(default_factory=dict)  # "symbol|interval" -> last processed bar end
     rejections: list[dict[str, Any]] = field(default_factory=list)
@@ -192,6 +193,7 @@ class BrokerState:
             "realized_pnl": self.realized_pnl,
             "total_commission": self.total_commission,
             "total_slippage_usd": self.total_slippage_usd,
+            "total_financing": self.total_financing,
             "last_equity": self.last_equity,
             "last_bar_ts": {k: iso(v) for k, v in self.last_bar_ts.items()},
             "rejections": list(self.rejections),
@@ -229,6 +231,7 @@ class BrokerState:
         st.realized_pnl = float(d.get("realized_pnl", 0.0))
         st.total_commission = float(d.get("total_commission", 0.0))
         st.total_slippage_usd = float(d.get("total_slippage_usd", 0.0))
+        st.total_financing = float(d.get("total_financing", 0.0))
         st.last_equity = float(d.get("last_equity", st.cash))
         st.last_bar_ts = {k: t for k, v in dict(d.get("last_bar_ts", {})).items() if (t := parse_iso(v)) is not None}
         st.rejections = [dict(r) for r in d.get("rejections", [])]
@@ -1036,6 +1039,38 @@ class PaperBroker:
             self.store.append_jsonl_unique(EQUITY_LOG, row, "snapshot_id", ts=ts)
         self._persist()
         return snap
+
+    def note_price(self, symbol: str, price: float) -> None:
+        """Record a reference price for a symbol the account does not hold yet.
+
+        The first order on a contract that has just become the one to hold has nothing to measure its
+        notional against: without this the leverage check refuses it for want of a reference price. Nothing is
+        marked and no snapshot is written; an invalid price is ignored.
+        """
+        if math.isfinite(price) and price > 0:
+            self.state.last_prices[symbol] = float(price)
+
+    def charge_financing(self, annual_rate: float, days: float, ts: datetime) -> float:
+        """Debit the interest on borrowed cash: ``rate * days / 360`` on the notional held beyond the equity.
+
+        A fund bought on margin is financed by the broker; a futures position is not (its margin is collateral,
+        not a loan), which is why this is the caller's decision and not part of the mark. Returns the amount
+        debited (0 when nothing is borrowed, the rate is zero or the account is dead).
+        """
+        st = self.state
+        if annual_rate <= 0 or days <= 0 or not st.positions or st.status == AccountStatus.DEAD:
+            return 0.0
+        equity = self._equity()
+        gross, _ = self._gross_net()
+        borrowed = max(0.0, gross - max(0.0, equity))
+        if borrowed <= 0:
+            return 0.0
+        amount = borrowed * annual_rate * days / 360.0
+        st.cash -= amount
+        st.total_financing += amount
+        self._update_equity_stats(ensure_utc(ts))
+        self._persist()
+        return amount
 
     def roll(self, from_symbol: str, to_symbol: str, from_price: float, to_price: float, ts: datetime) -> list[Fill]:
         """Roll the whole position from one contract to the next: close old, open new with the same quantity.

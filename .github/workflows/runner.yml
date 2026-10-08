@@ -1,0 +1,79 @@
+name: runner (tick every 30 min)
+
+# One long job that ticks every half hour and hands over to its own successor. The schedules of this repository
+# fire hours late (GitHub runs them best effort), so they are only used as a watchdog (watchdog.yml).
+on:
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: "Loop length in seconds (default 19200 = 5 h 20 min; the hosted-runner limit is 6 h)"
+        required: false
+        default: "19200"
+  # A runner checks the code out once and keeps it for five hours. When the engine changes on main, the loop
+  # that is running is on the OLD code: this starts a new one, which replaces it (see concurrency below).
+  push:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "config/**"
+      - "scripts/**"
+      - "requirements.lock"
+      - ".github/workflows/runner.yml"
+
+# One loop at a time. A successor started by the loop itself waits for it to finish; a loop started by a push
+# cancels the one in progress, because that one is running code that is no longer on main. A tick interrupted
+# half way has pushed nothing, and the next tick starts again from the branch: nothing is lost or done twice.
+concurrency:
+  group: runner
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+jobs:
+  loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      OPT_STATE_DIR: ${{ github.workspace }}/state-repo/state
+      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      RUNNER_SECONDS: ${{ inputs.seconds || '19200' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: requirements.lock
+      - name: Install
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.lock
+      - name: Checkout data branch
+        run: scripts/data_branch.sh checkout state-repo
+      - name: Tick loop
+        run: scripts/runner_loop.sh state-repo
+      # The successor is started even when the loop failed: a crash must not end the chain. It is NOT started
+      # when this run was cancelled, because the run that cancelled it (a push to main) is the successor.
+      # Starting it with the workflow token is allowed for workflow_dispatch (it is the documented exception to
+      # "a token-made event starts no workflow"). On Saturday nothing is started: the watchdog restarts the
+      # chain on Sunday.
+      - name: Hand over to the next runner
+        if: ${{ !cancelled() }}
+        run: |
+          dow=$(TZ=America/New_York date +%u); hm=$(TZ=America/New_York date +%H%M)
+          if [ "$dow" = "6" ] || { [ "$dow" = "5" ] && [ "$hm" -ge 1830 ]; } || { [ "$dow" = "7" ] && [ "$hm" -lt 1730 ]; }; then
+            echo "weekend: no successor"
+          else
+            for attempt in 1 2 3; do
+              if gh workflow run runner.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}"; then
+                echo "successor started"; exit 0
+              fi
+              sleep $((attempt * 20))
+            done
+            echo "::warning::could not start the successor: the watchdog will"
+          fi

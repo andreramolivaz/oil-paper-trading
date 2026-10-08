@@ -22,6 +22,7 @@ import {
   withUnit,
 } from "../format";
 import { card, empty, originBanner, pageTitle, src, stat } from "../components/ui";
+import type { DeskDoc } from "../desk";
 import type { EpochRow, EpochsDoc, SummaryDoc } from "../types";
 
 const TOKEN_KEY = "opt_gh_token";
@@ -29,7 +30,12 @@ const TOKEN_KEY = "opt_gh_token";
 const CONFIRM = "RESET";
 
 export async function renderReset(el: HTMLElement): Promise<void> {
-  const [summary, epochs] = await Promise.all([load<SummaryDoc>("summary.json"), load<EpochsDoc>("epochs.json")]);
+  const [summary, epochs, desk] = await Promise.all([
+    load<SummaryDoc>("summary.json"),
+    load<EpochsDoc>("epochs.json"),
+    load<DeskDoc>("desk.json"),
+  ]);
+  const books = desk.data?.books ?? [];
   const acct = summary.data?.account ?? {};
   const initial = acct.initial_capital ?? 10000;
   const dead = Boolean(acct.dead);
@@ -77,27 +83,33 @@ export async function renderReset(el: HTMLElement): Promise<void> {
       </div>
     </div>
     <div style="display:grid;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-      <label class="label" for="confirm">Scrivi ${CONFIRM} per confermare</label>
+      <label class="label" for="book">Che cosa riportare a ${notional(initial)}</label>
+      <select id="book">
+        <option value="all">Tutto: i quattro libri e il conto del sistema precedente</option>
+        ${books.map((b) => `<option value="${escapeHtml(b.id)}">Solo il libro ${escapeHtml(b.name)} (${escapeHtml(b.vehicle)})</option>`).join("")}
+      </select>
+      <label class="label" for="confirm" style="margin-top:8px">Scrivi ${CONFIRM} per confermare</label>
       <p class="muted" style="margin:0">Il pulsante resta disattivato finché il campo non contiene esattamente
         <code>${CONFIRM}</code>.</p>
       <input id="confirm" type="text" placeholder="${CONFIRM}" autocomplete="off" spellcheck="false" />
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">
-        <button class="btn danger" id="btn-reset" disabled>Reset a ${notional(initial)}</button>
+        <button class="btn danger" id="btn-reset" disabled>Riporta a ${notional(initial)}</button>
         <a class="btn secondary" href="${escapeHtml(workflowUrl())}" target="_blank" rel="noopener">Apri il workflow su GitHub</a>
       </div>
     </div>
     <div id="reset-result" style="margin-top:12px" aria-live="polite"></div>`;
 
   el.innerHTML =
-    pageTitle("Reset del conto", `Riporta il conto a ${notional(initial)} archiviando l'epoca corrente`) +
+    pageTitle("Reset", `Riporta un libro, o tutto, a ${notional(initial)} archiviando la sua vita corrente`) +
     originBanner(epochs, epochs.data?.generated_at) +
+    card("I quattro libri", bookTable(books), src("engine/desk", desk.data?.generated_at)) +
     status +
-    card("Epoca corrente", stateStrip, src("engine/broker", acct.asof)) +
+    card("Conto del sistema precedente", stateStrip, src("engine/broker", acct.asof)) +
     card(
       "Come funziona",
       `<p style="margin-top:0">Il reset è un workflow GitHub (<code>reset.yml</code>), non un'azione del browser: così lo stato
-       ufficiale resta uno solo ed è tracciato. Il workflow archivia l'epoca corrente in <code>epochs.json</code>,
-       chiude le posizioni e riparte da ${notional(initial)}.</p>
+       ufficiale resta uno solo ed è tracciato. Il workflow archivia la vita corrente del libro scelto (o di tutti),
+       chiude le posizioni all'ultimo prezzo e riparte da ${notional(initial)}. Il motore lo vede al giro successivo.</p>
        <p class="muted" style="margin:8px 0 0">Lo storico non viene riscritto: ogni epoca archiviata conserva equity iniziale,
        massima, minima e finale e il numero di operazioni, e resta nella tabella qui sotto.</p>
        <p class="muted" style="margin:8px 0 0">Servono i permessi di scrittura dei workflow nel repository
@@ -107,6 +119,7 @@ export async function renderReset(el: HTMLElement): Promise<void> {
     card("Storico delle vite del conto", epochTable(epochRows), src("engine/live", epochs.data?.generated_at));
 
   const confirmInput = document.getElementById("confirm") as HTMLInputElement | null;
+  const bookSelect = document.getElementById("book") as HTMLSelectElement | null;
   const resetBtn = document.getElementById("btn-reset") as HTMLButtonElement | null;
   const tokenInput = document.getElementById("token") as HTMLInputElement | null;
   const tokenChip = document.getElementById("token-state");
@@ -135,7 +148,7 @@ export async function renderReset(el: HTMLElement): Promise<void> {
       if (result)
         result.innerHTML = note(
           `Nessun token: ho aperto la pagina del workflow su GitHub, dove puoi avviarlo con un clic
-           (input di conferma: ${CONFIRM}).`,
+           (conferma: ${CONFIRM}; libro: ${escapeHtml(bookSelect?.value ?? "all")}).`,
           "warn",
         );
       return;
@@ -151,7 +164,7 @@ export async function renderReset(el: HTMLElement): Promise<void> {
           "X-GitHub-Api-Version": "2022-11-28",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ref: "main", inputs: { confirm: CONFIRM } }),
+        body: JSON.stringify({ ref: "main", inputs: { confirm: CONFIRM, book: bookSelect?.value ?? "all" } }),
       });
       if (res.status === 204) {
         if (result)
@@ -176,6 +189,27 @@ export async function renderReset(el: HTMLElement): Promise<void> {
       resetBtn.disabled = false;
     }
   });
+}
+
+/** I libri del desk: quanto valgono adesso e da quando. È ciò che il reset azzera. */
+function bookTable(books: DeskDoc["books"]): string {
+  if (!books.length) return empty("Stato dei libri non disponibile.", "desk.json non risponde: il reset resta possibile.");
+  const body = books
+    .map(
+      (b) => `<tr>
+        <td>${escapeHtml(b.name)}</td>
+        <td>${escapeHtml(b.vehicle)}</td>
+        <td class="num">${cell(num(b.equity))}</td>
+        <td class="num ${tone(b.pnl_total)}">${cell(signedUsd(b.pnl_total))}</td>
+        <td class="num">${cell(contracts(b.epoch))}</td>
+        <td>${b.started_at ? dateTime(b.started_at) : DASH}</td>
+      </tr>`,
+    )
+    .join("");
+  return `<div class="table-wrap"><table class="data">
+    <thead><tr><th>Libro</th><th>Strumento</th><th class="num">Equity <span class="unit">$</span></th>
+      <th class="num">P&amp;L</th><th class="num">Vita n.</th><th>Iniziata <span class="unit">Europa/Roma</span></th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
 }
 
 /** Lo storico delle epoche. Le unità stanno nelle intestazioni: le celle portano la cifra nuda, così la

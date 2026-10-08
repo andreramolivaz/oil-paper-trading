@@ -1,4 +1,88 @@
-# Universo delle strategie
+# Strategie
+
+Il sistema ha due parti. **I quattro libri del desk** sono ciò che opera: una previsione, quattro modi di
+comprarla. **Le 21 strategie del primo sistema** (più sotto) restano in incubazione a peso zero, con le loro
+schede e i loro conti ombra: nessuna ha superato la validazione, e la ricerca che contengono resta consultabile.
+
+## I libri del desk (`engine/desk`, `config/books.yaml`)
+
+### La previsione
+
+Tre componenti, ognuna su una scala da −20 a +20 dove 10 è una convinzione normale:
+
+| Componente | Regola | Da dove viene |
+|---|---|---|
+| **Trend** | media di quattro incroci di medie mobili esponenziali (8-32, 16-64, 32-128, 64-256 giorni) sul rendimento investibile, divisi per la volatilità | Carver, parametri pubblicati |
+| **Carry** | +10 se la curva è in backwardation (il contratto vicino vale più di quello lontano), −10 in contango, 0 se la pendenza è sotto l'1% l'anno | Koijen e altri; Bouchouev |
+| **Carry-momentum** | +10 se la pendenza è sopra la sua media a 20 giorni, −10 se sotto | Bouchouev e Zuo 2020 |
+
+Le tre si sommano a pesi uguali, per 1,25 (sono poco correlate, quindi la loro media è più piccola di ciascuna),
+con tetto a ±20. Nessun parametro è stato scelto guardando i risultati: sono quelli pubblicati.
+
+- **Tesi.** I flussi di copertura sono lenti e la curva dice chi ha fretta: in backwardation il mercato paga
+  chi detiene il barile, e una curva che si irrigidisce anticipa il prezzo. Il trend cattura ciò che la curva
+  non dice ancora.
+- **Chi perde.** Chi copre la produzione vendendo a termine a qualunque prezzo; chi compra il contratto vicino
+  in contango pagando il roll ogni mese.
+- **Quando non funziona.** Mercati laterali con curva piatta (2023-2025: tre anni negativi di fila nel
+  backtest del fondo Brent), inversioni brusche a V.
+
+### Dalla previsione alla posizione
+
+```
+esposizione (multipli del capitale) = previsione / 10 × obiettivo di volatilità / volatilità corrente
+```
+
+poi tre tetti, nell'ordine: il tetto del libro, il tetto più basso prima di una chiusura dei mercati più lunga
+di un giorno, il margine dello strumento. Il broker simulato impone comunque il limite assoluto di 10x. La
+dimensione esatta diventa lotti interi con la fascia di inerzia di Carver: dentro il 10% di una posizione
+normale non si tocca nulla, fuori si va al bordo della fascia. Non c'è nessun «gate» da superare e nessuna
+decisione discrezionale: i tre libri differiscono solo per quanta previsione comprano.
+
+| Libro | Strumento | Obiettivo di volatilità | Tetto | Prima del weekend | Direzione |
+|---|---|---|---|---|---|
+| **Prudente** | BNO | 12% (un quarto di Kelly) | 1x | 1x | solo long |
+| **Dinamico** | BNO a margine | 25% (mezzo Kelly) | 2x | 1,5x | solo long |
+| **Spinto** | /MCL | 50% (Kelly pieno) | 10x | 3x | long e short |
+
+Gli obiettivi sono frazioni di Kelly per uno Sharpe atteso di 0,5. Una decisione al giorno, al primo giro
+dopo le 15:00 di New York per il fondo (le 15:18) e dopo le 14:35 per il future (le 14:48, a regolamento
+avvenuto); l'ordine si esegue all'apertura della prima barra da 30 minuti che inizia dopo la decisione, con lo
+spread e le commissioni reali dello strumento. Una barra è considerata chiusa quindici minuti dopo la sua fine,
+perché il flusso dei prezzi è in ritardo: prima di allora il suo massimo e il suo minimo non sono ancora
+definitivi, e uno stop va controllato su quelli veri. Il future viene lasciato cinque sedute prima della
+scadenza. Il fondo a margine paga il 5,25% l'anno sul prestito.
+
+Ogni libro si ferma per il resto della giornata se perde più della sua soglia (5%, 8%, 15%) e per sempre, fino
+al reset, se scende sotto il 5% del capitale iniziale.
+
+### Il libro delle opzioni (`engine/desk/options.py`) — sperimentale
+
+Vende uno **spread di put a credito** sotto il mercato quando la previsione è almeno +5:
+
+- scadenza quotata più vicina a 30 giorni, fra 21 e 45;
+- put venduta a delta 0,20; put comprata la più lontana che tiene la perdita massima entro il 5% del conto
+  (mai un'ala più stretta del 3% del prezzo);
+- entrambe le gambe quotate entro il 25% del loro prezzo, su una catena letta da meno di 45 minuti;
+- vendita a denaro + un quarto dello spread, acquisto a lettera − un quarto;
+- al massimo due strutture aperte, una nuova ogni dieci sedute, tenute fino a scadenza.
+
+Opera su USO (WTI) e su BNO (Brent) quando le quotazioni lo consentono: l'8 ottobre 2026 quelle di BNO erano
+larghe dal 35% a oltre il 100% del prezzo, quindi il libro ne resta fuori e lo scrive ogni giorno. Il lato
+ribassista (spread di call) non ha mostrato margine nella simulazione e non viene negoziato.
+
+- **Tesi.** È la stessa scommessa direzionale dei libri lineari, più il premio di volatilità sulla put venduta,
+  con la perdita massima nota all'apertura.
+- **Chi perde.** Chi compra protezione sotto il mercato in un trend rialzista e la paga più della mossa che
+  arriva.
+- **Quando non funziona.** Crolli improvvisi dentro un trend rialzista: nove operazioni su dieci chiudono in
+  utile e una perde dieci volte tanto. Nella simulazione il risultato è nullo fra il 2007 e il 2019.
+
+Numeri, sensibilità e ciò che è stato scartato: `docs/RESEARCH.md` e la pagina **Backtest** del sito.
+
+---
+
+# Universo delle strategie del primo sistema
 
 Ogni strategia ha un conto ombra da 10.000 $ (sempre a leva ≤ 1x) usato per la classifica, e un ciclo di vita:
 **ricerca → incubazione (peso zero nel master) → attiva → ritirata** (decadimento rilevato con CUSUM sulla

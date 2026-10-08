@@ -1,4 +1,4 @@
-name: reset (account back to 10 000 $)
+name: reset (a book, or everything, back to 10 000 $)
 
 on:
   workflow_dispatch:
@@ -6,6 +6,11 @@ on:
       confirm:
         description: "Type RESET to confirm: archives the current epoch, closes positions, restarts from 10 000 $"
         required: true
+        type: string
+      book:
+        description: "Which book: all, prudente, dinamico, spinto, opzioni"
+        required: false
+        default: "all"
         type: string
 
 concurrency:
@@ -33,12 +38,26 @@ jobs:
           uv pip install --python .venv/bin/python -r requirements.lock
       - name: Checkout data branch
         run: scripts/data_branch.sh checkout state-repo
-      - name: Reset
-        run: .venv/bin/python -m engine.cli reset --confirm RESET --job-id "${{ github.run_id }}" --actor "${{ github.actor }}"
-      - name: Export site data
-        run: .venv/bin/python -m engine.cli export-site --out state-repo/site-data
-      - name: Push state
-        run: scripts/data_branch.sh push state-repo "reset by ${{ github.actor }} run ${{ github.run_id }}"
+      # The runner pushes a tick every half hour. If one lands between this job's checkout and its push, the
+      # push cannot be rebased (both sides rewrote the same JSON): start again from the new branch head.
+      - name: Reset, export, push (retried if the branch moved)
+        env:
+          BOOK: ${{ inputs.book || 'all' }}
+        run: |
+          for attempt in 1 2 3 4; do
+            .venv/bin/python -m engine.cli reset --confirm RESET --book "$BOOK" \
+              --job-id "${{ github.run_id }}-$attempt" --actor "${{ github.actor }}"
+            .venv/bin/python -m engine.cli export-site --out state-repo/site-data \
+              || echo "::warning::site export failed: the reset is pushed anyway"
+            if scripts/data_branch.sh push state-repo "reset $BOOK by ${{ github.actor }} run ${{ github.run_id }}"; then
+              exit 0
+            fi
+            echo "the branch moved: taking the new head and resetting again ($attempt)"
+            git -C state-repo rebase --abort 2>/dev/null || true
+            git -C state-repo reset --quiet --hard
+            scripts/data_branch.sh sync state-repo
+          done
+          echo "::error::could not push the reset after 4 attempts"; exit 1
   refused:
     runs-on: ubuntu-latest
     if: ${{ inputs.confirm != 'RESET' }}

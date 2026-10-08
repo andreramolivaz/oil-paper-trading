@@ -137,6 +137,12 @@ class YahooAdapter(HttpClient):
     """Daily/intraday bars, single-contract history and the forward curve from Yahoo Finance."""
 
     name = "yahoo"
+    #: Yahoo keeps answering HTTP 429 for minutes once an address has asked too much, and every further request
+    #: prolongs it. When a request has used up its retries on 429, every Yahoo call of this process fails at
+    #: once for this long instead of spending seconds each to learn the same thing (measured 2026-10-08: 17
+    #: contracts in a row, 90 seconds, all 429).
+    RATE_LIMIT_COOLDOWN = 120.0
+    _rate_limited_until = 0.0  # monotonic clock, shared by every instance in the process
 
     def __init__(
         self,
@@ -309,6 +315,70 @@ class YahooAdapter(HttpClient):
         }
         return self._result(df, f"{root} curve", meta)
 
+    def fetch_contracts(self, root: str, asof: date, n_months: int = 14, far_decembers: int = 3) -> FetchResult:
+        """Full daily history of the listed contracts, as ONE long table (``date``, ``code``, OHLCV).
+
+        ``BZ=F`` and ``CL=F`` are not a contract: they are whichever contract Yahoo calls the front that day,
+        and near an expiry the intraday bars interleave two of them. A book that holds a contract needs that
+        contract's own prices, and the curve slope needs the far months. The table covers the next
+        ``n_months`` contract months plus the next ``far_decembers`` December contracts beyond them (the
+        liquid long-dated ones). A contract Yahoo does not know is skipped and listed in ``meta["missing"]``.
+        """
+        months = listed_months(root, asof, n_months)
+        last_year = months[-1][0]
+        extra = [(y, 12) for y in range(asof.year, last_year + far_decembers + 2) if (y, 12) not in months]
+        extra = [ym for ym in extra if Future(root, *ym).expiry > asof][: far_decembers + 2]
+        wanted = [*months, *[ym for ym in extra if ym > months[-1]][:far_decembers]]
+        parts: list[pd.DataFrame] = []
+        missing: list[str] = []
+        why = ""
+        for year, month in wanted:
+            fut = Future(root, year, month)
+            try:
+                frame = self.fetch_daily(fut.yahoo_symbol).frame
+            except DataUnavailable as exc:
+                missing.append(fut.code)
+                why = why or str(exc)
+                log.info("yahoo contracts %s: %s skipped (%s)", root, fut.code, exc)
+                continue
+            part = frame.reset_index().rename(columns={frame.index.name or "index": "date"})
+            part.insert(1, "code", fut.code)
+            parts.append(part[["date", "code", "open", "high", "low", "close", "volume", "published_at"]])
+        if not parts:
+            raise DataUnavailable(
+                f"yahoo contracts {root}: none of {len(wanted)} contracts had data ({why[:160]}): {missing}"
+            )
+        table = pd.concat(parts, ignore_index=True)
+        meta = {"root": root, "asof": asof.isoformat(), "contracts": int(table["code"].nunique()), "missing": missing}
+        return self._result(table, f"{root} contracts", meta)
+
+    def fetch_intraday_contracts(
+        self, root: str, asof: date, n: int = 2, interval: str = "30m", lookback_days: int = 10
+    ) -> FetchResult:
+        """Intraday bars of the ``n`` nearest contracts as one long table (``ts`` = bar start, ``code``, OHLCV)."""
+        parts: list[pd.DataFrame] = []
+        missing: list[str] = []
+        why = ""
+        for year, month in listed_months(root, asof, n):
+            fut = Future(root, year, month)
+            try:
+                frame = self.fetch_intraday(fut.yahoo_symbol, interval, lookback_days).frame
+            except DataUnavailable as exc:
+                missing.append(fut.code)
+                why = why or str(exc)
+                log.info("yahoo intraday %s: %s skipped (%s)", root, fut.code, exc)
+                continue
+            part = frame.reset_index().rename(columns={frame.index.name or "index": "ts"})
+            part.insert(1, "code", fut.code)
+            parts.append(part[["ts", "code", "open", "high", "low", "close", "volume", "published_at"]])
+        if not parts:
+            raise DataUnavailable(
+                f"yahoo intraday {root}: no bars for the nearest {n} contracts ({why[:160]}): {missing}"
+            )
+        table = pd.concat(parts, ignore_index=True)
+        meta = {"root": root, "interval": interval, "contracts": sorted(table["code"].unique()), "missing": missing}
+        return self._result(table, f"{root} intraday", meta)
+
     # ------------------------------------------------------------------ internals
     @staticmethod
     def _symbol_for(code: str) -> str:
@@ -329,6 +399,8 @@ class YahooAdapter(HttpClient):
         the window (HTTP 400 "Data doesn't exist", empty result). Raises SymbolNotFound on 404 and DataUnavailable
         after exhausting retries (429/5xx/empty body/network)."""
         url = CHART_URL.format(symbol=symbol)
+        if time.monotonic() < YahooAdapter._rate_limited_until:
+            raise DataUnavailable(f"yahoo {symbol}: rate limited (HTTP 429 a moment ago), not asked again yet")
         last_exc: Exception | None = None
         for attempt in range(self.retries + 1):
             wait = self.min_interval - (time.monotonic() - self._last_call)
@@ -343,10 +415,14 @@ class YahooAdapter(HttpClient):
                 raise
             except (requests.RequestException, DataUnavailable, ValueError) as e:
                 last_exc = e
-                sleep = self.backoff ** (attempt + 1)
-                log.warning("GET %s %s failed (%s); retry in %.1fs", url, params, e, sleep)
                 if attempt < self.retries:
+                    sleep = self.backoff ** (attempt + 1)
+                    log.warning("GET %s %s failed (%s); retry in %.1fs", url, params, e, sleep)
                     time.sleep(sleep)
+                else:
+                    log.warning("GET %s %s failed (%s); giving up", url, params, e)
+        if isinstance(last_exc, DataUnavailable) and "HTTP 429" in str(last_exc):
+            YahooAdapter._rate_limited_until = time.monotonic() + self.RATE_LIMIT_COOLDOWN
         raise DataUnavailable(f"GET {url} failed after {self.retries + 1} attempts: {last_exc}")
 
     @staticmethod

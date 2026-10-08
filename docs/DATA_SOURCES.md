@@ -14,7 +14,7 @@ comportamenti che potrebbero differire sui runner GitHub Actions (IP diversi, ne
 | EIA STEO | `steo/data` (BREPUUS) | ⏳ 429 su DEMO_KEY | mensile | Previsione EIA del Brent: benchmark aggiuntivo. |
 | **FRED API** | `api.stlouisfed.org/fred/series/observations` | ✅ raggiungibile (400 = chiave non valida) | DCOILBRENTEU 1987+, DCOILWTICO 1986+, OVXCLS 2007+, VIXCLS 1990+, DTWEXBGS 2006+, DGS10, T10YIE, DFF | Serve `FRED_API_KEY` gratuita. |
 | FRED CSV senza chiave | `fred.stlouisfed.org/graph/fredgraph.csv?id=…` | ⚠️ intermittente dal container (HTTP/2 INTERNAL_ERROR / timeout), ok una volta | idem | Dato Brent 2026-09-29 = 113,96 $ coincide con EIA. Da runner probabilmente ok: usato come fallback. |
-| **Yahoo Finance** chart API | `query1.finance.yahoo.com/v8/finance/chart/BZ=F` | ✅ 200 | BZ=F dal 2007-08; CL=F, RB=F, HO=F, HG=F dal 2000; ^OVX 2007; ^VIX 1990; DX-Y.NYB 1985; ^GSPC | Non ufficiale, ritardato ~10-15 min. Rate limit: ~1 richiesta/s va bene; raffiche → risposte vuote. Intraday: 5m×7g, 30m×60g, **1h×730g** (HAR-RV). |
+| **Yahoo Finance** chart API | `query1.finance.yahoo.com/v8/finance/chart/BZ=F` | ✅ 200 | BZ=F dal 2007-08; CL=F, RB=F, HO=F, HG=F dal 2000; ^OVX 2007; ^VIX 1990; DX-Y.NYB 1985; ^GSPC | Non ufficiale, ritardato ~10-15 min. Rate limit: ~1 richiesta/s va bene; raffiche → risposte vuote; circa duecento richieste in un'ora → HTTP 429 su tutto per minuti (misurato l'8 ottobre 2026: 17 contratti di fila, tutti rifiutati). Dopo un 429 che resiste ai tentativi l'adattatore non chiede più nulla per due minuti. Intraday: 5m×7g, 30m×60g, **1h×730g** (HAR-RV). |
 | Yahoo singole scadenze Brent | `BZZ26.NYM … BZZ29.NYM` | ✅ 200 | Dal 2018-11 per i contratti ancora quotati | **Le scadenze passate scompaiono** (BZX26 → 404 dopo il 30/9). La curva storica M1–M12 non è ricostruibile a ritroso: la archiviamo noi ogni giorno da oggi. Curva al 2026-10-05: Dec-26 101,41 · Jan-27 97,95 · Jun-27 88,46 · Dec-27 81,92 · Dec-28 73,71 · Dec-29 71,52 (backwardation ripida). |
 | Yahoo singole scadenze WTI | `CLZ26.NYM, CLF27.NYM …` | ✅ 200 | dal 2017-11 | Stessi limiti. |
 | **CFTC** Socrata | `publicreporting.cftc.gov/resource/72hh-3qpy.json` (disaggregated futures-only) | ✅ 200, nessuna chiave | 2006+ | WTI = codice `067651` ("WTI-PHYSICAL"), managed money long/short. Ultimo 2026-09-29. Anche `jun7-fc8e` (futures+options). |
@@ -105,3 +105,22 @@ ampio. Il piano gratuito e quello a pagamento restituiscono lo stesso schema; il
 
 Fixture reale per i test offline: `tests/fixtures/insider/alphavantage_form4_COP_OXY.json` (COP e OXY,
 catturata il 2026-10-05, tutte le righe di mercato più un campione di ogni classe di rumore).
+
+## Fonti aggiunte per il desk — verifica dell'8 ottobre 2026
+
+Verificate da un runner GitHub (`.github/workflows/research-data.yml`) e dal container di sviluppo.
+
+| Fonte | Endpoint | Esito | Storico | Note |
+|---|---|---|---|---|
+| **Yahoo, fondi** | `BNO`, `USO` (grafico giornaliero e a 30 minuti) | ✅ 200 | BNO dal 2010-06, USO dal 2006 | BNO è la serie del Brent che un conto può davvero detenere: nessun salto di roll, aperture e chiusure reali. Le barre a 30 minuti coprono 60 giorni. |
+| **Yahoo, per contratto** | `CLX26.NYM`, `BZZ26.NYM`, … (14 scadenze più tre dicembre lontani) | ✅ 200 | finché il contratto è quotato | Tabella lunga `date, code, OHLCV`. **Cumulativa**: Yahoo dimentica una scadenza il giorno in cui muore, quindi ogni scaricamento viene fuso con l'archivio. Da qui vengono il prezzo del contratto detenuto e la pendenza fra il vicino e un dicembre lontano. |
+| Yahoo, `BZ=F` / `CL=F` infragiornaliero | — | ⚠️ inaffidabile vicino alla scadenza | — | Le barre alternano il contratto in scadenza e il successivo: finti movimenti di 5-7 $ nella stessa ora. Il motore chiede il simbolo del contratto (`BZZ26.NYM`), mai il continuo. |
+| **IMF PortWatch** | servizio ArcGIS `Daily_Chokepoints_Data` | ✅ 200, nessuna chiave | dal 2019 | Transiti giornalieri per stretto e tipo di nave, da segnali AIS. Pubblicato il martedì per la settimana chiusa la domenica: `published_at` è quel martedì alle 15:00 UTC, mai la data del transito. Hormuz: circa 50 petroliere al giorno fino a febbraio 2026, circa una da marzo. |
+| **Cboe, quotazioni ritardate** | `cdn.cboe.com/api/global/delayed_quotes/options/{SIMBOLO}.json` | ✅ 200, nessuna chiave (serve un User-Agent da browser) | solo l'istantanea | Catena completa con denaro, lettera, volatilità implicita, greche. Ritardo 15 minuti; il timbro del file è in UTC. BNO può restare ferma per ore: il libro controlla l'età delle quotazioni. Il motore conserva un'istantanea a settimana: è l'unico storico di quotazioni reali disponibile. |
+| **Alpha Vantage** | `INSIDER_TRANSACTIONS` | ✅ con chiave gratuita | 2008+ | 25 chiamate al giorno, 12 titoli: lo scarica il lavoro settimanale. Se una chiamata viene rifiutata per limite, il titolo conserva i dati già archiviati. |
+| Alpha Vantage | `HISTORICAL_OPTIONS` (catene storiche con denaro e lettera, dal 2008) | ❌ solo piani a pagamento (risposta «premium endpoint», 8 ottobre 2026) | — | Sarebbe lo storico che manca al libro delle opzioni. Finché non c'è, il suo backtest resta un modello e il libro archivia una catena reale a settimana. |
+| Kalshi | `api.elections.kalshi.com/trade-api/v2` (serie `KXBRENTD`, `KXBRENTW`, `KXBRENTMON`) | ✅ 200, nessuna chiave | da luglio 2026 | Contratti a evento sul Brent. Scaricati e descritti in `docs/RESEARCH.md`; nessun adattatore nel motore. |
+
+Solo `bno_daily`, `wti_front` e `brent_front` possono portare lo stato complessivo in rosso
+(`critical_sources` in `config/data_sources.yaml`). Ogni altra fonte, se manca, spegne ciò che la legge.
+

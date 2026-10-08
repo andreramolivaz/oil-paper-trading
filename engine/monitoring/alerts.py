@@ -140,7 +140,9 @@ def detect_alerts(store: StateStore, now: datetime | None = None, stale_hours: f
                     "Il trading non apre nuovo rischio.",
                 )
             )
-    critical = {"brent_front", "brent_curve", "brent_spot"}
+    # The same list the fetcher uses to decide whether new risk is allowed (it writes it into health.json): an
+    # alert about a "critical" source that cannot actually stop anything would be noise.
+    critical = set(health.get("critical") or ["brent_front", "wti_front", "bno_daily"])
     red_critical = [s for s in red if s.get("source") in critical or s.get("key") in critical]
     if red_critical:
         names = ", ".join(sorted({str(s.get("key") or s.get("source")) for s in red_critical}))
@@ -161,6 +163,18 @@ def detect_alerts(store: StateStore, now: datetime | None = None, stale_hours: f
                 "Usare il pulsante Reset (workflow reset.yml) per ripartire da 10.000 $.",
             )
         )
+    for book_dir in sorted((store.root / "desk").glob("*/")) if (store.root / "desk").is_dir() else []:
+        book = StateStore(book_dir)
+        state = book.read_json("account.json") or book.read_json("book.json") or {}
+        if state.get("status") == "dead":
+            alerts.append(
+                Alert(
+                    f"book-dead-{book_dir.name}",
+                    f"Libro «{book_dir.name}» azzerato: fermo fino al reset",
+                    f"Equity {state.get('last_equity', state.get('equity'))} $ sotto il 5% del capitale iniziale. "
+                    f"Il libro riparte solo con il workflow reset.yml (libro: {book_dir.name}).",
+                )
+            )
     for s in (store.read_json("strategies.json", {}) or {}).get("strategies", []):
         if s.get("lifecycle") == "retired" and s.get("retired_at"):
             alerts.append(

@@ -169,7 +169,8 @@ class InsiderAdapter:
         api_key: str | None = None,
         universe: tuple[str, ...] = DEFAULT_UNIVERSE,
     ) -> None:
-        self.client = client or HttpClient()
+        # Paced: the free key answers a burst with a prose "Note" instead of data, one ticker at a time.
+        self.client = client or HttpClient(retries=1, min_interval=1.5)
         self.api_key = api_key
         self.universe = universe
 

@@ -82,6 +82,7 @@ jobs:
         run: |
           .venv/bin/python -m engine.cli export-site --out site-data-empty
           test -f site-data-empty/summary.json
+          test -f site-data-empty/desk.json
           .venv/bin/python - <<'PY'
           import json, math, pathlib
           # strict JSON only: NaN or Infinity would break JSON.parse in the browser
