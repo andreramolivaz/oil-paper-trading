@@ -231,6 +231,15 @@ short leveraged-ETF pairs) failed after costs; oil options are expensive on aver
 hedged premium selling does not survive four legs, and what is left is a put credit spread sold in the
 direction of the forecast - weak, model-based evidence, hence a paper book marked experimental.
 
+Live since 2026-10-08 21:17 UTC. Checked on GitHub that evening, not assumed: the first tick downloaded
+13 tables, took three decisions (21 and 43 BNO queued for the next open, no /MCL contract at 0.47x), computed
+the backtest and ran the first system's end of day; `insider_form4` went green with 30 910 rows (the Alpha
+Vantage key works); a runner cancelled on purpose was restarted by the watchdog; a two-minute runner handed
+over to a successor started by `github-actions[bot]`; three pushes to main each replaced the runner in
+progress, whose hand-over step was skipped. A tick takes about eight seconds and five requests. What was NOT
+seen that evening: a fill (the first is due at the 9:30 New York open of 2026-10-09) and a scheduled run of the
+watchdog (GitHub had not fired it yet; its logic was run by hand).
+
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
 failure looked like a normal red cross. The giveaway: the run's name was the file path instead of `ci`.
