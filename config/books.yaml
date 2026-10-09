@@ -1,15 +1,21 @@
 # The desk's paper books (engine/desk). Each book starts from account.initial_capital in config/risk.yaml.
 #
-# The three linear books read the SAME forecast (trend + carry + carry-momentum, equal weights) and differ only
-# in how much of it they buy. The volatility targets are Kelly fractions of an assumed Sharpe ratio of 0.5,
-# which is what the sleeves measured on real data and what the literature reports for one oil market
-# (docs/RESEARCH.md): the growth-optimal volatility is then 50 % a year, half of it 25 %, a quarter 12 %.
+# The three linear books read the SAME forecast and differ only in how much of it they buy and in whether they
+# may be short. The forecast is seven sleeves from three sources that weigh a third each (engine/desk/signals.py):
+# the price of crude (trend, acceleration, skew), the futures curve (carry, carry-momentum) and other markets
+# (copper and the dollar). The volatility targets are Kelly fractions of an assumed Sharpe ratio of 0.5: the
+# growth-optimal volatility is then 50 % a year, half of it 25 %, a quarter 12 %. The seven sleeves measured
+# 0.5-0.7 on real data (docs/RESEARCH.md); the targets were NOT raised with them, because part of that gain is
+# selection and a book sized on a Sharpe it does not have loses more than one sized on a Sharpe it exceeds.
 # Running above 50 % does not raise the expected growth, it lowers it and raises the chance of ruin.
 #
 #   vol_target            annualised volatility the book aims for when the forecast is at its normal size (10)
-#   max_leverage          ceiling on gross notional / equity; never above the hard 10x enforced by the broker
+#   max_leverage          ceiling on the oil exposure / equity; never above the hard 10x enforced by the broker
 #   weekend_max_leverage  lower ceiling applied at the last decision before a closure of more than one day
-#   long_only             a fund book cannot be short (the fund is not shorted; shorts live in the futures book)
+#   long_only             the book is never short: a negative forecast means cash
+#   short_via             fund books only: the inverse fund the book BUYS, with cash, when its forecast is short
+#                         (SCO: -2x the daily return of WTI, so half the dollars carry the same exposure). A fund
+#                         book without it cannot be short: the account it imitates does not borrow shares.
 #   buffer                no trade while the target is within this fraction of a normal-size position
 #   daily_loss_breaker    loss on the day, as a fraction of the day's opening equity, that flattens the book
 books:
@@ -21,8 +27,8 @@ books:
     long_only: true
     daily_loss_breaker: 0.05
     description: >-
-      Un quarto di Kelly sul fondo Brent, mai a leva. È il libro che si potrebbe tenere su un conto senza
-      margine: compra BNO quando trend e curva dicono long, sta in contanti negli altri casi.
+      Un quarto di Kelly sul fondo Brent, mai a leva e mai short. È il libro che si potrebbe tenere su un conto
+      senza margine: compra BNO quando la previsione è long, sta in contanti negli altri casi.
 
   - id: dinamico
     name: Dinamico
@@ -30,11 +36,13 @@ books:
     vol_target: 0.25
     max_leverage: 2.0
     weekend_max_leverage: 1.5
-    long_only: true
+    long_only: false
+    short_via: SCO
     daily_loss_breaker: 0.08
     description: >-
-      Mezzo Kelly sul fondo Brent, fino a 2x a margine (il massimo che la Regulation T consente overnight).
-      Stesse previsioni del libro prudente, il doppio del rischio.
+      Mezzo Kelly sul fondo Brent, long e short. Long: BNO fino a 2x a margine (il massimo che la Regulation T
+      consente overnight). Short: compra SCO, il fondo che ogni giorno rende -2 volte il WTI, in contanti e mai
+      oltre il 100% del conto. Stesse previsioni del libro prudente, il doppio del rischio e anche il lato short.
 
   - id: spinto
     name: Spinto
@@ -78,5 +86,5 @@ options_book:
     - {symbol: BNO, chain: bno_options, daily: bno_daily, forecast: BNO, label: "fondo Brent"}
   description: >-
     Spread di put a credito su USO (e su BNO quando le quotazioni lo consentono), venduti sotto il mercato
-    quando trend e curva dicono long. Perdita massima definita all'apertura: 5% del conto per struttura, due
+    quando la previsione è long. Perdita massima definita all'apertura: 5% del conto per struttura, due
     strutture al massimo. Sperimentale: la simulazione è un modello, il libro serve a misurarlo sui prezzi veri.

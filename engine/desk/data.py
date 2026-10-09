@@ -33,6 +33,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -45,6 +46,12 @@ from engine.desk import signals as sg
 log = logging.getLogger(__name__)
 
 ROLL_DAYS = 5  # business days before the last trading day on which a futures book leaves the front
+# The other markets the macro sleeves read: (sleeve, raw table, inverted). The dollar is inverted because oil
+# is priced in it: a falling dollar is a tailwind.
+NEW_YORK = ZoneInfo("America/New_York")
+MACRO_TABLES: tuple[tuple[str, str, bool], ...] = (("copper", "copper_daily", False), ("dollar", "dxy_daily", True))
+# The inverse funds (vehicles.INVERSE_FUNDS): fund -> (daily table, 30-minute table).
+LEG_TABLES: dict[str, tuple[str, str]] = {"SCO": ("sco_daily", "sco_intraday")}
 FAR_MIN_DAYS = 300  # the far contract of the slope is the nearest December at least this far past the front
 MARKET_OF_ROOT = {"CL": "US", "BZ": "ICE"}
 EIA_COLUMNS = ("RCLC1", "RCLC2", "RCLC3", "RCLC4")
@@ -60,7 +67,7 @@ class VehicleSeries:
     bars: pd.DataFrame  # open, high, low, close, symbol (the contract code for futures)
     returns: pd.Series  # investable close-to-close return
     return_source: pd.Series  # where each day's return came from
-    forecasts: pd.DataFrame  # trend, carry, carry_momentum, combined
+    forecasts: pd.DataFrame  # one column per sleeve (signals.SLEEVES) plus "combined"
     vol: pd.Series  # annualised, floored
     slope: pd.Series  # annualised curve slope shown in the terminal
     slope_approx: pd.Series  # True where the slope is a cross-market proxy
@@ -77,11 +84,16 @@ class DeskData:
     hormuz: pd.DataFrame = field(default_factory=pd.DataFrame)
     intraday: dict[str, pd.DataFrame] = field(default_factory=dict)  # vehicle (or "BZ") -> 30-minute bars
     contracts: dict[str, pd.DataFrame] = field(default_factory=dict)  # root -> wide close table (date x code)
+    macro: dict[str, pd.Series] = field(default_factory=dict)  # "copper", "dollar" -> daily closes
+    # an inverse fund some book buys to be short ("SCO") -> its daily bars: open, high, low, close
+    legs: dict[str, pd.DataFrame] = field(default_factory=dict)
     meta: dict[str, Any] = field(default_factory=dict)
 
     def truncate(self, day: pd.Timestamp) -> DeskData:
         """Rows up to and including ``day`` (used by the no-look-ahead test and by nothing else)."""
         out = DeskData(ovx=self.ovx.loc[:day], hormuz=self.hormuz, meta=dict(self.meta))
+        out.macro = {name: closes.loc[:day] for name, closes in self.macro.items()}
+        out.legs = {name: bars.loc[:day] for name, bars in self.legs.items()}
         for key, s in self.series.items():
             out.series[key] = VehicleSeries(
                 vehicle=s.vehicle,
@@ -150,9 +162,12 @@ def expiry_of(code: str) -> date:
 
 
 # ----------------------------------------------------------------------------------------------- raw loading
-def _latest(store: RawStore, entry: str, asof: datetime | None = None) -> pd.DataFrame | None:
-    """Newest snapshot of ``entry`` from whichever adapter has one (the config order is not needed here: these
-    tables have a single source each, and a snapshot written by any adapter is better than none)."""
+def _latest_seen(
+    store: RawStore, entry: str, asof: datetime | None = None, keep: tuple[str, ...] = ()
+) -> tuple[pd.DataFrame | None, pd.Timestamp | None]:
+    """Newest snapshot of ``entry`` from whichever adapter has one, and when it was downloaded (the config
+    order is not needed here: these tables have a single source each, and a snapshot written by any adapter is
+    better than none). The archive's own columns are dropped, except those named in ``keep``."""
     best: pd.DataFrame | None = None
     best_seen: pd.Timestamp | None = None
     for adapter in store.keys(entry):
@@ -163,8 +178,31 @@ def _latest(store: RawStore, entry: str, asof: datetime | None = None) -> pd.Dat
         if best is None or (seen is not None and (best_seen is None or seen > best_seen)):
             best, best_seen = frame, seen
     if best is None:
-        return None
-    return best.drop(columns=[c for c in META if c in best.columns])
+        return None, None
+    return best.drop(columns=[c for c in META if c in best.columns and c not in keep]), best_seen
+
+
+def _latest(store: RawStore, entry: str, asof: datetime | None = None) -> pd.DataFrame | None:
+    return _latest_seen(store, entry, asof)[0]
+
+
+def final_rows(table: pd.DataFrame, observed: datetime | pd.Timestamp | None) -> pd.DataFrame:
+    """The rows of a daily table that were FINAL when it was downloaded: those dated before the New York day
+    of the download. Without a download time (a fixture) every row is taken as final.
+
+    The row of the day a table is read on is not that day's close. Measured on Yahoo's copper future
+    (``HG=F``, 2026-10-05/09): during the session the row is the live quote of the ACTIVE month (volume in the
+    tens of thousands, 0.9 % above what the row became); after 18:00 New York it is overwritten with the first
+    minutes of the NEXT session under the same date, or has no close at all; a day later it is the settlement
+    of the spot month, which is what the whole history is made of. A book reads the history, so it reads a
+    row only once a later day's download has confirmed it.
+    """
+    if observed is None or pd.isna(observed) or table.empty:
+        return table
+    when = pd.Timestamp(observed)
+    when = when.tz_localize("UTC") if when.tzinfo is None else when
+    read_on = pd.Timestamp(when.tz_convert(NEW_YORK).date())
+    return table[table.index < read_on]
 
 
 def _daily(frame: pd.DataFrame | None) -> pd.DataFrame:
@@ -408,11 +446,54 @@ def total_index(returns: pd.Series) -> pd.Series:
     return sg.total_return_index(returns)
 
 
-def _forecast_frame(returns: pd.Series, curve: pd.DataFrame) -> pd.DataFrame:
-    frame = pd.DataFrame(index=returns.index)
+MACRO_MAX_AGE_DAYS = 7  # a close older than this is not a reading of "now": the sleeve goes silent instead
+
+
+def known_before(values: pd.Series, index: pd.DatetimeIndex, max_age_days: int = MACRO_MAX_AGE_DAYS) -> pd.Series:
+    """For each date of ``index`` the latest value dated STRICTLY before it, or NaN when that is too old.
+
+    Copper and the dollar index close hours after the oil settlement: the reading a book can act on at its
+    decision time is the one of the previous close. After a week without a new close the value is dropped.
+    """
+    known = values.dropna().sort_index()
+    if known.empty or len(index) == 0:
+        return pd.Series(np.nan, index=index, dtype="float64")
+    # the archive stores dates in milliseconds, a frame built in memory has them in nano or microseconds:
+    # merge_asof refuses keys of different resolution, so both sides are brought to the same one
+    right = pd.DataFrame(
+        {"when": pd.DatetimeIndex(known.index).as_unit("ns"), "value": known.to_numpy(dtype="float64")}
+    )
+    left = pd.DataFrame({"day": pd.DatetimeIndex(index).as_unit("ns")})
+    order = np.argsort(left["day"].to_numpy(), kind="stable")
+    merged = pd.merge_asof(
+        left.iloc[order], right, left_on="day", right_on="when", direction="backward", allow_exact_matches=False
+    )
+    age = (merged["day"] - merged["when"]).dt.days
+    out = np.empty(len(index), dtype="float64")
+    out[order] = merged["value"].where(age <= max_age_days).to_numpy(dtype="float64")
+    return pd.Series(out, index=index)
+
+
+def _forecast_frame(
+    returns: pd.Series,
+    curve: pd.DataFrame,
+    skew: pd.Series | None = None,
+    macro: dict[str, pd.Series] | None = None,
+) -> pd.DataFrame:
+    """One column per sleeve and the combined forecast. ``skew`` is the crude market's skew forecast (computed
+    on the long WTI history, see ``signals.skew_forecast``); ``macro`` maps a macro sleeve to that market's own
+    forecast on its own calendar, read here as of the previous close."""
+    index = pd.DatetimeIndex(returns.index)
+    frame = pd.DataFrame(index=index)
     frame["trend"] = sg.trend_forecast(returns)
-    frame["carry"] = curve["carry"].reindex(returns.index)
-    frame["carry_momentum"] = curve["carry_momentum"].reindex(returns.index)
+    frame["accel"] = sg.accel_forecast(returns)
+    frame["skew"] = np.nan if skew is None else skew.reindex(index, method="ffill", limit=3)
+    frame["carry"] = curve["carry"].reindex(index)
+    frame["carry_momentum"] = curve["carry_momentum"].reindex(index)
+    for name in sg.SOURCES["macro"]:
+        series = (macro or {}).get(name)
+        frame[name] = np.nan if series is None else known_before(series, index)
+    frame = frame[list(sg.SLEEVES)].astype("float64")
     frame["combined"] = sg.combine({name: frame[name] for name in sg.SLEEVES})
     return frame
 
@@ -447,6 +528,36 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
     bz_front = _daily(load("brent_front"))
     uso = _daily(load("uso_daily"))
     bno = _daily(load("bno_daily"))
+
+    # ---- other markets: copper and the dollar index, for the macro sleeves --------------------------------
+    macro_forecasts: dict[str, pd.Series] = {}
+    for name, entry, inverse in MACRO_TABLES:
+        frame, seen = _latest_seen(store, entry, asof)
+        if frame is None or frame.empty:
+            missing.append(entry)
+            continue
+        table = final_rows(_daily(frame), seen)
+        if table.empty or "close" not in table.columns:
+            continue
+        closes = table["close"].astype("float64").dropna()
+        closes = closes[closes > 0]
+        if len(closes) < 300:
+            continue
+        data.macro[name] = closes
+        macro_forecasts[name] = sg.macro_trend_forecast(closes, inverse=inverse)
+
+    # ---- the investable WTI return comes first: the skew sleeve of both vehicles is read on it ------------
+    front_close = (
+        cl_front["close"].astype("float64").dropna()
+        if not cl_front.empty and "close" in cl_front.columns
+        else pd.Series(dtype="float64")
+    )
+    fund_close = pd.Series(dtype="float64")
+    if not uso.empty:
+        col = "adjclose" if "adjclose" in uso.columns and uso["adjclose"].notna().any() else "close"
+        fund_close = uso[col].astype("float64").dropna()
+    wti_returns, wti_source, wti_held = investable_futures_returns("CL", cl_contracts, eia, front_close, fund_close)
+    skew = sg.skew_forecast(wti_returns) if len(wti_returns) > 300 else None
 
     # ---- BNO: the fund is the series ---------------------------------------------------------------------
     if not bno.empty and "close" in bno.columns:
@@ -484,7 +595,7 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
             bars=bars,
             returns=returns,
             return_source=pd.Series("fondo", index=returns.index, dtype="object"),
-            forecasts=_forecast_frame(returns, curve),
+            forecasts=_forecast_frame(returns, curve, skew, macro_forecasts),
             vol=sg.ew_vol(returns),
             slope=curve["slope"],
             slope_approx=curve["slope_approx"],
@@ -494,16 +605,7 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
         data.meta["notes"].append("BNO: nessun prezzo giornaliero archiviato")
 
     # ---- MCL: the held WTI contract -----------------------------------------------------------------------
-    front_close = (
-        cl_front["close"].astype("float64").dropna()
-        if not cl_front.empty and "close" in cl_front.columns
-        else pd.Series(dtype="float64")
-    )
-    fund_close = pd.Series(dtype="float64")
-    if not uso.empty:
-        col = "adjclose" if "adjclose" in uso.columns and uso["adjclose"].notna().any() else "close"
-        fund_close = uso[col].astype("float64").dropna()
-    returns, source, held = investable_futures_returns("CL", cl_contracts, eia, front_close, fund_close)
+    returns, source, held = wti_returns, wti_source, wti_held
     if len(returns) > 300:
         anchor = _anchor_close(held, cl_contracts, front_close)
         bars = index_bars(returns, anchor, cl_front if not cl_front.empty else None, held)
@@ -536,7 +638,7 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
             bars=bars,
             returns=returns,
             return_source=source,
-            forecasts=_forecast_frame(returns, curve),
+            forecasts=_forecast_frame(returns, curve, skew, macro_forecasts),
             vol=sg.ew_vol(returns),
             slope=curve["slope"],
             slope_approx=curve["slope_approx"],
@@ -554,9 +656,25 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
     hormuz = _latest(store, "hormuz", asof)
     if hormuz is not None and not hormuz.empty:
         data.hormuz = _daily(hormuz)
+    # ---- the inverse funds a book may buy to be short: real daily bars, priced like any other fund ----------
+    for fund_id, (daily_entry, _) in LEG_TABLES.items():
+        table = _daily(load(daily_entry))
+        if table.empty or "close" not in table.columns:
+            continue
+        bars = table.reindex(columns=["open", "high", "low", "close"]).astype("float64")
+        bars = bars.where(bars > 0).dropna(subset=["close"])
+        for col in ("open", "high", "low"):
+            bars[col] = bars[col].where(bars[col].notna(), bars["close"])
+        if len(bars):
+            data.legs[fund_id] = bars
     # "BZ" is not a vehicle: no book trades ICE Brent. Its bars are only the Brent price the terminal shows.
-    for vehicle, entry in (("BNO", "bno_intraday"), ("MCL", "cl_intraday"), ("BZ", "bz_intraday")):
-        frame = _latest(store, entry, asof)
+    intraday = [("BNO", "bno_intraday"), ("MCL", "cl_intraday"), ("BZ", "bz_intraday")]
+    intraday += [(fund_id, entry) for fund_id, (_, entry) in LEG_TABLES.items()]
+    # These tables keep the time each row was downloaded, as the archive stores it: the live tick needs it to
+    # tell a finished bar from one that was read while it was forming and has not been read since
+    # (``live.completed_bars``). Dropped here, as it once was, the rule that reads it never runs.
+    for vehicle, entry in intraday:
+        frame, _ = _latest_seen(store, entry, asof, keep=(OBSERVED_AT_COLUMN,))
         if frame is not None and not frame.empty:
             data.intraday[vehicle] = frame
     return data

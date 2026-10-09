@@ -1,13 +1,15 @@
 """Run the desk backtest and write it where the terminal and the docs read it.
 
 ``state/desk/backtest.json`` carries, for every book: the replay with the configured costs, the same replay with
-every cost doubled, each sleeve on its own (so nobody has to take the combination on trust), and buying and
-holding the vehicle as the benchmark. The numbers are whatever came out; nothing is selected.
+every cost doubled, each sleeve and each source on its own next to the mix the desk read before and the one
+it reads now (so nobody has to take the combination on trust), and buying and holding the vehicle as the
+benchmark. The numbers are whatever came out; nothing is selected.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import logging
 from datetime import date
 from pathlib import Path
@@ -23,42 +25,137 @@ from engine.desk.data import DeskData, build_desk_data
 from engine.desk.engine import _clean
 from engine.desk.live import desk_store
 from engine.desk.options import load_options_config, replay_payload
+from engine.desk.vehicles import INVERSE_FUNDS, VEHICLES
 
 log = logging.getLogger(__name__)
 
 BACKTEST_FILE = "backtest.json"
 SLEEVE_VOL_TARGET = 0.15
-SLEEVE_LABELS = {"trend": "Trend (EWMAC)", "carry": "Carry (pendenza della curva)", "carry_momentum": "Carry-momentum"}
+SLEEVE_LABELS = {
+    "trend": "Trend (EWMAC)",
+    "accel": "Accelerazione del trend",
+    "skew": "Asimmetria dei rendimenti (skew)",
+    "carry": "Carry (pendenza della curva)",
+    "carry_momentum": "Carry-momentum",
+    "copper": "Trend del rame",
+    "dollar": "Trend del dollaro (invertito)",
+}
+SOURCE_LABELS = {
+    "prezzo": "Fonte 1 - il prezzo del greggio (trend, accelerazione, skew)",
+    "curva": "Fonte 2 - la curva dei future (carry, carry-momentum)",
+    "macro": "Fonte 3 - altri mercati (rame, dollaro)",
+}
+# the three sleeves the books read until phase 11: kept in the table so the upgrade can be judged on one page
+BEFORE_ID = "prima"
+BEFORE_SLEEVES = ("trend", "carry", "carry_momentum")
 
 
-def sleeve_configs(vehicle: str, long_only: bool) -> list[BookConfig]:
-    """One reference book per sleeve, plus all three, at the same volatility target and without a tight cap."""
-    configs = []
-    for sleeve in sg.SLEEVES:
-        configs.append(
-            BookConfig(
-                id=f"{vehicle}:{sleeve}",
-                name=SLEEVE_LABELS[sleeve],
-                vehicle=vehicle,
-                vol_target=SLEEVE_VOL_TARGET,
-                max_leverage=2.0 if vehicle == "BNO" else 4.0,
-                long_only=long_only,
-                sleeves={sleeve: 1.0},
-                daily_loss_breaker=0.5,
-            )
-        )
-    configs.append(
-        BookConfig(
-            id=f"{vehicle}:tutte",
-            name="Le tre insieme",
+def sleeve_configs(vehicle: str, long_only: bool, short_via: str | None = None) -> list[BookConfig]:
+    """Reference books at the same volatility target and without a tight cap: every sleeve alone, every source
+    alone, the three sleeves the desk read before the other four were added, and all seven together.
+    ``short_via`` gives them the short leg of the fund book they stand for."""
+    prefix = vehicle if short_via is None else f"{vehicle}+{short_via}"
+
+    def reference(key: str, name: str, sleeves: dict[str, float] | None) -> BookConfig:
+        return BookConfig(
+            id=f"{prefix}:{key}",
+            name=name,
             vehicle=vehicle,
             vol_target=SLEEVE_VOL_TARGET,
             max_leverage=2.0 if vehicle == "BNO" else 4.0,
             long_only=long_only,
+            short_via=short_via,
+            sleeves=dict(sg.DEFAULT_WEIGHTS) if sleeves is None else sleeves,
             daily_loss_breaker=0.5,
         )
-    )
+
+    configs = [reference(sleeve, SLEEVE_LABELS[sleeve], {sleeve: 1.0}) for sleeve in sg.SLEEVES]
+    for source, members in sg.SOURCES.items():
+        configs.append(reference(source, SOURCE_LABELS[source], dict.fromkeys(members, 1.0)))
+    configs.append(reference(BEFORE_ID, "Prima: trend, carry, carry-momentum", dict.fromkeys(BEFORE_SLEEVES, 1.0)))
+    configs.append(reference("tutte", "Adesso: le sette insieme, un terzo per fonte", None))
     return configs
+
+
+MODEL_VERSION = 2  # bump when the replay changes in a way that the rules below do not show
+
+
+def canonical(value: Any) -> str:
+    """``repr`` with one spelling per value: the members of a set are sorted. The order a set of strings is
+    walked in changes from one process to the next (hash randomisation), and a fingerprint built on it would
+    change with every tick - each of which would then recompute the backtest."""
+    if isinstance(value, dict):
+        return "{" + ", ".join(f"{canonical(k)}: {canonical(v)}" for k, v in value.items()) + "}"
+    if isinstance(value, set | frozenset):
+        return "{" + ", ".join(sorted(canonical(v) for v in value)) + "}"
+    if isinstance(value, tuple | list):
+        return "(" + ", ".join(canonical(v) for v in value) + ")"
+    return repr(value)
+
+
+def model_signature(books: list[BookConfig], options_cfg: Any | None = None, risk: RiskConfig | None = None) -> str:
+    """A short fingerprint of what the backtest numbers depend on besides the data: every constant of the
+    modules that compute them (signals, series, replay, books, options), the books, the vehicles, the options
+    book and the account rules (capital, costs, margin) the replay is run with.
+
+    The backtest on file carries the fingerprint it was computed with (``meta.model``). The tick recomputes one
+    whose fingerprint is not the current one, so a change of rules shows on the page at the next tick instead
+    of waiting for the weekly job with the old numbers under the new rules.
+    """
+    from engine.desk import backtest as replay
+    from engine.desk import book as sizing
+    from engine.desk import data as series
+    from engine.desk import options as option_book
+
+    def constants(module: Any) -> list[tuple[str, str]]:
+        """Upper-case module constants of plain types (numbers, text, tuples and dicts of them)."""
+        plain = (int, float, str, bool, tuple, dict, frozenset)
+        return sorted((n, canonical(v)) for n, v in vars(module).items() if n.isupper() and isinstance(v, plain))
+
+    def rows(items: dict[str, Any]) -> list[Any]:
+        return [sorted(dataclasses.asdict(v).items(), key=lambda kv: kv[0]) for _, v in sorted(items.items())]
+
+    spec = [
+        MODEL_VERSION,
+        constants(sg),
+        constants(series),  # roll day, far contract, how old a macro close may be, which tables are read
+        constants(replay),  # warm-up, fill rules
+        constants(sizing),  # the hard cap
+        constants(option_book),  # the smiles and the costs of the options replay
+        [sorted(dataclasses.asdict(b).items(), key=lambda kv: kv[0]) for b in books],
+        rows(VEHICLES),
+        rows(INVERSE_FUNDS),
+        None if options_cfg is None else sorted(dataclasses.asdict(options_cfg).items(), key=lambda kv: kv[0]),
+        None if risk is None else sorted(dataclasses.asdict(risk).items(), key=lambda kv: kv[0]),
+    ]
+    return hashlib.sha1(canonical(spec).encode("utf-8")).hexdigest()[:12]
+
+
+def attribution_variants(books: list[BookConfig]) -> list[tuple[str, str, bool, str | None]]:
+    """The ways the books on file trade a vehicle, each of which gets its own attribution table:
+    ``(label, vehicle, long_only, short_via)``. A fund held long only and the same fund with its short side in
+    an inverse fund are two different tables: the second shows what the short side adds, sleeve by sleeve."""
+    out: list[tuple[str, str, bool, str | None]] = []
+    for vehicle in sorted({b.vehicle for b in books}):
+        on_vehicle = [b for b in books if b.vehicle == vehicle]
+        sells = VEHICLES[vehicle].allow_short
+        long_only = any(b.long_only or (not sells and b.short_via is None) for b in on_vehicle)
+        if long_only:
+            out.append((vehicle, vehicle, True, None))
+        if sells and any(not b.long_only for b in on_vehicle):
+            out.append((f"{vehicle} (long e short)" if long_only else vehicle, vehicle, False, None))
+        for fund in sorted({b.short_via for b in on_vehicle if b.short_via is not None}):
+            out.append((f"{vehicle} + {fund}", vehicle, False, fund))
+    return out
+
+
+def _row_kind(key: str) -> str:
+    """What a row of the attribution table is: one sleeve, one source, the old mix or the current one."""
+    if key in sg.SLEEVES:
+        return "sleeve"
+    if key in sg.SOURCES:
+        return "source"
+    return "before" if key == BEFORE_ID else "all"
 
 
 def _stats_only(result: BacktestResult) -> dict[str, Any]:
@@ -82,28 +179,29 @@ def desk_backtest_payload(
     payload["double_cost"] = _stats_only(doubled)
     payload["same_close"] = _stats_only(same_close)
     sleeves: dict[str, Any] = {}
-    for vehicle in sorted({b.vehicle for b in books}):
-        long_only = all(b.long_only for b in books if b.vehicle == vehicle)
+    for label, vehicle, long_only, short_via in attribution_variants(books):
         # Attribution is run on a large account so that one lot is a rounding error: with ten thousand dollars
         # a single micro contract is most of the position and the sleeves could not be told apart.
         big = dataclasses.replace(risk, initial_capital=risk.initial_capital * 1000.0)
-        res = run_backtest(data, sleeve_configs(vehicle, long_only), big, start=start, end=end, ruin=False)
-        res_close = run_backtest(
-            data, sleeve_configs(vehicle, long_only), big, start=start, end=end, ruin=False, fill=FILL_SAME_CLOSE
-        )
-        sleeves[vehicle] = {
+        configs = sleeve_configs(vehicle, long_only, short_via)
+        res = run_backtest(data, configs, big, start=start, end=end, ruin=False)
+        res_close = run_backtest(data, configs, big, start=start, end=end, ruin=False, fill=FILL_SAME_CLOSE)
+        sleeves[label] = {
+            "vehicle": vehicle,
             "vol_target": SLEEVE_VOL_TARGET,
             "long_only": long_only,
+            "short_via": short_via,
             "note": "conto di riferimento mille volte più grande, per togliere l'effetto del lotto minimo",
             "rows": [
                 {
-                    "id": k.split(":", 1)[1],
+                    "id": cfg.id.split(":", 1)[1],
+                    "kind": _row_kind(cfg.id.split(":", 1)[1]),
                     "name": cfg.name,
-                    "stats": res.books[k].stats,
-                    "stats_same_close": res_close.books[k].stats if k in res_close.books else {},
+                    "stats": res.books[cfg.id].stats,
+                    "stats_same_close": res_close.books[cfg.id].stats if cfg.id in res_close.books else {},
                 }
-                for k, cfg in ((c.id, c) for c in sleeve_configs(vehicle, long_only))
-                if k in res.books
+                for cfg in configs
+                if cfg.id in res.books
             ],
         }
     payload["sleeves"] = sleeves
@@ -164,6 +262,7 @@ def run_desk_backtest(
         except Exception as exc:  # the replay is a model on the side: it must never cost the real backtest
             log.warning("options replay skipped: %s", exc)
             payload["options"] = {"approx": True, "available": False, "reason": str(exc)[:200]}
+    payload.setdefault("meta", {})["model"] = model_signature(books, options_cfg, risk)
     target = desk_store(settings.state_dir)
     target.write_json(BACKTEST_FILE, payload, indent=None)
     lines = summary_lines(payload)

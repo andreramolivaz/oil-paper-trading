@@ -8,9 +8,10 @@ What the evidence says, and what this book therefore is NOT (``docs/RESEARCH.md`
 * Selling that premium with a hedge attached does not collect it either, once the hedge is paid for at real
   bid-ask spreads and with the smile: an iron condor or an iron butterfly sold every week comes out at or
   below zero in the replay. The premium is real; at ten thousand dollars it does not survive four legs.
-* What is left is the direction. A put spread sold below the market when trend and curve say long keeps a
-  small positive result across the smile and cost assumptions tried (Sharpe 0.4 to 0.7, two to four per cent
-  a year on the account, worst replay drawdown -14 %); the mirror image on the short side shows nothing and
+* What is left is the direction. A put spread sold below the market when the desk's forecast is long keeps a
+  small positive result across the smile and cost assumptions tried (Sharpe 0.4 to 0.7, two to five per cent
+  a year on the account, worst replay drawdown -18 %; the seven-sleeve forecast of phase 11 left it where the
+  three-sleeve one had it, 0.63 on the headline case); the mirror image on the short side shows nothing and
   is not traded. That is the same bet as the linear books with a ceiling on the gain and a floor on the loss.
 
 Every number in that last sentence comes from a MODEL replay (Black-Scholes on OVX with an assumed smile and

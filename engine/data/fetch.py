@@ -162,6 +162,9 @@ FRESHNESS: dict[str, timedelta] = {
     INTRADAY_KEY: timedelta(hours=36),
     "bno_daily": timedelta(days=4),
     "uso_daily": timedelta(days=4),
+    "sco_daily": timedelta(days=4),
+    "copper_daily": timedelta(days=4),
+    "dxy_daily": timedelta(days=4),
     "hormuz": timedelta(days=12),  # published weekly, a week at a time
     "bab_el_mandeb": timedelta(days=12),
     "insider_form4": timedelta(days=45),
@@ -176,7 +179,7 @@ NON_UNIQUE_INDEX = frozenset(
 NO_PRICE_CHECK = frozenset({"insider_form4"})
 # Intraday tables: the gap between two sessions is not an outlier and a weekend is not a missing business day,
 # so the checks written for daily series (return outliers, calendar gaps) do not apply to them.
-INTRADAY_ENTRIES = frozenset({"bno_intraday", "cl_intraday", "bz_intraday"})
+INTRADAY_ENTRIES = frozenset({"bno_intraday", "sco_intraday", "cl_intraday", "bz_intraday"})
 # Per-contract tables are CUMULATIVE: Yahoo forgets a contract the day it expires, so each new download is merged
 # with what was already archived. Without this the history of every contract the book ever held would vanish.
 CUMULATIVE_CONTRACTS = frozenset({"cl_contracts", "bz_contracts"})

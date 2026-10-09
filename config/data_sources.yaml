@@ -76,6 +76,10 @@ desk:
     - {adapter: yahoo, symbol: "BNO"}
   uso_daily:
     - {adapter: yahoo, symbol: "USO"}
+  # ProShares UltraShort Bloomberg Crude Oil: -2x the daily return of a WTI futures index. A fund book that is
+  # allowed to be short (config/books.yaml, short_via) BUYS this instead of selling the fund short.
+  sco_daily:
+    - {adapter: yahoo, symbol: "SCO"}
   # One long table per root with the full daily history of every listed contract. BZ=F and CL=F are not a
   # contract: near an expiry Yahoo interleaves two of them inside the same bar. These tables are cumulative
   # (engine/data/fetch.py merges each download with the archive), because Yahoo forgets a contract at expiry.
@@ -83,6 +87,14 @@ desk:
     - {adapter: yahoo_contracts, root: CL, months: 14, far_decembers: 3}
   bz_contracts:
     - {adapter: yahoo_contracts, root: BZ, months: 14, far_decembers: 3}
+  # The other markets the macro sleeves read (engine/desk/signals.py): copper and the dollar index, daily. A
+  # book uses the close of the day BEFORE its decision, because both close after the oil settlement. The
+  # dollar index is asked from Yahoo under its own name: the "dxy" entry above is the Fed's broad index when a
+  # FRED key is present, which starts in 2006 and is published days late.
+  copper_daily:
+    - {adapter: yahoo, symbol: "HG=F"}
+  dxy_daily:
+    - {adapter: yahoo, symbol: "DX-Y.NYB"}
   # Tanker transits through the Strait of Hormuz and Bab el-Mandeb, from AIS positions (IMF PortWatch).
   # Weekly publication, a week at a time: context and a risk input, never a trading signal on its own.
   hormuz:
@@ -94,6 +106,8 @@ desk:
 desk_intraday:
   bno_intraday:
     - {adapter: yahoo_intraday, symbol: "BNO", interval: "30m", lookback_days: 10}
+  sco_intraday:
+    - {adapter: yahoo_intraday, symbol: "SCO", interval: "30m", lookback_days: 10}
   cl_intraday:
     - {adapter: yahoo_intraday_contracts, root: CL, contracts: 2, interval: "30m", lookback_days: 10}
   # No book trades this one (ICE Brent futures are not on Robinhood): it is the Brent price the terminal shows.

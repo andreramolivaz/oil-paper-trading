@@ -94,12 +94,20 @@
 .t-table tbody tr:last-child > * { border-bottom: none; }
 .t-table tfoot th, .t-table tfoot td { border-top: 1px solid var(--border); border-bottom: none; padding-top: 7px; }
 .t-table .t-total > * { border-top: 1px solid var(--border); }
+.t-table .t-all th, .t-table .t-all .n { font-weight: 650; }
+/* a rule between groups of rows (sleeves, sources, before against now) that reads as more than a row border */
+.t-table .t-break > * { border-top: 1px solid var(--text-muted); }
 .t-table .t-bench th { font-weight: 450; color: var(--text-secondary); }
 .t-table .t-bench .n { color: var(--text-secondary); }
 .t-table .up, .term .up { color: var(--pos); }
 .t-table .down, .term .down { color: var(--neg); }
 .t-log td { vertical-align: top; }
 .t-forecast { max-width: 720px; }
+/* the forecast by source: a source row carries the average, its sleeves sit under it, indented and lighter */
+.t-forecast .t-group > * { border-top: 1px solid var(--border); }
+.t-forecast tbody tr.t-group:first-child > * { border-top: none; }
+.t-forecast .t-sleeve th { padding-left: 2ch; font-weight: 450; color: var(--text-secondary); }
+.t-forecast .t-sleeve .n { color: var(--text-secondary); }
 .t-years { max-width: 760px; }
 
 /* the colour key that ties a row to its line in the chart */
@@ -136,7 +144,10 @@ select {
   .t-stack td { border-bottom: none !important; padding: 0; }
   .t-stack td.w { grid-column: 1 / -1; min-width: 0; padding-top: 2px; }
   .t-stack tr:last-child { border-bottom: none; }
-  .t-forecast tbody th { white-space: normal; min-width: 15ch; }
+  .t-forecast tbody th { white-space: normal; min-width: 13ch; }
+  .t-forecast .t-sleeve th { padding-left: 1ch; }
+  /* "ieri +5,8" goes under today's figure: side by side the two columns would not fit a phone */
+  .t-forecast .t-total td .t-dim { display: block; }
   .t-table th, .t-table td { padding-right: 12px; }
 }
 .t-forecast tbody th small { white-space: normal; max-width: 44ch; }

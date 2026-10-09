@@ -2,7 +2,8 @@
  *
  * Reads `desk_backtest.json`, the payload the weekly job writes. Everything a reader needs to distrust a
  * backtest is on the page: the t-statistic next to every Sharpe ratio, each calendar year, the same replay at
- * double cost and with the optimistic fill, every component on its own, where each day's return came from.
+ * double cost and with the optimistic fill, every sleeve and every source on its own next to the mix read
+ * before and the one read now, where each day's return came from.
  */
 import { lineChart, lineLegend, type LineSeries } from "../charts/lines";
 import { repoUrl } from "../config";
@@ -150,9 +151,12 @@ function sensitivity(doc: BacktestDoc, names: Map<string, string>): string {
 function sleeves(doc: BacktestDoc): string {
   const blocks = Object.entries(doc.sleeves)
     .map(([vehicle, block]) => {
+      // three groups, a rule between them: the sleeves, the sources, then before against now
+      const firstOf = (kind: string): number => block.rows.findIndex((r) => r.kind === kind);
+      const breaks = new Set([firstOf("source"), firstOf("before")]);
       const rows = block.rows
         .map(
-          (r) => `<tr><th scope="row">${escapeHtml(r.name)}</th>
+          (r, i) => `<tr class="${breaks.has(i) ? "t-break" : ""}${r.kind === "all" ? " t-all" : ""}"><th scope="row">${escapeHtml(r.name)}</th>
             <td class="n">${sharpeCell(r.stats)}</td>
             <td class="n">${sharpeCell(r.stats_same_close)}</td>
             <td class="n">${signedPercent(r.stats.cagr ?? null, 1)}</td>
@@ -160,7 +164,8 @@ function sleeves(doc: BacktestDoc): string {
             <td class="n">${percent(r.stats.share_days_invested ?? null, 0)}</td></tr>`,
         )
         .join("");
-      return `<h3 class="t-sub">${escapeHtml(vehicle)} · ${block.long_only ? "solo long" : "long e short"} · obiettivo di volatilità ${percent(
+      const side = block.long_only ? "solo long" : block.short_via ? `long e short, lo short comprando ${escapeHtml(block.short_via)}` : "long e short";
+      return `<h3 class="t-sub">${escapeHtml(vehicle)} · ${side} · obiettivo di volatilità ${percent(
         block.vol_target,
         0,
       )}</h3>
@@ -171,9 +176,14 @@ function sleeves(doc: BacktestDoc): string {
     })
     .join("");
   return section(
-    "Le tre componenti, una alla volta",
-    `${blocks}<p class="t-dim">Conto di riferimento mille volte più grande, per togliere l'effetto del lotto minimo. Nessuna
-    componente è stata scelta guardando questo risultato: parametri pubblicati, pesi uguali.</p>`,
+    "I sette segnali, uno alla volta, poi per fonte, poi insieme",
+    `${blocks}<p class="t-dim">Conto di riferimento mille volte più grande, per togliere l'effetto del lotto minimo. Parametri
+    pubblicati, un terzo del peso a ogni fonte. La riga «Prima» è la previsione che i libri leggevano fino all'8 ottobre
+    2026 (trend, carry, carry-momentum); «Adesso» quella che leggono oggi. I quattro segnali aggiunti sono quelli rimasti
+    in piedi fra i sedici provati: gli altri dodici, con i loro numeri, sono in
+    <a href="${repoUrl()}/blob/main/docs/RESEARCH.md" target="_blank" rel="noopener">docs/RESEARCH.md</a>. Una parte del
+    miglioramento è selezione: mettere insieme a pesi uguali tutto ciò che è stato provato, senza scegliere nulla, dà
+    circa 0,1 di Sharpe in meno.</p>`,
   );
 }
 
@@ -252,13 +262,20 @@ function rejected(): string {
     ["Vendere insieme UCO e SCO per incassare il decadimento", "0,96 sull'intero campione ma −0,36 dal 2022: non regge"],
     ["Comprare call e put insieme (straddle) ogni mese", "perde: le opzioni costano più della mossa che segue, t oltre −2,5"],
     ["Vendere premio con condor o farfalle coperte", "a zero o sotto, una volta pagate quattro gambe e lo smile"],
+    ["Rottura del canale (breakout) a 40-320 giorni", "0,29 da sola, ma correlata 0,79 con il trend che c'è già: la stessa scommessa"],
+    ["Carry continuo, valore a cinque anni, trend solo dove la curva è d'accordo", "0,34 (e −0,21 sul fondo), −0,09, 0,40 ma correlato 0,88: nessuno aggiunge qualcosa"],
+    ["Flussi e posizionamento dei fondi (COT), pressione di copertura", "0,15 e −0,26: sul solo greggio non dicono nulla"],
+    ["Crescita dell'open interest, scorte EIA", "0,41 e 0,19 alla finestra pubblicata, zero o meno a quella accanto"],
+    ["Margine di raffinazione (crack spread) sopra la sua media", "0,31, ma 0,05 con un giorno di ritardo: era un artefatto di orario"],
+    ["Premio di volatilità (OVX meno realizzata), acquisti degli insider", "−0,35 e 0,07"],
   ];
   return section(
     "Provato e scartato",
     `<div class="t-scroll"><table class="t-table t-log"><tbody>${rows
       .map(([a, b]) => `<tr><td class="w">${escapeHtml(a)}</td><td class="w t-dim">${escapeHtml(b)}</td></tr>`)
       .join("")}</tbody></table></div>
-    <p class="t-dim">Misure dell'ottobre 2026 su dati reali. <a href="${repoUrl()}/blob/main/docs/RESEARCH.md" target="_blank"
+    <p class="t-dim">Misure dell'ottobre 2026 su dati reali; per i segnali giornalieri, Sharpe sul WTI 1985-2026 con
+    l'obiettivo di volatilità al 15%. <a href="${repoUrl()}/blob/main/docs/RESEARCH.md" target="_blank"
     rel="noopener">Metodo, numeri e fonti →</a></p>`,
     "ciò che non ha retto resta fuori dai libri",
   );
