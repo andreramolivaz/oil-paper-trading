@@ -81,6 +81,54 @@ def test_the_export_shows_what_the_books_hold_after_a_tick(tmp_path, monkeypatch
     json.dumps(doc, allow_nan=False)
 
 
+def test_the_export_shows_a_short_side_held_in_the_inverse_fund_as_a_short(tmp_path, monkeypatch):
+    from engine.desk import signals as sg
+
+    settings = _settings(tmp_path)
+    data = make_desk_data(n_days=420, start=date(2025, 2, 24))
+    series = data.series["BNO"]
+    day = series.bars.index[-1].date()
+    series.forecasts.loc[series.forecasts.index[-1], list(sg.SLEEVES)] = -12.0  # every sleeve short today
+    series.forecasts.loc[series.forecasts.index[-1], "combined"] = -20.0
+    data.intraday["BNO"] = half_hour_bars(day, float(series.bars["close"].iloc[-1]), n=13)
+    data.intraday["SCO"] = half_hour_bars(day, float(data.legs["SCO"]["close"].iloc[-1]), n=13, step=-0.002)
+    # copper and the dollar: closes up to the day itself, of which a forecast may only read the day before
+    days = series.bars.index[-5:]
+    data.macro = {"copper": pd.Series([4.0, 4.1, 4.2, 4.3, 4.4], index=days), "dollar": pd.Series(101.0, index=days)}
+    monkeypatch.setattr(ex, "build_desk_data", lambda raw, cfg: data)
+    t0 = datetime(day.year, day.month, day.day, 19, 18, tzinfo=UTC)
+    live_tick(build_desk(settings.state_dir, RISK), data, t0)
+    live_tick(build_desk(settings.state_dir, RISK), data, t0 + timedelta(hours=1))
+    doc = ex.build_desk_payload(
+        settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir), t0 + timedelta(hours=1)
+    )
+    by_id = {b["id"]: b for b in doc["books"]}
+    # the long-only book sits in cash; the one with a short leg holds shares of the inverse fund
+    assert by_id["prudente"]["positions"] == [] and by_id["prudente"]["rules"]["long_only"] is True
+    assert by_id["prudente"]["rules"]["short_via"] is None
+    b = by_id["dinamico"]
+    assert b["rules"]["long_only"] is False and b["rules"]["short_via"] == "SCO" and "-2" in b["rules"]["short_note"]
+    (position,) = b["positions"]
+    assert position["symbol"] == "SCO" and position["units"] > 0 and position["multiplier"] == -2.0
+    assert position["side"] == "short"  # shares of an inverse fund are a short position in oil
+    # exposure and leverage are in oil terms: twice the dollars held in the fund
+    assert b["exposure"] == pytest.approx(-2.0 * position["notional"] / b["equity"], abs=1e-3)
+    assert b["leverage"] == pytest.approx(-b["exposure"]) and 1.0 < b["leverage"] <= b["cap_today"]
+    assert position["notional"] <= b["equity"]  # paid in cash
+    decision = next(d for d in doc["decisions"] if d["book"] == "dinamico")
+    assert decision["order_units"] > 0 and decision["legs"][0]["symbol"] == "SCO"  # the order was on the leg
+    assert decision["exposure"] < 0 and "tramite SCO" in decision["text"]
+    assert [(f["book"], f["symbol"], f["units"] > 0) for f in doc["fills"]] == [("dinamico", "SCO", True)]
+    # the forecast block: the seven sleeves, the three sources, and the close the macro sleeves were read at
+    fc = doc["forecast"]["BNO"]
+    assert all(fc[name] == -12.0 for name in sg.SLEEVES)
+    assert fc["sources"] == {"prezzo": -12.0, "curva": -12.0, "macro": -12.0} and fc["combined"] == -20.0
+    assert fc["macro_day"] == {"copper": days[-2].date().isoformat(), "dollar": days[-2].date().isoformat()}
+    assert doc["market"]["copper"]["value"] == 4.4 and doc["market"]["copper"]["asof"] == day.isoformat()
+    assert "HG=F" in doc["market"]["copper"]["source"] and doc["market"]["dollar"]["value"] == 101.0
+    json.dumps(doc, allow_nan=False)
+
+
 def test_the_equity_curve_keeps_recent_detail_and_one_point_a_day_before(tmp_path):
     now = datetime(2026, 10, 8, 20, 0, tzinfo=UTC)
     rows = [

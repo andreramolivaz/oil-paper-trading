@@ -35,7 +35,7 @@ from engine.core.events import AccountStatus, Bar
 from engine.desk.book import Book, BookConfig
 from engine.desk.data import DeskData, VehicleSeries, held_contract
 from engine.desk.engine import Desk
-from engine.desk.vehicles import get_vehicle
+from engine.desk.vehicles import INVERSE_FUNDS, get_vehicle
 
 log = logging.getLogger(__name__)
 
@@ -214,6 +214,38 @@ FILL_NEXT_OPEN = "next_open"
 FILL_SAME_CLOSE = "same_close"
 
 
+def _bars_by_day(bars: pd.DataFrame | None) -> dict[pd.Timestamp, tuple[float, float, float, float]]:
+    """Daily bars -> {date: (open, high, low, close)}, for a fund that is looked up one day at a time."""
+    if bars is None or bars.empty:
+        return {}
+    values = bars[["open", "high", "low", "close"]].to_numpy(dtype="float64")
+    stamps = pd.DatetimeIndex(bars.index)
+    return {
+        stamps[i]: (float(values[i, 0]), float(values[i, 1]), float(values[i, 2]), float(values[i, 3]))
+        for i in range(len(bars))
+    }
+
+
+def _leg_bar(
+    fund_id: str, days: dict[pd.Timestamp, tuple[float, float, float, float]], ts_day: pd.Timestamp, ts: datetime
+) -> Bar | None:
+    """The daily bar of an inverse fund on ``ts_day`` (None when it has no usable price that day)."""
+    row = days.get(ts_day)
+    if row is None or not math.isfinite(row[3]) or row[3] <= 0:
+        return None
+    return Bar(
+        symbol=fund_id,
+        ts=ts,
+        open=row[0],
+        high=row[1],
+        low=row[2],
+        close=row[3],
+        interval="1d",
+        source="backtest",
+        is_settlement=True,
+    )
+
+
 def run_vehicle(
     desk: Desk,
     series: VehicleSeries,
@@ -221,8 +253,12 @@ def run_vehicle(
     end: pd.Timestamp | None,
     root: str = "CL",
     fill: str = FILL_NEXT_OPEN,
+    legs: dict[str, pd.DataFrame] | None = None,
 ) -> dict[str, dict[str, list[Any]]]:
     """Drive every book on one vehicle through its daily bars. Returns per-book daily records.
+
+    ``legs`` are the daily bars of the inverse funds (``DeskData.legs``): a book with a short leg is fed the
+    fund's real bar of the same day next to the vehicle's, and decides on both closes.
 
     ``fill`` brackets the one thing a daily replay cannot know, which is how long after the decision the order
     fills. Live, a book decides half an hour before the fund's close (or just after the futures settlement)
@@ -235,6 +271,7 @@ def run_vehicle(
     books = desk.books_on(series.vehicle)
     records: dict[str, dict[str, list[Any]]] = {b.id: {"t": [], "equity": [], "lev": [], "expo": []} for b in books}
     bars = series.bars
+    funds = {fund_id: _bars_by_day((legs or {}).get(fund_id)) for fund_id in desk.short_legs(series.vehicle)}
     first_usable = max(WARMUP_DAYS, 0)
     for i in range(len(bars)):
         ts_day = pd.Timestamp(bars.index[i])
@@ -262,15 +299,26 @@ def run_vehicle(
             source="backtest",
             is_settlement=True,
         )
-        desk.on_bar(series.vehicle, bar, vol_annual=vol_f)
+        # the inverse funds of the books with a short leg: their own bar of the day, spread priced on their
+        # own volatility (the multiple of the oil's)
+        group: list[tuple[Bar, float | None]] = [(bar, vol_f)]
+        leg_prices: dict[str, float] = {}
+        for fund_id, fund_days in funds.items():
+            fund_bar = _leg_bar(fund_id, fund_days, ts_day, ts)
+            if fund_bar is not None:
+                times = abs(INVERSE_FUNDS[fund_id].multiplier)
+                group.append((fund_bar, None if vol_f is None else vol_f * times))
+                leg_prices[fund_id] = fund_bar.close
+        desk.on_bars(series.vehicle, group)
         desk.accrue_financing(series.vehicle, day, ts)
         for book in books:
             snap = book.broker.snapshot(ts)
             rec = records[book.id]
             rec["t"].append(ts_day)
             rec["equity"].append(float(snap.equity))
-            rec["lev"].append(float(snap.leverage))
-            rec["expo"].append(float(snap.net_notional) / float(snap.equity) if snap.equity > 0 else 0.0)
+            # in oil exposure, not in dollars: an inverse fund counts for its multiple (book.effective_leverage)
+            rec["lev"].append(book.effective_leverage(float(snap.equity)))
+            rec["expo"].append(book.net_exposure(float(snap.equity)))
         nxt = _next_symbol(series, i, vehicle.kind, root)
         if nxt != symbol:
             desk.roll(series.vehicle, nxt, {symbol: close, nxt: close}, ts)
@@ -279,14 +327,22 @@ def run_vehicle(
         if fill == FILL_SAME_CLOSE:
             # decide a second before the close and execute on a one-minute bar that opens AT the close: the
             # broker's "first price strictly after the decision" rule is kept, the price is the close itself
-            desk.decide(series.vehicle, ts - timedelta(seconds=1), day, nxt, close, forecast, vol_f)
-            execution = Bar(
-                symbol=nxt, ts=ts + timedelta(minutes=1), open=close, high=close, low=close, close=close,
-                interval="1m", source="backtest (stessa chiusura)",
-            )  # fmt: skip
-            desk.on_bar(series.vehicle, execution, vol_annual=vol_f)
+            desk.decide(
+                series.vehicle, ts - timedelta(seconds=1), day, nxt, close, forecast, vol_f, leg_prices=leg_prices
+            )
+            executions = [
+                (
+                    Bar(
+                        symbol=sym, ts=ts + timedelta(minutes=1), open=px, high=px, low=px, close=px,
+                        interval="1m", source="backtest (stessa chiusura)",
+                    ),
+                    v,
+                )
+                for sym, px, v in [(nxt, close, vol_f), *((b.symbol, b.close, v) for b, v in group[1:])]
+            ]  # fmt: skip
+            desk.on_bars(series.vehicle, executions)
         else:
-            desk.decide(series.vehicle, ts, day, nxt, close, forecast, vol_f)
+            desk.decide(series.vehicle, ts, day, nxt, close, forecast, vol_f, leg_prices=leg_prices)
     return records
 
 
@@ -310,7 +366,7 @@ def run_backtest(
         if series is None or series.bars.empty:
             log.warning("backtest: no data for vehicle %s, its books are skipped", vehicle_id)
             continue
-        records = run_vehicle(desk, series, start_ts, end_ts, fill=fill)
+        records = run_vehicle(desk, series, start_ts, end_ts, fill=fill, legs=data.legs)
         for book in desk.books_on(vehicle_id):
             rec = records[book.id]
             if not rec["t"]:

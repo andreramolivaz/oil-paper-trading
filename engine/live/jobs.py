@@ -172,10 +172,17 @@ TICK_GROUPS = ["desk_intraday"]
 # nearly all for curves the desk never opens, and Yahoo answers HTTP 429 for a long while to an address that
 # asks too much - which on a tick costs the bars the brokers fill and mark against.
 DESK_VEHICLE_ENTRIES: dict[str, tuple[str, ...]] = {
-    "BNO": ("bno_daily", "brent_front", "bz_contracts"),
+    # sco_daily: the inverse fund a fund book buys to be short. Its last close is the price of last resort
+    # when the half-hour bars are missing, and its history is what the backtest replays the short side on.
+    "BNO": ("bno_daily", "brent_front", "bz_contracts", "sco_daily"),
     "MCL": ("cl_contracts", "wti_front", "uso_daily"),
 }
 DESK_CONTEXT_ENTRIES = ("hormuz", "bab_el_mandeb", "wti_curve_hist")  # slow tables: one attempt a day
+# Copper and the dollar index, read by the macro sleeves as of the close BEFORE the decision day: downloaded once
+# per decision day, on the tick that owes the day's first decision. Not the evening before: the row of the day
+# a table is read on is not that day's close (engine/desk/data.py::final_rows), so the previous close is only
+# on file, in the form the history has it, from the next day on.
+DESK_MACRO_ENTRIES = ("copper_daily", "dxy_daily")
 DAILY_MAX_AGE_HOURS = 24.0
 CONTEXT_MAX_AGE_HOURS = 24.0
 RED_RETRY_HOURS = 1.0  # a table whose last download failed, with no decision waiting on it
@@ -236,9 +243,14 @@ def _desk_daily_entries(runner: LiveRunner, desk: Any, now: Any) -> tuple[set[st
     trading = set(desk.vehicles())
     entries: set[str] = set()
     reasons: list[str] = []
+    owed_days: set[date] = set()  # the decision days some book has not decided yet
 
     def hours_since(when: Any) -> float:
         return float((now - ensure_utc(when)).total_seconds()) / 3600.0
+
+    def decision_time(vehicle_id: str, day: date) -> pd.Timestamp:
+        hour, minute = get_vehicle(vehicle_id).decision_time_ny
+        return pd.Timestamp(year=day.year, month=day.month, day=day.day, hour=hour, minute=minute, tz=NEW_YORK)
 
     for vehicle_id, names in DESK_VEHICLE_ENTRIES.items():
         owed, day, decision_ts = False, None, None
@@ -246,13 +258,12 @@ def _desk_daily_entries(runner: LiveRunner, desk: Any, now: Any) -> tuple[set[st
             vehicle = get_vehicle(vehicle_id)
             day = decision_day(vehicle, now)
             owed = any(desk.state.last_decision_day.get(b.id) != day.isoformat() for b in desk.books_on(vehicle_id))
-            hour, minute = vehicle.decision_time_ny
-            decision_ts = pd.Timestamp(
-                year=day.year, month=day.month, day=day.day, hour=hour, minute=minute, tz=NEW_YORK
-            )
+            decision_ts = decision_time(vehicle_id, day)
+            if owed:
+                owed_days.add(day)
         checked = _source_checked_at(runner, names[0])  # the last download that worked (None: never, or red now)
         attempted = _source_attempted_at(runner, names[0])
-        reason = ""
+        reason, wanted = "", set(names)
         if checked is None and attempted is None:
             reason = "da scaricare"
         elif checked is None:
@@ -265,13 +276,44 @@ def _desk_daily_entries(runner: LiveRunner, desk: Any, now: Any) -> tuple[set[st
             reason = "chiusure ufficiali del giorno"
         elif owed and day is not None and decision_ts is not None and pd.Timestamp(checked) < decision_ts:
             reason = f"decisione del {day.isoformat()} da prendere"
+        # A table added to the list since the last download (a new sleeve, a new leg) has never been asked for:
+        # it is asked for now, not when the probe next happens to be due. It alone, unless the others are due
+        # as well: they were read when their rule said so, and a futures table read again late in the evening
+        # comes back with the day's row overwritten by the first minutes of the next session.
+        never = [name for name in names if _source_attempted_at(runner, name) is None]
+        if never and not reason:
+            reason, wanted = f"mai scaricate: {', '.join(never)}", set(never)
         if reason:
-            entries |= set(names)
+            entries |= wanted
             reasons.append(f"{vehicle_id}: {reason}")
     attempted = _source_attempted_at(runner, DESK_CONTEXT_ENTRIES[0])
     if attempted is None or hours_since(attempted) > CONTEXT_MAX_AGE_HOURS:
         entries |= set(DESK_CONTEXT_ENTRIES)
         reasons.append("contesto: una volta al giorno")
+
+    # Copper and the dollar. A decision of day D reads their closes of the days before D, and those are on file
+    # in their final form only in a table downloaded on D itself: so the tables are downloaded on the tick that
+    # owes the first decision of a day (D's earliest decision time, whichever vehicle it belongs to), and that
+    # one download serves every other decision of the day. Each table is judged on its own: probing one for
+    # both left the other, when its download failed, unasked - and the books on a close two days old without
+    # anybody being told. A failed download is asked again at every tick while a decision is still owed, and
+    # once an hour otherwise; the decision itself never waits for it (the sleeve reads the close before).
+    needed_from = max((min(decision_time(v, day) for v in trading) for day in owed_days), default=None)
+    macro_reason = ""
+    for name in DESK_MACRO_ENTRIES:
+        ok, tried = _source_checked_at(runner, name), _source_attempted_at(runner, name)
+        if tried is None:
+            macro_reason = "da scaricare"
+        elif ok is None:
+            if owed_days or hours_since(tried) >= RED_RETRY_HOURS:
+                macro_reason = macro_reason or "ultimo tentativo non riuscito"
+        elif needed_from is not None and pd.Timestamp(ensure_utc(ok)) < needed_from:
+            macro_reason = (
+                macro_reason or f"chiusure di rame e dollaro per la decisione del {max(owed_days).isoformat()}"
+            )
+    if macro_reason:
+        entries |= set(DESK_MACRO_ENTRIES)
+        reasons.append(f"macro: {macro_reason}")
     return entries, "; ".join(reasons)
 
 
@@ -300,12 +342,16 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         fetched = _fetch(runner, groups, entries)
         # The downloads can take minutes: everything below is stamped with the time it actually happens, so an
         # order is never dated before the data it was decided on (it fills on the first bar AFTER its stamp).
-        now = now_utc()
+        planned_at, now = now, now_utc()
         detail["sources"] = _fetch_summary(fetched, groups, entries)
         detail["raw_snapshots_deleted"] = _compact_raw(runner, fetched)
 
         data = build_desk_data(runner.raw, runner.settings)
-        report = live_tick(desk, data, now, blocked=_blocked_vehicles(runner))
+        blocked = _blocked_vehicles(runner)
+        blocked.update(
+            {v: why for v, why in _overtaken_by_the_clock(desk, planned_at, now).items() if v not in blocked}
+        )
+        report = live_tick(desk, data, now, blocked=blocked)
         detail["desk"] = report.to_dict()
         try:
             from engine.desk.options import options_tick
@@ -316,16 +362,18 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
             detail["options"] = {"error": str(exc)[:200]}
 
         # The terminal shows the backtest beside the live books. The weekly job refreshes it; a desk that has
-        # never had one computes it once here (about twenty seconds), so the page is whole from its first day.
-        if {"BNO", "MCL"} <= set(data.series) and not _desk_backtest_on_file(runner):
-            try:
+        # never had one, or whose rules have changed since the one on file was computed, computes it once here
+        # (a minute or two), so the page never shows the old rules' numbers under the new rules.
+        try:  # a replay on the side must never cost the tick: not its computation, and not the check before it
+            stale = _desk_backtest_stale(runner, set(data.meta.get("missing", [])))
+            if {"BNO", "MCL"} <= set(data.series) and stale:
                 from engine.desk.report import run_desk_backtest
 
                 run_desk_backtest(runner.raw, runner.settings, runner.risk, runner.store)
-                detail["desk_backtest"] = "calcolato: mancava"
-            except Exception as exc:  # a replay on the side must never cost the tick
-                log.warning("desk backtest skipped: %s", exc)
-                detail["desk_backtest"] = f"non riuscito: {str(exc)[:160]}"
+                detail["desk_backtest"] = f"calcolato: {stale}"
+        except Exception as exc:
+            log.warning("desk backtest skipped: %s", exc)
+            detail["desk_backtest"] = f"non riuscito: {str(exc)[:160]}"
 
         # The first system's end of day comes LAST: it takes minutes (features, regime, forecasts) and the books
         # must not wait for it. It is tried at most LEGACY_EOD_ATTEMPTS times per date: a date that keeps failing
@@ -356,11 +404,51 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         return JobOutcome("failed", str(exc), detail)
 
 
-def _desk_backtest_on_file(runner: LiveRunner) -> bool:
-    from engine.desk.live import DESK_DIR
-    from engine.desk.report import BACKTEST_FILE
+def _overtaken_by_the_clock(desk: Any, planned_at: Any, now: Any) -> dict[str, str]:
+    """Vehicles whose decision time passed WHILE this tick was downloading, with the reason they wait.
 
-    return (runner.settings.state_dir / DESK_DIR / BACKTEST_FILE).exists()
+    What to download is worked out on the clock the tick starts with; the decisions are taken on the clock read
+    after the downloads. A tick that starts seconds before a decision time (every restart of the runner ticks
+    at once, at any second) would take that decision on tables it never asked for - today's row as it was this
+    morning, if one happens to be on file. The decision waits for the next tick, which reads them first."""
+    from engine.desk.live import decision_day
+    from engine.desk.vehicles import get_vehicle
+
+    late: dict[str, str] = {}
+    for vehicle_id in desk.vehicles():
+        vehicle = get_vehicle(vehicle_id)
+        if decision_day(vehicle, ensure_utc(now)) != decision_day(vehicle, ensure_utc(planned_at)):
+            late[vehicle_id] = (
+                "l'ora della decisione è passata mentre il giro scaricava i dati: si decide al prossimo giro, "
+                "sulle tabelle lette dopo quell'ora"
+            )
+    return late
+
+
+def _desk_backtest_stale(runner: LiveRunner, missing_now: set[str] | None = None) -> str:
+    """Why the desk backtest on file must be recomputed ("" when it is the current one).
+
+    Three reasons: there is none; it was computed under other rules (``report.model_signature``); or a table
+    that was missing when it was computed has arrived since (``missing_now`` is what the data builder could
+    not find on this tick) - a replay that ran without the inverse fund's history has no short side in it.
+    """
+    from engine.desk.book import load_books
+    from engine.desk.live import desk_store
+    from engine.desk.options import load_options_config
+    from engine.desk.report import BACKTEST_FILE, model_signature
+
+    try:
+        on_file = desk_store(runner.settings.state_dir).read_json(BACKTEST_FILE)
+    except ValueError:  # a file cut short by a crash is a file that is not there
+        on_file = None
+    if not isinstance(on_file, dict) or not on_file:
+        return "mancava"
+    meta = on_file.get("meta") or {}
+    config_dir = runner.settings.config_dir
+    if meta.get("model") != model_signature(load_books(config_dir), load_options_config(config_dir), runner.risk):
+        return "le regole sono cambiate"
+    arrived = sorted(set(meta.get("missing") or []) - missing_now) if missing_now is not None else []
+    return f"sono arrivate tabelle che mancavano ({', '.join(arrived)})" if arrived else ""
 
 
 # What each vehicle's daily decision cannot do without: every table of at least one of the listed sets must be
@@ -424,7 +512,7 @@ def _weekly_alt_due(runner: LiveRunner, now: Any) -> bool:
 # Tables that are downloaded whole at every tick: yesterday's snapshot is a subset of today's. One stamped copy
 # is kept (plus `latest`); the option chains also keep the first snapshot of each ISO week, which is the only
 # history of real option quotes this project will ever have.
-EPHEMERAL_RAW = ("bno_intraday", "cl_intraday", "bz_intraday", "brent_intraday_1h")
+EPHEMERAL_RAW = ("bno_intraday", "sco_intraday", "cl_intraday", "bz_intraday", "brent_intraday_1h")
 WEEKLY_RAW = ("bno_options", "uso_options")
 
 

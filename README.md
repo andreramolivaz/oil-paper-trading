@@ -1,8 +1,8 @@
 # Oil Paper Trading — Brent
 
-Sistema di ricerca e **paper trading** sul petrolio. Scarica dati reali, calcola una previsione da trend e
-curva dei future, e la fa comprare a quattro conti simulati da 10.000 $ che differiscono solo per quanta leva
-usano. Tutto è pubblicato su un terminale di una pagina: <https://andreramolivaz.github.io/oil-paper-trading/>.
+Sistema di ricerca e **paper trading** sul petrolio. Scarica dati reali, calcola una previsione da sette
+segnali (il prezzo del greggio, la curva dei future, il rame e il dollaro), e la fa comprare a quattro conti
+simulati da 10.000 $ che differiscono per quanta leva usano e per il lato short. Tutto è pubblicato su un terminale di una pagina: <https://andreramolivaz.github.io/oil-paper-trading/>.
 
 > **Simulazione a scopo di studio su dati reali. Nessun consiglio finanziario, nessun ordine reale, nessun
 > broker collegato.** Ogni numero mostrato porta la sua fonte e il suo orario; quando un dato manca il sistema
@@ -12,28 +12,40 @@ usano. Tutto è pubblicato su un terminale di una pagina: <https://andreramoliva
 
 | Libro | Strumento (com'è su Robinhood) | Rischio | Leva | Che cosa fa |
 |---|---|---|---|---|
-| **Prudente** | BNO, fondo sul Brent | un quarto di Kelly, 12% di volatilità | mai oltre 1x | compra il fondo quando trend e curva dicono long, altrimenti contanti |
-| **Dinamico** | BNO a margine | mezzo Kelly, 25% | fino a 2x (1,5x nel fine settimana) | la stessa previsione, il doppio del rischio |
+| **Prudente** | BNO, fondo sul Brent | un quarto di Kelly, 12% di volatilità | mai oltre 1x | compra il fondo quando la previsione è lunga, altrimenti contanti |
+| **Dinamico** | BNO a margine; SCO per lo short | mezzo Kelly, 25% | fino a 2x (1,5x nel fine settimana) | la stessa previsione, il doppio del rischio, e anche il lato short: quando la previsione è negativa compra SCO, il fondo che ogni giorno rende −2 volte il WTI, in contanti |
 | **Spinto** | /MCL, future micro sul WTI (100 barili) | Kelly pieno, 50% | fino a 10x (3x nel fine settimana) | long e short; può azzerare il conto |
 | **Opzioni** | spread di put su USO e BNO | 5% del conto per struttura, due strutture | rischio definito | vende una put sotto il mercato quando la previsione è lunga; sperimentale |
 
-La previsione è una sola: trend (quattro incroci di medie mobili), carry (la curva è in backwardation o in
-contango) e carry-momentum (la pendenza sta salendo o scendendo), a pesi uguali, su una scala da −20 a +20.
+La previsione è una sola, su una scala da −20 a +20, fatta di sette segnali da tre fonti che pesano un terzo
+ciascuna:
+
+- **il prezzo del greggio**: trend (quattro incroci di medie mobili), accelerazione del trend, asimmetria dei
+  rendimenti;
+- **la curva dei future**: carry (backwardation o contango) e carry-momentum (la pendenza sale o scende);
+- **gli altri mercati**: trend del rame e trend del dollaro a segno invertito, letti alla chiusura del giorno
+  prima.
+
 L'esposizione è `previsione / 10 × obiettivo di volatilità / volatilità di oggi`: **la leva non si sceglie, esce
 da quel rapporto**. Con il greggio al 45% di volatilità anche il libro da 10x sta intorno a 1x.
 
 Che cosa aspettarsi, dal backtest con costi reali (dettagli e limiti in `docs/VALIDATION.md`):
 
-| | Rend. annuo | Volatilità | Sharpe | Perdita massima |
-|---|---|---|---|---|
-| Prudente (2011-2026) | +3,0% | 9% | 0,39 | −25% |
-| Dinamico (2011-2026) | +5,1% | 17% | 0,37 | −47% |
-| Spinto (1986-2026) | +10,6% | 49% | 0,45 | −89% |
-| Brent comprato e tenuto (2011-2026) | +4,0% | 35% | 0,29 | −87% |
+| | Rend. annuo | Volatilità | Sharpe | Perdita massima | Sharpe fino all'8 ottobre 2026 (tre segnali) |
+|---|---|---|---|---|---|
+| Prudente (2011-2026) | +4,9% | 9% | 0,56 | −23% | 0,39 |
+| Dinamico (2011-2026) | +19,6% | 29% | 0,77 | −50% | 0,37 |
+| Spinto (1986-2026) | +22,2% | 55% | 0,64 | −86% | 0,45 |
+| Brent comprato e tenuto (2011-2026) | +4,0% | 35% | 0,29 | −87% | |
 
-Sono numeri modesti e incerti: uno Sharpe di 0,4 su quindici anni non si distingue con sicurezza da zero. Il
-momentum infragiornaliero, per cui il progetto era nato, **non ha mostrato margine dopo i costi** in nessuna
-delle forme provate ed è stato lasciato fuori. Il perché, con i numeri e le fonti, è in `docs/RESEARCH.md`.
+Da leggere con tre avvertenze. I quattro segnali aggiunti sono quelli rimasti in piedi fra sedici provati: una
+parte del miglioramento è selezione, e la stima che non sceglie nulla è più bassa di circa 0,1. Il lato short
+del libro dinamico ha guadagnato quasi tutto in tre anni di crollo (2014, 2015, 2020) e ha tolto qualcosa in
+dieci degli altri tredici. E il 2023, il 2024 e il 2025 sono stati negativi per tutti e tre i libri. Uno Sharpe
+di 0,6 su quindici anni dista poco più di due errori standard da zero; oltre 0,7-0,8 su un solo mercato non si
+va onestamente, e gli obiettivi di rischio dei libri non sono stati alzati. Il momentum infragiornaliero, per
+cui il progetto era nato, **non ha mostrato margine dopo i costi** in nessuna delle forme provate ed è stato
+lasciato fuori. Il perché, con i numeri e le fonti, è in `docs/RESEARCH.md`.
 
 Il primo sistema (21 strategie su conti ombra, regimi, previsioni di prezzo) continua a girare ogni giorno e
 resta consultabile dalla pagina **Archivio**: nessuna sua strategia ha superato la validazione, quindi il suo
@@ -128,6 +140,12 @@ in corso e ne avvia uno sul codice nuovo.
   esiste (quello di Alpha Vantage è riservato ai piani a pagamento, verificato l'8 ottobre 2026). Assegnazione
   anticipata e rischio a scadenza non sono simulati.
 - **Il fine settimana.** Uno stop non ferma un'apertura in gap, e nel 2026 ce ne sono state fino a +16%.
+- **Il lato short passa da un fondo a leva.** SCO segue il WTI, si ricalcola ogni giorno e può azzerarsi in una
+  notte; i suoi raggruppamenti di quote non sono gestiti: se ne viene annunciato uno mentre il libro dinamico
+  lo tiene, il libro va azzerato a mano (`reset --book dinamico`).
+- **Rame e dollaro arrivano con un giorno di ritardo per costruzione.** Si legge la chiusura del giorno prima,
+  e solo quando uno scaricamento del giorno dopo l'ha confermata: su Yahoo la riga del giorno in corso non è
+  ancora la chiusura.
 
 ## Sviluppo
 

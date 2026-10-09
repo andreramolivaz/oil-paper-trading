@@ -8,24 +8,43 @@ schede e i loro conti ombra: nessuna ha superato la validazione, e la ricerca ch
 
 ### La previsione
 
-Tre componenti, ognuna su una scala da −20 a +20 dove 10 è una convinzione normale:
+Sette segnali, ognuno su una scala da −20 a +20 dove 10 è una convinzione normale, raggruppati per **fonte**:
+da dove viene l'informazione. Le tre fonti pesano un terzo ciascuna, e dentro una fonte i segnali pesano
+uguale.
 
-| Componente | Regola | Da dove viene |
-|---|---|---|
-| **Trend** | media di quattro incroci di medie mobili esponenziali (8-32, 16-64, 32-128, 64-256 giorni) sul rendimento investibile, divisi per la volatilità | Carver, parametri pubblicati |
-| **Carry** | +10 se la curva è in backwardation (il contratto vicino vale più di quello lontano), −10 in contango, 0 se la pendenza è sotto l'1% l'anno | Koijen e altri; Bouchouev |
-| **Carry-momentum** | +10 se la pendenza è sopra la sua media a 20 giorni, −10 se sotto | Bouchouev e Zuo 2020 |
+| Fonte | Segnale | Regola | Da dove viene |
+|---|---|---|---|
+| **Il prezzo del greggio** | Trend | media di quattro incroci di medie mobili esponenziali (8-32, 16-64, 32-128, 64-256 giorni) sul rendimento investibile, divisi per la volatilità | Carver, parametri pubblicati |
+| | Accelerazione | il trend di oggi meno quello di *n* giorni fa, per *n* = 16, 32 e 64 (incroci 16-64, 32-128, 64-256) | Carver, parametri pubblicati |
+| | Asimmetria (skew) | meno l'asimmetria dei rendimenti su 180 e 365 giorni, confrontata con la propria storia, divisa per la propria volatilità e lisciata (45 e 90 giorni). Calcolata sul WTI, letta anche dal fondo Brent | Carver, parametri pubblicati; la media di confronto è la storia del mercato stesso |
+| **La curva dei future** | Carry | +10 se la curva è in backwardation (il contratto vicino vale più di quello lontano), −10 in contango, 0 se la pendenza è sotto l'1% l'anno | Koijen e altri; Bouchouev |
+| | Carry-momentum | +10 se la pendenza è sopra la sua media a 20 giorni, −10 se sotto | Bouchouev e Zuo 2020 |
+| **Gli altri mercati** | Rame | la regola di trend qui sopra applicata al future sul rame, sulla chiusura del giorno prima | stessa regola del greggio, nessun parametro nuovo |
+| | Dollaro | la stessa regola sull'indice del dollaro (DXY), a segno invertito, sulla chiusura del giorno prima | stessa regola del greggio, nessun parametro nuovo |
 
-Le tre si sommano a pesi uguali, per 1,25 (sono poco correlate, quindi la loro media è più piccola di ciascuna),
-con tetto a ±20. Nessun parametro è stato scelto guardando i risultati: sono quelli pubblicati.
+La previsione è la media delle tre fonti per 1,75, con tetto a ±20. Il moltiplicatore viene dalla formula di
+Carver sulle correlazioni misurate fra i sette segnali (sono poco correlati, quindi la loro media è più piccola
+di ciascuno). Quando un segnale manca la sua fonte si legge su ciò che resta, e il moltiplicatore scende: con
+la sola previsione di prima (trend, carry, carry-momentum) vale 1,25, come allora. Nessun parametro è stato
+scelto guardando i risultati; che cosa è stato provato e scartato è in `docs/RESEARCH.md`.
+
+Rame e dollaro chiudono dopo il regolamento del greggio: una decisione del giorno legge la loro chiusura del
+giorno prima, mai quella dello stesso giorno. Il motore scarica le due tabelle al giro che deve prendere la
+prima decisione della giornata, e non la sera prima: la riga del giorno in cui una tabella viene scaricata non
+è ancora la chiusura di quel giorno (su Yahoo, finché il mercato è aperto è il prezzo di un'altra scadenza;
+dopo le 18 di New York è l'inizio della seduta successiva), e diventa quella che c'è nello storico solo dal
+giorno dopo. Una chiusura più vecchia di una settimana non viene letta: il segnale tace e gli altri continuano.
 
 - **Tesi.** I flussi di copertura sono lenti e la curva dice chi ha fretta: in backwardation il mercato paga
   chi detiene il barile, e una curva che si irrigidisce anticipa il prezzo. Il trend cattura ciò che la curva
-  non dice ancora.
+  non dice ancora; la sua accelerazione dice se sta finendo. Chi detiene un mercato che può crollare di colpo
+  viene pagato per farlo (skew). E la domanda di greggio segue il ciclo globale con ritardo: rame e dollaro lo
+  mostrano prima, con meno shock d'offerta propri.
 - **Chi perde.** Chi copre la produzione vendendo a termine a qualunque prezzo; chi compra il contratto vicino
-  in contango pagando il roll ogni mese.
+  in contango pagando il roll ogni mese; chi compra protezione contro i crolli quando tutti la vogliono.
 - **Quando non funziona.** Mercati laterali con curva piatta (2023-2025: tre anni negativi di fila nel
-  backtest del fondo Brent), inversioni brusche a V.
+  backtest, con la previsione di prima e con questa), inversioni brusche a V, shock d'offerta che il ciclo
+  globale non vede (rame e dollaro non hanno dato nulla dal 2022 al 2025).
 
 ### Dalla previsione alla posizione
 
@@ -37,15 +56,30 @@ poi tre tetti, nell'ordine: il tetto del libro, il tetto più basso prima di una
 di un giorno, il margine dello strumento. Il broker simulato impone comunque il limite assoluto di 10x. La
 dimensione esatta diventa lotti interi con la fascia di inerzia di Carver: dentro il 10% di una posizione
 normale non si tocca nulla, fuori si va al bordo della fascia. Non c'è nessun «gate» da superare e nessuna
-decisione discrezionale: i tre libri differiscono solo per quanta previsione comprano.
+decisione discrezionale: i tre libri differiscono per quanta previsione comprano e per il lato short.
 
 | Libro | Strumento | Obiettivo di volatilità | Tetto | Prima del weekend | Direzione |
 |---|---|---|---|---|---|
 | **Prudente** | BNO | 12% (un quarto di Kelly) | 1x | 1x | solo long |
-| **Dinamico** | BNO a margine | 25% (mezzo Kelly) | 2x | 1,5x | solo long |
+| **Dinamico** | BNO a margine; SCO in contanti per lo short | 25% (mezzo Kelly) | 2x | 1,5x | long e short |
 | **Spinto** | /MCL | 50% (Kelly pieno) | 10x | 3x | long e short |
 
-Gli obiettivi sono frazioni di Kelly per uno Sharpe atteso di 0,5. Una decisione al giorno, al primo giro
+**Il lato short del libro dinamico.** Un fondo non si vende allo scoperto sul conto che i libri imitano.
+Quando la previsione è negativa il libro *compra* SCO, il fondo che ogni giorno rende −2 volte un indice di
+future sul WTI: metà dei dollari per la stessa esposizione, pagati in contanti, mai più del valore del conto.
+Stessa formula e stessa fascia di inerzia del lato long; i tetti (2x, 1,5x prima di un fine settimana) valgono
+per l'esposizione al greggio, non per i dollari, e la «leva» mostrata dal terminale è quell'esposizione.
+Quando la previsione cambia segno il libro vende una gamba e compra l'altra nella stessa decisione: la
+vendita si esegue per prima e l'acquisto la aspetta, così il libro non tiene mai i due lati insieme. La vendita
+di un fondo chiude ciò che trova e mai di più (un fondo non va sotto zero); i tetti valgono anche al prezzo
+di esecuzione e dopo ogni valutazione, non solo al prezzo della decisione; senza un prezzo recente di SCO il
+lato short non si apre e non cresce, si può solo ridurre. SCO segue il WTI e non il Brent, si ricalcola ogni
+giorno e non è uno strumento da tenere: comprato nel 2011 e lasciato lì ha perso il 99%. Un raggruppamento di
+quote di SCO o di BNO non è gestito: quando ne viene annunciato uno il libro va azzerato a mano. Che cosa
+aggiunge il lato short e in quali anni: `docs/RESEARCH.md`, «Il lato short del fondo».
+
+Gli obiettivi sono frazioni di Kelly per uno Sharpe atteso di 0,5, e non sono stati alzati quando i sette
+segnali ne hanno misurato uno più alto: una parte di quel miglioramento è selezione. Una decisione al giorno, al primo giro
 dopo le 15:00 di New York per il fondo (le 15:18) e dopo le 14:35 per il future (le 14:48, a regolamento
 avvenuto); l'ordine si esegue all'apertura della prima barra da 30 minuti che inizia dopo la decisione, con lo
 spread e le commissioni reali dello strumento. Una barra è considerata chiusa quindici minuti dopo la sua fine,
@@ -58,7 +92,8 @@ al reset, se scende sotto il 5% del capitale iniziale.
 
 ### Il libro delle opzioni (`engine/desk/options.py`) — sperimentale
 
-Vende uno **spread di put a credito** sotto il mercato quando la previsione è almeno +5:
+Vende uno **spread di put a credito** sotto il mercato quando la previsione (la stessa dei libri lineari, con i
+sette segnali) è almeno +5:
 
 - scadenza quotata più vicina a 30 giorni, fra 21 e 45;
 - put venduta a delta 0,20; put comprata la più lontana che tiene la perdita massima entro il 5% del conto

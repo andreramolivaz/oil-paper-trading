@@ -261,6 +261,14 @@ class PaperBroker:
         if self.state.account_id != account_id:
             raise ValueError(f"state belongs to account {self.state.account_id!r}, not {account_id!r}")
         self.vol_annual: float | None = None  # realized vol used by the spread model; set_market_vol()
+        # How much of the LEVERAGE CAP one dollar of an instrument uses (default 1). An inverse -2x fund carries
+        # twice its dollars of exposure, so its account counts it twice against the cap: at submit, at the fill
+        # price and when the cap is enforced after a mark. Margin and financing are about dollars borrowed and
+        # never read this.
+        self.exposure_weights: dict[str, float] = {}
+        # Off by default, and then ``submit`` is exactly what it always was. An account that changes side in one
+        # decision (sells one instrument, buys another) turns it on: see ``_released_by_pending``.
+        self.net_queued_sales: bool = False
 
     @classmethod
     def load(
@@ -378,6 +386,18 @@ class PaperBroker:
             net += pos.qty_bbl * ref
         return gross, net
 
+    def _cap_weight(self, symbol: str) -> float:
+        return abs(float(self.exposure_weights.get(symbol, 1.0)))
+
+    def _cap_gross(self, overrides: dict[str, float] | None = None) -> float:
+        """Gross notional as the leverage cap counts it: each position times its weight (``exposure_weights``).
+        Equal to the first value of ``_gross_net`` for an account with no weights."""
+        total = 0.0
+        for sym, pos in self.state.positions.items():
+            own = overrides.get(sym) if overrides else None
+            total += abs(pos.qty_bbl) * self._leg_reference_price(sym, own) * self._cap_weight(sym)
+        return total
+
     def _is_risk_reducing(self, symbol: str, qty: float) -> bool:
         pos = self.state.positions.get(symbol)
         if pos is None or qty == 0:
@@ -483,7 +503,10 @@ class PaperBroker:
 
         Rejections: dead or breaker-halted account; duplicate idempotency key (idempotent re-run); quantity below
         one lot; risk-increasing order while HALTED_STALE; post-trade gross leverage above ``risk.max_leverage``
-        at last known prices (last line of defence; the portfolio gate enforces 1x/alpha rules upstream).
+        at last known prices (last line of defence; the portfolio gate enforces 1x/alpha rules upstream). The
+        post-trade figure counts what is queued on this instrument and, for an account that asks for it
+        (``net_queued_sales``), what a queued sale on another instrument is about to free
+        (``_released_by_pending``).
         """
         st = self.state
         if order.account_id and order.account_id != self.account_id:
@@ -508,11 +531,13 @@ class PaperBroker:
             equity = self._equity()
             if equity <= 0:
                 return self._reject(order, "non-positive equity")
-            gross, _ = self._gross_net()
+            gross = self._cap_gross()
             pos = st.positions.get(order.instrument)
             cur = pos.qty_bbl if pos else 0.0
             pend = sum(self._round_lots(o.qty_bbl) for o in st.pending if o.instrument == order.instrument)
-            post = gross - abs(cur) * ref + abs(cur + pend + qty) * ref
+            own = ref * self._cap_weight(order.instrument)
+            freed = self._released_by_pending(order.instrument) if self.net_queued_sales else 0.0
+            post = gross - freed - abs(cur) * own + abs(cur + pend + qty) * own
             lev = mg.leverage(post, equity)
             if lev > self.risk.max_leverage + _EPS:
                 return self._reject(
@@ -524,6 +549,28 @@ class PaperBroker:
         self._persist_order(order)
         self._persist()
         return True
+
+    def _released_by_pending(self, instrument: str) -> float:
+        """Notional that orders already queued on OTHER instruments are about to free, at last known prices.
+
+        An account that changes side sells one instrument and buys another in the same decision. The sale is
+        queued first and executed first; refusing the purchase because the position being sold is still on the
+        books would leave the account flat for a session. Only risk-reducing orders count, each for no more
+        than the position it reduces, and the cap is checked again at the fill price when the purchase executes
+        (``_cap_qty_for_leverage``): a sale that has not filled by then frees nothing.
+        """
+        reducing: dict[str, float] = {}
+        for queued in self.state.pending:
+            if queued.instrument == instrument:
+                continue
+            qty = self._round_lots(queued.qty_bbl)
+            if self._is_risk_reducing(queued.instrument, qty):
+                reducing[queued.instrument] = reducing.get(queued.instrument, 0.0) + abs(qty)
+        released = 0.0
+        for symbol, qty in reducing.items():
+            held = abs(self.state.positions[symbol].qty_bbl)
+            released += min(qty, held) * self._leg_reference_price(symbol) * self._cap_weight(symbol)
+        return released
 
     # ------------------------------------------------------------------ execution core
     def _book(self, symbol: str, qty: float, price: float, ts: datetime, strategies: list[str]) -> float:
@@ -685,10 +732,10 @@ class PaperBroker:
         pos = st.positions.get(symbol)
         cur = pos.qty_bbl if pos else 0.0
         ref_leg = self._leg_reference_price(symbol, open_price)
+        own = ref_leg * self._cap_weight(symbol)  # what one unit of this symbol uses of the cap
         overrides = {symbol: open_price}
         equity_pre = self._equity(overrides)
-        gross_all, _ = self._gross_net(overrides)
-        other_gross = gross_all - abs(cur) * ref_leg
+        other_gross = self._cap_gross(overrides) - abs(cur) * own
         cap = self.risk.max_leverage
         q = qty
 
@@ -696,7 +743,7 @@ class PaperBroker:
             comps = self.costs.execution_bps(qq, ref_leg, equity_pre, vol, ev)
             cost = abs(qq) * ref_leg * comps["total_bps"] * 1e-4 + self.costs.commission(qq)
             eq_post = equity_pre - cost
-            return mg.leverage(other_gross + abs(cur + qq) * ref_leg, eq_post)
+            return mg.leverage(other_gross + abs(cur + qq) * own, eq_post)
 
         for _ in range(4):
             comps = self.costs.execution_bps(q, ref_leg, equity_pre, vol, ev)
@@ -704,7 +751,7 @@ class PaperBroker:
             eq_post = equity_pre - cost
             if eq_post <= 0:
                 return 0.0
-            max_total = max(0.0, cap * eq_post - other_gross) / ref_leg  # allowed |position| in this symbol
+            max_total = max(0.0, cap * eq_post - other_gross) / own  # allowed |position| in this symbol
             bound = max_total - abs(cur) if _sgn(q) == _sgn(cur) or cur == 0 else max_total + abs(cur)
             new_q = _sgn(q) * self._round_lots(max(0.0, min(abs(q), bound)))
             if new_q == q:
@@ -723,14 +770,32 @@ class PaperBroker:
         ts = ensure_utc(bar.ts)
         fills: list[Fill] = []
         keep: list[Order] = []
+        queued = {o.order_id for o in st.pending}  # shrinks as this bar fills or cancels orders
         for o in st.pending:
             if o.instrument != bar.symbol or not (ensure_utc(o.ts) < start):
                 keep.append(o)
                 continue
+            if o.after is not None and o.after in queued:
+                keep.append(o)  # the order it waits for (the sale that pays for it) has not filled yet
+                continue
+            queued.discard(o.order_id)
             if st.status in {AccountStatus.DEAD, AccountStatus.HALTED_BREAKER}:
                 self._cancel(o, f"account {st.status}")
                 continue
             qty = self._round_lots(o.qty_bbl)
+            trimmed: dict[str, float] | None = None
+            if o.reduce_only:
+                # A reduce-only order closes what is there when it fills, never more: the position may have been
+                # cut since the decision (a leverage-cap sale, a stop), and the full size would open the other
+                # side - a short in an instrument that cannot be shorted.
+                held = st.positions.get(o.instrument)
+                room = abs(held.qty_bbl) if held is not None and _sgn(held.qty_bbl) == -_sgn(qty) else 0.0
+                if room <= 0:
+                    self._cancel(o, "reduce-only: nothing left to reduce")
+                    continue
+                if abs(qty) > room + _EPS:
+                    trimmed = {"from": qty, "to": _sgn(qty) * room}
+                    qty = _sgn(qty) * room
             reducing = self._is_risk_reducing(o.instrument, qty)
             if st.status == AccountStatus.HALTED_STALE and not reducing:
                 self._cancel(o, "data stale: risk-increasing order dropped")
@@ -768,6 +833,9 @@ class PaperBroker:
                 "gate": dict(o.gate),
                 "leverage_components": dict(o.leverage),
             }
+            if trimmed is not None:
+                meta["qty_reduce_only"] = trimmed
+                meta["qty_filled"] = qty
             if not reducing:
                 capped = self._cap_qty_for_leverage(o.instrument, qty, ref, vol, ev)
                 if capped == 0:
@@ -913,8 +981,9 @@ class PaperBroker:
                 break
             equity = self._equity()
             gross, _ = self._gross_net()
+            cap_gross = self._cap_gross()  # the same number unless an instrument has a cap weight
             level = mg.margin_level(equity, mg.margin_required(gross, r.margin_rate))
-            lev = mg.leverage(gross, equity)
+            lev = mg.leverage(cap_gross, equity)
             stop_out = level is not None and level < r.stop_out_margin_level
             over_cap = lev > r.max_leverage + 1e-7
             if not stop_out and not over_cap:
@@ -927,16 +996,21 @@ class PaperBroker:
                     ts, {}, OrderReason.LIQUIDATION, extra_bps=extra, price_source=price_source, meta=base_meta
                 )
                 break
-            target_gross = r.max_leverage * equity
-            if stop_out and r.margin_rate > 0:
-                target_gross = min(target_gross, equity / r.margin_rate)  # back to margin level >= 1.0
-            excess = gross - target_gross
-            sym, pos = max(st.positions.items(), key=lambda kv: abs(kv[1].qty_bbl) * self._leg_reference_price(kv[0]))
+            sym, pos = max(
+                st.positions.items(),
+                key=lambda kv: abs(kv[1].qty_bbl) * self._leg_reference_price(kv[0]) * self._cap_weight(kv[0]),
+            )
             ref_leg = self._leg_reference_price(sym)
             px = self._price_for(sym)
             if px is None:
                 raise DataUnavailable(f"no price to liquidate {sym}")
-            q_close = min(abs(pos.qty_bbl), max(r.lot_bbl, self._ceil_lots(excess / ref_leg)))
+            # units of this position to close: back under the leverage cap (in cap terms) and, on a stop-out,
+            # back to a margin level of 1.0 (in dollars). Without cap weights the two are the one "excess over
+            # the lower of the two targets" this always was.
+            need = (cap_gross - r.max_leverage * equity) / (ref_leg * self._cap_weight(sym))
+            if stop_out and r.margin_rate > 0:
+                need = max(need, (gross - equity / r.margin_rate) / ref_leg)
+            q_close = min(abs(pos.qty_bbl), max(r.lot_bbl, self._ceil_lots(need)))
             full = q_close >= abs(pos.qty_bbl) - _EPS
             reason = OrderReason.LIQUIDATION if full else OrderReason.MARGIN_CALL
             fills.append(
@@ -1001,8 +1075,28 @@ class PaperBroker:
         return fills
 
     # ------------------------------------------------------------------ public event API
-    def on_bar(self, bar: Bar, event_window: bool = False, vol_annual: float | None = None) -> list[Fill]:
-        """Process one bar for ``bar.symbol``; returns the fills it produced (module docstring lists the steps)."""
+    def on_bar(
+        self,
+        bar: Bar,
+        event_window: bool = False,
+        vol_annual: float | None = None,
+        *,
+        mark: bool = True,
+        checks: bool = True,
+    ) -> list[Fill]:
+        """Process one bar for ``bar.symbol``; returns the fills it produced (module docstring lists the steps).
+
+        The two switches are for an account that trades more than one symbol on the same clock (the desk):
+
+        * ``checks=False`` stops after the mark. The caller feeds every symbol's bar of the same moment this way
+          and then calls :meth:`check_risk` ONCE, so that margin, the account floor and the daily-loss breaker
+          are judged on marks that all belong to that moment - never on one symbol's bar and another symbol's
+          half-hour-old quote.
+        * ``mark=False`` is for a bar that arrives LATE, older than a mark the account already has (a table that
+          was missing for a tick): the orders that were waiting for it fill at its open, which is the first
+          price after their decision, but the bar re-marks nothing and trips nothing. Run as a normal bar it
+          would price today's position at yesterday morning's level against today's opening equity.
+        """
         ts = ensure_utc(bar.ts)
         st = self.state
         key = f"{bar.symbol}|{bar.interval}"
@@ -1014,17 +1108,37 @@ class PaperBroker:
         vol = vol_annual if vol_annual is not None else self.vol_annual
         start = bar_start(bar)
         fills: list[Fill] = []
-        self._roll_day(ts)
+        if mark:
+            self._roll_day(ts)
         fills += self._fill_pending(bar, start, event_window, vol)  # 1. next-price fills
-        f = self._check_protection(bar, event_window, vol)  # 2. stops / targets / trailing
-        if f is not None:
-            fills.append(f)
-        self._mark_prices({bar.symbol: bar.close}, ts, bar.source, bar.asof)  # 3. mark to market
-        fills += self._enforce_margin(ts, bar.source, event_window, vol)  # 4. stop-out / leverage cap
-        fills += self._check_dead(ts, bar.source)  # 5. dead account
-        fills += self._check_breaker(ts, bar.source)  # 6. daily loss breaker
+        if mark:
+            f = self._check_protection(bar, event_window, vol)  # 2. stops / targets / trailing
+            if f is not None:
+                fills.append(f)
+            self._mark_prices({bar.symbol: bar.close}, ts, bar.source, bar.asof)  # 3. mark to market
+        if mark and checks:
+            fills += self._risk_checks(ts, bar.source, event_window, vol)  # 4-6
+        if mark:
+            self._update_equity_stats(ts)
+        self._persist()
+        return fills
+
+    def check_risk(
+        self, ts: datetime, price_source: str, event_window: bool = False, vol_annual: float | None = None
+    ) -> list[Fill]:
+        """Steps 4-6 of a bar on their own: stop-out and leverage cap, dead account, daily-loss breaker, at the
+        marks the account has now. For callers that fed bars with ``checks=False``."""
+        ts = ensure_utc(ts)
+        vol = vol_annual if vol_annual is not None else self.vol_annual
+        fills = self._risk_checks(ts, price_source, event_window, vol)
         self._update_equity_stats(ts)
         self._persist()
+        return fills
+
+    def _risk_checks(self, ts: datetime, price_source: str, ev: bool, vol: float | None) -> list[Fill]:
+        fills = self._enforce_margin(ts, price_source, ev, vol)  # 4. stop-out / leverage cap
+        fills += self._check_dead(ts, price_source)  # 5. dead account
+        fills += self._check_breaker(ts, price_source)  # 6. daily loss breaker
         return fills
 
     def mark(self, prices: dict[str, float], ts: datetime, source: str, asof: datetime | None) -> AccountSnapshot:

@@ -23,8 +23,9 @@ from engine.core.config import RiskConfig, Settings
 from engine.core.store import StateStore, dumps
 from engine.core.timeutil import ensure_utc, iso, parse_iso
 from engine.data.raw_store import RawStore
+from engine.desk import signals as sg
 from engine.desk.book import Book, is_pre_closure
-from engine.desk.data import DeskData, build_desk_data, held_contract, hormuz_summary
+from engine.desk.data import MACRO_MAX_AGE_DAYS, DeskData, build_desk_data, held_contract, hormuz_summary
 from engine.desk.engine import DECISIONS_LOG, Desk, _clean
 from engine.desk.live import (
     NEW_YORK,
@@ -157,6 +158,37 @@ def market_block(data: DeskData, now: datetime) -> dict[str, Any]:
         "note": f"{bz_code} meno {cl_code}: scadenze diverse, non è lo spread a pari scadenza",
     }
     out["hormuz"] = hormuz_summary(data.hormuz) or None
+    # the two markets the macro sleeves read: the last close a later day's download has confirmed, with its date
+    for name, (label, source) in MACRO_QUOTES.items():
+        closes = data.macro.get(name)
+        if closes is None or closes.empty:
+            continue
+        out[name] = {
+            "name": label,
+            "value": _r(closes.iloc[-1], 3),
+            "asof": pd.Timestamp(closes.index[-1]).date().isoformat(),
+            "source": source,
+        }
+    return out
+
+
+MACRO_QUOTES = {
+    "copper": ("Rame (future COMEX, $/libbra)", "Yahoo Finance HG=F, chiusura giornaliera"),
+    "dollar": ("Indice del dollaro (DXY)", "Yahoo Finance DX-Y.NYB, chiusura giornaliera"),
+}
+
+
+def _macro_days(data: DeskData, day: pd.Timestamp) -> dict[str, str | None]:
+    """The date of the close each macro sleeve read for the forecast of ``day``: the latest one strictly
+    before it (those markets close after the oil settlement), or None when that is more than a week old."""
+    out: dict[str, str | None] = {}
+    for name in sg.SOURCES["macro"]:
+        closes = data.macro.get(name)
+        prior = None if closes is None else closes[closes.index < day]
+        if prior is None or prior.empty or (day - pd.Timestamp(prior.index[-1])).days > MACRO_MAX_AGE_DAYS:
+            out[name] = None
+        else:
+            out[name] = pd.Timestamp(prior.index[-1]).date().isoformat()
     return out
 
 
@@ -169,13 +201,15 @@ def forecast_block(data: DeskData) -> dict[str, Any]:
         day = pd.Timestamp(series.forecasts.index[-1])
         vehicle = get_vehicle(vehicle_id)
         prev = series.forecasts.iloc[-2] if len(series.forecasts) > 1 else None
+        sleeves = {name: _r(row.get(name), 2) for name in sg.SLEEVES}
         out[vehicle_id] = {
             "vehicle": vehicle_id,
             "underlying": vehicle.underlying,
             "day": day.date().isoformat(),
-            "trend": _r(row.get("trend"), 2),
-            "carry": _r(row.get("carry"), 2),
-            "carry_momentum": _r(row.get("carry_momentum"), 2),
+            **sleeves,
+            # the average of each source's sleeves: the three numbers the combination is made of
+            "sources": {name: _r(value, 2) for name, value in sg.source_values(sleeves).items()},
+            "macro_day": _macro_days(data, day),
             "combined": _r(row.get("combined"), 2),
             "combined_prev": None if prev is None else _r(prev.get("combined"), 2),
             "vol": _r(series.vol.iloc[-1], 4),
@@ -201,12 +235,15 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         last = float(st.last_prices.get(symbol, pos.avg_price))
         notional = abs(pos.qty_bbl) * last
         unrealized = (last - pos.avg_price) * pos.qty_bbl
+        times = book.multiplier(symbol)  # -2 for the inverse fund a short side is held in, 1 otherwise
         positions.append(
             {
                 "symbol": symbol,
                 "units": float(pos.qty_bbl),
                 "unit": vehicle.unit_it,
-                "side": "long" if pos.qty_bbl > 0 else "short",
+                # the side of the OIL exposure: shares of an inverse fund are a short position
+                "side": "long" if pos.qty_bbl * times > 0 else "short",
+                "multiplier": times,
                 "avg_price": _r(pos.avg_price, 4),
                 "last_price": _r(last, 4),
                 "notional": _r(notional, 2),
@@ -235,7 +272,10 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
             "vol_target": cfg.vol_target,
             "max_leverage": full_cap,
             "weekend_max_leverage": cfg.weekend_max_leverage,
-            "long_only": bool(cfg.long_only or not vehicle.allow_short),
+            "long_only": bool(cfg.long_only or (not vehicle.allow_short and book.short is None)),
+            # the inverse fund the book buys to be short (null: it sells the vehicle itself, or is long only)
+            "short_via": book.short_symbol,
+            "short_note": None if book.short is None else book.short.note_it,
             "daily_loss_breaker": cfg.daily_loss_breaker,
             "margin_rate": vehicle.margin_rate,
             "decision_time_ny": f"{vehicle.decision_time_ny[0]:02d}:{vehicle.decision_time_ny[1]:02d}",
@@ -251,8 +291,9 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         "pnl_day_pct": _r(float(snap.daily_pnl) / day_base, 5) if day_base and day_base > 0 else None,
         "drawdown": _r(snap.drawdown, 5),
         "peak_equity": _r(st.peak_equity, 2),
-        "leverage": _r(snap.leverage, 4),
-        "exposure": _r(float(snap.net_notional) / equity, 4) if equity > 0 else None,
+        # both in oil exposure: an inverse fund counts for its multiple, not for its dollars
+        "leverage": _r(book.effective_leverage(equity), 4),
+        "exposure": _r(book.net_exposure(equity), 4) if equity > 0 else None,
         "margin_used": _r(snap.margin_used, 2),
         "margin_level": _r(snap.margin_level, 3) if snap.margin_level is not None else None,
         "liquidation_price": _r(snap.liquidation_price, 3) if snap.liquidation_price is not None else None,
@@ -343,7 +384,10 @@ def decisions_block(state_dir: Path, options_id: str | None) -> list[dict[str, A
                 "forecast": _r(forecast.get("combined"), 2),
                 "exposure": _r(d.get("exposure"), 3),
                 "limited_by": d.get("limited_by"),
-                "order_units": d.get("order_units"),
+                # the order on the vehicle, or - when only the short leg trades - the one on the inverse fund
+                "order_units": d.get("order_units")
+                or next((leg.get("order_units") for leg in d.get("legs") or [] if leg.get("order_units")), 0.0),
+                "legs": d.get("legs") or [],
                 "text": d.get("rationale"),
                 "status": d.get("status"),
             }

@@ -163,6 +163,10 @@ class Order(Record):
     target_pct: float | None = None
     trailing_pct: float | None = None
     status: str = "new"  # new | filled | rejected | cancelled
+    # may only shrink the position it finds when it fills: cut to that position, cancelled if there is none
+    reduce_only: bool = False
+    # order_id that must leave the queue first: a purchase paid for by a sale waits for the sale to fill
+    after: str | None = None
 
 
 @dataclass

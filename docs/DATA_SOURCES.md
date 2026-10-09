@@ -115,6 +115,8 @@ Verificate da un runner GitHub (`.github/workflows/research-data.yml`) e dal con
 | **Yahoo, fondi** | `BNO`, `USO` (grafico giornaliero e a 30 minuti) | ✅ 200 | BNO dal 2010-06, USO dal 2006 | BNO è la serie del Brent che un conto può davvero detenere: nessun salto di roll, aperture e chiusure reali. Le barre a 30 minuti coprono 60 giorni. |
 | **Yahoo, per contratto** | `CLX26.NYM`, `BZZ26.NYM`, … (14 scadenze più tre dicembre lontani) | ✅ 200 | finché il contratto è quotato | Tabella lunga `date, code, OHLCV`. **Cumulativa**: Yahoo dimentica una scadenza il giorno in cui muore, quindi ogni scaricamento viene fuso con l'archivio. Da qui vengono il prezzo del contratto detenuto e la pendenza fra il vicino e un dicembre lontano. |
 | Yahoo, `BZ=F` / `CL=F` infragiornaliero | — | ⚠️ inaffidabile vicino alla scadenza | — | Le barre alternano il contratto in scadenza e il successivo: finti movimenti di 5-7 $ nella stessa ora. Il motore chiede il simbolo del contratto (`BZZ26.NYM`), mai il continuo. |
+| **Yahoo, fondo inverso** | `SCO` (giornaliero e a 30 minuti): tabelle `sco_daily`, `sco_intraday` | ✅ 200 (8 ottobre 2026) | dal 2008-11 | ProShares UltraShort Bloomberg Crude Oil, −2x al giorno su un indice di future WTI. È ciò che il libro dinamico compra per essere short. Il prezzo di chiusura di Yahoo è già rettificato per i raggruppamenti di quote. Le sue barre arrivano solo ai libri che lo usano, e la sua tabella ha un solo simbolo: il motore la legge per nome, mai al posto di quella di BNO. |
+| **Yahoo, rame e dollaro** | `HG=F` e `DX-Y.NYB` (giornaliero): tabelle `copper_daily`, `dxy_daily` | ✅ 200 (in archivio dal 5 ottobre 2026 come `copper` e `dxy`) | rame dal 2000-08, dollaro dal 1980 | Li leggono i due segnali «altri mercati». Chiudono alle 17:00 di New York, dopo il regolamento del greggio: una decisione legge la chiusura del giorno **prima**. **La riga del giorno in cui si scarica non è la chiusura di quel giorno** (misurato su `HG=F` dal 5 al 9 ottobre 2026): a mercato aperto è il prezzo della scadenza più scambiata (dicembre: volumi di decine di migliaia di contratti, lo 0,9% sopra il valore che la riga ha preso poi); dopo le 18 di New York viene sovrascritta con i primi minuti della seduta successiva, oppure resta senza chiusura; solo dal giorno dopo è il regolamento della scadenza più vicina, che è ciò di cui è fatto tutto lo storico (visto alle 00:14 di New York del 9 ottobre: la riga dell'8 era diventata 6,519 con poche centinaia di contratti, e ne era comparsa una nuova per il 9). Per questo il motore scarica le due tabelle al giro che deve prendere la prima decisione della giornata e legge una riga solo quando uno scaricamento di un giorno successivo l'ha confermata (`engine/desk/data.py::final_rows`). Una chiusura più vecchia di sette giorni non viene letta. `HG=F` è il future più vicino in serie continua: contiene i salti del cambio di scadenza (sul rame, pochi decimi di punto). La voce `dxy` del primo sistema è un'altra cosa: con la chiave FRED è l'indice ampio della Fed, che parte dal 2006 ed esce con giorni di ritardo. |
 | **IMF PortWatch** | servizio ArcGIS `Daily_Chokepoints_Data` | ✅ 200, nessuna chiave | dal 2019 | Transiti giornalieri per stretto e tipo di nave, da segnali AIS. Pubblicato il martedì per la settimana chiusa la domenica: `published_at` è quel martedì alle 15:00 UTC, mai la data del transito. Hormuz: circa 50 petroliere al giorno fino a febbraio 2026, circa una da marzo. |
 | **Cboe, quotazioni ritardate** | `cdn.cboe.com/api/global/delayed_quotes/options/{SIMBOLO}.json` | ✅ 200, nessuna chiave (serve un User-Agent da browser) | solo l'istantanea | Catena completa con denaro, lettera, volatilità implicita, greche. Ritardo 15 minuti; il timbro del file è in UTC. BNO può restare ferma per ore: il libro controlla l'età delle quotazioni. Il motore conserva un'istantanea a settimana: è l'unico storico di quotazioni reali disponibile. |
 | **Alpha Vantage** | `INSIDER_TRANSACTIONS` | ✅ con chiave gratuita | 2008+ | 25 chiamate al giorno, 12 titoli: lo scarica il lavoro settimanale. Se una chiamata viene rifiutata per limite, il titolo conserva i dati già archiviati. |
@@ -122,5 +124,23 @@ Verificate da un runner GitHub (`.github/workflows/research-data.yml`) e dal con
 | Kalshi | `api.elections.kalshi.com/trade-api/v2` (serie `KXBRENTD`, `KXBRENTW`, `KXBRENTMON`) | ✅ 200, nessuna chiave | da luglio 2026 | Contratti a evento sul Brent. Scaricati e descritti in `docs/RESEARCH.md`; nessun adattatore nel motore. |
 
 Solo `bno_daily`, `wti_front` e `brent_front` possono portare lo stato complessivo in rosso
-(`critical_sources` in `config/data_sources.yaml`). Ogni altra fonte, se manca, spegne ciò che la legge.
+(`critical_sources` in `config/data_sources.yaml`). Ogni altra fonte, se manca, spegne ciò che la legge: senza
+`copper_daily` e `dxy_daily` tacciono i due segnali «altri mercati» e la previsione si fa con le altre due
+fonti; senza un prezzo di SCO il libro dinamico decide il lato long come sempre e non apre lo short.
+
+**Quante richieste.** Yahoo rifiuta un indirizzo che ne fa circa duecento in un'ora. Un giro ne fa sei (le
+barre a 30 minuti di BNO, SCO, due contratti WTI e due Brent). Le tabelle giornaliere di un veicolo (per BNO
+anche `sco_daily`) si chiedono al giro che deve decidere e una volta dopo la chiusura; rame e dollaro, otto
+richieste in tutto perché le serie lunghe vanno a blocchi di dieci anni, una volta al giorno: al giro che deve
+prendere la prima decisione della giornata (se lo scaricamento fallisce la decisione non aspetta: il segnale
+legge la chiusura precedente, e la richiesta si ripete a ogni giro finché c'è una decisione da prendere, poi
+una volta l'ora). Una tabella aggiunta all'elenco e mai scaricata viene chiesta al primo giro, lei sola.
+
+**Che cosa vuol dire «barra completa».** Yahoo restituisce anche la barra in formazione ed è in ritardo di
+10-15 minuti. Una barra a 30 minuti viene data a un libro solo quando è finita da almeno un quarto d'ora
+*rispetto al momento in cui la tabella è stata scaricata*, non rispetto all'orologio: se lo scaricamento di un
+giro fallisce, la tabella in archivio è quella del giro prima, e la sua ultima riga sembra una barra finita
+mentre contiene i primi minuti di una. Una sera, poi, la stessa cosa vale per le tabelle giornaliere dei
+future: dopo le 18 di New York la riga del giorno contiene la seduta successiva (visto su `CLX26.NYM` e su
+`HG=F` il 9 ottobre 2026), quindi nessuna tabella di future viene riscaricata la sera.
 

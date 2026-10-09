@@ -130,6 +130,9 @@ def us_business_dates(start: date, n: int) -> list[date]:
     return out
 
 
+SYNTHETIC_PAST_DAYS = 900  # enough for the slowest skew lookback (365) plus 500 days of its own history
+
+
 def make_vehicle_series(
     vehicle: str = "BNO",
     n_days: int = 420,
@@ -143,7 +146,7 @@ def make_vehicle_series(
     """SYNTHETIC daily series of one desk vehicle (a seeded random walk), with the forecasts computed by the
     engine's own signal functions. For a futures vehicle the bar symbol is the contract a book would hold."""
     from engine.desk import signals as sg
-    from engine.desk.data import VehicleSeries, held_codes
+    from engine.desk.data import VehicleSeries, held_codes, known_before
 
     rng = np.random.default_rng(seed)
     days = us_business_dates(start, n_days)
@@ -164,8 +167,21 @@ def make_vehicle_series(
     slope = pd.Series(slope_level + np.cumsum(rng.normal(0, 0.004, size=n_days)), index=idx)
     forecasts = pd.DataFrame(index=idx)
     forecasts["trend"] = sg.trend_forecast(rets)
+    forecasts["accel"] = sg.accel_forecast(rets)
+    # the skew needs years of its own history and the macro sleeves a year of another market's closes: both
+    # get a synthetic past that ends where the vehicle's series begins (separate generators, so the vehicle's
+    # own prices are the same whatever is added here)
+    past = pd.bdate_range(end=idx[0] - pd.Timedelta(days=1), periods=SYNTHETIC_PAST_DAYS)
+    extra = np.random.default_rng(seed + 1000)
+    long_returns = pd.concat([pd.Series(extra.normal(0.0, vol, size=len(past)), index=past), rets])
+    forecasts["skew"] = sg.skew_forecast(long_returns).reindex(idx)
     forecasts["carry"] = sg.carry_forecast(slope)
     forecasts["carry_momentum"] = sg.carry_momentum_forecast(slope)
+    for name, inverse in (("copper", False), ("dollar", True)):
+        walk = extra.normal(0.0, 0.012, size=len(past) + n_days)
+        closes = pd.Series(4.0 * np.exp(np.cumsum(walk)), index=past.append(idx))
+        forecasts[name] = known_before(sg.macro_trend_forecast(closes, inverse=inverse), idx)
+    forecasts = forecasts[list(sg.SLEEVES)]
     forecasts["combined"] = sg.combine({name: forecasts[name] for name in sg.SLEEVES})
     return VehicleSeries(
         vehicle=vehicle,
@@ -188,7 +204,22 @@ def make_desk_data(n_days: int = 420, start: date = date(2024, 1, 2), seed: int 
     data.series["BNO"] = make_vehicle_series("BNO", n_days, start, seed, price0=30.0)
     data.series["MCL"] = make_vehicle_series("MCL", n_days, start, seed + 1, price0=70.0)
     data.contracts = {"CL": pd.DataFrame(), "BZ": pd.DataFrame()}
+    data.legs["SCO"] = inverse_fund_bars(data.series["BNO"].bars)
     return data
+
+
+def inverse_fund_bars(bars: pd.DataFrame, multiplier: float = -2.0, price0: float = 20.0) -> pd.DataFrame:
+    """SYNTHETIC daily bars of an inverse fund: every day it returns exactly ``multiplier`` times the fund in
+    ``bars``, overnight and intraday alike, so what a position in it should be worth is known to the cent."""
+    prev = bars["close"].shift(1).fillna(bars["open"].iloc[0])
+    overnight = multiplier * (bars["open"] / prev - 1.0)
+    session = multiplier * (bars["close"] / bars["open"] - 1.0)
+    close = price0 * ((1.0 + overnight) * (1.0 + session)).cumprod()
+    open_ = close / (1.0 + session)
+    out = pd.DataFrame({"open": open_, "close": close}, index=bars.index)
+    out["high"] = out[["open", "close"]].max(axis=1)
+    out["low"] = out[["open", "close"]].min(axis=1)
+    return out[["open", "high", "low", "close"]]
 
 
 def half_hour_bars(day: date, price: float, n: int = 13, first: tuple[int, int] = (13, 30), step: float = 0.001):
@@ -209,7 +240,9 @@ def half_hour_bars(day: date, price: float, n: int = 13, first: tuple[int, int] 
 def make_desk_raw_frames(n: int = 560, seed: int = 21, end: date | None = None) -> dict[str, pd.DataFrame]:
     """SYNTHETIC raw tables for the desk's data builder, keyed by raw-store entry. No per-contract tables: the
     WTI return comes from the EIA-style contract 1..4 columns and the Brent fund's slope from the WTI curve,
-    which is the configuration the long history actually has."""
+    which is the configuration the long history actually has. Copper and the dollar index are two more random
+    walks on the same dates; with the default 560 days the skew sleeve has too little history to speak (it
+    needs about 870), which is the state a young archive is really in - pass a larger ``n`` to have it."""
     rng = np.random.default_rng(seed)
     idx = (
         pd.bdate_range("2021-01-04", periods=n, name="date")
@@ -230,19 +263,39 @@ def make_desk_raw_frames(n: int = 560, seed: int = 21, end: date | None = None) 
     fund = pd.DataFrame(
         {"open": bno * 0.998, "high": bno * 1.01, "low": bno * 0.99, "close": bno, "adjclose": bno}, index=idx
     )
+    ovx = pd.DataFrame({"value": 35.0 + rng.normal(0, 2, size=n)}, index=idx)
+    # drawn last, so that the tables above are the same numbers they were before these two existed
+    copper = 4.0 * np.exp(np.cumsum(rng.normal(0.0002, 0.013, size=n)))
+    dollar = 100.0 * np.exp(np.cumsum(rng.normal(0.0, 0.004, size=n)))
     return {
         "wti_curve_hist": eia,
         "wti_front": ohlc,
         "brent_front": pd.DataFrame({"close": wti + 4.0}, index=idx),
         "bno_daily": fund,
         "uso_daily": fund * 2.0,
-        "ovx": pd.DataFrame({"value": 35.0 + rng.normal(0, 2, size=n)}, index=idx),
+        "ovx": ovx,
+        "copper_daily": pd.DataFrame({"close": copper}, index=idx),
+        "dxy_daily": pd.DataFrame({"close": dollar}, index=idx),
     }
 
 
-def save_raw_frame(store, entry: str, frame: pd.DataFrame, adapter: str = "sintetico") -> None:
+def save_raw_frame(
+    store, entry: str, frame: pd.DataFrame, adapter: str = "sintetico", fetched_at: datetime | None = None
+) -> None:
+    """Archive ``frame`` as a snapshot of ``entry``. By default it is stamped as downloaded at noon (UTC) of the
+    day AFTER its last row: a table read then holds only rows a later day has confirmed, which is what the
+    desk's data layer takes as final for the markets it reads as of the previous close
+    (``engine.desk.data.final_rows``). Pass ``fetched_at`` to archive a table as it was read at a given moment."""
     from engine.data.base import FetchResult
 
     frame = frame.copy()
     frame["published_at"] = pd.Timestamp("2026-01-01", tz="UTC")
-    store.save(entry, adapter, FetchResult(source=adapter, frame=frame, fetched_at=datetime(2026, 1, 1, tzinfo=UTC)))
+    if fetched_at is None:
+        dates = frame.index if isinstance(frame.index, pd.DatetimeIndex) else None
+        for column in ("date", "ts"):
+            if dates is None and column in frame.columns:
+                dates = pd.DatetimeIndex(pd.to_datetime(frame[column], utc=True))
+        last = pd.Timestamp("2026-01-01") if dates is None or len(dates) == 0 else pd.Timestamp(dates.max())
+        last = last.tz_localize(None) if last.tzinfo is not None else last
+        fetched_at = (last.normalize() + pd.Timedelta(days=1, hours=12)).to_pydatetime().replace(tzinfo=UTC)
+    store.save(entry, adapter, FetchResult(source=adapter, frame=frame, fetched_at=fetched_at))

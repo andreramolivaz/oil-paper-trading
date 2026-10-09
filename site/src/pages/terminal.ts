@@ -117,6 +117,14 @@ function market(doc: DeskDoc): string {
       <div class="s">${escapeHtml(day(m.ovx.asof))}</div>
     </div>`);
   }
+  for (const q of [m.copper, m.dollar]) {
+    if (!q) continue;
+    cells.push(`<div class="t-quote">
+      <div class="k">${escapeHtml(q.name)}</div>
+      <div class="v">${num(q.value, 2)}</div>
+      <div class="s">chiusura del ${escapeHtml(day(q.asof))}</div>
+    </div>`);
+  }
   if (fc && fc.slope !== null) {
     const back = fc.slope > 0;
     cells.push(`<div class="t-quote">
@@ -136,7 +144,7 @@ function market(doc: DeskDoc): string {
   return section(
     "Mercato",
     `<div class="t-quotes">${cells.join("")}</div>`,
-    "prezzi Yahoo in ritardo di 10-15 minuti · Hormuz: IMF PortWatch (AIS), settimanale",
+    "prezzi Yahoo in ritardo di 10-15 minuti · rame e dollaro: chiusure giornaliere Yahoo · Hormuz: IMF PortWatch (AIS), settimanale",
   );
 }
 
@@ -146,18 +154,34 @@ function forecastTable(doc: DeskDoc): string {
   if (doc.forecast.BNO) cols.push({ key: "BNO", title: "Brent · BNO", f: doc.forecast.BNO });
   if (doc.forecast.MCL) cols.push({ key: "MCL", title: "WTI · /MCL", f: doc.forecast.MCL });
   if (!cols.length) return section("Previsione", `<div class="t-empty">Nessuna previsione: mancano le serie giornaliere.</div>`);
-  const row = (label: string, hint: string, pick: (f: ForecastBlock) => string): string =>
-    `<tr><th scope="row">${escapeHtml(label)}<small>${escapeHtml(hint)}</small></th>${cols
+  const row = (label: string, hint: string, pick: (f: ForecastBlock) => string, cls = ""): string =>
+    `<tr${cls ? ` class="${cls}"` : ""}><th scope="row">${escapeHtml(label)}<small>${escapeHtml(hint)}</small></th>${cols
       .map((c) => `<td class="n">${pick(c.f)}</td>`)
       .join("")}</tr>`;
-  const fc = (v: number | null): string => toneSpan(v, signed(v, 1));
+  const fc = (v: number | null | undefined): string => toneSpan(v ?? null, signed(v ?? null, 1));
+  // a source is the average of its sleeves and a third of the forecast; the sleeves are listed under it
+  const source = (label: string, hint: string, pick: (f: ForecastBlock) => number | null | undefined): string =>
+    row(label, hint, (f) => `<b>${fc(pick(f))}</b>`, "t-group");
+  const sleeve = (label: string, hint: string, pick: (f: ForecastBlock) => number | null): string =>
+    row(label, hint, (f) => fc(pick(f)), "t-sleeve");
+  const macroDay = (f: ForecastBlock): string => {
+    const days = [...new Set([f.macro_day?.copper, f.macro_day?.dollar].filter((d): d is string => !!d))];
+    return days.length ? days.map((d) => escapeHtml(day(d))).join(" · ") : EMPTY;
+  };
   const body = `<div class="t-scroll"><table class="t-table t-forecast">
     <thead><tr><th></th>${cols.map((c) => `<th class="n">${escapeHtml(c.title)}</th>`).join("")}</tr></thead>
     <tbody>
-      ${row("Trend", "quattro medie mobili, 8-32 fino a 64-256 giorni", (f) => fc(f.trend))}
-      ${row("Carry", "pendenza della curva: +10 in backwardation", (f) => fc(f.carry))}
-      ${row("Carry-momentum", "pendenza sopra o sotto la sua media a 20 giorni", (f) => fc(f.carry_momentum))}
-      <tr class="t-total"><th scope="row">Previsione<small>scala da ${MINUS}20 a +20; +10 è una convinzione normale</small></th>${cols
+      ${source("Il prezzo del greggio", "media delle tre righe sotto · un terzo della previsione", (f) => f.sources?.prezzo)}
+      ${sleeve("Trend", "quattro medie mobili, 8-32 fino a 64-256 giorni", (f) => f.trend)}
+      ${sleeve("Accelerazione", "il trend di oggi meno quello di 16, 32 e 64 giorni fa", (f) => f.accel)}
+      ${sleeve("Asimmetria (skew)", "cadute rare e grandi più del solito: chi resta è pagato · misurata sul WTI", (f) => f.skew)}
+      ${source("La curva dei future", "media delle due righe sotto · un terzo", (f) => f.sources?.curva)}
+      ${sleeve("Carry", "pendenza della curva: +10 in backwardation", (f) => f.carry)}
+      ${sleeve("Carry-momentum", "pendenza sopra o sotto la sua media a 20 giorni", (f) => f.carry_momentum)}
+      ${source("Gli altri mercati", "media delle due righe sotto · un terzo", (f) => f.sources?.macro)}
+      ${sleeve("Rame", "trend del rame: sale quando il ciclo globale tira", (f) => f.copper)}
+      ${sleeve("Dollaro", "trend del dollaro a segno invertito: un dollaro che scende aiuta il greggio", (f) => f.dollar)}
+      <tr class="t-total"><th scope="row">Previsione<small>media delle tre fonti × 1,75 · scala da ${MINUS}20 a +20; +10 è una convinzione normale</small></th>${cols
         .map(
           (c) =>
             `<td class="n"><b>${fc(c.f.combined)}</b> <span class="t-dim">ieri ${signed(c.f.combined_prev, 1)}</span></td>`,
@@ -165,6 +189,7 @@ function forecastTable(doc: DeskDoc): string {
         .join("")}</tr>
       ${row("Volatilità", "annua, ultimi due mesi circa", (f) => percent(f.vol, 0))}
       ${row("Dato del", "ultima seduta nel calcolo", (f) => `${escapeHtml(day(f.day))}${f.approx ? " ≈" : ""}`)}
+      ${row("Rame e dollaro al", "l'ultima chiusura letta: sempre quella della seduta prima", macroDay)}
     </tbody></table></div>`;
   return section("Previsione", body, "la stessa per tutti i libri su quello strumento: cambia solo quanta ne comprano");
 }
@@ -252,7 +277,7 @@ function ruleLine(b: Book): string {
   const weekend = r.weekend_max_leverage as number | null | undefined;
   return `Obiettivo di volatilità ${percent(r.vol_target as number, 0)} · tetto di leva ${leverage(r.max_leverage as number)}${
     weekend !== null && weekend !== undefined ? ` (${leverage(weekend)} prima di un fine settimana o di una festa)` : ""
-  } · ${r.long_only ? "solo long" : "long e short"} · margine ${percent(r.margin_rate as number, 0)} · decisione alle ${escapeHtml(
+  } · ${r.long_only ? "solo long" : r.short_via ? `long e short (short comprando ${escapeHtml(String(r.short_via))})` : "long e short"} · margine ${percent(r.margin_rate as number, 0)} · decisione alle ${escapeHtml(
     String(r.decision_time_ny ?? ""),
   )} di New York · stop giornaliero a ${MINUS}${percent(r.daily_loss_breaker as number, 0)}.`;
 }
@@ -293,6 +318,7 @@ function bookDetails(doc: DeskDoc): string {
         ${b.last_roll ? `<p class="t-dim">Ultimo roll: ${escapeHtml(b.last_roll)}</p>` : ""}
         ${costs ? `<p class="t-dim">Costi pagati finora: ${costs}. Eseguiti: ${b.n_fills ?? 0}.</p>` : ""}
         ${b.note ? `<p class="t-dim">${escapeHtml(b.note)}</p>` : ""}
+        ${b.rules.short_note ? `<p class="t-dim">${escapeHtml(String(b.rules.short_note))}</p>` : ""}
       </details>`;
     })
     .join("");
@@ -479,8 +505,10 @@ function backtest(doc: DeskDoc): string {
       <th class="n">Perdita max</th><th class="n">Leva 95°</th><th class="n">P(${MINUS}50% in 1 anno)</th>
       <th class="n">Sharpe a costi doppi</th></tr></thead>
     <tbody>${rows}${opt}${bench}</tbody></table></div>
-    <p class="t-dim">Costi reali, ${escapeHtml(bt.fill_rule ?? "")}. Uno Sharpe di 0,4 su quindici anni dista un errore standard e mezzo
-    da zero: è un indizio, non una certezza. <a href="#/backtest">Anno per anno, componenti e sensibilità →</a></p>`;
+    <p class="t-dim">Costi reali, ${escapeHtml(bt.fill_rule ?? "")}. Il «t» sotto ogni Sharpe dice quanti errori standard lo
+    separano da zero: sopra 2 è un indizio serio, non una certezza. Una parte del risultato è selezione fra i segnali
+    provati, e il 2023, il 2024 e il 2025 sono stati tutti e tre negativi.
+    <a href="#/backtest">Anno per anno, componenti e sensibilità →</a></p>`;
   return section("Backtest", body, `calcolato ${escapeHtml(relative(bt.generated_at))}`);
 }
 
@@ -510,7 +538,9 @@ function health(doc: DeskDoc): string {
 function howTo(): string {
   return `<details class="t-details">
     <summary><b>Come si legge</b> <span class="t-dim">regole, costi, limiti</span></summary>
-    <p><b>Una previsione, quattro libri.</b> Trend, carry e carry-momentum danno un numero fra ${MINUS}20 e +20. Ogni libro
+    <p><b>Una previsione, quattro libri.</b> Sette segnali da tre fonti che pesano un terzo ciascuna - il prezzo del
+    greggio (trend, accelerazione, asimmetria), la curva dei future (carry, carry-momentum) e gli altri mercati (rame e
+    dollaro, letti alla chiusura del giorno prima) - danno un numero fra ${MINUS}20 e +20. Ogni libro
     lineare compra <code>previsione / 10 × obiettivo di volatilità / volatilità di oggi</code> volte il proprio capitale, fino al
     suo tetto. La leva non è scelta: esce da quel rapporto. Quando il greggio è molto volatile anche il libro da 10x resta
     intorno a 1x; la leva sale solo quando il mercato si calma e la previsione è forte. Per non pagare costi a ogni
@@ -518,7 +548,11 @@ function howTo(): string {
     tocca nulla, e quando ne esce si va al bordo della fascia, non al centro.</p>
     <p><b>Strumenti che esistono su Robinhood.</b> Il Brent si compra con il fondo BNO, senza leva o fino a 2x a margine. La
     leva vera passa dal future micro sul WTI (/MCL, 100 barili), perché lì un future sul Brent non c'è: il libro «spinto»
-    porta quindi anche il rischio che Brent e WTI si muovano diversamente.</p>
+    porta quindi anche il rischio che Brent e WTI si muovano diversamente. Un fondo non si vende allo scoperto: il libro
+    «dinamico», quando la previsione è negativa, compra SCO, un fondo che ogni giorno rende ${MINUS}2 volte il WTI. Lo paga
+    in contanti, ne tiene al massimo quanto vale il conto, e la leva che vedi nella tabella è l'esposizione al greggio
+    (il doppio dei dollari investiti). Nel backtest il lato short ha guadagnato quasi tutto in tre anni di crollo
+    (2014, 2015, 2020) e ha perso un po' in dieci degli altri tredici.</p>
     <p><b>Esecuzione.</b> Un ordine si esegue all'apertura della prima barra da 30 minuti che inizia dopo la decisione, con lo
     spread e le commissioni reali dello strumento. Mai al prezzo che ha generato il segnale.</p>
     <p><b>Che cosa non c'è.</b> Nessuna strategia intraday: sulle barre orarie di BNO, USO e dei contratti il momentum

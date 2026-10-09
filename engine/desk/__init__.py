@@ -10,10 +10,15 @@ with no roll jump in them:
 * ``MCL`` (Micro WTI, 100 bbl) - priced contract by contract, and backtested on the exact NYMEX contract 1/2
   settlements from 1986 with an early roll, so a position is never carried into an expiry.
 
-Everything a book decides comes from three sleeves with published evidence that was re-measured here on real
-data (``docs/RESEARCH.md``): trend (EWMAC), carry (the sign of the curve slope) and carry-momentum (the slope
-against its own 20-day average). Leverage is an output of volatility targeting, capped per book and never above
-the hard 10x; it is not an input.
+Everything a book decides comes from one forecast: seven sleeves with published rules, re-measured here on
+real data (``docs/RESEARCH.md``), grouped by where their information comes from. The price of crude: trend
+(EWMAC), acceleration, skew. The futures curve: carry (the sign of the slope) and carry-momentum (the slope
+against its own 20-day average). Other markets: the trend of copper and of the dollar, read a day late.
+Leverage is an output of volatility targeting, capped per book and never above the hard 10x; it is not an
+input.
+
+A fund cannot be sold short by the account the desk imitates: a fund book that may be short holds that side as
+a long position in the inverse fund ``SCO``, bought with cash.
 
 A fourth book sells put credit spreads on the real, delayed option quotes of the oil funds. Its evidence is a
 model replay, so it is labelled experimental everywhere and exists to be measured on real quotes.

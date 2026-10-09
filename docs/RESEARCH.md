@@ -7,18 +7,31 @@ e non da prezzi osservati è scritto.
 
 ## In breve
 
-- **Regge**, con uno Sharpe fra 0,3 e 0,5 su un solo mercato: trend lento, carry (pendenza della curva) e
-  carry-momentum, combinati a pesi uguali e dimensionati sulla volatilità. È ciò che comprano i tre libri lineari.
+- **Regge**, con uno Sharpe fra 0,5 e 0,75 su un solo mercato: una previsione fatta di sette segnali da tre
+  fonti che pesano un terzo ciascuna. Il prezzo del greggio (trend, accelerazione del trend, asimmetria dei
+  rendimenti), la curva dei future (carry, carry-momentum) e altri mercati (trend del rame e del dollaro). È
+  ciò che comprano i tre libri lineari. Fino all'8 ottobre 2026 i segnali erano tre e lo Sharpe 0,35-0,45:
+  il capitolo 4 dice che cosa è stato aggiunto, che cosa è stato scartato e quanto di quel miglioramento è
+  selezione.
+- **Il lato short conta, e costa.** Un fondo non si vende allo scoperto; il libro «dinamico» va short
+  comprando SCO, il fondo che ogni giorno rende −2 volte il WTI. Sul fondo Brent 2011-2026 porta lo Sharpe da
+  0,48 a 0,76, ma quasi tutto il guadagno viene da tre anni di crollo (2014, 2015, 2020); in dieci degli altri
+  tredici ha tolto qualcosa.
 - **Non regge** dopo i costi: il momentum infragiornaliero in ogni forma provata, il ritorno alla media fra il
-  fondo Brent e il fondo WTI, la vendita dei fondi a leva per incassarne il decadimento.
+  fondo Brent e il fondo WTI, la vendita dei fondi a leva per incassarne il decadimento. E, fra i sedici
+  segnali giornalieri provati a ottobre 2026: posizionamento e flussi (COT), scorte EIA, margine di
+  raffinazione, premio di volatilità, insider, valore a cinque anni.
 - **Le opzioni sul greggio costano più della mossa che segue**, in media dal 2007. Comprare call e put insieme
   «perché può salire ancora o scendere di brutto» è il lato che perde. Venderle con una copertura non incassa
   quel premio, una volta pagate le gambe: resta, di poco, lo spread di put venduto nella direzione del trend.
 - **La leva che i dati sopportano è molto meno di 10x.** Con il greggio al 40-45% di volatilità, anche il
   libro più aggressivo (Kelly pieno) sta intorno a 1x. Il tetto di 10x esiste, ma lo si tocca solo con mercati
-  calmi e previsione forte.
-- **Niente di tutto questo è una certezza.** Uno Sharpe di 0,4 su quindici anni dista un errore standard e
-  mezzo da zero. Servono circa 44 anni a 0,3 per arrivare a t = 2.
+  calmi e previsione forte. Gli obiettivi di volatilità dei libri **non** sono stati alzati insieme allo Sharpe
+  misurato.
+- **Niente di tutto questo è una certezza.** Uno Sharpe di 0,56 su quindici anni dista poco più di due errori
+  standard da zero. Il 2023, il 2024 e il 2025 sono stati negativi per tutti e tre i libri, con la previsione
+  vecchia e con la nuova. E oltre 0,7-0,8 su un solo mercato non si va onestamente: per salire servono altri
+  mercati indipendenti, non più leva e non altri parametri.
 
 ## 1. Perché il conto era fermo
 
@@ -54,6 +67,7 @@ scarica solo le tabelle che la sua decisione legge).
 | **BNO** | fondo sul Brent: detiene il future ICE più vicino | 1x; 2x a margine (50% iniziale, 35% mantenimento) | nessuna commissione; 5,25% l'anno sul prestito | l'unico modo diretto di avere il Brent |
 | **/MCL** | future micro sul WTI, 100 barili, regolato in contanti | circa 10x (margine ≈ 10% del nozionale, uguale di giorno e di notte) | circa 1,27 $ a contratto per lato | **non esiste un future sul Brent**: la leva passa dal WTI |
 | **USO** | fondo sul WTI | come BNO | come BNO | le sue opzioni sono le più liquide sul greggio |
+| **SCO** | fondo che ogni giorno rende −2 volte un indice di future sul WTI (ProShares UltraShort Bloomberg Crude Oil) | −2x al giorno; comprato in contanti | nessuna commissione; 0,95% l'anno dentro il prezzo | il modo di essere short senza prendere a prestito azioni; su più giorni non rende −2 volte il greggio |
 | **Opzioni su BNO e USO** | settimanali e mensili | spread a rischio definito | nessuna commissione, piccoli oneri | nessuna opzione sui future |
 | **Contratti a evento** | «il Brent chiuderà sopra X?» | — | — | serie giornaliere, settimanali e mensili da luglio 2026 |
 
@@ -63,6 +77,11 @@ Tre conseguenze che il codice rispetta:
   ampia (a ottobre circa 12 $ fra le due scadenze vicine); il terminale la mostra.
 - **Un lotto è quasi tutto il conto.** 100 barili a 90 $ sono 0,9 volte un conto da 10 000 $. Il libro non
   può detenere «0,47x»: tiene zero o un contratto, e lo scrive nella motivazione di ogni decisione.
+- **Lo short di un fondo passa da un altro fondo.** Il conto che i libri imitano non prende a prestito azioni
+  di BNO. Per essere short il libro «dinamico» *compra* SCO: in contanti, mai oltre il valore del conto, metà
+  dei dollari per la stessa esposizione. Segue il WTI e non il Brent (altro rischio di base), si ricalcola ogni
+  giorno (in un mercato che oscilla senza direzione perde anche se il greggio non sale) e non può perdere più
+  di ciò che vi è investito. La pagina del fondo avverte che SCO genera un modulo fiscale K-1.
 - **Nessuna automazione dei future.** Robinhood ha un'interfaccia ufficiale per agenti (azioni, opzioni,
   cripto, senza margine), non per i future. Portare il libro a leva su un conto reale vorrebbe dire inserire
   gli ordini a mano, o usare un altro intermediario.
@@ -87,11 +106,30 @@ obiettivo di rischio pari a metà del Kelly.
 (Sharpe 0,6), più debole su un mercato solo. Il rapporto AQR sul lungo periodo trova che il momentum funziona
 soprattutto in backwardation.
 
+**Accelerazione e asimmetria (Carver).** Due regole pubblicate con il sistema di Carver
+(`pysystemtrade`, configurazione `rob_system`) e usate qui con i suoi parametri. L'*accelerazione* è il trend
+di oggi meno quello di *n* giorni fa (16, 32 e 64 giorni): un trend ancora positivo che perde forza dà un
+segnale negativo. L'*asimmetria* (skew) compra i mercati i cui rendimenti sono stati più asimmetrici al ribasso
+del solito, perché chi sopporta cadute rare e grandi viene pagato per farlo; finestre di 180 e 365 giorni. Una
+differenza dichiarata: Carver confronta lo skew di un mercato con la media di tutti i suoi mercati, un mercato
+solo può confrontarlo soltanto con la propria storia.
+
+**Altri mercati (rame, dollaro).** Il greggio segue il ciclo globale con ritardo, e il rame e il dollaro lo
+portano con meno shock d'offerta propri; il greggio è prezzato in dollari, quindi un dollaro che scende lo
+sostiene. Che i rendimenti del petrolio siano in parte prevedibili da variabili finanziarie è un risultato
+vecchio e contestato; qui non si cita un articolo per i parametri perché non ce ne sono: ai due mercati si
+applica, senza cambiare nulla, la stessa regola di trend del greggio.
+
 **Posizionamento (COT).** Sul greggio i dati dicono poco: le posizioni dei gestori accompagnano il prezzo,
-non lo anticipano.
+non lo anticipano. Kang, Rouwenhorst e Tang trovano un premio per chi fornisce liquidità agli speculatori su
+un paniere di materie prime; sul solo greggio, qui, non si vede (capitolo 4).
 
 **Volatilità implicita meno realizzata.** Segno conteso fra gli studi, potere esplicativo minimo: utile al più
-per dimensionare, non per scegliere la direzione.
+per dimensionare, non per scegliere la direzione. Ellwanger (2015) trova che i premi per il rischio di coda
+estratti dalle opzioni prevedono i rendimenti del greggio, ma servono le opzioni sui future, che qui non ci
+sono. Chevallier e Sévi (2013) trovano una relazione di segno negativo fra premio di varianza e rendimenti del
+WTI. La procura provata qui (OVX meno volatilità realizzata) aveva il segno delle azioni, positivo, e ha perso
+(capitolo 4).
 
 **Fondamentali e apprendimento automatico.** Nessun risultato verificato batte la passeggiata aleatoria sul
 prezzo di chiusura a orizzonti da una settimana a un mese. I modelli neurali pubblicati mostrano margini lordi
@@ -121,7 +159,7 @@ tre sedute nel contratto successivo: è la differenza fra −306% e una brutta g
 curva da una tabella per contratto che il motore archivia e accumula, perché Yahoo dimentica una scadenza il
 giorno in cui muore.
 
-### Le tre componenti
+### Le tre componenti (la previsione fino all'8 ottobre 2026)
 
 Rendimento esatto del WTI 1986-2024, obiettivo di volatilità 15%, 3 punti base di costo (misura di ricerca,
 senza lotti):
@@ -136,29 +174,197 @@ senza lotti):
 Sul fondo Brent, con la pendenza del Brent vero dove esiste (2018-2026): 0,41, con 2023, 2024 e 2025 negativi e
 il 2026 a +27%.
 
+### Da tre a sette segnali: sedici candidati, quattro tenuti
+
+La domanda era se la previsione potesse avere uno Sharpe più alto. Con più leva no: la leva moltiplica
+rendimento e rischio insieme e lo Sharpe non si muove. Con parametri migliori nemmeno, se «migliori» vuol dire
+scelti guardando il risultato. Lo Sharpe sale solo aggiungendo fonti di rendimento che non siano la stessa
+scommessa di quelle che ci sono già.
+
+**Metodo.** Sedici segnali, ognuno con una ragione pubblicata e con i parametri del suo autore, scritti prima
+di guardare un risultato e provati una volta sola sulle serie dei libri (WTI 1985-2026, fondo Brent 2010-2026):
+obiettivo di volatilità 15%, 3 punti base sul nozionale scambiato, fascia di inerzia, posizione presa sul dato
+del giorno e applicata al rendimento del giorno dopo. Ogni segnale è poi stato guardato contro lo stare
+semplicemente lunghi, con un giorno di ritardo, con i parametri vicini e nelle due metà del campione. Qui sotto
+ci sono tutti e sedici, non solo quelli tenuti. (Lo Sharpe del fondo è quello long e short, per confrontare i
+segnali fra loro; t fra parentesi.)
+
+| Segnale | Da dove viene | WTI | prima / seconda metà | Fondo Brent | Esito |
+|---|---|---|---|---|---|
+| **Accelerazione** del trend, 16-32-64 giorni | Carver | 0,31 (2,0) | 0,25 / 0,37 | 0,60 | **tenuto** |
+| **Asimmetria** (skew) a 180 e 365 giorni | Carver | 0,47 (2,9) | 0,68 / 0,26 | 0,12 sulla propria storia; 0,33 con il segnale del WTI | **tenuto**, letto sul WTI |
+| Trend del **rame** | la regola di trend del desk | 0,59 (3,0) | 0,56 / 0,63 | 0,66 | **tenuto** |
+| Trend del **dollaro**, invertito | la regola di trend del desk | 0,29 (1,9) | 0,07 / 0,52 | 0,67 | **tenuto** |
+| Rottura del canale (breakout) a 40-320 giorni | Carver | 0,29 (1,9) | 0,40 / 0,17 | 0,39 | scartato: correlato 0,79 con ciò che c'è, è lo stesso trend |
+| Carry continuo (pendenza divisa per la volatilità) | Carver | 0,34 (2,2) | 0,58 / 0,03 | −0,21 | scartato: peggio del semplice segno |
+| Trend preso solo dove la curva è d'accordo | Fuertes, Miffre, Rallis | 0,40 (2,6) | 0,49 / 0,30 | 0,40 | scartato: correlato 0,88, non aggiunge nulla |
+| Valore: prezzo di cinque anni fa contro oggi | Asness, Moskowitz, Pedersen | −0,09 | −0,12 / −0,07 | −0,43 | scartato |
+| Flusso settimanale degli speculatori, al contrario | Kang, Rouwenhorst, Tang | 0,15 (0,7) | 0,19 / 0,10 | 0,11 | scartato |
+| Pressione di copertura a 52 settimane | Basu, Miffre | −0,26 | −0,65 / 0,10 | −0,15 | scartato |
+| Crescita dell'open interest a 12 mesi | Hong, Yogo | 0,41 (1,8) | 0,65 / 0,17 | 0,31 | scartato: a 6 mesi fa −0,04, a 24 mesi 0,46 |
+| Scorte EIA sotto la norma stagionale | Ye, Zyren, Shore | 0,09 | 0,20 / −0,01 | 0,03 | scartato |
+| Scorte EIA in calo su 4 settimane | teoria dello stoccaggio | 0,19 (1,2) | 0,18 / 0,21 | 0,24 | scartato: a 2 settimane −0,04, a 8 settimane 0,01 |
+| Margine di raffinazione 3-2-1 sopra la sua media | — | 0,31 (1,4) | 0,05 / 0,57 | 0,47 | scartato: con un giorno di ritardo 0,05 e 0,12 |
+| Premio di volatilità (OVX meno realizzata) | per analogia con le azioni | −0,35 | −0,54 / −0,16 | −0,14 | scartato |
+| Acquisti degli insider (Form 4) | la strategia S21 | 0,07 | 0,18 / −0,04 | 0,22 | scartato |
+
+Che cosa dicono le righe, oltre al numero:
+
+- **Il margine di raffinazione era un artefatto di orario.** Sembrava il migliore dei fondamentali, ma i prodotti
+  raffinati chiudono su Yahoo alle 17:00 di New York e il greggio è regolato alle 14:30: il segnale «del giorno»
+  conteneva due ore e mezza di futuro. Con un giorno di ritardo sparisce. I quattro tenuti, con lo stesso
+  ritardo, non si muovono: accelerazione 0,30, skew 0,46, rame 0,58, dollaro 0,28.
+- **Un segnale che cambia segno con la finestra accanto non è un segnale.** Open interest e scorte danno
+  numeri decenti alla finestra pubblicata e zero o meno a quella vicina. Sono fuori anche se, aggiunti agli
+  altri, avrebbero dato la cifra più alta di tutte (vedi sotto).
+- **Posizionamento e flussi non dicono nulla sul solo greggio**, come già scritto dalla letteratura: il premio
+  che Kang, Rouwenhorst e Tang misurano è su un paniere.
+- **Il premio di volatilità è stato provato con il segno sbagliato, e resta fuori lo stesso.** Scritto prima
+  come per le azioni (premio alto: lunghi), ha dato −0,35. Rovesciato darebbe +0,35 con t = 1,5, ed è il segno
+  che riportano Chevallier e Sévi. Non entra: sarebbe scegliere il segno dopo aver visto il risultato, e a
+  t = 1,5 non si distingue dal caso. È il primo candidato da riguardare fra un anno, sui dati che oggi non
+  esistono.
+- **Rame e dollaro: guardati alle quattro velocità del trend, non a una.** Erano stati scritti con una sola
+  coppia di medie (16-64). Guardando le coppie vicine il rame dà 0,42 / 0,59 / 0,60 / 0,58 e il dollaro
+  0,33 / 0,29 / 0,29 / 0,38: nessuna è scelta, si usano tutte e quattro, cioè la stessa regola del trend del
+  greggio (rame 0,65, t = 3,3 su 25 anni; dollaro 0,38, t = 2,4 su 42). Il dollaro vale quasi zero fino al 2005
+  (0,13) e 0,65 dopo: è un legame recente. Insieme fanno 0,77 sul WTI e 0,92 sul fondo, **ma sono stati piatti
+  dal 2022 al 2025** (+0,6%, −0,3%, −1,8%, −6,5%) e sono tornati positivi nel 2026.
+- **È il ciclo globale, non il rame.** Lo stesso trend sull'indice S&P 500 dà 0,29 e sugli energetici (XLE)
+  0,38. Non sono stati aggiunti: non erano nell'elenco scritto prima, XLE è in buona parte il greggio stesso
+  (correlato 0,65-0,73 con il suo trend) e l'S&P 500 sul fondo Brent dà 0,18.
+- **Lo skew del fondo Brent, da solo, non funziona** (0,12): sedici anni non bastano a dire che cosa è «il
+  solito» per un'asimmetria misurata su un anno. Lo skew è quindi calcolato una volta sola, sulla storia lunga
+  del WTI, e letto da entrambi i veicoli. Sul WTI regge a tre modi diversi di togliere la media (0,35-0,47); la
+  finestra a 180 giorni da sola dà 0,55, quella a 365 dà 0,29: si usano entrambe, come pubblicato. La seconda
+  metà del campione (0,26) è molto più debole della prima (0,68).
+
+**Come si combinano.** Tre fonti di informazione, un terzo ciascuna, e pesi uguali dentro ogni fonte: il prezzo
+del greggio (trend, accelerazione, skew), la curva (carry, carry-momentum), gli altri mercati (rame, dollaro).
+Il moltiplicatore di diversificazione viene dalla formula di Carver, `1 / √(w′Cw)`, sulle correlazioni misurate
+fra le sette previsioni: 1,77 sul WTI e 1,73 sul fondo, arrotondato a 1,75. Con quel moltiplicatore la
+previsione media vale 8 in valore assoluto e tocca il tetto di ±20 nel 5,5% dei giorni. Quando manca un
+segnale la sua fonte tiene il suo terzo e si legge su ciò che resta; il moltiplicatore scende in proporzione al
+numero di segnali presenti (è una retta, e rispetto alla formula esatta sottostima di 0,0-0,3: quando manca
+informazione il libro prende un po' meno rischio, mai di più).
+
+Quella per fonte non è l'unica combinazione provata, e non è la cella migliore:
+
+| Combinazione (misura di ricerca) | WTI, eseguito all'apertura dopo / alla stessa chiusura | Fondo Brent |
+|---|---|---|
+| Prima: trend, carry, carry-momentum | 0,53 / 0,60 | 0,38 / 0,37 |
+| Tutto ciò che è stato provato, a pesi uguali, senza scegliere nulla | 0,61 / 0,64 | 0,66 / 0,66 |
+| Solo prezzo: i tre più accelerazione e skew | 0,61 / 0,64 | 0,43 / 0,44 |
+| I tre più rame e dollaro | 0,62 / 0,68 | 0,70 / 0,71 |
+| I sette a pesi uguali | 0,68 / 0,71 | 0,71 / 0,71 |
+| **I sette, un terzo per fonte (quella dei libri)** | **0,70 / 0,75** | **0,75 / 0,75** |
+| Lo stesso, con l'S&P 500 fra gli altri mercati | 0,72 / 0,76 | 0,68 / 0,68 |
+| Lo stesso, più open interest e scorte come quarta fonte | 0,73 / 0,77 | 0,83 / 0,81 |
+
+Altre sette varianti (famiglie raggruppate in altro modo, con e senza skew, rame e dollaro a una sola velocità)
+stanno fra 0,58 e 0,69. La combinazione per fonte regge nei tre terzi del campione WTI (0,61 / 0,66 / 0,77, contro 0,54 / 0,44 / 0,46
+della previsione vecchia) e fa scendere gli scambi da 18,5 a 13 volte il capitale l'anno.
+
+**Quanto è sicuro il miglioramento.** Bootstrap a blocchi stazionari dei rendimenti giornalieri appaiati (gli
+stessi giorni ricampionati per le due previsioni), differenza fra gli Sharpe:
+
+| Serie | Prima | Dopo | Differenza (intervallo al 90%) | Probabilità che sia peggio |
+|---|---|---|---|---|
+| WTI long e short, apertura successiva | 0,53 | 0,70 | +0,17 (da +0,04 a +0,30) | 1,8% |
+| WTI long e short, stessa chiusura | 0,60 | 0,75 | +0,14 (da +0,01 a +0,27) | 3,9% |
+| Fondo Brent solo long | 0,35 | 0,49 | +0,14 (da −0,06 a +0,34) | 12,4% |
+| Fondo Brent long e short | 0,38 | 0,75 | +0,37 (da +0,16 a +0,58) | 0,2% |
+
+**Quanto è selezione.** Quattro tenuti su sedici, e una combinazione fra quindici: una parte del numero è il
+fatto di aver scelto. La riga «tutto ciò che è stato provato, a pesi uguali» non sceglie nulla e dà 0,61 sul WTI
+contro 0,53 di prima: circa metà del miglioramento misurato (+0,08 su +0,17) resta anche così. L'altra metà può
+essere vera o può essere selezione, e i dati non bastano a dirlo. Sul fondo solo long, il caso del libro
+prudente, il miglioramento ha una probabilità su otto di essere caso.
+
 ### I tre libri, con i lotti e i costi veri
 
-Stesso motore del paper trading, un ordine deciso alla chiusura ed eseguito all'apertura successiva (la più
-severa delle due ipotesi), capitale 10 000 $:
+Stesso motore del paper trading: commissioni e spread dello strumento, lotti interi, interessi sul margine,
+stop giornaliero, un ordine deciso alla chiusura ed eseguito all'apertura successiva (la più severa delle due
+ipotesi), capitale 10 000 $. I numeri sono più bassi della misura di ricerca qui sopra, che non ha lotti né
+interessi: quelli da guardare sono questi.
 
 | Libro | Periodo | Rend. annuo | Volatilità | Sharpe (t) | Perdita max | Leva mediana / 95° / max | P(−50% in un anno) |
 |---|---|---|---|---|---|---|---|
-| Prudente (BNO, 1x) | 2011-2026 | +3,0% | 9% | 0,39 (1,5) | −25% | 0,08x / 0,81x / 0,94x | 0,0% |
-| Dinamico (BNO, 2x) | 2011-2026 | +5,1% | 17% | 0,37 (1,5) | −47% | 0,17x / 1,52x / 1,96x | 0,0% |
-| Spinto (/MCL, 10x) | 1986-2026 | +10,6% | 49% | 0,45 (2,9) | −89% | 1,07x / 3,04x / 7,44x | 20% |
+| Prudente (BNO, 1x, solo long) | 2011-2026 | +4,9% | 9% | 0,56 (2,2) | −23% | 0,09x / 0,79x / 0,96x | 0,0% |
+| Dinamico (BNO 2x, short con SCO) | 2011-2026 | +19,6% | 29% | 0,77 (3,0) | −50% | 0,57x / 1,71x / 1,98x | 0,1% |
+| Spinto (/MCL, 10x) | 1986-2026 | +22,2% | 55% | 0,64 (4,1) | −86% | 1,07x / 3,53x / 8,53x | 22% |
 | BNO comprato e tenuto | 2011-2026 | +4,0% | 35% | 0,29 | −87% | 1x | |
 | WTI comprato e tenuto | 1986-2026 | +4,2% | 39% | 0,31 | −99% | 1x | |
 
+Prima e dopo, stesso motore e stessi dati:
+
+| Libro | Sharpe con i tre segnali | con i sette | con i sette e il lato short |
+|---|---|---|---|
+| Prudente | 0,39 (t 1,5) | 0,56 (t 2,2) | — (resta solo long) |
+| Dinamico | 0,37 (t 1,5) | 0,54 (t 2,1) | 0,77 (t 3,0) |
+| Spinto | 0,45 (t 2,9) | 0,64 (t 4,1) | — (era già long e short) |
+
+E senza l'effetto del lotto (conto di riferimento mille volte più grande, obiettivo di volatilità 15%): fondo
+Brent solo long da 0,35 a 0,48; fondo Brent con lo short in SCO da 0,46 a 0,76; WTI long e short da 0,43 a
+0,65. Segnale per segnale e fonte per fonte, queste tabelle sono nella pagina del backtest e in
+`desk/backtest.json`. Sul WTI le tre fonti da sole valgono 0,46 (prezzo), 0,44 (curva) e 0,49 (altri mercati):
+quasi uguali e poco correlate, che è il motivo per cui insieme fanno 0,65.
+
 Da leggere insieme a questi numeri:
 
-- A costi doppi gli Sharpe sono 0,37 / 0,35 / 0,37. Eseguendo alla stessa chiusura: 0,35 / 0,33 / 0,51.
-- Il libro prudente fa il 2021 a +24%, il 2022 a +19%, poi tre anni negativi (−4%, −5%, −7%) e il 2026 a
-  +27%. Tre anni di fila in perdita sono normali per questa strategia.
-- Il libro spinto ha avuto un giorno a −30% e una settimana a −39%. In un anno qualsiasi ha quasi nove
-  probabilità su dieci di perdere un quarto del conto e una su cinque di perderne metà. È ciò che «Kelly
-  pieno» significa, non un difetto da correggere con un parametro.
+- A costi doppi gli Sharpe sono 0,54 / 0,73 / 0,57. Eseguendo alla stessa chiusura: 0,50 / 0,70 / 0,69.
+- Il libro prudente fa il 2021 a +35%, il 2022 a +18%, poi tre anni negativi (−5%, −3%, −9%) e il 2026 a
+  +45%. Il dinamico: −13%, −12% e −17% nei tre anni, il 2026 a +95%. Tre anni di fila in perdita sono normali
+  per questa strategia, con la previsione vecchia come con la nuova.
+- Il libro spinto ha avuto un giorno a −31% e una settimana a −39%. In un anno qualsiasi ha quasi nove
+  probabilità su dieci di perdere un quarto del conto e più di una su cinque di perderne metà. È ciò che «Kelly
+  pieno» significa, non un difetto da correggere con un parametro. Il libro dinamico, ora che è investito il
+  96% dei giorni invece del 58%, ha tre probabilità su dieci di perdere un quarto del conto in un anno.
 - Lo stop giornaliero non ferma un'apertura in gap: nel 2026 i fine settimana hanno prodotto aperture fino a
-  +16%. Per questo il libro spinto scende a 3x prima di ogni chiusura dei mercati più lunga di un giorno.
+  +16%. Per questo il libro spinto scende a 3x prima di ogni chiusura dei mercati più lunga di un giorno e il
+  dinamico a 1,5x, da entrambi i lati.
+- **Il libro delle opzioni non migliora.** La sua simulazione su modello dà 0,63 con la previsione vecchia e
+  0,63 con la nuova (da 0,39 a 0,71 secondo smile e costi), con la perdita massima che passa da −14% a −18%.
+  Resta sperimentale, e nessuna sua regola è stata toccata.
+
+### Il lato short del fondo: comprare SCO
+
+Con la previsione vecchia il lato short aggiungeva poco: sul WTI in quarant'anni, 0,43 long e short contro 0,41
+solo long. Con la nuova aggiunge in tutti e tre i terzi del campione (0,59 / 0,64 / 0,73 contro 0,50 / 0,53 /
+0,38; sull'intero periodo 0,65 contro 0,47). Un libro che può solo comprare butta via quella parte.
+
+Il fondo Brent non si vende allo scoperto sul conto che i libri imitano. La via è *comprare* un fondo inverso:
+SCO rende ogni giorno −2 volte un indice di future sul WTI. Misurato sui prezzi veri dei due fondi dal 2010:
+
+| Fondo Brent, previsione nuova (misura di ricerca) | Sharpe |
+|---|---|
+| Solo long | 0,52 |
+| Long e short vendendo BNO allo scoperto (non disponibile) | 0,75 |
+| Long con BNO, short comprando SCO | 0,73 |
+
+Passare da SCO costa quindi 0,02 rispetto a uno short ideale, e contiene tutto ciò che SCO è davvero: la
+commissione dello 0,95% l'anno, il rinnovo dei future, il WTI al posto del Brent (correlazione giornaliera con
+BNO −0,93, beta −1,83) e il ricalcolo giornaliero. Nel motore, con i costi e gli interessi veri, il libro
+dinamico passa da 0,54 a 0,77.
+
+Che cosa bisogna sapere di questo numero:
+
+- **Viene da tre anni.** La differenza fra il fondo con e senza il lato short è positiva in sei anni e negativa
+  in dieci; i tre migliori (2014, 2015, 2020) sommano più del totale. Dal 2011 al 2018 il lato short porta lo
+  Sharpe da 0,09 a 0,86; dal 2019 al 2026 lo lascia dov'era (0,68 contro 0,71). È un'assicurazione contro i
+  crolli che paga di rado e molto, e che nel frattempo costa.
+- **SCO non è uno strumento da tenere.** Comprato nell'agosto 2011 e tenuto fino a ottobre 2026 ha perso il
+  99,3%, mentre BNO guadagnava l'82%. Nel 2020 il fondo Brent ha perso il 38% e SCO ha chiuso l'anno a −4%; nel
+  2023 hanno perso entrambi. Il libro lo tiene solo finché la previsione è negativa e ne ricalcola la quantità
+  a ogni decisione, con la stessa fascia di inerzia del lato long.
+- **In contanti, mai a margine.** Al massimo quanto vale il conto (2x di esposizione al greggio), 0,75 volte il
+  conto prima di un fine settimana. Non può perdere più di ciò che vi è investito, ma un rialzo del 50% in una
+  notte lo azzererebbe, e nel 2026 ci sono state aperture a +16%.
+- **Il libro prudente resta solo long.** È il libro che si può tenere senza margine e senza fondi a leva, e
+  avere accanto un libro uguale con e senza il lato short è il modo di misurarne l'effetto dal vivo.
+- **Il libro spinto non cambia strumento.** Portare la sua esposizione con UCO e SCO (+2x e −2x) invece che con
+  lotti da 100 barili dà lo stesso Sharpe (0,59 contro 0,58 dal 2009) finché la leva non ha limiti; senza
+  margine, cioè entro 2x, scende a 0,52. La frazione di lotto che si guadagna non vale il tetto che si perde.
 
 ### Scartato
 
@@ -169,6 +375,7 @@ Da leggere insieme a questi numeri:
 | Rapporti di varianza orari sul contratto di dicembre | sotto 1 (0,93 a 4 ore, 0,76 a 23 ore): lieve ritorno alla media, troppo piccolo per i costi |
 | Ritorno alla media dello spread BNO-USO | Sharpe fra −0,2 e −0,5 |
 | Vendere insieme UCO e SCO (decadimento dei fondi a leva) | 0,96 sull'intero campione, −0,36 dal 2022 |
+| Dodici dei sedici segnali giornalieri provati a ottobre 2026 (breakout, carry continuo, accordo trend-curva, valore, flusso e posizionamento COT, open interest, scorte, margine di raffinazione, premio di volatilità, insider) | uno per uno nella tabella «Sedici candidati, quattro tenuti» |
 
 ### Osservato, non negoziato
 
@@ -225,16 +432,38 @@ Per una strategia con Sharpe atteso *S*, la volatilità che massimizza la cresci
 *S* = 0,5: 50% l'anno è il massimo sensato, 25% è mezzo Kelly, 12% un quarto. Sono i tre obiettivi dei libri.
 Oltre il 50% la crescita attesa non sale: scende, e sale la probabilità di rovina.
 
+**Gli obiettivi non sono stati alzati con i sette segnali.** Lo Sharpe misurato ora è 0,55-0,75, ma una parte
+è selezione, e un libro dimensionato su uno Sharpe che non ha perde più di quanto guadagni uno dimensionato su
+uno Sharpe che supera. Se i sette segnali valgono davvero 0,65, il libro spinto sta girando a tre quarti di
+Kelly invece che a Kelly pieno: è l'errore dal lato giusto.
+
 L'esposizione è `previsione / 10 × obiettivo di volatilità / volatilità corrente`. L'8 ottobre 2026, con il
-Brent al 44% di volatilità e la previsione a +5,7, fa 0,16x per il libro prudente e 0,33x per il dinamico; per
-il libro sul WTI (previsione +3,9, volatilità 42%) fa 0,47x, cioè meno di un contratto. La leva è un
-*risultato*: arriva a 3x-7x solo quando il greggio è calmo (15-20% di volatilità) e trend e curva sono
-d'accordo.
+Brent al 43% di volatilità e la previsione a +5,5 (prezzo +12,0, curva 0,0, altri mercati −2,6), fa 0,15x per
+il libro prudente e 0,32x per il dinamico; per il libro sul WTI (previsione +4,1, volatilità 42%) fa 0,49x,
+cioè meno di un contratto. La leva è un *risultato*: arriva a 3x-8x solo quando il greggio è calmo (15-20% di
+volatilità) e le tre fonti sono d'accordo.
 
 ## 6. Limiti
 
 - **Quindici anni per il Brent, quaranta per il WTI, un solo mercato.** Gli errori standard sono larghi quanto
   i risultati.
+- **Sedici segnali provati, quattro tenuti.** Chi sceglie fra sedici trova qualcosa anche nel rumore. La stima
+  che non sceglie nulla è nel capitolo 4; quella che conterà è il paper trading da qui in avanti.
+- **Rame e dollaro hanno funzionato soprattutto fra il 2001 e il 2021.** Dal 2022 al 2025 non hanno dato
+  nulla. Il rame letto qui è il future più vicino in serie continua (`HG=F`): contiene i piccoli salti del
+  cambio di scadenza, trascurabili per un trend ma non nulli. E su Yahoo la riga del giorno in cui si scarica
+  non è la chiusura di quel giorno (a mercato aperto è il prezzo di un'altra scadenza, la sera è l'inizio della
+  seduta dopo): dal vivo il motore legge una riga solo quando uno scaricamento del giorno successivo l'ha
+  confermata, che è la forma in cui la riga sta nello storico su cui il segnale è stato misurato.
+- **Il lato short del fondo dipende da tre anni di crollo** e passa da uno strumento, SCO, che segue il WTI,
+  si ricalcola ogni giorno e può azzerarsi in una notte. I raggruppamenti di quote (SCO ne ha fatti più
+  d'uno) non sono gestiti: lo storico di Yahoo è già rettificato, ma un libro che tenesse SCO nel giorno di un
+  raggruppamento vedrebbe un guadagno che non esiste, e va azzerato a mano prima.
+- **Il backtest non incontra le condizioni degradate.** Una tabella che manca per un giro, una barra letta a
+  metà, una gamba eseguita e l'altra no: dal vivo succedono, nel replay giornaliero mai. Le regole per quei
+  casi (`docs/VALIDATION.md`, «Revisione indipendente») sono provate da test costruiti apposta, non dai numeri
+  di questo documento, che infatti non sono cambiati quando sono state scritte.
+- **Lo skew è letto sul WTI anche per il Brent**, e sulla seconda metà del campione vale un terzo della prima.
 - **La curva del Brent per contratto esiste solo da quando il motore la archivia.** Prima, la pendenza usata
   per BNO è quella del WTI: 51% delle sedute, marcate come approssimazione.
 - **Prezzi in ritardo di 10-15 minuti** (Yahoo, non ufficiale) e catene di opzioni in ritardo di 15 (Cboe).
@@ -247,10 +476,14 @@ d'accordo.
 ## 7. Prossimi passi possibili
 
 1. Lasciar girare i quattro libri: il libro delle opzioni, in particolare, costruisce l'unico storico di
-   quotazioni reali di cui disporremo.
-2. Curva del Brent reale: fra qualche mese la pendenza di BNO non avrà più bisogno della procura WTI.
-3. Contratti a evento contro la probabilità implicita nelle opzioni, in piccolo.
-4. Replica di Ewald e altri (2025) sulla stagionalità infragiornaliera del Brent, l'unico lavoro che dichiara
+   quotazioni reali di cui disporremo. Il confronto fra il libro prudente e il dinamico dirà dal vivo che cosa
+   vale il lato short.
+2. Altri mercati. È l'unica via onesta a uno Sharpe più alto: lo stesso sistema su gas naturale, prodotti
+   raffinati, metalli e indici porta 0,6 su un mercato verso 1 su un paniere, perché le scommesse sono
+   indipendenti. Su Robinhood esistono i future micro corrispondenti; servirebbero le loro serie per contratto.
+3. Curva del Brent reale: fra qualche mese la pendenza di BNO non avrà più bisogno della procura WTI.
+4. Contratti a evento contro la probabilità implicita nelle opzioni, in piccolo.
+5. Replica di Ewald e altri (2025) sulla stagionalità infragiornaliera del Brent, l'unico lavoro che dichiara
    un margine dopo i costi: richiede dati al minuto.
 
 ## Fonti
@@ -271,6 +504,9 @@ Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
 - [Robinhood, contratti a evento sul Brent](https://invest.robinhood.com/us/en/prediction-markets/commodities/brent-crude/) ·
   [Kalshi, condizioni dei contratti sulle materie prime](https://assets.kalshi.com/contract_terms/COMMODITIES.pdf)
 - [CFTC, 20 aprile 2020](https://www.cftc.gov/PressRoom/PressReleases/8315-20)
+- [ProShares, scheda di SCO](https://www.proshares.com/our-etfs/leveraged-and-inverse/sco) (obiettivo −2x al
+  giorno sull'indice Bloomberg Commodity Balanced WTI Crude Oil, commissione 0,95%, modulo K-1, avvertenza sui
+  periodi più lunghi di un giorno) · [SCO su Robinhood](https://robinhood.com/us/en/stocks/SCO)
 
 Dati:
 
@@ -295,11 +531,25 @@ Letteratura (letta per intero salvo dove indicato):
   [quanto rischio prendere](https://qoppac.blogspot.com/2020/03/how-much-risk-should-we-take.html),
   [conti piccoli e diversificazione](https://qoppac.blogspot.com/2016/03/diversification-and-small-account-size.html)
   (i libri non sono stati aperti: le formule vengono dal codice e da riproduzioni di terzi)
+- Carver, sistema `rob_system` di pysystemtrade: [configurazione con regole e scalari](https://raw.githubusercontent.com/robcarver17/pysystemtrade/master/systems/provided/rob_system/config.yaml)
+  (accelerazione 16-32-64: 7,82 / 5,56 / 3,90; skew 180 e 365 giorni: 4,59 / 2,35 con medie a 45 e 90 giorni),
+  regole [accel](https://raw.githubusercontent.com/robcarver17/pysystemtrade/master/systems/provided/rules/accel.py),
+  [breakout](https://raw.githubusercontent.com/robcarver17/pysystemtrade/master/systems/provided/rules/breakout.py),
+  [carry](https://raw.githubusercontent.com/robcarver17/pysystemtrade/master/systems/provided/rules/carry.py) e
+  [fattori](https://raw.githubusercontent.com/robcarver17/pysystemtrade/master/systems/provided/rules/factors.py)
 - Koijen, Moskowitz, Pedersen, Vrugt, [Carry](http://docs.lhpedersen.com/Carry.pdf);
   Gorton, Hayashi, Rouwenhorst, [The fundamentals of commodity futures returns](https://www.nber.org/system/files/working_papers/w13249/w13249.pdf);
   Boons e Prado, [Basis-momentum](https://conference.nber.org/conf_papers/f89296/f89296.pdf);
   AQR, [Commodities for the long run](https://www.nber.org/system/files/working_papers/w22793/w22793.pdf)
-- Kang, Rouwenhorst, Tang, [A tale of two premiums](https://conference.nber.org/conf_papers/f69870/f69870.pdf) (posizionamento)
+- Kang, Rouwenhorst, Tang, [A tale of two premiums](https://conference.nber.org/conf_papers/f69870/f69870.pdf) (posizionamento;
+  [versione pubblicata, Journal of Finance 2020](https://ideas.repec.org/a/bla/jfinan/v75y2020i1p377-417.html), solo riassunto)
+- Ellwanger, [Driven by fear? The tail risk premium in the crude oil futures market](https://conference.nber.org/conf_papers/f89605.pdf);
+  Chevallier e Sévi, [A fear index to predict oil futures returns](https://services.bepress.com/feem/paper813)
+  ([altra copia](https://hal-amu.archives-ouvertes.fr/hal-01463111v1); solo riassunto)
+- Idee provate con i parametri ricordati dagli articoli, **non riletti in questa sessione**: Asness,
+  Moskowitz, Pedersen (valore); Fuertes, Miffre, Rallis (trend e struttura a termine); Basu e Miffre (pressione
+  di copertura); Hong e Yogo (open interest); Ye, Zyren, Shore (scorte); Bollerslev, Tauchen, Zhou (premio di
+  volatilità, sulle azioni). Sono tutte fra gli scartati: un parametro ricordato male non cambia un libro.
 - Ornelas e Mauad, [Volatility risk premia and future commodity returns](https://www.bis.org/publ/work619.pdf);
   Harvey e altri, [The impact of volatility targeting](https://people.duke.edu/~charvey/Research/Published_Papers/P135_The_impact_of.pdf)
 - Wen, Indriawan, Lien, Xu, [Intraday return predictability in the crude oil market](https://digital.library.adelaide.edu.au/dspace/bitstream/2440/141224/2/hdl_141224.pdf);

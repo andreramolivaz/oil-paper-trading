@@ -29,15 +29,34 @@ export interface MarketBlock {
   ovx?: { value: Num; asof?: string | null; source?: string; note?: string };
   brent_wti?: { value: Num; note?: string };
   hormuz?: Hormuz | null;
+  /** The two markets the macro sleeves read: last daily close on file. */
+  copper?: MacroQuote;
+  dollar?: MacroQuote;
+}
+
+export interface MacroQuote {
+  name: string;
+  value: Num;
+  asof: string;
+  source: string;
 }
 
 export interface ForecastBlock {
   vehicle: string;
   underlying: string;
   day: string;
+  /** The seven sleeves (engine/desk/signals.py), each on the -20..+20 scale. */
   trend: Num;
+  accel: Num;
+  skew: Num;
   carry: Num;
   carry_momentum: Num;
+  copper: Num;
+  dollar: Num;
+  /** The average of each source's sleeves: the three numbers the combination is made of. */
+  sources: { prezzo?: Num; curva?: Num; macro?: Num };
+  /** The date of the close each macro sleeve read: always before `day`; null when none was recent enough. */
+  macro_day: { copper?: string | null; dollar?: string | null };
   combined: Num;
   combined_prev: Num;
   vol: Num;
@@ -57,7 +76,9 @@ export interface BookPosition {
   symbol: string;
   units: number;
   unit: string;
+  /** The side of the OIL exposure: shares of an inverse fund (multiplier -2) are a short position. */
   side: "long" | "short";
+  multiplier?: number;
   avg_price: Num;
   last_price: Num;
   notional: Num;
@@ -341,6 +362,8 @@ export interface BacktestBook {
 
 export interface SleeveRow {
   id: string;
+  /** One sleeve, one source, the three sleeves read before phase 11, or all seven. */
+  kind?: "sleeve" | "source" | "before" | "all";
   name: string;
   stats: Stats;
   stats_same_close: Stats;
@@ -352,7 +375,11 @@ export interface BacktestDoc {
   benchmarks: Record<string, { name: string; stats: Stats; yearly: Record<string, number>; curve: CurvePoint[] }>;
   double_cost: Record<string, { stats: Stats }>;
   same_close: Record<string, { stats: Stats }>;
-  sleeves: Record<string, { vol_target: number; long_only: boolean; note: string; rows: SleeveRow[] }>;
+  /** One table per way a vehicle is traded: "BNO" (long only), "BNO + SCO" (short side in the inverse fund), "MCL". */
+  sleeves: Record<
+    string,
+    { vehicle?: string; vol_target: number; long_only: boolean; short_via?: string | null; note: string; rows: SleeveRow[] }
+  >;
   books_config: { id: string; name: string; vehicle: string; vol_target: number; max_leverage: number }[];
   data: Record<
     string,

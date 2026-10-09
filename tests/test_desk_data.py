@@ -6,7 +6,7 @@ obvious and the wrong one - a return that mixes two contracts - is far away from
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 
 import numpy as np
 import pandas as pd
@@ -21,11 +21,13 @@ from engine.desk.data import (
     contracts_wide,
     curve_forecasts,
     far_december,
+    final_rows,
     front_codes,
     held_codes,
     held_contract,
     hormuz_summary,
     investable_futures_returns,
+    known_before,
     roll_day,
     slope_against,
 )
@@ -184,7 +186,13 @@ def test_build_desk_data_assembles_both_vehicles_and_labels_what_is_a_proxy(tmp_
     assert (bno.return_source == "fondo").all() and (mcl.return_source == "eia").all()
     # no Brent per-contract table was archived: the fund's slope is the WTI curve, and says so
     assert bno.slope_approx.all() and not mcl.slope_approx.any()
-    assert {"trend", "carry", "carry_momentum", "combined"} <= set(bno.forecasts.columns)
+    assert list(bno.forecasts.columns) == [*sg.SLEEVES, "combined"] == list(mcl.forecasts.columns)
+    # 560 days: every sleeve speaks but the skew, which needs years of its own history; the combination
+    # goes on without it
+    for series in (bno, mcl):
+        last = series.forecasts.iloc[-1]
+        assert last.drop("skew").notna().all() and pd.isna(last["skew"])
+    assert set(data.macro) == {"copper", "dollar"} and len(data.macro["copper"]) == 560
     assert mcl.bars["symbol"].iloc[-1] == held_contract("CL", mcl.bars.index[-1].date())
     assert (mcl.bars["high"] >= mcl.bars[["open", "close"]].max(axis=1) - 1e-9).all()
     assert "cl_contracts" in data.meta["missing"] and len(data.ovx) > 500
@@ -208,7 +216,153 @@ def test_build_desk_data_has_no_lookahead(tmp_path, cut):
         pd.testing.assert_series_equal(a.vol, b.vol.loc[:last], check_names=False)
         pd.testing.assert_frame_equal(a.forecasts, b.forecasts.loc[:last])
         pd.testing.assert_series_equal(a.slope, b.slope.loc[:last], check_names=False)
-    assert sg.SLEEVES == ("trend", "carry", "carry_momentum")
+
+
+@pytest.mark.parametrize("cut", [950, 1150])
+def test_build_desk_data_has_no_lookahead_with_all_seven_sleeves(tmp_path, cut):
+    """The same on an archive long enough for the skew: with 1 250 days every sleeve has a value at both cuts."""
+    history = make_desk_raw_frames(n=1250)
+    full_store, cut_store = RawStore(tmp_path / "full"), RawStore(tmp_path / "cut")
+    for entry, frame in history.items():
+        save_raw_frame(full_store, entry, frame)
+        save_raw_frame(cut_store, entry, frame.iloc[:cut])
+    full, part = build_desk_data(full_store), build_desk_data(cut_store)
+    for vehicle in ("BNO", "MCL"):
+        a, b = part.series[vehicle], full.series[vehicle]
+        assert a.forecasts.iloc[-1].notna().all(), vehicle
+        pd.testing.assert_frame_equal(a.forecasts, b.forecasts.loc[: a.bars.index[-1]])
+    # one skew for both vehicles: it is read on the long WTI history, the fund is too young to have its own
+    common = full.series["BNO"].forecasts.index.intersection(full.series["MCL"].forecasts.index)
+    pd.testing.assert_series_equal(
+        full.series["BNO"].forecasts.loc[common, "skew"], full.series["MCL"].forecasts.loc[common, "skew"]
+    )
+
+
+def test_known_before_reads_the_previous_close_and_drops_what_is_too_old():
+    closes = pd.Series([1.0, 2.0, 3.0], index=pd.to_datetime(["2026-10-05", "2026-10-06", "2026-10-07"]).as_unit("ms"))
+    days = pd.to_datetime(["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-14", "2026-10-15"])
+    out = known_before(closes, days)  # the archive stores milliseconds, a frame in memory nanoseconds
+    assert pd.isna(out.iloc[0])  # nothing is dated before the first close
+    assert out.iloc[1:5].tolist() == [1.0, 2.0, 3.0, 3.0]  # never the close of the same day; a week old is still read
+    assert pd.isna(out.iloc[5])  # eight days old is not a reading of now
+    assert known_before(pd.Series(dtype="float64"), days).isna().all()
+    # the answer does not depend on the order the days are asked in
+    shuffled = known_before(closes, days[::-1])
+    assert shuffled.iloc[::-1].tolist()[1:5] == [1.0, 2.0, 3.0, 3.0]
+
+
+def test_the_row_of_the_day_a_table_is_read_on_is_not_that_day_close(tmp_path):
+    """Yahoo's copper future, 5-9 October 2026: the row dated "today" is the live quote of another contract
+    month while the session is open, the first minutes of the NEXT session after 18:00 New York, and the
+    settlement the history is made of only from the day after. A book reads a row once a later day's download
+    has confirmed it - and it is New York's calendar that says which day a download belongs to."""
+    days = pd.to_datetime(["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"])
+    table = pd.DataFrame({"close": [6.5855, 6.5945, 6.5965, 6.5505]}, index=days)
+    evening = pd.Timestamp("2026-10-08 21:18", tz="UTC")  # 17:18 New York on the 8th: the row of the 8th is live
+    assert final_rows(table, evening).index[-1] == pd.Timestamp("2026-10-07")
+    night = pd.Timestamp("2026-10-09 01:48", tz="UTC")  # 21:48 New York, still the 8th there
+    assert final_rows(table, night).index[-1] == pd.Timestamp("2026-10-07")
+    next_day = pd.Timestamp("2026-10-09 18:48", tz="UTC")  # the tick of the next day's first decision
+    assert final_rows(table, next_day).index[-1] == pd.Timestamp("2026-10-08")
+    assert final_rows(table, next_day.tz_localize(None)).index[-1] == pd.Timestamp("2026-10-08")  # naive = UTC
+    assert len(final_rows(table, None)) == 4 and final_rows(table.iloc[:0], evening).empty  # a fixture; no rows
+
+    # through the archive: the same copper table, read on the evening of its last row and read the day after
+    history = make_desk_raw_frames()
+    last = history["copper_daily"].index[-1]
+    same_day, day_after = RawStore(tmp_path / "same"), RawStore(tmp_path / "after")
+    for entry, frame in history.items():
+        save_raw_frame(day_after, entry, frame)
+        read = (last + pd.Timedelta(hours=21, minutes=18)).to_pydatetime().replace(tzinfo=UTC)
+        save_raw_frame(same_day, entry, frame, fetched_at=read if entry == "copper_daily" else None)
+    early, late = build_desk_data(same_day), build_desk_data(day_after)
+    assert late.macro["copper"].index[-1] == last and early.macro["copper"].index[-1] < last
+    assert early.macro["dollar"].index[-1] == last  # each table has its own download
+    # every forecast of the history is the same: a decision never read the close of its own day anyway. What
+    # changes is what the NEXT session would read - the close before, not a row nobody has confirmed.
+    for vehicle in ("BNO", "MCL"):
+        pd.testing.assert_frame_equal(early.series[vehicle].forecasts, late.series[vehicle].forecasts)
+    next_session = pd.DatetimeIndex([last + pd.Timedelta(days=1)])
+    assert known_before(late.macro["copper"], next_session).iloc[0] == late.macro["copper"].iloc[-1]
+    assert known_before(early.macro["copper"], next_session).iloc[0] == late.macro["copper"].iloc[-2]
+
+
+def test_the_half_hour_tables_reach_the_live_tick_with_the_time_they_were_downloaded(tmp_path):
+    """ "A bar is complete fifteen minutes after its end, counted from the download" is a rule of the live tick,
+    and the live tick gets its tables from here. The first version of the rule was tested on tables built by
+    hand, with the download time on them; this builder dropped that column with the rest of the archive's own,
+    so in production the rule never ran and a failed download still turned a forming bar into a finished one
+    (found by an independent review, on the real path: archive -> builder -> tick)."""
+    from engine.desk.live import completed_bars, last_quote
+
+    store = RawStore(tmp_path)
+    for entry, frame in make_desk_raw_frames(end=date(2026, 10, 8)).items():
+        save_raw_frame(store, entry, frame)
+    bars = pd.DataFrame(
+        {"open": [60.0, 60.2], "high": [60.3, 60.4], "low": [59.9, 60.1], "close": [60.2, 60.3], "volume": [1e3, 4e2]},
+        index=pd.DatetimeIndex(["2026-10-08 13:30", "2026-10-08 14:00"], tz="UTC", name="ts"),
+    )
+    read = datetime(2026, 10, 8, 14, 18, tzinfo=UTC)  # the second bar was forming
+    long = bars.reset_index().assign(code="CLX26")
+    for entry, frame in (("bno_intraday", bars), ("sco_intraday", bars), ("cl_intraday", long)):
+        save_raw_frame(store, entry, frame, fetched_at=read)
+    data = build_desk_data(store)
+    next_tick = datetime(2026, 10, 8, 14, 48, tzinfo=UTC)  # ... and this tick's download failed
+    for vehicle, symbol in (("BNO", "BNO"), ("SCO", "SCO"), ("MCL", "CLX26")):
+        table = data.intraday[vehicle]
+        assert pd.Timestamp(table["observed_at"].max()) == pd.Timestamp(read)
+        assert [b.ts.strftime("%H:%M") for b in completed_bars(table, symbol, next_tick, None)] == ["14:00"]
+        assert last_quote(table, symbol, next_tick)[1] == datetime(2026, 10, 8, 14, 3, tzinfo=UTC)
+    for entry, frame in (("bno_intraday", bars), ("sco_intraday", bars), ("cl_intraday", long)):
+        save_raw_frame(store, entry, frame, fetched_at=next_tick)  # the download works again
+    data = build_desk_data(store)
+    for vehicle, symbol in (("BNO", "BNO"), ("SCO", "SCO"), ("MCL", "CLX26")):
+        done = completed_bars(data.intraday[vehicle], symbol, next_tick, None)
+        assert [b.ts.strftime("%H:%M") for b in done] == ["14:00", "14:30"]
+    # the daily tables carry no such column into the series: nothing downstream of them reads it
+    assert "observed_at" not in data.series["BNO"].bars.columns and "observed_at" not in data.legs.get("SCO", bars)
+
+
+def test_a_macro_close_moves_the_forecast_of_the_next_day_never_of_its_own(tmp_path):
+    """Copper and the dollar close after the oil settlement: a book deciding on day D has the close of D-1."""
+    history = make_desk_raw_frames()
+    shocked = {k: v.copy() for k, v in history.items()}
+    day = history["copper_daily"].index[-2]
+    shocked["copper_daily"].loc[day:, "close"] *= 1.5  # copper jumps on the second-to-last day and stays there
+    base_store, shock_store = RawStore(tmp_path / "base"), RawStore(tmp_path / "shock")
+    for entry in history:
+        save_raw_frame(base_store, entry, history[entry])
+        save_raw_frame(shock_store, entry, shocked[entry])
+    base, shock = build_desk_data(base_store), build_desk_data(shock_store)
+    for vehicle in ("BNO", "MCL"):
+        a, b = base.series[vehicle].forecasts, shock.series[vehicle].forecasts
+        pd.testing.assert_frame_equal(a.loc[:day], b.loc[:day])  # the day of the jump itself is unchanged
+        # the day after reads it (a jump of that size also inflates copper's volatility: the forecast moves,
+        # in which direction is not the point here)
+        assert abs(b["copper"].iloc[-1] - a["copper"].iloc[-1]) > 1.0
+        assert b["combined"].iloc[-1] != a["combined"].iloc[-1]
+        assert b["dollar"].iloc[-1] == a["dollar"].iloc[-1]
+
+
+def test_without_the_macro_tables_only_the_macro_sleeves_are_silent(tmp_path):
+    history = make_desk_raw_frames()
+    with_store, without_store = RawStore(tmp_path / "with"), RawStore(tmp_path / "without")
+    for entry, frame in history.items():
+        save_raw_frame(with_store, entry, frame)
+        if entry not in {"copper_daily", "dxy_daily"}:
+            save_raw_frame(without_store, entry, frame)
+    full, bare = build_desk_data(with_store), build_desk_data(without_store)
+    assert bare.macro == {} and {"copper_daily", "dxy_daily"} <= set(bare.meta["missing"])
+    for vehicle in ("BNO", "MCL"):
+        a, b = full.series[vehicle].forecasts, bare.series[vehicle].forecasts
+        assert b[["copper", "dollar"]].isna().all().all()
+        pd.testing.assert_frame_equal(
+            a[["trend", "accel", "carry", "carry_momentum"]], b[["trend", "accel", "carry", "carry_momentum"]]
+        )
+        last = b.iloc[-1]
+        # the other two sources share the forecast, with the smaller multiplier of four sleeves out of seven
+        want = (np.mean([last["trend"], last["accel"]]) + np.mean([last["carry"], last["carry_momentum"]])) / 2.0
+        assert last["combined"] == pytest.approx(float(np.clip(want * (1.0 + 0.75 * 3 / 6), -20.0, 20.0)))
 
 
 # ----------------------------------------------------------------------------------------------- Hormuz

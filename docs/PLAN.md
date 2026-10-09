@@ -12,7 +12,7 @@ Dopo tre giorni il conto era fermo e non aveva fatto nessuna operazione. Le caus
 | Cron `*/30` con guardia sull'orario | GitHub lo ha eseguito circa quattro volte al giorno | Un lavoro `runner` che resta acceso e fa un giro ogni 30 minuti; il cron (`watchdog`) lo riaccende soltanto |
 | Fine giornata su cron alle 18:40 e 19:40 UTC | Partiva dopo la mezzanotte di Londra, chiedeva «oggi» e usciva con «troppo presto» | Il giro stesso rifà la fine giornata dell'ultima data **già chiusa**, a qualunque ora parta |
 | Qualsiasi fonte rossa blocca il nuovo rischio | Una tabella facoltativa mai scaricata ha fermato il conto | Solo le fonti in `critical_sources` possono farlo; le altre spengono ciò che le legge |
-| Un conto che opera solo con strategie validate | Nessuna validata → conto fermo per costruzione | Quattro libri che comprano una previsione fatta di regole pubblicate, senza selezione (`engine/desk`) |
+| Un conto che opera solo con strategie validate | Nessuna validata → conto fermo per costruzione | Quattro libri che comprano una previsione fatta di regole pubblicate (`engine/desk`). Dalla fase 11 una selezione c'è, quattro segnali tenuti su sedici provati, ed è dichiarata con tutti i suoi numeri |
 
 Altre decisioni della fase 10, con il motivo:
 
@@ -107,6 +107,14 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
 - [x] 10. Desk: serie investibili per contratto, tre libri lineari e un libro di opzioni su quotazioni reali,
   backtest con sensibilità a costi ed esecuzione, runner a giro continuo, terminale a una pagina, ricerca
   documentata con le fonti (`docs/RESEARCH.md`).
+- [x] 11. Uno Sharpe più alto senza più leva: sedici segnali provati sulle serie dei libri, quattro tenuti
+  (accelerazione, skew, trend di rame e dollaro) accanto ai tre che c'erano, combinati per fonte; lato short
+  del libro dinamico comprando il fondo inverso SCO; tabelle per segnale e per fonte, prima e dopo, nel
+  backtest; il backtest porta l'impronta delle regole e si ricalcola quando cambiano. Gli obiettivi di
+  volatilità non sono stati toccati. Prima di andare in linea, una revisione indipendente ha trovato sette
+  difetti nel funzionamento dal vivo in condizioni degradate (una tabella in ritardo, una gamba eseguita e
+  l'altra no, la soglia di perdita valutata su una quotazione vecchia): corretti e fissati da test
+  (`docs/VALIDATION.md`).
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

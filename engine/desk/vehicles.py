@@ -9,6 +9,11 @@ The numbers are the ones a Robinhood account sees (verified 2026-10-08, sources 
   night (no intraday discount), and does not let a position be carried to delivery.
 * ICE Brent futures are NOT available there. The Brent exposure a US retail account can hold is the fund and
   its options; the leveraged linear exposure is WTI. That basis risk is real and is shown, not hidden.
+* ``SCO`` (ProShares UltraShort Bloomberg Crude Oil) trades commission-free like any other fund. It aims at
+  -2x the DAILY return of a WTI futures index, so over more than a day its return is not -2x the oil's: a book
+  that holds it resizes the position at every decision, and its backtest uses the fund's real prices, which
+  contain the fee (0.95 % a year), the roll and the daily reset. It is how a fund book goes short without
+  borrowing shares: it BUYS the inverse fund, with cash, and can lose no more than what it put in it.
 """
 
 from __future__ import annotations
@@ -79,6 +84,54 @@ MCL = Vehicle(
 )
 
 VEHICLES: dict[str, Vehicle] = {v.id: v for v in (BNO, MCL)}
+
+
+@dataclass(frozen=True)
+class InverseFund:
+    """A fund a book BUYS to be short: the second leg of a fund book (``BookConfig.short_via``).
+
+    It is not a vehicle of its own: it has no forecast and no book. It is priced on its own bars, sized so
+    that ``shares x price x |multiplier|`` is the short exposure wanted, and never bought on margin.
+    """
+
+    id: str
+    name: str
+    underlying: str  # "wti": the short side of a Brent book carries the Brent-WTI basis
+    multiplier: float  # oil exposure of one dollar held, per day (-2.0)
+    max_weight: float  # ceiling on its notional as a fraction of equity: 1.0 = cash only, never borrowed
+    unit_it: str
+    robinhood: str
+    note_it: str
+
+    @property
+    def max_exposure(self) -> float:
+        """The largest short exposure (multiple of equity) the fund can carry without borrowing."""
+        return self.max_weight * abs(self.multiplier)
+
+
+SCO = InverseFund(
+    id="SCO",
+    name="ProShares UltraShort Bloomberg Crude Oil",
+    underlying="wti",
+    multiplier=-2.0,
+    max_weight=1.0,
+    unit_it="azioni",
+    robinhood="SCO (azioni)",
+    note_it=(
+        "ETF che ogni giorno rende -2 volte un indice di future sul WTI: il lato short del libro si ottiene "
+        "comprandolo in contanti, e non può perdere più di quanto vi è investito. Su più giorni il suo "
+        "rendimento non è -2 volte quello del greggio (ricalcolo giornaliero, commissione 0,95% l'anno)."
+    ),
+)
+
+INVERSE_FUNDS: dict[str, InverseFund] = {f.id: f for f in (SCO,)}
+
+
+def get_inverse_fund(fund_id: str) -> InverseFund:
+    try:
+        return INVERSE_FUNDS[fund_id]
+    except KeyError as exc:
+        raise ValueError(f"unknown inverse fund {fund_id!r}; known: {sorted(INVERSE_FUNDS)}") from exc
 
 
 def get_vehicle(vehicle_id: str) -> Vehicle:

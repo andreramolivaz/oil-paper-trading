@@ -10,6 +10,12 @@ enforces the hard 10x on top of all of them. Nothing else raises or lowers a pos
 pass and no discretionary override, which is the point - the three books differ only in how much of the same
 forecast they buy.
 
+A fund cannot be sold short by the account the desk imitates. A fund book that is allowed to be short
+(``short_via``) holds its short side as a LONG position in an inverse fund: ``-2x`` a day, bought with cash,
+half the dollars for the same exposure. The two legs are sized by the same formula and the same buffer, the
+ceilings apply to the oil exposure and not to the dollars, and a decision that changes side sells one leg and
+buys the other.
+
 The exact size is then turned into whole lots with Carver's buffer (*Systematic Trading*, "position inertia"):
 the position is left alone while it sits inside a band of 10 % of a normal-size position around the exact
 size, and when it falls outside it is traded to the EDGE of the band, not to the middle. That is what keeps a
@@ -33,7 +39,7 @@ from engine.core.events import Order, OrderReason, OrderType
 from engine.core.ids import idempotency_key
 from engine.core.store import StateStore
 from engine.desk import signals as sg
-from engine.desk.vehicles import Vehicle, get_vehicle
+from engine.desk.vehicles import INVERSE_FUNDS, InverseFund, Vehicle, get_inverse_fund, get_vehicle
 
 HARD_CAP = 10.0
 BOOKS_CONFIG = "books"
@@ -48,7 +54,8 @@ class BookConfig:
     max_leverage: float
     weekend_max_leverage: float | None = None
     long_only: bool = False
-    sleeves: dict[str, float] = field(default_factory=lambda: dict.fromkeys(sg.SLEEVES, 1.0))
+    short_via: str | None = None  # the inverse fund a fund book buys to be short (vehicles.INVERSE_FUNDS)
+    sleeves: dict[str, float] = field(default_factory=lambda: dict(sg.DEFAULT_WEIGHTS))
     buffer: float = 0.10  # no trade while the target is within this fraction of a normal-size position
     daily_loss_breaker: float = 0.08
     description: str = ""
@@ -63,6 +70,12 @@ class BookConfig:
         unknown = set(self.sleeves) - set(sg.SLEEVES)
         if unknown:
             raise ValueError(f"book {self.id}: unknown sleeves {sorted(unknown)}")
+        if self.short_via is not None:
+            get_inverse_fund(self.short_via)
+            if self.long_only:
+                raise ValueError(f"book {self.id}: a long-only book has no short leg")
+            if get_vehicle(self.vehicle).kind != "etf":
+                raise ValueError(f"book {self.id}: short_via is for fund books, a futures book sells the future")
 
 
 def load_books(config_dir: Path | None = None) -> list[BookConfig]:
@@ -73,7 +86,7 @@ def load_books(config_dir: Path | None = None) -> list[BookConfig]:
         if not entry.get("enabled", True):
             continue
         get_vehicle(str(entry["vehicle"]))
-        sleeves = {str(k): float(v) for k, v in (entry.get("sleeves") or dict.fromkeys(sg.SLEEVES, 1.0)).items()}
+        sleeves = {str(k): float(v) for k, v in (entry.get("sleeves") or sg.DEFAULT_WEIGHTS).items()}
         weekend = entry.get("weekend_max_leverage")
         books.append(
             BookConfig(
@@ -84,6 +97,7 @@ def load_books(config_dir: Path | None = None) -> list[BookConfig]:
                 max_leverage=float(entry["max_leverage"]),
                 weekend_max_leverage=None if weekend is None else float(weekend),
                 long_only=bool(entry.get("long_only", False)),
+                short_via=None if entry.get("short_via") is None else str(entry["short_via"]),
                 sleeves=sleeves,
                 buffer=float(entry.get("buffer", 0.10)),
                 daily_loss_breaker=float(entry.get("daily_loss_breaker", 0.08)),
@@ -185,11 +199,17 @@ class Decision:
     rationale: str
     status: str = ""
     exposure_actual: float = 0.0  # what the target position is worth, as a multiple of equity (whole lots)
+    # the inverse fund of a book that has one: symbol, price, target_units, current_units, order_units, multiplier
+    legs: list[dict[str, Any]] = field(default_factory=list)
+    n_orders: int = 0  # orders this decision queued (0, 1, or 2 when a book with a short leg changes side)
 
     def to_dict(self) -> dict[str, Any]:
         d = dataclasses.asdict(self)
         d["ts"] = self.ts.isoformat().replace("+00:00", "Z")
         return d
+
+
+SOURCE_LABEL_IT = {"prezzo": "prezzo", "curva": "curva", "macro": "altri mercati"}
 
 
 def _signed(x: float | None, digits: int = 1) -> str:
@@ -223,6 +243,7 @@ class Book:
     ) -> None:
         self.cfg = cfg
         self.vehicle = get_vehicle(cfg.vehicle)
+        self.short: InverseFund | None = None if cfg.short_via is None else get_inverse_fund(cfg.short_via)
         self.risk = book_risk(base_risk, cfg, self.vehicle)
         self.store = store
         account_id = f"desk-{cfg.id}"
@@ -234,6 +255,14 @@ class Book:
             if store is not None
             else PaperBroker(account_id, self.risk, costs=costs)
         )
+        # The broker's leverage cap is in dollars; the book's ceiling is in oil exposure. An inverse fund is
+        # counted for its multiple, so the cap holds at the FILL price and after every mark, not only at the
+        # price the decision saw: a short side decided at its ceiling and filled on a gap would otherwise end
+        # above it, bought partly on margin. Set for every book: a fund that is not held weighs nothing.
+        self.broker.exposure_weights = {fund.id: abs(fund.multiplier) for fund in INVERSE_FUNDS.values()}
+        # a book that changes side sells one leg and buys the other in the same decision: the purchase is
+        # accepted against what the queued sale is about to free (and checked again at its own fill price)
+        self.broker.net_queued_sales = True
 
     # ------------------------------------------------------------------ views
     @property
@@ -244,9 +273,60 @@ class Book:
         pos = self.broker.positions.get(symbol)
         return 0.0 if pos is None else float(pos.qty_bbl)
 
+    @property
+    def short_symbol(self) -> str | None:
+        return None if self.short is None else self.short.id
+
+    def leg(self) -> InverseFund | None:
+        """The inverse fund this book's short side lives in: the configured one, or - when the configuration
+        no longer has one - a fund the book still HOLDS. Such an orphan is only ever sold: a book must not be
+        left with a position nothing manages because a line was removed from a file."""
+        if self.short is not None:
+            return self.short
+        for symbol, pos in self.broker.positions.items():
+            if symbol in INVERSE_FUNDS and pos.qty_bbl != 0:
+                return INVERSE_FUNDS[symbol]
+        return None
+
+    def uses(self, symbol: str) -> bool:
+        """True when ``symbol`` is an inverse fund this book is configured for, holds or has an order on."""
+        if symbol not in INVERSE_FUNDS:
+            return False
+        held = self.broker.positions.get(symbol)
+        queued = any(o.instrument == symbol for o in self.broker.pending_orders())
+        return symbol == self.short_symbol or queued or (held is not None and held.qty_bbl != 0)
+
     def other_contract_positions(self, symbol: str) -> list[str]:
-        """Symbols of open positions that are not ``symbol`` (an old contract waiting to be rolled)."""
-        return [s for s, p in self.broker.positions.items() if s != symbol and p.qty_bbl != 0]
+        """Symbols of open positions that are not ``symbol`` (an old contract waiting to be rolled). An inverse
+        fund is a book's other LEG, never a contract to roll."""
+        return [
+            s for s, p in self.broker.positions.items() if s != symbol and s not in INVERSE_FUNDS and p.qty_bbl != 0
+        ]
+
+    @staticmethod
+    def multiplier(symbol: str) -> float:
+        """Oil exposure of one dollar held in ``symbol``: 1 for a vehicle, -2 for the inverse fund."""
+        return INVERSE_FUNDS[symbol].multiplier if symbol in INVERSE_FUNDS else 1.0
+
+    def net_exposure(self, equity: float) -> float:
+        """Signed oil exposure of what is held, as a multiple of ``equity``, at the last marks."""
+        return self._exposure_sum(equity, signed=True)
+
+    def effective_leverage(self, equity: float) -> float:
+        """Absolute oil exposure of what is held, as a multiple of ``equity``. For a book with one instrument
+        this is the broker's leverage; an inverse fund counts for twice its dollars, which is what it risks."""
+        return self._exposure_sum(equity, signed=False)
+
+    def _exposure_sum(self, equity: float, signed: bool) -> float:
+        if not math.isfinite(equity) or equity <= 0:
+            return 0.0
+        st = self.broker.state
+        total = 0.0
+        for symbol, pos in st.positions.items():
+            price = st.last_prices.get(symbol, pos.last_price if pos.last_price is not None else pos.avg_price)
+            worth = float(pos.qty_bbl) * float(price) * self.multiplier(symbol)
+            total += worth if signed else abs(worth)
+        return total / equity
 
     # ------------------------------------------------------------------ sizing
     def _cap(self, day: date) -> float:
@@ -261,7 +341,7 @@ class Book:
         """(uncapped exposure, exposure after the ceilings, what limited it)."""
         cfg = self.cfg
         raw = sg.exposure_fraction(forecast, vol, cfg.vol_target, max_leverage=math.inf, long_only=cfg.long_only)
-        if not self.vehicle.allow_short:
+        if not self.vehicle.allow_short and self.short is None:
             raw = max(0.0, raw)
         full_cap = min(HARD_CAP, cfg.max_leverage, self.vehicle.max_leverage)
         cap = self._cap(day)
@@ -269,6 +349,9 @@ class Book:
         if abs(raw) > cap:
             limited = "tetto prima della chiusura dei mercati" if cap < full_cap else "tetto di leva del libro"
         capped = max(-cap, min(cap, raw))
+        if self.short is not None and capped < -self.short.max_exposure:
+            # the short side is an inverse fund bought with cash: it cannot carry more than its own multiple
+            capped, limited = -self.short.max_exposure, "il fondo inverso si compra solo in contanti"
         if raw == 0.0:
             limited = "nessuna previsione" if forecast == 0 or not math.isfinite(forecast) else "solo long"
         return raw, capped, limited
@@ -283,11 +366,40 @@ class Book:
         vol: float | None,
     ) -> tuple[Decision, Order | None]:
         """Turn today's forecast into at most one order on ``symbol``. Never raises on missing inputs: a book
-        that cannot size (no forecast, no volatility, no price) holds what it has and says why."""
-        cfg = self.cfg
+        that cannot size (no forecast, no volatility, no price) holds what it has and says why.
+
+        A book with a short leg can queue two orders in one decision and must be asked through :meth:`orders`.
+        """
+        if self.short is not None:
+            raise ValueError(f"book {self.id} has a short leg: use orders(), which returns both of its orders")
+        decision, orders = self.orders(ts, day, symbol, price, forecast, vol)
+        return decision, (orders[0] if orders else None)
+
+    def orders(
+        self,
+        ts: datetime,
+        day: date,
+        symbol: str,
+        price: float,
+        forecast: dict[str, float | None],
+        vol: float | None,
+        leg_price: float | None = None,
+    ) -> tuple[Decision, list[Order]]:
+        """The decision of the day and the orders it queues: none, one, or - for a book with a short leg that
+        changes side - the sale of one leg and the purchase of the other.
+
+        ``leg_price`` is a RECENT price of the inverse fund. Without one the short side is never opened or
+        added to: a side already held is sized on its last mark and can only shrink (a book is not put into an
+        instrument at a price nobody has seen for days, and is not kept from leaving one either).
+        """
+        cfg, leg = self.cfg, self.leg()
+        orphan = leg is not None and self.short is None  # held, but no longer in the configuration: sold
         snap = self.broker.snapshot(ts)
         equity = float(snap.equity)
         current = self.units(symbol)
+        leg_current = 0.0 if leg is None else self.units(leg.id)
+        fresh = leg_price is not None and math.isfinite(leg_price) and leg_price > 0
+        leg_ref = float(leg_price) if fresh and leg_price is not None else self._last_mark(leg, leg_current)
         # the book's own mix of the sleeves (config/books.yaml), not the equal-weight column of the data layer
         combined = sg.combine_values(forecast, cfg.sleeves)
         forecast = {**forecast, "combined": combined}
@@ -306,53 +418,124 @@ class Book:
             )
             dec = Decision(ts, cfg.id, cfg.vehicle, symbol, price, equity, forecast, vol, 0.0, 0.0, "dati mancanti",
                            current, current, 0.0, reason, str(snap.status))  # fmt: skip
-            return dec, None
+            dec.legs = self._leg_rows(leg, leg_ref, leg_current, leg_current, 0.0)
+            return dec, []
         assert combined is not None and vol is not None
         raw, exposure, limited = self.exposure(float(combined), float(vol), day)
+        ceiling = limited  # what cut the exposure wanted, if anything did: the words for "sarebbe ... x"
         lot = self.vehicle.lot
         per_lot = equity / price / lot  # lots that one times the equity buys
+        band = cfg.buffer * cfg.vol_target / float(vol)  # the buffer, as a multiple of equity
         target_lots = buffered_target(
-            exact=exposure * per_lot,
-            buffer=cfg.buffer * cfg.vol_target / float(vol) * per_lot,
-            current=current / lot,
-            cap=self._cap(day) * per_lot,
+            exact=exposure * per_lot, buffer=band * per_lot, current=current / lot, cap=self._cap(day) * per_lot
         )
         if cfg.long_only or not self.vehicle.allow_short:
             target_lots = max(0.0, target_lots)
         target = target_lots * lot
         delta = target - current
         delta = math.copysign(math.floor(abs(delta) / lot + 1e-9) * lot, delta) if delta else 0.0
+        # The short leg: the same formula and the same buffer on the other side of zero. One dollar of the
+        # inverse fund is worth |multiplier| dollars of short exposure, so the same band is half as many dollars.
+        leg_target, leg_delta = leg_current, 0.0
+        if leg is not None and leg_ref is not None:
+            per_share = equity / leg_ref / abs(leg.multiplier)  # shares that carry 1x of short exposure
+            leg_target = max(
+                0.0,
+                buffered_target(
+                    exact=-exposure * per_share,
+                    buffer=band * per_share,
+                    current=leg_current,
+                    cap=min(self._cap(day), leg.max_exposure) * per_share,
+                ),
+            )
+            if orphan:
+                leg_target = 0.0
+            elif not fresh:
+                leg_target = min(leg_target, leg_current)  # an old mark may close a side, never open one
+            leg_delta = float(_round_half_away(leg_target - leg_current))
         actual = target * price / equity
-        if target == 0 and exposure != 0:
-            limited = "lotto minimo"
+        if leg is not None and leg_ref is not None:
+            actual += leg.multiplier * leg_target * leg_ref / equity
+        if exposure != 0 and target == 0 and leg_target == 0:
+            # wanted, but smaller than what the position sizes allow: a whole lot for a future, the edge of
+            # the inertia band for a fund of one-share lots
+            limited = "lotto minimo" if lot > 1 else "fascia di inerzia"
+        unpriced = exposure < 0 and leg is not None and not fresh  # a short is wanted and cannot be opened
+        if unpriced and leg is not None and leg_delta >= 0:
+            limited = f"nessun prezzo per {leg.id}"
         rationale = self._rationale(
-            forecast, float(vol), raw, exposure, limited, target, current, delta, symbol, actual
-        )
+            forecast, float(vol), raw, exposure, ceiling, target, current, delta, symbol, actual,
+            leg, leg_ref, leg_target, leg_current, leg_delta, equity, price, fresh,
+        )  # fmt: skip
         dec = Decision(ts, cfg.id, cfg.vehicle, symbol, price, equity, forecast, float(vol), raw, exposure, limited,
                        target, current, delta, rationale, str(snap.status), actual)  # fmt: skip
-        if delta == 0.0:
-            return dec, None
-        key = idempotency_key("desk", cfg.id, snap.epoch, day.isoformat(), symbol)
-        order = Order(
-            order_id=key[:16],
-            idempotency_key=key,
-            ts=ts,
-            account_id=self.broker.account_id,
-            instrument=symbol,
-            qty_bbl=delta,
-            order_type=OrderType.MARKET,
-            reason=OrderReason.SIGNAL if current == 0 else OrderReason.REBALANCE,
-            rationale=rationale,
-            strategies_for=[k for k in sg.SLEEVES if (forecast.get(k) or 0.0) * delta > 0],
-            strategies_against=[k for k in sg.SLEEVES if (forecast.get(k) or 0.0) * delta < 0],
-            leverage={
-                "value": round(abs(actual), 4),
-                "wanted": round(abs(exposure), 4),
-                "limited_by": limited,
-                "components": {"vol_target": cfg.vol_target, "vol": float(vol), "cap": cfg.max_leverage},
-            },
-        )
-        return dec, order
+        dec.legs = self._leg_rows(leg, leg_ref, leg_target, leg_current, leg_delta)
+        orders: list[Order] = []
+        levered = {
+            "value": round(abs(actual), 4),
+            "wanted": round(abs(exposure), 4),
+            "limited_by": limited,
+            "components": {"vol_target": cfg.vol_target, "vol": float(vol), "cap": cfg.max_leverage},
+        }
+        # (symbol, units to trade, units held, oil exposure of one unit bought, can it be sold short)
+        wanted = [(symbol, delta, current, 1.0, self.vehicle.allow_short)]
+        if leg is not None:
+            wanted.append((leg.id, leg_delta, leg_current, leg.multiplier, False))
+        sale_id: str | None = None
+        for instrument, units, held, direction, shortable in sorted(wanted, key=lambda w: w[1] > 0):  # sales first
+            if units == 0.0:
+                continue
+            key = idempotency_key("desk", cfg.id, snap.epoch, day.isoformat(), instrument)
+            push = units * direction  # positive: this order adds long oil exposure
+            order = Order(
+                order_id=key[:16],
+                idempotency_key=key,
+                ts=ts,
+                account_id=self.broker.account_id,
+                instrument=instrument,
+                qty_bbl=units,
+                order_type=OrderType.MARKET,
+                reason=OrderReason.SIGNAL if held == 0 else OrderReason.REBALANCE,
+                rationale=rationale,
+                strategies_for=[k for k in sg.SLEEVES if (forecast.get(k) or 0.0) * push > 0],
+                strategies_against=[k for k in sg.SLEEVES if (forecast.get(k) or 0.0) * push < 0],
+                leverage=levered,
+                # a fund cannot be short: its sale closes what is there when it fills, never more
+                reduce_only=units < 0 and not shortable,
+                # the purchase of one leg is paid for by the sale of the other and waits for it: if the two
+                # tables deliver their bars a tick apart, the book must not hold both sides in between
+                after=sale_id if units > 0 else None,
+            )
+            if units < 0:
+                sale_id = order.order_id
+            orders.append(order)
+        dec.n_orders = len(orders)
+        return dec, orders
+
+    def _last_mark(self, leg: InverseFund | None, held: float) -> float | None:
+        """The last mark of a short side that is HELD: the only price an old side can be reduced on. A fund
+        the book does not hold has no price worth trading on unless the caller brings a recent one."""
+        if leg is None or held <= 0:
+            return None
+        known = self.broker.state.last_prices.get(leg.id)
+        return float(known) if known is not None and math.isfinite(known) and known > 0 else None
+
+    @staticmethod
+    def _leg_rows(
+        leg: InverseFund | None, price: float | None, target: float, current: float, delta: float
+    ) -> list[dict[str, Any]]:
+        if leg is None:
+            return []
+        return [
+            {
+                "symbol": leg.id,
+                "price": price,
+                "target_units": target,
+                "current_units": current,
+                "order_units": delta,
+                "multiplier": leg.multiplier,
+            }
+        ]
 
     def _rationale(
         self,
@@ -366,36 +549,117 @@ class Book:
         delta: float,
         symbol: str,
         actual: float,
+        leg: InverseFund | None = None,
+        leg_price: float | None = None,
+        leg_target: float = 0.0,
+        leg_current: float = 0.0,
+        leg_delta: float = 0.0,
+        equity: float = 0.0,
+        price: float = 0.0,
+        fresh: bool = True,
     ) -> str:
         v = self.vehicle
-        text = (
-            f"Trend {_signed(forecast.get('trend'))}, carry {_signed(forecast.get('carry'), 0)}, "
-            f"carry-momentum {_signed(forecast.get('carry_momentum'), 0)}: "
-            f"previsione {_signed(forecast.get('combined'))} su 20. "
-            f"Volatilità {_pct(vol)} contro un obiettivo del {_pct(self.cfg.vol_target)}: "
-            f"esposizione {_plain(abs(exposure))}x"
-        )
+        # the three sources of the forecast, each the average of its sleeves (the sleeves are in the table)
+        sources = sg.source_values(forecast, self.cfg.sleeves)
+        parts = ", ".join(f"{SOURCE_LABEL_IT.get(name, name)} {_signed(value)}" for name, value in sources.items())
+        text = f"{parts[:1].upper()}{parts[1:]}: previsione {_signed(forecast.get('combined'))} su 20. "
+        if exposure == 0 and limited == "solo long":
+            # a negative forecast in a book that cannot be short: there is no size to explain, only the reason
+            text += "Negativa, e questo libro non va short: resta in contanti"
+        else:
+            text += (
+                f"Volatilità {_pct(vol)} contro un obiettivo del {_pct(self.cfg.vol_target)}: "
+                f"esposizione {_plain(abs(exposure))}x"
+            )
         if abs(raw) > abs(exposure) + 1e-9:
             text += f" (sarebbe {_plain(abs(raw))}x, limitata da: {limited})"
-        side = "long" if target > 0 else ("short" if target < 0 else "nessuna posizione")
+        if leg is None or (leg_target == 0 and leg_current == 0 and exposure >= 0):
+            # one instrument, or a book with a short leg that neither holds nor wants it today
+            return self._position_text(text, symbol, v.unit_it, v.lot, target, current, delta, exposure, actual)
+        # ---- a book with a short leg in play: the leg that carries today's side leads, the other follows
+        if self.short is None:
+            # the configuration no longer has a short side, the account still holds one: it is sold
+            worth = target * price / equity if equity > 0 else 0.0
+            lead = self._position_text(text, symbol, v.unit_it, v.lot, target, current, delta, exposure, worth)
+            return f"{lead} Vendo {_units(leg_delta)} {leg.unit_it} di {leg.id}: il libro non ha più un lato short."
+        if exposure < 0:
+            if leg_price is None:
+                lead = f"{text}, short. Nessun prezzo recente per {leg.id}: il lato short non si apre."
+            elif not fresh:
+                # held, and priced only on its last mark: it may shrink on that price, it does not grow -
+                # and when it stays where it is, that is why, not the inertia band
+                text += f", short. Nessun prezzo recente per {leg.id}: il lato short non cresce"
+                worth = leg.multiplier * leg_target * leg_price / equity if equity > 0 else 0.0
+                lead = self._position_text(
+                    text, leg.id, leg.unit_it, 1.0, leg_target, leg_current, leg_delta, exposure, worth, True,
+                    band=leg_delta != 0,
+                )  # fmt: skip
+            else:
+                text += (
+                    f", short (tramite {leg.id}, che ogni giorno rende {_signed(leg.multiplier, 0)} volte il WTI: "
+                    "in dollari ne basta la metà)"
+                )
+                worth = leg.multiplier * leg_target * leg_price / equity if equity > 0 else 0.0
+                lead = self._position_text(
+                    text, leg.id, leg.unit_it, 1.0, leg_target, leg_current, leg_delta, exposure, worth, True
+                )
+            other = self._closing_text(symbol, v.unit_it, target, current, delta, "long")
+        else:
+            worth = target * price / equity if equity > 0 else 0.0
+            lead = self._position_text(text, symbol, v.unit_it, v.lot, target, current, delta, exposure, worth)
+            other = self._closing_text(leg.id, leg.unit_it, leg_target, leg_current, leg_delta, "short")
+        return f"{lead} {other}".strip()
+
+    def _position_text(
+        self,
+        text: str,
+        symbol: str,
+        unit: str,
+        lot: float,
+        target: float,
+        current: float,
+        delta: float,
+        exposure: float,
+        actual: float,
+        inverse: bool = False,
+        band: bool = True,
+    ) -> str:
+        """What the leading instrument does: nothing, hold, buy or sell, and what the position is then worth.
+        ``inverse`` marks the inverse fund, whose long position is the book's short side; ``band=False`` when a
+        position differs from the size wanted for a reason that is not the inertia band (and has been said)."""
+        if inverse:
+            side = "short" if target > 0 else "nessuna posizione"
+        else:
+            side = "long" if target > 0 else ("short" if target < 0 else "nessuna posizione")
         held = f"{side}, {_plain(abs(actual))}x" if target != 0 else side
         # one lot can be most of the account: when whole lots move the position away from the size wanted,
         # the reader is told by how much instead of being left to wonder why 0.47x became 0.91x
-        if target != 0 and v.lot > 1 and abs(abs(actual) - abs(exposure)) > 0.1:
-            one_lot = abs(actual) / (abs(target) / v.lot)
-            held += f"; un lotto da {_units(v.lot)} {v.unit_it} vale {_plain(one_lot)}x del conto"
-        elif target != 0 and abs(abs(actual) - abs(exposure)) > 0.01:
+        if target != 0 and lot > 1 and abs(abs(actual) - abs(exposure)) > 0.1:
+            one_lot = abs(actual) / (abs(target) / lot)
+            held += f"; un lotto da {_units(lot)} {unit} vale {_plain(one_lot)}x del conto"
+        elif band and target != 0 and abs(abs(actual) - abs(exposure)) > 0.01:
             # the buffer at work: the position stops at the edge of the band, or stays where it is inside it
             held += "; dentro la fascia di inerzia" if delta == 0 else "; al bordo della fascia di inerzia"
         if delta == 0:
             if target == 0 and current == 0:
-                if exposure != 0 and v.lot > 1:
+                if exposure != 0 and lot > 1:
                     # wanted, but smaller than the size at which a whole lot is the nearer choice
                     return (
-                        f"{text}, meno di quanto serve per un lotto intero ({_units(v.lot)} {v.unit_it}): "
+                        f"{text}, meno di quanto serve per un lotto intero ({_units(lot)} {unit}): "
                         f"nessuna posizione su {symbol}."
                     )
                 return f"{text}. Nessuna posizione su {symbol}."
-            return f"{text}. Posizione invariata: {_units(current)} {v.unit_it} su {symbol} ({held})."
+            return f"{text}. Posizione invariata: {_units(current)} {unit} su {symbol} ({held})."
         verb = "Compro" if delta > 0 else "Vendo"
-        return f"{text}. {verb} {_units(delta)} {v.unit_it} di {symbol}: obiettivo {_units(target)} ({held})."
+        return f"{text}. {verb} {_units(delta)} {unit} di {symbol}: obiettivo {_units(target)} ({held})."
+
+    @staticmethod
+    def _closing_text(symbol: str, unit: str, target: float, current: float, delta: float, side: str) -> str:
+        """What happens to the leg that does NOT carry today's side: sold, trimmed, or a remainder left alone."""
+        if delta < 0 and target == 0:
+            return f"Vendo {_units(delta)} {unit} di {symbol}: il lato {side} si chiude."
+        if delta < 0:
+            return f"Vendo {_units(delta)} {unit} di {symbol}: del lato {side} ne restano {_units(target)}."
+        if target > 0:
+            return f"Restano {_units(target)} {unit} di {symbol} (lato {side}, dentro la fascia di inerzia)."
+        return ""
