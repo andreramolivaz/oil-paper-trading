@@ -308,7 +308,7 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
 - Site: the terminal (`site/src/pages/terminal.ts`) formats `desk.json` and computes nothing. Plain monospace
   text, colour only for sign and state.
 
-## State of play (2026-10-08)
+## State of play (2026-10-09)
 Phases 1-11 of `docs/PLAN.md` are implemented. Phase 10 (this date) added the desk after three days of a flat
 account with zero trades. The four causes, all fixed and pinned by `tests/test_tick_job.py`:
 1. nothing was promoted, so the master's weight was zero by construction (now: the desk books trade);
@@ -377,6 +377,19 @@ over to a successor started by `github-actions[bot]`; three pushes to main each 
 progress, whose hand-over step was skipped. A tick takes about eight seconds and five requests. What was NOT
 seen that evening: a fill (the first is due at the 9:30 New York open of 2026-10-09) and a scheduled run of the
 watchdog (GitHub had not fired it yet; its logic was run by hand).
+
+Phase 11 went live on 2026-10-09 at 06:03 UTC (commit 9611ac6). Checked, not assumed: CI ran its three jobs
+on the pull request and again on main; the push cancelled the runner in progress and started a new one; its
+first tick (06:04, off the slot) asked for exactly `sco_daily`, `copper_daily` and `dxy_daily` beside the
+half-hour tables (seven downloads, none failed), recomputed the backtest once ("le regole sono cambiate",
+fingerprint 5bf433f2e42a, the numbers above) and left the two BNO orders in the queue; the 06:18 tick fed the
+bar that had ended at 06:00 - which the 06:04 tick had rightly not taken for finished -, downloaded the four
+half-hour tables and recomputed nothing (the fingerprint is the same in another process); the public page
+shows the seven sleeves by source, copper at its confirmed close of the 8th, and no console error. The
+scheduled watchdog has now been seen: ONE run in nine hours (01:26 UTC) for a cron that asks for two an hour.
+What has NOT been seen yet: a fill; a decision taken under the new forecast (the first are due at 14:35 and
+15:00 New York on 2026-10-09, with the first download of copper and the dollar on a decision tick: check that
+the row of the 8th is still 6.519); a short position through SCO (the forecast is long).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
