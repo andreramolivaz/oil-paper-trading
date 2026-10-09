@@ -387,9 +387,25 @@ bar that had ended at 06:00 - which the 06:04 tick had rightly not taken for fin
 half-hour tables and recomputed nothing (the fingerprint is the same in another process); the public page
 shows the seven sleeves by source, copper at its confirmed close of the 8th, and no console error. The
 scheduled watchdog has now been seen: ONE run in nine hours (01:26 UTC) for a cron that asks for two an hour.
-What has NOT been seen yet: a fill; a decision taken under the new forecast (the first are due at 14:35 and
-15:00 New York on 2026-10-09, with the first download of copper and the dollar on a decision tick: check that
-the row of the 8th is still 6.519); a short position through SCO (the forecast is long).
+
+The first full day (2026-10-09), read on the data branch that evening. Both queued BNO orders filled at the
+13:30 UTC open (reference 63.37, paid 63.392, 3.5 bp, no commission), one fill each. The 18:48 tick
+downloaded copper and the dollar for the day's first decision - the row of the 8th was still 6.519, and the
+row of the 9th (a live quote at 6.704, with thirty times the volume) was on file and was not read -, took the
+futures book's decision (0.46x wanted, less than one lot: no position) and ran the first system's end of day
+in the same tick: 337 seconds, the longest of the day, against a median of 7. The 19:18 tick took the fund
+books' decisions on tables read at that tick, without asking for copper again ("posizione invariata", inside
+the band, no order), and the options book's on quotes 44 seconds old (USO: forecast 3.8 under its threshold
+of 5; BNO: the puts quoted 61-77 % wide). The 20:18 tick downloaded every daily table once for the official
+closes; the 20:48 tick none. 56 ticks in 24 hours, all ok, no failed download, no slot missed, three
+hand-overs; the scheduled watchdog ran four times in 23 hours. Equity at the close: 10 012.56, 10 025.70,
+10 000, 10 000. Still NOT seen: a decision that TRADES under the new forecast, a short position through SCO,
+a roll, the weekend stop of the runner and its restart by the watchdog on Sunday evening.
+
+Noticed and not investigated: the first system's regime label read "Contango + eccesso d'offerta + trend
+ribassista" at 99.96 % on 6, 8 and 9 October, with the curve in 25 % backwardation. It is the label of the
+nearest state of an HMM fitted in August (`engine/regime/labels.py`, `approx`); nothing trades on it, but the
+archive page shows it.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
