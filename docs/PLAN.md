@@ -151,3 +151,30 @@ Nove strategie su diciotto non hanno aperto nessuna operazione nella finestra: l
 sono smentite, sono non testate — e questo è scritto dove si leggono i risultati, non lasciato intendere.
 
 I numeri completi, incluso il Monte Carlo di rovina sui rendimenti reali dal 1987, sono in `docs/VALIDATION.md`.
+
+## Un limite noto del primo sistema: l'etichetta del regime (misurato il 9 ottobre 2026)
+
+Dal 6 ottobre la pagina d'archivio mostra il regime «Contango + eccesso d'offerta + trend ribassista» al
+99,96%, mentre la curva è in backwardation (M1-M6 +10,6%), il trend a 63 giorni è positivo e le scorte sono
+sulla media a cinque anni. L'etichetta è sbagliata. La causa è stata riprodotta su una copia dello stato reale
+e ha tre parti:
+
+1. il modello sceglie quale pendenza della curva usare guardando l'intera tabella: bastano le quattro righe di
+   curva vera del Brent (l'archivio parte dal 5 ottobre) per preferirla alla pendenza M1-M2 approssimata, che
+   ha 9 138 righe dal 1987. Poi ogni finestra di stima scarta la colonna, vuota in quella finestra: tutte le
+   146 stime girano senza alcuna informazione sulla curva (per questo l'etichetta porta il segno ≈);
+2. le regole che danno il nome agli stati leggono solo la pendenza M1-M6: quella di riserva, anche quando è
+   nel modello, non arriva mai al nome;
+3. il nome descrive la media di lungo periodo di uno stato, non la giornata: il mercato dell'8 ottobre
+   (volatilità alta, trend positivo, premio di volatilità negativo) cade nello stato «teso» più vicino, la cui
+   media storica ha le scorte alte e nient'altro di notevole.
+
+Riparando i punti 1 e 2 in una prova, l'etichetta dell'8 ottobre diventa «Shock/crash» al 100% - di nuovo
+sbagliata, con un rendimento a un mese di +6% - e 3 442 giorni su 9 917 cambiano nome. Non è quindi un
+ritocco: cambia la storia dei regimi che leggono S3, S8, S10, S11, S14, S17, la condizione del gate sui long
+«geopolitici», i pesi di S20 e l'ensemble delle previsioni, e va seguita da una nuova validazione. Finché
+resta così, nessuna etichetta dice «geopolitico» nel mezzo di una guerra, e le cautele che quelle strategie
+legano a quella parola non scattano.
+
+Non è stato toccato nulla: è una decisione di ricerca sul primo sistema, il cui conto è fermo per costruzione.
+Il desk - i quattro libri che operano - non legge il regime.

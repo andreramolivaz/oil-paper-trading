@@ -402,10 +402,23 @@ hand-overs; the scheduled watchdog ran four times in 23 hours. Equity at the clo
 10 000, 10 000. Still NOT seen: a decision that TRADES under the new forecast, a short position through SCO,
 a roll, the weekend stop of the runner and its restart by the watchdog on Sunday evening.
 
-Noticed and not investigated: the first system's regime label read "Contango + eccesso d'offerta + trend
-ribassista" at 99.96 % on 6, 8 and 9 October, with the curve in 25 % backwardation. It is the label of the
-nearest state of an HMM fitted in August (`engine/regime/labels.py`, `approx`); nothing trades on it, but the
-archive page shows it.
+Noticed that day, diagnosed on a copy of the live state and NOT fixed (it is a research decision on the first
+system, the owner's to take; `docs/PLAN.md` has it in Italian): the first system's regime label read "Contango
++ eccesso d'offerta + trend ribassista" at 99.96 % on 6, 8 and 9 October, with the curve in backwardation
+(M1-M6 +10.6 %), the 63-day trend positive (z +1.0) and stocks at their five-year average. Three causes:
+(1) `WalkForwardHmm._select_columns` chooses the slope column on the whole FRAME: the four rows of real Brent
+curve (the archive starts on 2026-10-05) select `slope_m1_m6` and switch off the M1-M2 proxy, which has 9 138
+rows since 1987; every training window then drops the empty column, so all 146 fits run without any curve
+feature (hence `approx`); (2) `labels.py` reads `slope_m1_m6` only: the fallback slope, when it is the one in
+the fit, never reaches the rules or the centroids; (3) a label names the long-run MEAN of an HMM state, not
+the day: the vector of 8 October (volatility +1.1, trend +1.0, volatility premium -1.4) falls in a catch-all
+stressed state whose mean has stocks at +1.2 and nothing else of note. On 5 October, on another fit grid and
+before the curve rows arrived, the same market was "Squeeze rialzista" at 58 %. With (1) and (2) repaired in
+a what-if the label of 8 October becomes "Shock/crash" at 100 % (one-month return +6 %: wrong again) and 3 442
+days out of 9 917 change label. So it is not a one-line fix: it rewrites the regime history that S3, S8, S10,
+S11, S14, S17, the gate's "geopolitical long" condition, the S20 weights and the forecast ensemble read, and
+it must be followed by a new validation. Until then no label says "geopolitico" in the middle of a war, so
+the safeguards those strategies hang on that word are off. Nothing on the desk reads the regime.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
