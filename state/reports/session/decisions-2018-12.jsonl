@@ -1,0 +1,19 @@
+{"ts": "2018-12-03T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S10", "S15", "S18", "S3"]}
+{"ts": "2018-12-04T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S10", "S15", "S18", "S3"]}
+{"ts": "2018-12-06T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S10", "S15", "S3"]}
+{"ts": "2018-12-07T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S13", "S15", "S3"]}
+{"ts": "2018-12-10T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S15", "S18", "S3"]}
+{"ts": "2018-12-11T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S15", "S18", "S3", "S9"]}
+{"ts": "2018-12-12T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S15", "S3", "S9"]}
+{"ts": "2018-12-13T19:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S15", "S3"]}
+{"ts": "2018-12-14T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S13", "S15", "S3"]}
+{"ts": "2018-12-17T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S15", "S18", "S3"]}
+{"ts": "2018-12-18T19:30:00Z", "n_signals": 4, "n_orders": 1, "instruments": ["BZG19/CLG19"], "strategies": ["S18", "S3", "S8", "S9"]}
+{"ts": "2018-12-19T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S3", "S4", "S8", "S9"]}
+{"ts": "2018-12-20T19:30:00Z", "n_signals": 3, "n_orders": 1, "instruments": ["BZG19/CLG19"], "strategies": ["S17", "S3", "S9"]}
+{"ts": "2018-12-21T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S13", "S3", "S9"]}
+{"ts": "2018-12-24T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S17", "S3", "S9"]}
+{"ts": "2018-12-26T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S15", "S18", "S3"]}
+{"ts": "2018-12-27T19:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S15", "S3"]}
+{"ts": "2018-12-28T19:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S15", "S3"]}
+{"ts": "2018-12-31T19:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S15", "S3"]}

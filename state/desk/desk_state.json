@@ -1,0 +1,12 @@
+{
+  "last_decision_day": {
+    "prudente": "2026-10-09",
+    "dinamico": "2026-10-09",
+    "spinto": "2026-10-09"
+  },
+  "last_financing_day": {
+    "prudente": "2026-10-09",
+    "dinamico": "2026-10-09"
+  },
+  "last_roll": {}
+}

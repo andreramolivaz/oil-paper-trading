@@ -1,0 +1,21 @@
+{"ts": "2020-01-02T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4"]}
+{"ts": "2020-01-03T19:30:00Z", "n_signals": 6, "n_orders": 1, "instruments": ["BZH20"], "strategies": ["S1", "S13", "S16", "S21", "S3", "S4"]}
+{"ts": "2020-01-06T19:30:00Z", "n_signals": 6, "n_orders": 1, "instruments": ["BZH20"], "strategies": ["S1", "S13", "S18", "S21", "S3", "S4"]}
+{"ts": "2020-01-07T19:30:00Z", "n_signals": 6, "n_orders": 0, "instruments": [], "strategies": ["S1", "S13", "S18", "S21", "S3", "S4"]}
+{"ts": "2020-01-08T19:30:00Z", "n_signals": 4, "n_orders": 1, "instruments": ["BZH20"], "strategies": ["S1", "S21", "S3", "S4"]}
+{"ts": "2020-01-09T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4"]}
+{"ts": "2020-01-10T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4"]}
+{"ts": "2020-01-13T19:30:00Z", "n_signals": 6, "n_orders": 0, "instruments": [], "strategies": ["S1", "S18", "S21", "S3", "S4", "S9"]}
+{"ts": "2020-01-14T19:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4", "S9"]}
+{"ts": "2020-01-15T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4"]}
+{"ts": "2020-01-16T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4"]}
+{"ts": "2020-01-17T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4"]}
+{"ts": "2020-01-21T19:30:00Z", "n_signals": 5, "n_orders": 1, "instruments": ["BZH20"], "strategies": ["S1", "S18", "S21", "S3", "S4"]}
+{"ts": "2020-01-22T19:30:00Z", "n_signals": 6, "n_orders": 0, "instruments": [], "strategies": ["S1", "S18", "S21", "S3", "S4", "S8"]}
+{"ts": "2020-01-23T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S4", "S8"]}
+{"ts": "2020-01-24T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S4", "S8"]}
+{"ts": "2020-01-27T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S4", "S8"]}
+{"ts": "2020-01-28T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S4", "S8"]}
+{"ts": "2020-01-29T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S4", "S8"]}
+{"ts": "2020-01-30T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S4", "S8"]}
+{"ts": "2020-01-31T19:30:00Z", "n_signals": 6, "n_orders": 0, "instruments": [], "strategies": ["S1", "S13", "S21", "S3", "S4", "S8"]}

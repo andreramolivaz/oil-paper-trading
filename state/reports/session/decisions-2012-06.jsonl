@@ -1,0 +1,21 @@
+{"ts": "2012-06-01T18:30:00Z", "n_signals": 6, "n_orders": 1, "instruments": ["BZQ12"], "strategies": ["S1", "S16", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-04T18:30:00Z", "n_signals": 5, "n_orders": 1, "instruments": ["BZQ12"], "strategies": ["S1", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-05T18:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-06T18:30:00Z", "n_signals": 6, "n_orders": 0, "instruments": [], "strategies": ["S1", "S11", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-07T18:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-08T18:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-11T18:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-12T18:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-13T18:30:00Z", "n_signals": 6, "n_orders": 0, "instruments": [], "strategies": ["S1", "S18", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-14T18:30:00Z", "n_signals": 6, "n_orders": 0, "instruments": [], "strategies": ["S1", "S18", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-15T18:30:00Z", "n_signals": 7, "n_orders": 1, "instruments": ["BZQ12"], "strategies": ["S1", "S13", "S18", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-18T18:30:00Z", "n_signals": 5, "n_orders": 1, "instruments": ["BZQ12"], "strategies": ["S1", "S21", "S3", "S4", "S8"]}
+{"ts": "2012-06-19T18:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4"]}
+{"ts": "2012-06-20T18:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S11", "S3", "S4", "S8"]}
+{"ts": "2012-06-21T18:30:00Z", "n_signals": 4, "n_orders": 1, "instruments": ["BZQ12"], "strategies": ["S1", "S13", "S3", "S8"]}
+{"ts": "2012-06-22T18:30:00Z", "n_signals": 4, "n_orders": 1, "instruments": ["BZQ12"], "strategies": ["S1", "S17", "S3", "S8"]}
+{"ts": "2012-06-25T18:30:00Z", "n_signals": 4, "n_orders": 1, "instruments": ["BZQ12"], "strategies": ["S1", "S3", "S8", "S9"]}
+{"ts": "2012-06-26T18:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3", "S8", "S9"]}
+{"ts": "2012-06-27T18:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3", "S8", "S9"]}
+{"ts": "2012-06-28T18:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3", "S8", "S9"]}
+{"ts": "2012-06-29T18:30:00Z", "n_signals": 4, "n_orders": 1, "instruments": ["BZU12"], "strategies": ["S1", "S17", "S3", "S8"]}

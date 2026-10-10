@@ -1,0 +1,43 @@
+{
+  "account_id": "master",
+  "epoch": 2,
+  "cash": 10000.0,
+  "positions": {},
+  "status": "active",
+  "peak_equity": 10000.0,
+  "day_start_equity": 10000.0,
+  "day_start_date": "2026-10-09",
+  "last_mark_ts": "2026-10-09T18:30:00Z",
+  "last_prices": {
+    "BZZ26": 104.48999786376953,
+    "CLX26": 91.6500015258789,
+    "RBX26": 132.29579830169678,
+    "HOX26": 198.9456081390381,
+    "BZZ26/CLX26": 12.839996337890625
+  },
+  "last_price_source": "md (gambe)",
+  "last_price_asof": "2026-10-09T18:30:00Z",
+  "pending": [],
+  "processed_keys": [],
+  "n_fills": 0,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-05T18:30:14.164020Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 10000.0,
+  "epoch_n_fills": 0,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.0,
+  "total_financing": 0.0,
+  "last_equity": 10000.0,
+  "last_bar_ts": {
+    "BZZ26|1h": "2026-10-08T19:00:00Z",
+    "BZZ26|1d": "2026-10-09T18:30:00Z",
+    "BZZ26/CLX26|1d": "2026-10-09T18:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

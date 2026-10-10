@@ -1,0 +1,56 @@
+{
+  "generated_at": "2026-10-09T18:53:39.327624Z",
+  "current": {
+    "ts": "2026-10-09T18:30:00Z",
+    "regime_id": 14,
+    "label": "Contango + eccesso d'offerta + trend ribassista",
+    "confidence": 0.9995848788211292,
+    "probabilities": {
+      "Shock/crash": 0.00041488147520803945,
+      "Backwardation + vol alta + rischio geopolitico": 0.0,
+      "Squeeze rialzista": 0.0,
+      "Contango + eccesso d'offerta + trend ribassista": 0.9995848788211292,
+      "Range a bassa volatilità": 2.3970366269449656e-07
+    },
+    "change_point_prob": 0.01268129720203434,
+    "features_used": [
+      "ret_21",
+      "rv_yz_21",
+      "slope_m1_m6",
+      "vrp",
+      "tsmom_63",
+      "geo_index",
+      "crude_stocks_vs_5y"
+    ],
+    "model": "hmm5-wf-2026-08-24",
+    "approx": true
+  },
+  "history": [
+    {
+      "ts": "2026-10-05T18:30:00Z",
+      "label": "Squeeze rialzista",
+      "confidence": 0.583876122734104
+    },
+    {
+      "ts": "2026-10-05T18:30:00Z",
+      "label": "Squeeze rialzista",
+      "confidence": 0.583876122734104
+    },
+    {
+      "ts": "2026-10-06T18:30:00Z",
+      "label": "Contango + eccesso d'offerta + trend ribassista",
+      "confidence": 0.9996635606814417
+    },
+    {
+      "ts": "2026-10-08T18:30:00Z",
+      "label": "Contango + eccesso d'offerta + trend ribassista",
+      "confidence": 0.9996600772265212
+    },
+    {
+      "ts": "2026-10-09T18:30:00Z",
+      "label": "Contango + eccesso d'offerta + trend ribassista",
+      "confidence": 0.9995848788211292
+    }
+  ],
+  "source": "engine/regime"
+}

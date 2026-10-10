@@ -1,0 +1,4620 @@
+{
+  "generated_at": "2026-10-10T10:20:39.624005Z",
+  "strategies": [
+    {
+      "id": "S1",
+      "name": "Momentum multi-orizzonte filtrato dal carry",
+      "family": "trend",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S1",
+        "name": "Momentum multi-orizzonte filtrato dal carry",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": 0.002966484389961721,
+          "cagr": 0.00019896633981830725,
+          "ann_vol": 0.009862820553363629,
+          "sharpe": 0.02510296317548149,
+          "sortino": 0.034386031824191456,
+          "calmar": 0.005704978313193211,
+          "max_drawdown": -0.034875915191155404,
+          "max_drawdown_duration": 2697,
+          "longest_underwater": 2697,
+          "hit_rate": 0.10634328358208955,
+          "skew": -0.7176714692450736,
+          "kurtosis": 36.48693563678556,
+          "excess_kurtosis": 33.48693563678556,
+          "psr": 0.5385548909441242,
+          "min_trl": 1083197.6128319171,
+          "turnover": 6.203668967016107,
+          "n_trades": 276,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.017124809629480188,
+          "breakeven_cost_bps": 0.5737197856208579,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": 0.02510296317548149,
+            "cagr": 0.00019896633981830725,
+            "ann_vol": 0.009862820553363629,
+            "max_drawdown": -0.034875915191155404,
+            "calmar": 0.005704978313193211
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.01606307143245242,
+            "ann_cost": 0.0010788630066572522,
+            "sharpe": -0.08421408977877697,
+            "cagr": -0.0008796116112210761,
+            "ann_vol": 0.009870996500508104,
+            "max_drawdown": -0.03896701884297171,
+            "calmar": -0.022573233399396354
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 0.00045809067352450204,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": 0.1284474615510488,
+            "total_return": 0.003977320265420969,
+            "ann_vol": 0.007292800070754417,
+            "max_drawdown": -0.018553785909825482,
+            "hit_rate": 0.07006369426751592,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": -0.06739951284176599,
+            "total_return": -0.004535634623292095,
+            "ann_vol": 0.00853014866614289,
+            "max_drawdown": -0.022276406955818118,
+            "hit_rate": 0.11579509071504802,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": 1.4175260236354428,
+            "total_return": 0.01806085869405205,
+            "ann_vol": 0.011131388587204173,
+            "max_drawdown": -0.013148711670253221,
+            "hit_rate": 0.15331010452961671,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": 0.5064052557877975,
+            "total_return": 0.008197378695678603,
+            "ann_vol": 0.013023427549962153,
+            "max_drawdown": -0.007518732495269909,
+            "hit_rate": 0.13924050632911392,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": -1.5037187373353071,
+            "total_return": -0.022273253588732445,
+            "ann_vol": 0.02153957219562019,
+            "max_drawdown": -0.031690989406044756,
+            "hit_rate": 0.09770114942528736,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.03271604443649956,
+            "sharpe": 1.0448230487884662,
+            "max_drawdown": -0.017623607070307967,
+            "worst_day": -0.008644986519038556
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.005523365631928234,
+            "sharpe": 2.1548622133768505,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "trend",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 0.00045809067352450204,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.08421408977877697,
+          "n_trades": 276,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,08 < 0",
+        "weight": 0.0
+      },
+      "signal": {
+        "ts": "2026-10-09T18:30:00Z",
+        "direction": "long",
+        "prob": 0.6123183510995164,
+        "horizon_days": 21,
+        "rationale": "Momentum multi-orizzonte 1,00 (z 0,73 sigma) concorde con backwardation (M1-M6 10,6%): long, stop 8,8%."
+      }
+    },
+    {
+      "id": "S2",
+      "name": "Breakout da compressione",
+      "family": "trend",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S2",
+        "name": "Breakout da compressione",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": -0.03281899217943174,
+          "cagr": -0.002238733164410811,
+          "ann_vol": 0.0044886319845918975,
+          "sharpe": -0.4970673589552965,
+          "sortino": -0.607325064299703,
+          "calmar": -0.05591261916415863,
+          "max_drawdown": -0.04003985500729135,
+          "max_drawdown_duration": 3389,
+          "longest_underwater": 3389,
+          "hit_rate": 0.010127931769722815,
+          "skew": -4.778983948162756,
+          "kurtosis": 191.30210199845715,
+          "excess_kurtosis": 188.30210199845715,
+          "psr": 0.021441806843604562,
+          "min_trl": null,
+          "turnover": 66.76477319389235,
+          "n_trades": 101,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.0076261924909258715,
+          "breakeven_cost_bps": -11.609698493409873,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": -0.4970673589552965,
+            "cagr": -0.002238733164410811,
+            "ann_vol": 0.0044886319845918975,
+            "max_drawdown": -0.04003985500729135,
+            "calmar": -0.05591261916415863
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.007153368556488467,
+            "ann_cost": 0.0004804501269283299,
+            "sharpe": -0.606228261983612,
+            "cagr": -0.0027179277418059034,
+            "ann_vol": 0.00447290689477126,
+            "max_drawdown": -0.04472201106798046,
+            "calmar": -0.06077382650960107
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 9.044438330373145e-09,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": -0.5193931616172159,
+            "total_return": -0.009101809560364327,
+            "ann_vol": 0.004021047569754191,
+            "max_drawdown": -0.011393488493752435,
+            "hit_rate": 0.0018198362147406734,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": -0.43360209557916296,
+            "total_return": -0.012961702586723023,
+            "ann_vol": 0.004027332882985584,
+            "max_drawdown": -0.02033081766842404,
+            "hit_rate": 0.014941302027748132,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": -1.2769271991667077,
+            "total_return": -0.0052825838351073795,
+            "ann_vol": 0.0033035387767050136,
+            "max_drawdown": -0.005599107887558907,
+            "hit_rate": 0.0189873417721519,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": -0.7180483056348964,
+            "total_return": -0.005865835955869314,
+            "ann_vol": 0.01176976013939087,
+            "max_drawdown": -0.012700728418758245,
+            "hit_rate": 0.011494252873563218,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": -0.006792952975081423,
+            "sharpe": -1.0816929210736699,
+            "max_drawdown": -0.006792952975081423,
+            "worst_day": -0.0045030862905171
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "trend",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 9.044438330373145e-09,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.606228261983612,
+          "n_trades": 101,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,61 < 0",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S3",
+      "name": "Trend adattivo (Kalman)",
+      "family": "trend",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10040.85688097391,
+        "total_return": 0.00408568809739096,
+        "cagr": 0.29288215297320375,
+        "ann_vol": 0.019711589766730875,
+        "sharpe": 13.045643694961223,
+        "sortino": null,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.002828062666460962,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0040856880973911824
+        }
+      },
+      "validation": {
+        "id": "S3",
+        "name": "Trend adattivo (Kalman)",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": -0.03360336546303022,
+          "cagr": -0.002293101209277393,
+          "ann_vol": 0.057643734365718464,
+          "sharpe": -0.011021857488131982,
+          "sortino": -0.015530528067076348,
+          "calmar": -0.009209105430947526,
+          "max_drawdown": -0.24900368732573575,
+          "max_drawdown_duration": 2697,
+          "longest_underwater": 2697,
+          "hit_rate": 0.3411513859275053,
+          "skew": 0.1772903458511974,
+          "kurtosis": 12.886570999239318,
+          "excess_kurtosis": 9.886570999239318,
+          "psr": 0.48304178148593546,
+          "min_trl": null,
+          "turnover": 7.545951017052078,
+          "n_trades": 924,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.020229263797047013,
+          "breakeven_cost_bps": -1.2463105775807957,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": -0.011021857488131982,
+            "cagr": -0.002293101209277393,
+            "ann_vol": 0.057643734365718464,
+            "max_drawdown": -0.24900368732573575,
+            "calmar": -0.009209105430947526
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.018975049441630094,
+            "ann_cost": 0.0012744436192139617,
+            "sharpe": -0.03312700544128374,
+            "cagr": -0.0035642301163048007,
+            "ann_vol": 0.0576503858117106,
+            "max_drawdown": -0.2586099805072074,
+            "calmar": -0.01378226048861044
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 0.000273973649774231,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": -0.00425118507579636,
+            "ann_vol": 0.006174355818425731,
+            "max_drawdown": -0.00425118507579636,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": -0.2554869577602394,
+            "total_return": -0.0719494632771146,
+            "ann_vol": 0.05997710931528171,
+            "max_drawdown": -0.18157088242169306,
+            "hit_rate": 0.39854413102820746,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": -0.042348936633369055,
+            "total_return": -0.02166986202276744,
+            "ann_vol": 0.045319724209438576,
+            "max_drawdown": -0.18915932565704285,
+            "hit_rate": 0.28281750266808964,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": 1.1500006892462913,
+            "total_return": 0.08089780064849639,
+            "ann_vol": 0.06101618988633592,
+            "max_drawdown": -0.047800284730246556,
+            "hit_rate": 0.4146341463414634,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": 0.4839542993451014,
+            "total_return": 0.03502157919781301,
+            "ann_vol": 0.06049310155975311,
+            "max_drawdown": -0.04847366254655672,
+            "hit_rate": 0.4177215189873418,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": -0.4969842856223078,
+            "total_return": -0.04453559082339131,
+            "ann_vol": 0.11869203610407739,
+            "max_drawdown": -0.1239661076409263,
+            "hit_rate": 0.3505747126436782,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.209361367216907,
+            "sharpe": 1.4848303953432158,
+            "max_drawdown": -0.0628267729136458,
+            "worst_day": -0.022630562241630736
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": -0.0009116701277811501,
+            "sharpe": -1.4829127788130938,
+            "max_drawdown": -0.002576367362025822,
+            "worst_day": -0.0013277771712241204
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.08237858714654434,
+            "sharpe": 2.806850989392929,
+            "max_drawdown": -0.03121508031047804,
+            "worst_day": -0.010088142480081608
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0036937787879915973,
+            "sharpe": 0.16236522379650944,
+            "max_drawdown": -0.03719236462788311,
+            "worst_day": -0.013895371222913289
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.031067709981878355,
+            "sharpe": 0.9223891625339327,
+            "max_drawdown": -0.048254078477453,
+            "worst_day": -0.014870611027651637
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": -0.021937705394477702,
+            "sharpe": -3.1715016932785796,
+            "max_drawdown": -0.03287799390519952,
+            "worst_day": -0.014870611027651637
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "trend",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 0.000273973649774231,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.03312700544128374,
+          "n_trades": 924,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,03 < 0",
+        "weight": 0.0
+      },
+      "signal": {
+        "ts": "2026-10-09T18:30:00Z",
+        "direction": "long",
+        "prob": 0.7997880932572767,
+        "horizon_days": 21,
+        "rationale": "Pendenza Kalman 0,3% al giorno, 5,08 volte la sua deviazione standard: long con size 0,27, stop 10,9%."
+      }
+    },
+    {
+      "id": "S4",
+      "name": "Carry e roll yield",
+      "family": "carry",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S4",
+        "name": "Carry e roll yield",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": 0.0,
+          "cagr": 0.0,
+          "ann_vol": 0.0,
+          "sharpe": null,
+          "sortino": null,
+          "calmar": null,
+          "max_drawdown": 0.0,
+          "max_drawdown_duration": 0,
+          "longest_underwater": 0,
+          "hit_rate": 0.0,
+          "skew": null,
+          "kurtosis": null,
+          "excess_kurtosis": null,
+          "psr": null,
+          "min_trl": null,
+          "turnover": 3.5198185245627833,
+          "n_trades": 0,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.009736790391333263,
+          "breakeven_cost_bps": 0.0,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": null,
+            "cagr": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "calmar": null
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.009133109387070602,
+            "ann_cost": 0.0006134177946539956,
+            "sharpe": -6.898703028744802,
+            "cagr": -0.000613234388400441,
+            "ann_vol": 8.89178432667807e-05,
+            "max_drawdown": -0.009091598549951785,
+            "calmar": -0.06745066723207803
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": null,
+          "sr0": null,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "carry",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": null,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -6.898703028744802,
+          "n_trades": 0,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR n/d; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -6,90 < 0",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S5",
+      "name": "Spread di calendario M1-M3",
+      "family": "carry",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S5",
+        "name": "Spread di calendario M1-M3",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": 0.0,
+          "cagr": 0.0,
+          "ann_vol": 0.0,
+          "sharpe": null,
+          "sortino": null,
+          "calmar": null,
+          "max_drawdown": 0.0,
+          "max_drawdown_duration": 0,
+          "longest_underwater": 0,
+          "hit_rate": 0.0,
+          "skew": null,
+          "kurtosis": null,
+          "excess_kurtosis": null,
+          "psr": null,
+          "min_trl": null,
+          "n_trades": 0,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": false,
+          "reason": "serie di turnover non ricostruibile: costi x2 non calcolabili"
+        },
+        "dsr": {
+          "dsr_prob": null,
+          "sr0": null,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "carry",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": null,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": null,
+          "n_trades": 0,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR n/d; PBO 0,80 > 0,5; Sharpe OOS a costi doppi n/d",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S6",
+      "name": "Butterfly di curva 1-3-6",
+      "family": "carry",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S6",
+        "name": "Butterfly di curva 1-3-6",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": 0.0,
+          "cagr": 0.0,
+          "ann_vol": 0.0,
+          "sharpe": null,
+          "sortino": null,
+          "calmar": null,
+          "max_drawdown": 0.0,
+          "max_drawdown_duration": 0,
+          "longest_underwater": 0,
+          "hit_rate": 0.0,
+          "skew": null,
+          "kurtosis": null,
+          "excess_kurtosis": null,
+          "psr": null,
+          "min_trl": null,
+          "n_trades": 0,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": false,
+          "reason": "serie di turnover non ricostruibile: costi x2 non calcolabili"
+        },
+        "dsr": {
+          "dsr_prob": null,
+          "sr0": null,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "carry",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": null,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": null,
+          "n_trades": 0,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR n/d; PBO 0,80 > 0,5; Sharpe OOS a costi doppi n/d",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S7",
+      "name": "Conferma fisica",
+      "family": "carry",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S7",
+        "name": "Conferma fisica",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": 0.0,
+          "cagr": 0.0,
+          "ann_vol": 0.0,
+          "sharpe": null,
+          "sortino": null,
+          "calmar": null,
+          "max_drawdown": 0.0,
+          "max_drawdown_duration": 0,
+          "longest_underwater": 0,
+          "hit_rate": 0.0,
+          "skew": null,
+          "kurtosis": null,
+          "excess_kurtosis": null,
+          "psr": null,
+          "min_trl": null,
+          "n_trades": 0,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": false,
+          "reason": "serie di turnover non ricostruibile: costi x2 non calcolabili"
+        },
+        "dsr": {
+          "dsr_prob": null,
+          "sr0": null,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "carry",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": null,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": null,
+          "n_trades": 0,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR n/d; PBO 0,80 > 0,5; Sharpe OOS a costi doppi n/d",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S8",
+      "name": "Brent-WTI (cointegrazione)",
+      "family": "relative_value",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 9998.780575139986,
+        "total_return": -0.00012194248600139179,
+        "cagr": -0.0076534074425720355,
+        "ann_vol": 0.0009678884766379735,
+        "sharpe": -7.937253933193772,
+        "sortino": -3.968626966596886,
+        "max_drawdown": -0.00012194248600139179,
+        "max_drawdown_days": 1,
+        "calmar": -62.76243574765798,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": -0.00012194248600139179,
+        "by_year": {
+          "2026": -0.00012194248600139179
+        }
+      },
+      "validation": {
+        "id": "S8",
+        "name": "Brent-WTI (cointegrazione)",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": -0.1023712234989661,
+          "cagr": -0.0072273988705326975,
+          "ann_vol": 0.019340198332060778,
+          "sharpe": -0.36516422487654754,
+          "sortino": -0.41129718310755947,
+          "calmar": -0.05692699841992147,
+          "max_drawdown": -0.12695907163802767,
+          "max_drawdown_duration": 3480,
+          "longest_underwater": 3480,
+          "hit_rate": 0.0482409381663113,
+          "skew": -26.54187579629497,
+          "kurtosis": 1258.620649629662,
+          "excess_kurtosis": 1255.620649629662,
+          "psr": 0.02939845529001617,
+          "min_trl": null,
+          "turnover": 5.8492066482393765,
+          "n_trades": 254,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.010077543437131882,
+          "breakeven_cost_bps": -27.809547798676874,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": -0.36516422487654754,
+            "cagr": -0.0072273988705326975,
+            "ann_vol": 0.019340198332060778,
+            "max_drawdown": -0.12695907163802767,
+            "calmar": -0.05692699841992147
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.009452735744029706,
+            "ann_cost": 0.0006348852365393086,
+            "sharpe": -0.39802301971590764,
+            "cagr": -0.007857485804892428,
+            "ann_vol": 0.019338664821243117,
+            "max_drawdown": -0.1320257567184696,
+            "calmar": -0.059514794690006215
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 4.9400049330347885e-11,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": -0.04384990306388904,
+            "total_return": -0.0027815925906862216,
+            "ann_vol": 0.012724587446967892,
+            "max_drawdown": -0.025880060666828686,
+            "hit_rate": 0.04640582347588717,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": -0.3142209756304159,
+            "total_return": -0.03379847825936788,
+            "ann_vol": 0.014384885397749491,
+            "max_drawdown": -0.055385069759637084,
+            "hit_rate": 0.06136606189967983,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": -0.8965728358986171,
+            "total_return": -0.05455666908214307,
+            "ann_vol": 0.05329666015723384,
+            "max_drawdown": -0.05889814221344092,
+            "hit_rate": 0.013937282229965157,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": -0.7540858566289141,
+            "total_return": -0.004938060926850341,
+            "ann_vol": 0.005217059001131242,
+            "max_drawdown": -0.008189983207830154,
+            "hit_rate": 0.00949367088607595,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": -1.5397493567643241,
+            "total_return": -0.009731086918112641,
+            "ann_vol": 0.009170381183053931,
+            "max_drawdown": -0.014607152012261704,
+            "hit_rate": 0.04597701149425287,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": -0.010501662757633201,
+            "sharpe": -0.31636156133287774,
+            "max_drawdown": -0.018563881941422,
+            "worst_day": -0.01023249727614739
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": -0.05838737103895986,
+            "sharpe": -1.9439486441450946,
+            "max_drawdown": -0.0586836698818497,
+            "worst_day": -0.056633274837381564
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": -0.0027736070906034804,
+            "sharpe": -0.43528093132840395,
+            "max_drawdown": -0.006137180728085445,
+            "worst_day": -0.0034355128208982677
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.004973596436455008,
+            "sharpe": 1.0370653791503868,
+            "max_drawdown": -0.002323297607753627,
+            "worst_day": -0.002061276664596434
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "relative_value",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 4.9400049330347885e-11,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.39802301971590764,
+          "n_trades": 254,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,40 < 0",
+        "weight": 0.0
+      },
+      "signal": {
+        "ts": "2026-10-09T18:30:00Z",
+        "direction": "short",
+        "prob": 0.7662866915329489,
+        "horizon_days": 10,
+        "rationale": "Residuo Brent-WTI a 2,38 sigma oltre la soglia 2,00, spread 12,79 $/bbl: short spread BZZ26/CLX26 per mean reversion, stop 9,1%."
+      }
+    },
+    {
+      "id": "S9",
+      "name": "Crack spread 3-2-1",
+      "family": "relative_value",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S9",
+        "name": "Crack spread 3-2-1",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": -0.17506144921576716,
+          "cagr": -0.012842327521256136,
+          "ann_vol": 0.01976611697748032,
+          "sharpe": -0.6440135237172689,
+          "sortino": -0.840921628850444,
+          "calmar": -0.058750337884827676,
+          "max_drawdown": -0.21859155170191247,
+          "max_drawdown_duration": 3322,
+          "longest_underwater": 3322,
+          "hit_rate": 0.07436034115138593,
+          "skew": -1.3105829414180517,
+          "kurtosis": 33.45501741525963,
+          "excess_kurtosis": 30.455017415259633,
+          "psr": 0.005611801704057245,
+          "min_trl": null,
+          "turnover": 15.322799880735491,
+          "n_trades": 551,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.00965875208240087,
+          "breakeven_cost_bps": -52.29916906660991,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": -0.6440135237172689,
+            "cagr": -0.012842327521256136,
+            "ann_vol": 0.01976611697748032,
+            "max_drawdown": -0.21859155170191247,
+            "calmar": -0.058750337884827676
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.009059909453292016,
+            "ann_cost": 0.0006085013811912549,
+            "sharpe": -0.6743545513538414,
+            "cagr": -0.013443119839259499,
+            "ann_vol": 0.0197791325042417,
+            "max_drawdown": -0.22361109345196373,
+            "calmar": -0.0601183046499764
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 8.744458056398953e-10,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0026129035424429237,
+            "ann_vol": 0.004729957366453985,
+            "max_drawdown": 0.0,
+            "hit_rate": 1.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": -1.2782702235032908,
+            "total_return": -0.10927240011406791,
+            "ann_vol": 0.02059052125557886,
+            "max_drawdown": -0.12322338813507583,
+            "hit_rate": 0.07097361237488627,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": -0.4755487154033081,
+            "total_return": -0.051223832918204204,
+            "ann_vol": 0.014643097504099874,
+            "max_drawdown": -0.0748847046856227,
+            "hit_rate": 0.06670224119530416,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": 0.6859165072942205,
+            "total_return": 0.02179571789458512,
+            "ann_vol": 0.028177763888653173,
+            "max_drawdown": -0.01485010924763086,
+            "hit_rate": 0.1289198606271777,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": 0.22664465843478257,
+            "total_return": 0.00406820677864439,
+            "ann_vol": 0.01476431609028892,
+            "max_drawdown": -0.012891225311860155,
+            "hit_rate": 0.06329113924050633,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": -1.8115380512417316,
+            "total_return": -0.05103031398951052,
+            "ann_vol": 0.04139664276026737,
+            "max_drawdown": -0.06611025550598648,
+            "hit_rate": 0.09770114942528736,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": -0.03466712017559925,
+            "sharpe": -0.8517651874696274,
+            "max_drawdown": -0.044525120935063556,
+            "worst_day": -0.01119523777240461
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.005107668368496299,
+            "sharpe": 2.1127165703934656,
+            "max_drawdown": -0.0035513707338644673,
+            "worst_day": -0.0017228646945601778
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": -0.01384137201381308,
+            "sharpe": -0.915984323519062,
+            "max_drawdown": -0.03495287114181078,
+            "worst_day": -0.016097475422726104
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": -0.003459554937980003,
+            "sharpe": -0.28855017718465154,
+            "max_drawdown": -0.018822023024584134,
+            "worst_day": -0.004122849322673483
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.012395937091665088,
+            "sharpe": 0.8437079990339431,
+            "max_drawdown": -0.02736104143624951,
+            "worst_day": -0.005725543919207654
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": -0.020888512532915682,
+            "sharpe": -8.179804101551062,
+            "max_drawdown": -0.020888512532915682,
+            "worst_day": -0.005725543919207654
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "relative_value",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 8.744458056398953e-10,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.6743545513538414,
+          "n_trades": 551,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,67 < 0",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S10",
+      "name": "Fair value macro",
+      "family": "relative_value",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S10",
+        "name": "Fair value macro",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": -0.06691165858499881,
+          "cagr": -0.004640680519205187,
+          "ann_vol": 0.009712342885811652,
+          "sharpe": -0.47406048548606927,
+          "sortino": -0.60218692331572,
+          "calmar": -0.05747714728290157,
+          "max_drawdown": -0.08073957631132656,
+          "max_drawdown_duration": 3075,
+          "longest_underwater": 3075,
+          "hit_rate": 0.015191897654584221,
+          "skew": -2.4294702517831666,
+          "kurtosis": 134.22841173025188,
+          "excess_kurtosis": 131.22841173025188,
+          "psr": 0.03077930380737282,
+          "min_trl": null,
+          "turnover": 7.8111123376509735,
+          "n_trades": 75,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.0012144142315999651,
+          "breakeven_cost_bps": -150.44937035490267,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": -0.47406048548606927,
+            "cagr": -0.004640680519205187,
+            "ann_vol": 0.009712342885811652,
+            "max_drawdown": -0.08073957631132656,
+            "calmar": -0.05747714728290157
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.001139120549240767,
+            "ann_cost": 7.650809659079779e-05,
+            "sharpe": -0.4818962088869017,
+            "cagr": -0.004716840669695466,
+            "ann_vol": 0.009713183033868573,
+            "max_drawdown": -0.08159947126044864,
+            "calmar": -0.0578047945266739
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 4.1869547224339047e-08,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0007402442058606074,
+            "ann_vol": 0.02393855271398387,
+            "max_drawdown": -0.0006956859591084052,
+            "hit_rate": 0.5,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": -0.39624230901368757,
+            "total_return": -0.018808888591514528,
+            "ann_vol": 0.010839538611499073,
+            "max_drawdown": -0.025471052223030255,
+            "hit_rate": 0.017288444040036398,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": 0.06956566474615562,
+            "total_return": 0.0021176383106744634,
+            "ann_vol": 0.004216763191274251,
+            "max_drawdown": -0.011221364744492868,
+            "hit_rate": 0.009071504802561366,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": -1.7975366023857648,
+            "total_return": -0.04610956845975189,
+            "ann_vol": 0.022911645260548636,
+            "max_drawdown": -0.04610956845975189,
+            "hit_rate": 0.03484320557491289,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": 0.13528425740994068,
+            "total_return": 0.0007164804658836843,
+            "ann_vol": 0.004289748445979019,
+            "max_drawdown": -0.0033976500190648906,
+            "hit_rate": 0.015822784810126583,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": -0.6866658630534748,
+            "total_return": -0.006610553055894974,
+            "ann_vol": 0.013849602109630436,
+            "max_drawdown": -0.015053314984693644,
+            "hit_rate": 0.028735632183908046,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": -0.02465489763961337,
+            "sharpe": -1.1635512014268818,
+            "max_drawdown": -0.033258619103040954,
+            "worst_day": -0.005771457244898692
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": -0.00848523786942812,
+            "sharpe": -0.8230420077839209,
+            "max_drawdown": -0.022572911235874127,
+            "worst_day": -0.0082283379784438
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": -0.02941924965101761,
+            "sharpe": -2.442182916273561,
+            "max_drawdown": -0.0360093702720069,
+            "worst_day": -0.00885870885296458
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": -0.013749693083212833,
+            "sharpe": -4.198273403943561,
+            "max_drawdown": -0.02044620801278685,
+            "worst_day": -0.004747496753817471
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "relative_value",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 4.1869547224339047e-08,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.4818962088869017,
+          "n_trades": 75,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,48 < 0",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S11",
+      "name": "Sorpresa sulle scorte EIA",
+      "family": "fundamental",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S11",
+        "name": "Sorpresa sulle scorte EIA",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": -0.034440838983726074,
+          "cagr": -0.0023511953007241404,
+          "ann_vol": 0.0038795709020355146,
+          "sharpe": -0.6048136861655294,
+          "sortino": -0.7029229667226462,
+          "calmar": -0.0651906289550487,
+          "max_drawdown": -0.036066461367405656,
+          "max_drawdown_duration": 3698,
+          "longest_underwater": 3698,
+          "hit_rate": 0.01279317697228145,
+          "skew": -9.359550921026845,
+          "kurtosis": 254.76744248093974,
+          "excess_kurtosis": 251.76744248093974,
+          "psr": 0.0032556969070722474,
+          "min_trl": null,
+          "turnover": 35.02891377686353,
+          "n_trades": 138,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.0036306917264576637,
+          "breakeven_cost_bps": -25.64574898284312,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": -0.6048136861655294,
+            "cagr": -0.0023511953007241404,
+            "ann_vol": 0.0038795709020355146,
+            "max_drawdown": -0.036066461367405656,
+            "calmar": -0.0651906289550487
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.003405588839417288,
+            "ann_cost": 0.00022873357876683278,
+            "sharpe": -0.6634330943236435,
+            "cagr": -0.0025793748871180133,
+            "ann_vol": 0.0038815536620053223,
+            "max_drawdown": -0.039185751767381816,
+            "calmar": -0.06582430528397015
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 1.0314668587597583e-11,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": 0.1247643562431992,
+            "total_return": 0.0014383817285259504,
+            "ann_vol": 0.002670180681590388,
+            "max_drawdown": -0.0073756329831539125,
+            "hit_rate": 0.015468607825295723,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": -0.96908783270019,
+            "total_return": -0.027489596748476508,
+            "ann_vol": 0.0038601729113473316,
+            "max_drawdown": -0.030982085617303756,
+            "hit_rate": 0.010672358591248666,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": -0.6520665263168428,
+            "total_return": -0.005132963277454716,
+            "ann_vol": 0.006893173845909243,
+            "max_drawdown": -0.00803802768198536,
+            "hit_rate": 0.020905923344947737,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": -1.7270863729488573,
+            "total_return": -0.0077620289170801104,
+            "ann_vol": 0.0035942570667092605,
+            "max_drawdown": -0.008111052474150338,
+            "hit_rate": 0.00949367088607595,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": 1.5228684279109146,
+            "total_return": 0.004337124548078108,
+            "ann_vol": 0.004121352421405371,
+            "max_drawdown": -0.0002936133176156819,
+            "hit_rate": 0.011494252873563218,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.0023864430725317742,
+            "sharpe": 0.5222200465037348,
+            "max_drawdown": -0.0020052996017032587,
+            "worst_day": -0.0018000415982384332
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": -0.007582056658920644,
+            "sharpe": -2.029565975097428,
+            "max_drawdown": -0.007582056658920644,
+            "worst_day": -0.00642669413139374
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0013340994477808454,
+            "sharpe": 1.314049920659879,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "fundamental",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 1.0314668587597583e-11,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.6634330943236435,
+          "n_trades": 138,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,66 < 0",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S12",
+      "name": "Playbook OPEC+",
+      "family": "event",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S12",
+        "name": "Playbook OPEC+",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": 0.0,
+          "cagr": 0.0,
+          "ann_vol": 0.0,
+          "sharpe": null,
+          "sortino": null,
+          "calmar": null,
+          "max_drawdown": 0.0,
+          "max_drawdown_duration": 0,
+          "longest_underwater": 0,
+          "hit_rate": 0.0,
+          "skew": null,
+          "kurtosis": null,
+          "excess_kurtosis": null,
+          "psr": null,
+          "min_trl": null,
+          "n_trades": 0,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": false,
+          "reason": "serie di turnover non ricostruibile: costi x2 non calcolabili"
+        },
+        "dsr": {
+          "dsr_prob": null,
+          "sr0": null,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "event",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": null,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": null,
+          "n_trades": 0,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR n/d; PBO 0,80 > 0,5; Sharpe OOS a costi doppi n/d",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S13",
+      "name": "Premio geopolitico",
+      "family": "event",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S13",
+        "name": "Premio geopolitico",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": -0.1947143726363374,
+          "cagr": -0.014439690047396647,
+          "ann_vol": 0.020724763639891935,
+          "sharpe": -0.6914306641718462,
+          "sortino": -0.9133387824628394,
+          "calmar": -0.06086808972833584,
+          "max_drawdown": -0.237229229828689,
+          "max_drawdown_duration": 3637,
+          "longest_underwater": 3637,
+          "hit_rate": 0.06396588486140725,
+          "skew": -0.43575287932753426,
+          "kurtosis": 32.22834373086823,
+          "excess_kurtosis": 29.228343730868232,
+          "psr": 0.0037567415389984176,
+          "min_trl": null,
+          "turnover": 14.736808916339141,
+          "n_trades": 574,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.005377236982748887,
+          "breakeven_cost_bps": -105.74954432406679,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": -0.6914306641718462,
+            "cagr": -0.014439690047396647,
+            "ann_vol": 0.020724763639891935,
+            "max_drawdown": -0.237229229828689,
+            "calmar": -0.06086808972833584
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.005043848289818456,
+            "ann_cost": 0.00033876592991317987,
+            "sharpe": -0.707796322689554,
+            "cagr": -0.014773515518989755,
+            "ann_vol": 0.02072418653223483,
+            "max_drawdown": -0.23999473640015023,
+            "calmar": -0.0615576647246023
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 5.50047403711718e-10,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0013657256378922789,
+            "ann_vol": 0.015330232263978595,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.5,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": -0.8140040301688859,
+            "total_return": -0.06380431872120784,
+            "ann_vol": 0.018364546295228146,
+            "max_drawdown": -0.07779681363139535,
+            "hit_rate": 0.06369426751592357,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": -0.7007524927983217,
+            "total_return": -0.10658526852764716,
+            "ann_vol": 0.021303287661346693,
+            "max_drawdown": -0.14008988224063224,
+            "hit_rate": 0.06510138740661686,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": -1.2924345207290602,
+            "total_return": -0.018989465922821247,
+            "ann_vol": 0.0129598437033106,
+            "max_drawdown": -0.02136939996324405,
+            "hit_rate": 0.03484320557491289,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": 0.8214748702028206,
+            "total_return": 0.020675647541611664,
+            "ann_vol": 0.02011280329374117,
+            "max_drawdown": -0.0165452862761587,
+            "hit_rate": 0.0759493670886076,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": -1.6601413131120544,
+            "total_return": -0.03976825616644475,
+            "ann_vol": 0.035029286016163404,
+            "max_drawdown": -0.05222667635554079,
+            "hit_rate": 0.07471264367816093,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": -0.050397401861215,
+            "sharpe": -1.245858795058726,
+            "max_drawdown": -0.06569270620057777,
+            "worst_day": -0.010515463519442436
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": -0.0003238321553246104,
+            "sharpe": -0.4325056651994549,
+            "max_drawdown": -0.0019414859405026963,
+            "worst_day": -0.0016633036364205322
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": -0.0071730189976842995,
+            "sharpe": -1.6988517996154833,
+            "max_drawdown": -0.011275751875059692,
+            "worst_day": -0.004814227070113697
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": -0.006204573180448647,
+            "sharpe": -1.0456785566319564,
+            "max_drawdown": -0.009755258380504839,
+            "worst_day": -0.007984377167389978
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.012424375450031055,
+            "sharpe": 1.5762924748664306,
+            "max_drawdown": -0.0058147621629164314,
+            "worst_day": -0.0058147621629164314
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.00365724861713157,
+            "sharpe": 3.3216357659511355,
+            "max_drawdown": -0.0014076303860030004,
+            "worst_day": -0.0014076303860031114
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "event",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 5.50047403711718e-10,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.707796322689554,
+          "n_trades": 574,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,71 < 0",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S14",
+      "name": "Stagionalità seria",
+      "family": "fundamental",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S14",
+        "name": "Stagionalità seria",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": 0.0,
+          "cagr": 0.0,
+          "ann_vol": 0.0,
+          "sharpe": null,
+          "sortino": null,
+          "calmar": null,
+          "max_drawdown": 0.0,
+          "max_drawdown_duration": 0,
+          "longest_underwater": 0,
+          "hit_rate": 0.0,
+          "skew": null,
+          "kurtosis": null,
+          "excess_kurtosis": null,
+          "psr": null,
+          "min_trl": null,
+          "n_trades": 0,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": false,
+          "reason": "serie di turnover non ricostruibile: costi x2 non calcolabili"
+        },
+        "dsr": {
+          "dsr_prob": null,
+          "sr0": null,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "fundamental",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": null,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": null,
+          "n_trades": 0,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR n/d; PBO 0,80 > 0,5; Sharpe OOS a costi doppi n/d",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S15",
+      "name": "Posizionamento COT",
+      "family": "fundamental",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S15",
+        "name": "Posizionamento COT",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": -0.2065198203470361,
+          "cagr": -0.015416794614099172,
+          "ann_vol": 0.02604900188660475,
+          "sharpe": -0.5833965401587544,
+          "sortino": -0.7686693386071284,
+          "calmar": -0.07277920205728793,
+          "max_drawdown": -0.21182967356476223,
+          "max_drawdown_duration": 3078,
+          "longest_underwater": 3078,
+          "hit_rate": 0.08608742004264393,
+          "skew": -0.7489682045639511,
+          "kurtosis": 21.032717400451894,
+          "excess_kurtosis": 18.032717400451894,
+          "psr": 0.011466900892725033,
+          "min_trl": null,
+          "turnover": 9.984339424571916,
+          "n_trades": 393,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.007096190067215293,
+          "breakeven_cost_bps": -84.98243217396917,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": -0.5833965401587544,
+            "cagr": -0.015416794614099172,
+            "ann_vol": 0.02604900188660475,
+            "max_drawdown": -0.21182967356476223,
+            "calmar": -0.07277920205728793
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.006656226283047944,
+            "ann_cost": 0.0004470599742345634,
+            "sharpe": -0.6006019602533078,
+            "cagr": -0.015856845891467075,
+            "ann_vol": 0.026047130353804876,
+            "max_drawdown": -0.21552096199812787,
+            "calmar": -0.07357449477051246
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 5.190679421378097e-09,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": -1.0074536142218555,
+            "total_return": -0.12081017448228604,
+            "ann_vol": 0.028888844525277707,
+            "max_drawdown": -0.13704317610989958,
+            "hit_rate": 0.09372156505914468,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": -0.5054201049491642,
+            "total_return": -0.09487937917742739,
+            "ann_vol": 0.025860252919139112,
+            "max_drawdown": -0.10291710323328396,
+            "hit_rate": 0.0864461045891142,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": 1.2734174699404894,
+            "total_return": 0.01937857730999082,
+            "ann_vol": 0.013303707510253171,
+            "max_drawdown": -0.009865793308933779,
+            "hit_rate": 0.07665505226480836,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": 0.2097048543634381,
+            "total_return": 0.005151752875887539,
+            "ann_vol": 0.020543744655633037,
+            "max_drawdown": -0.01747660502092485,
+            "hit_rate": 0.0759493670886076,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": -1.1733515737059232,
+            "total_return": -0.026849896107679183,
+            "ann_vol": 0.03312562584263057,
+            "max_drawdown": -0.044435157042811535,
+            "hit_rate": 0.06896551724137931,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": -0.060371007698276635,
+            "sharpe": -1.1799325619505183,
+            "max_drawdown": -0.09473847859682916,
+            "worst_day": -0.01296674638216222
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": -0.0008817102436909918,
+            "sharpe": -3.310063706204223,
+            "max_drawdown": -0.0008817102436909918,
+            "worst_day": -0.0008817102436909918
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0011512739490784352,
+            "sharpe": 0.210191017495059,
+            "max_drawdown": -0.011295086338730331,
+            "worst_day": -0.0030920401494837213
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": -0.007254431992507748,
+            "sharpe": -1.2750711555097243,
+            "max_drawdown": -0.007254431992507748,
+            "worst_day": -0.007254431992507748
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "fundamental",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 5.190679421378097e-09,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.6006019602533078,
+          "n_trades": 393,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,60 < 0",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S16",
+      "name": "Regime di volatilità",
+      "family": "volatility",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S16",
+        "name": "Regime di volatilità",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": -0.1166294183720894,
+          "cagr": -0.008294471665890146,
+          "ann_vol": 0.013869492785153354,
+          "sharpe": -0.5935552827438667,
+          "sortino": -0.6953890893209564,
+          "calmar": -0.05850192250369053,
+          "max_drawdown": -0.14178118104352722,
+          "max_drawdown_duration": 2854,
+          "longest_underwater": 2854,
+          "hit_rate": 0.02638592750533049,
+          "skew": -8.006872013384418,
+          "kurtosis": 175.78309757583844,
+          "excess_kurtosis": 172.78309757583844,
+          "psr": 0.004347014004235817,
+          "min_trl": null,
+          "turnover": 63.662453843622934,
+          "n_trades": 257,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.015957628482733688,
+          "breakeven_cost_bps": -20.471650712119306,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": -0.5935552827438667,
+            "cagr": -0.008294471665890146,
+            "ann_vol": 0.013869492785153354,
+            "max_drawdown": -0.14178118104352722,
+            "calmar": -0.05850192250369053
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.0149682555168042,
+            "ann_cost": 0.0010053305944122224,
+            "sharpe": -0.6665920470739004,
+            "cagr": -0.009290842847749614,
+            "ann_vol": 0.013858013077965551,
+            "max_drawdown": -0.15269954839523847,
+            "calmar": -0.06084394450009601
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 3.171760248349891e-11,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": -0.204698338046117,
+            "total_return": -0.010447110578887697,
+            "ann_vol": 0.011444544887630045,
+            "max_drawdown": -0.03436284289190639,
+            "hit_rate": 0.020928116469517744,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": -0.42937499885708774,
+            "total_return": -0.03034732182079891,
+            "ann_vol": 0.009545197242682,
+            "max_drawdown": -0.04292236538658256,
+            "hit_rate": 0.0240128068303095,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": -0.6934802743020064,
+            "total_return": -0.009511057961618219,
+            "ann_vol": 0.011996110258842625,
+            "max_drawdown": -0.009691558370491293,
+            "hit_rate": 0.013937282229965157,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": 0.6352819285766718,
+            "total_return": 0.007457400854495866,
+            "ann_vol": 0.009395822214180661,
+            "max_drawdown": -0.007272507858243293,
+            "hit_rate": 0.05063291139240506,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": -2.6505550359464984,
+            "total_return": -0.07740436274016038,
+            "ann_vol": 0.04364977128248544,
+            "max_drawdown": -0.08769151982815282,
+            "hit_rate": 0.06321839080459771,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": -0.024015132347549262,
+            "sharpe": -0.885178334423637,
+            "max_drawdown": -0.037116948736890865,
+            "worst_day": -0.013330643377812978
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": -0.01611995916245912,
+            "sharpe": -1.467687873453905,
+            "max_drawdown": -0.020112085197765972,
+            "worst_day": -0.020112085197765972
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0011898022830971744,
+            "sharpe": 0.12848050935469416,
+            "max_drawdown": -0.0095840493891034,
+            "worst_day": -0.0095840493891034
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "volatility",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 3.171760248349891e-11,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.6665920470739004,
+          "n_trades": 257,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,67 < 0",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S17",
+      "name": "Reversal di breve",
+      "family": "volatility",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S17",
+        "name": "Reversal di breve",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": -0.017308473876532893,
+          "cagr": -0.001172000359723091,
+          "ann_vol": 0.008193528021323372,
+          "sharpe": -0.13902881437051567,
+          "sortino": -0.19965399118296506,
+          "calmar": -0.03540621281790574,
+          "max_drawdown": -0.03310154536297605,
+          "max_drawdown_duration": 3750,
+          "longest_underwater": 3750,
+          "hit_rate": 0.015991471215351813,
+          "skew": 0.8833371663308233,
+          "kurtosis": 116.31363068742638,
+          "excess_kurtosis": 113.31363068742638,
+          "psr": 0.29676116726529234,
+          "min_trl": null,
+          "turnover": 57.90340475383695,
+          "n_trades": 136,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.006185319025765658,
+          "breakeven_cost_bps": -7.308245319888773,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": -0.13902881437051567,
+            "cagr": -0.001172000359723091,
+            "ann_vol": 0.008193528021323372,
+            "max_drawdown": -0.03310154536297605,
+            "calmar": -0.03540621281790574
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.005801829246168187,
+            "ann_cost": 0.00038967509862323645,
+            "sharpe": -0.18641716313335788,
+            "cagr": -0.0015612067058801138,
+            "ann_vol": 0.008201023764350234,
+            "max_drawdown": -0.03597591061780214,
+            "calmar": -0.04339589128030505
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": 4.2344513098519733e-05,
+          "sr0": 0.05574039537238867,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": -0.25463836968708453,
+            "total_return": -0.007901920815050811,
+            "ann_vol": 0.00704649359155029,
+            "max_drawdown": -0.012079478325007553,
+            "hit_rate": 0.015468607825295723,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": -0.004120582907642228,
+            "total_return": -0.0005000134410396706,
+            "ann_vol": 0.008191883829626939,
+            "max_drawdown": -0.02807678927441204,
+            "hit_rate": 0.017075773745997867,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": -1.2272776243535233,
+            "total_return": -0.01099473027106368,
+            "ann_vol": 0.00788415445901073,
+            "max_drawdown": -0.01099473027106368,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": 1.3225565381756557,
+            "total_return": 0.011096602918145626,
+            "ann_vol": 0.006670970501785473,
+            "max_drawdown": -0.0018896551370000125,
+            "hit_rate": 0.0189873417721519,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": -0.8557091842224656,
+            "total_return": -0.008966003572838832,
+            "ann_vol": 0.015110123696389866,
+            "max_drawdown": -0.019312744422841588,
+            "hit_rate": 0.028735632183908046,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": -0.013736086429846361,
+            "sharpe": -1.0594206696234554,
+            "max_drawdown": -0.018784683961628246,
+            "worst_day": -0.0043647137455341545
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0027346892776733966,
+            "sharpe": 1.2884537517143182,
+            "max_drawdown": -0.0020286402123691483,
+            "worst_day": -0.0020286402123691483
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": -0.008302270488751873,
+            "sharpe": -1.2750711555097245,
+            "max_drawdown": -0.008302270488751873,
+            "worst_day": -0.008302270488751873
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "volatility",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": 4.2344513098519733e-05,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -0.18641716313335788,
+          "n_trades": 136,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR 0,00 < 0,95; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -0,19 < 0",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S18",
+      "name": "Opzioni sintetiche (approssimazione)",
+      "family": "volatility",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 5,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S18",
+        "name": "Opzioni sintetiche (approssimazione)",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": 0.0,
+          "cagr": 0.0,
+          "ann_vol": 0.0,
+          "sharpe": null,
+          "sortino": null,
+          "calmar": null,
+          "max_drawdown": 0.0,
+          "max_drawdown_duration": 0,
+          "longest_underwater": 0,
+          "hit_rate": 0.0,
+          "skew": null,
+          "kurtosis": null,
+          "excess_kurtosis": null,
+          "psr": null,
+          "min_trl": null,
+          "turnover": 0.0,
+          "n_trades": 0,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.0,
+          "breakeven_cost_bps": null,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": null,
+            "cagr": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "calmar": null
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": null,
+            "cagr": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "calmar": null
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": null,
+          "sr0": null,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "volatility",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": null,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": null,
+          "n_trades": 0,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR n/d; PBO 0,80 > 0,5; Sharpe OOS a costi doppi n/d",
+        "weight": 0.0
+      },
+      "signal": null
+    },
+    {
+      "id": "S21",
+      "name": "Convinzione degli insider (Form 4)",
+      "family": "fundamental",
+      "lifecycle": "incubation",
+      "weight": 0.0,
+      "weight_explanation": "Peso zero: la strategia non è attiva (vedi validazione).",
+      "performance": {
+        "n_obs": 3,
+        "start_equity": 10000.0,
+        "end_equity": 10000.0,
+        "total_return": 0.0,
+        "cagr": 0.0,
+        "ann_vol": 0.0,
+        "sharpe": 0.0,
+        "sortino": 0.0,
+        "max_drawdown": 0.0,
+        "max_drawdown_days": 0,
+        "calmar": 0.0,
+        "hit_rate": 0.0,
+        "profit_factor": 0.0,
+        "n_trades": 0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "turnover": 0.0,
+        "exposure": 0.0,
+        "best_day": 0.0,
+        "worst_day": 0.0,
+        "by_year": {
+          "2026": 0.0
+        }
+      },
+      "validation": {
+        "id": "S21",
+        "name": "Convinzione degli insider (Form 4)",
+        "metrics": {
+          "n_obs": 3752,
+          "periods_per_year": 252,
+          "total_return": 0.0,
+          "cagr": 0.0,
+          "ann_vol": 0.0,
+          "sharpe": null,
+          "sortino": null,
+          "calmar": null,
+          "max_drawdown": 0.0,
+          "max_drawdown_duration": 0,
+          "longest_underwater": 0,
+          "hit_rate": 0.0,
+          "skew": null,
+          "kurtosis": null,
+          "excess_kurtosis": null,
+          "psr": null,
+          "min_trl": null,
+          "turnover": 7.340990172088691,
+          "n_trades": 0,
+          "profit_factor": 0.0
+        },
+        "costs": {
+          "available": true,
+          "cost_per_turn_bps": 2.5,
+          "mean_turnover": 0.011739323302913685,
+          "breakeven_cost_bps": 0.0,
+          "x1": {
+            "cost_per_turn_bps": 0.0,
+            "total_cost": 0.0,
+            "ann_cost": 0.0,
+            "sharpe": null,
+            "cagr": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "calmar": null
+          },
+          "x2": {
+            "cost_per_turn_bps": 2.5,
+            "total_cost": 0.011011485258133037,
+            "ann_cost": 0.0007395773680835622,
+            "sharpe": -1.261401426311041,
+            "cagr": -0.0007394767982289441,
+            "ann_vol": 0.0005863140413963625,
+            "max_drawdown": -0.010953628014635841,
+            "calmar": -0.06750975998462627
+          },
+          "labels": {
+            "x1": "costi come da backtest (1x)",
+            "x2": "costi raddoppiati (2x)"
+          }
+        },
+        "dsr": {
+          "dsr_prob": null,
+          "sr0": null,
+          "n_trials": 30
+        },
+        "pbo": 0.7954933954933955,
+        "by_regime": {
+          "Backwardation + vol alta + rischio geopolitico": {
+            "n_obs": 2,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": false
+          },
+          "Contango + eccesso d'offerta + trend ribassista": {
+            "n_obs": 1099,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Range a bassa volatilità": {
+            "n_obs": 1874,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Shock/crash": {
+            "n_obs": 287,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Squeeze rialzista": {
+            "n_obs": 316,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          },
+          "Transizione": {
+            "n_obs": 174,
+            "sharpe": null,
+            "total_return": 0.0,
+            "ann_vol": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "enough_obs": true
+          }
+        },
+        "by_crisis": {
+          "gulf_war_1990": {
+            "name": "Guerra del Golfo",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "1990-08-02",
+            "end": "1991-03-01"
+          },
+          "gfc_2008": {
+            "name": "Crisi finanziaria",
+            "available": false,
+            "reason": "solo 0 giorni di backtest nell'episodio (minimo 5)",
+            "start": "2008-07-01",
+            "end": "2009-03-01"
+          },
+          "glut_2014": {
+            "name": "Eccesso d'offerta OPEC",
+            "available": true,
+            "start": "2014-06-01",
+            "end": "2016-02-29",
+            "n_obs": 440,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "abqaiq_2019": {
+            "name": "Attacco ad Abqaiq",
+            "available": true,
+            "start": "2019-09-13",
+            "end": "2019-10-15",
+            "n_obs": 23,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "covid_2020": {
+            "name": "Covid e WTI negativo",
+            "available": true,
+            "start": "2020-02-20",
+            "end": "2020-06-01",
+            "n_obs": 71,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "russia_2022": {
+            "name": "Invasione russa dell'Ucraina",
+            "available": true,
+            "start": "2022-02-20",
+            "end": "2022-07-31",
+            "n_obs": 110,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "iran_war_2026": {
+            "name": "Guerra USA/Israele-Iran e Hormuz",
+            "available": true,
+            "start": "2026-02-28",
+            "end": "2026-10-09",
+            "n_obs": 155,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          },
+          "truce_2026": {
+            "name": "Tregua di giugno-luglio 2026",
+            "available": true,
+            "start": "2026-06-15",
+            "end": "2026-07-20",
+            "n_obs": 24,
+            "total_return": 0.0,
+            "sharpe": null,
+            "max_drawdown": 0.0,
+            "worst_day": 0.0
+          }
+        },
+        "years": 14.88888888888889,
+        "n_obs": 3752,
+        "family": "fundamental",
+        "lifecycle_record": {
+          "validated": true,
+          "dsr_prob": null,
+          "pbo": 0.7954933954933955,
+          "oos_sharpe_double_cost": -1.261401426311041,
+          "n_trades": 0,
+          "years": 14.88888888888889,
+          "cusum_alarm": false
+        },
+        "lifecycle": "incubation",
+        "explanation": "Peso zero: DSR n/d; PBO 0,80 > 0,5; Sharpe OOS a costi doppi -1,26 < 0",
+        "weight": 0.0
+      },
+      "signal": null
+    }
+  ],
+  "source": "shadow accounts"
+}

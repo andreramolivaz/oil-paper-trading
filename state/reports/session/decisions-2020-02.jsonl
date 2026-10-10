@@ -1,0 +1,19 @@
+{"ts": "2020-02-03T19:30:00Z", "n_signals": 6, "n_orders": 0, "instruments": [], "strategies": ["S1", "S10", "S18", "S3", "S4", "S9"]}
+{"ts": "2020-02-04T19:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S10", "S18", "S3", "S4"]}
+{"ts": "2020-02-05T19:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S10", "S21", "S3", "S4"]}
+{"ts": "2020-02-06T19:30:00Z", "n_signals": 6, "n_orders": 0, "instruments": [], "strategies": ["S1", "S10", "S21", "S3", "S4", "S9"]}
+{"ts": "2020-02-07T19:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S10", "S21", "S3", "S9"]}
+{"ts": "2020-02-10T19:30:00Z", "n_signals": 6, "n_orders": 0, "instruments": [], "strategies": ["S1", "S10", "S18", "S21", "S3", "S9"]}
+{"ts": "2020-02-11T19:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S10", "S18", "S3", "S9"]}
+{"ts": "2020-02-12T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S10", "S3", "S9"]}
+{"ts": "2020-02-13T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S10", "S3", "S9"]}
+{"ts": "2020-02-14T19:30:00Z", "n_signals": 2, "n_orders": 1, "instruments": ["BZJ20"], "strategies": ["S1", "S3"]}
+{"ts": "2020-02-18T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S18", "S3", "S8"]}
+{"ts": "2020-02-19T19:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S18", "S3", "S4", "S8"]}
+{"ts": "2020-02-20T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3", "S4"]}
+{"ts": "2020-02-21T19:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3", "S4"]}
+{"ts": "2020-02-24T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S18", "S3", "S4"]}
+{"ts": "2020-02-25T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4"]}
+{"ts": "2020-02-26T19:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S21", "S3", "S4"]}
+{"ts": "2020-02-27T19:30:00Z", "n_signals": 4, "n_orders": 1, "instruments": ["BZK20"], "strategies": ["S1", "S17", "S3", "S8"]}
+{"ts": "2020-02-28T19:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S1", "S17", "S3", "S8", "S9"]}

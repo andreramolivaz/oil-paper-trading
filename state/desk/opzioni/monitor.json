@@ -1,0 +1,248 @@
+{
+  "generated_at": "2026-10-09T22:18:08.352514Z",
+  "session_open": false,
+  "underlyings": [
+    {
+      "symbol": "USO",
+      "label": "fondo WTI",
+      "forecast_series": "MCL",
+      "forecast": 3.763108850697851,
+      "realized_vol": 0.40958008973889637,
+      "threshold": 5.0,
+      "price": 148.3,
+      "iv30": 0.45281999999999994,
+      "quote_ts": "2026-10-09T20:17:54Z",
+      "rows": 1392,
+      "expiry": "2026-11-06",
+      "dte": 28,
+      "points": {
+        "put_50": {
+          "strike": 149.5,
+          "iv": 0.4551,
+          "bid": 7.85,
+          "ask": 8.15,
+          "rel_spread": 0.0375
+        },
+        "put_25": {
+          "strike": 137.0,
+          "iv": 0.4675,
+          "bid": 2.91,
+          "ask": 3.1,
+          "rel_spread": 0.0632
+        },
+        "put_10": {
+          "strike": 125.0,
+          "iv": 0.4999,
+          "bid": 0.91,
+          "ask": 1.02,
+          "rel_spread": 0.114
+        },
+        "call_50": {
+          "strike": 149.5,
+          "iv": 0.4494,
+          "bid": 6.65,
+          "ask": 7.15,
+          "rel_spread": 0.0725
+        },
+        "call_25": {
+          "strike": 164.0,
+          "iv": 0.4737,
+          "bid": 2.57,
+          "ask": 2.73,
+          "rel_spread": 0.0604
+        },
+        "call_10": {
+          "strike": 180.0,
+          "iv": 0.5235,
+          "bid": 0.95,
+          "ask": 1.08,
+          "rel_spread": 0.1281
+        }
+      },
+      "straddle_pct": 0.1005,
+      "atm_iv": 0.4523,
+      "median_rel_spread": 0.0886,
+      "tradeable": true,
+      "quote_age_minutes": 120.2,
+      "iv_minus_rv": 0.0427,
+      "candidate": {
+        "underlying": "USO",
+        "kind": "put_credit_spread",
+        "expiry": "2026-11-06",
+        "dte": 28,
+        "contracts": 1,
+        "short": {
+          "option": "USO261106P00134000",
+          "right": "P",
+          "strike": 134.0,
+          "qty": -1,
+          "fill": 2.115,
+          "bid": 2.03,
+          "ask": 2.37,
+          "delta": -0.1988,
+          "iv": 0.4655
+        },
+        "long": {
+          "option": "USO261106P00129000",
+          "right": "P",
+          "strike": 129.0,
+          "qty": 1,
+          "fill": 1.4175,
+          "bid": 1.2,
+          "ask": 1.49,
+          "delta": -0.1339,
+          "iv": 0.4777
+        },
+        "width": 5.0,
+        "credit": 0.6975,
+        "credit_mid": 0.855,
+        "max_loss_per_contract": 430.35,
+        "breakeven": 133.3,
+        "credit_to_width": 0.1395,
+        "underlying_price": 148.3,
+        "quote_ts": "2026-10-09T20:17:54Z"
+      },
+      "no_candidate_reason": "",
+      "gate": {
+        "open": false,
+        "reason": "quotazioni di 120 minuti fa: servono meno di 45 minuti",
+        "checks": [
+          {
+            "name": "conto attivo",
+            "ok": true
+          },
+          {
+            "name": "quotazioni fresche",
+            "ok": false
+          },
+          {
+            "name": "previsione",
+            "ok": false
+          },
+          {
+            "name": "posti liberi",
+            "ok": true
+          },
+          {
+            "name": "distanza dall'ultima",
+            "ok": true
+          },
+          {
+            "name": "struttura negoziabile",
+            "ok": true
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "BNO",
+      "label": "fondo Brent",
+      "forecast_series": "BNO",
+      "forecast": 5.492763734237301,
+      "realized_vol": 0.41954337534452213,
+      "threshold": 5.0,
+      "price": 63.755,
+      "iv30": 0.49559,
+      "quote_ts": "2026-10-09T19:24:32Z",
+      "rows": 614,
+      "expiry": "2026-11-06",
+      "dte": 28,
+      "points": {
+        "put_50": {
+          "strike": 64.5,
+          "iv": 0.4998,
+          "bid": 3.5,
+          "ask": 4.3,
+          "rel_spread": 0.2051
+        },
+        "put_25": {
+          "strike": 58.5,
+          "iv": 0.5018,
+          "bid": 0.9,
+          "ask": 1.85,
+          "rel_spread": 0.6909
+        },
+        "put_10": {
+          "strike": 53.0,
+          "iv": 0.5323,
+          "bid": 0.1,
+          "ask": 0.75,
+          "rel_spread": 1.5294
+        },
+        "call_50": {
+          "strike": 64.5,
+          "iv": 0.5271,
+          "bid": 3.0,
+          "ask": 3.8,
+          "rel_spread": 0.2353
+        },
+        "call_25": {
+          "strike": 70.0,
+          "iv": 0.5217,
+          "bid": 1.2,
+          "ask": 1.85,
+          "rel_spread": 0.4262
+        },
+        "call_10": {
+          "strike": 80.0,
+          "iv": 0.5838,
+          "bid": 0.3,
+          "ask": 0.55,
+          "rel_spread": 0.5882
+        }
+      },
+      "straddle_pct": 0.1145,
+      "atm_iv": 0.5134,
+      "median_rel_spread": 0.6395,
+      "tradeable": false,
+      "quote_age_minutes": 173.6,
+      "iv_minus_rv": 0.0939,
+      "candidate": null,
+      "no_candidate_reason": "2026-11-06: la put da vendere (57) è quotata 0.70-1.45, larga il 70% del prezzo; 2026-11-13: la put da vendere (56.5) è quotata 0.85-1.60, larga il 61% del prezzo; 2026-10-30: la put da vendere (58) è quotata 0.60-1.35, larga il 77% del prezzo",
+      "gate": {
+        "open": false,
+        "reason": "quotazioni di 174 minuti fa: servono meno di 45 minuti",
+        "checks": [
+          {
+            "name": "conto attivo",
+            "ok": true
+          },
+          {
+            "name": "quotazioni fresche",
+            "ok": false
+          },
+          {
+            "name": "previsione",
+            "ok": true
+          },
+          {
+            "name": "posti liberi",
+            "ok": true
+          },
+          {
+            "name": "distanza dall'ultima",
+            "ok": true
+          },
+          {
+            "name": "struttura negoziabile",
+            "ok": false
+          }
+        ]
+      }
+    }
+  ],
+  "rules": {
+    "forecast_threshold": 5.0,
+    "short_delta": 0.2,
+    "dte": [
+      21,
+      30,
+      45
+    ],
+    "risk_per_structure": 0.05,
+    "max_open": 2,
+    "max_leg_spread": 0.25,
+    "fill_fraction": 0.25,
+    "max_quote_age_minutes": 45
+  }
+}

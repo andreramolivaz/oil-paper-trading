@@ -1,0 +1,17 @@
+{
+  "account_id": "desk-opzioni",
+  "epoch": 1,
+  "initial_capital": 10000.0,
+  "cash": 10000.0,
+  "equity": 10000.0,
+  "realized_pnl": 0.0,
+  "fees": 0.0,
+  "structures": [],
+  "last_decision_day": "2026-10-09",
+  "last_entry_day": null,
+  "n_closed": 0,
+  "n_wins": 0,
+  "status": "active",
+  "started_at": "2026-10-08T21:19:21.847468Z",
+  "epochs": []
+}

@@ -1,0 +1,57 @@
+{
+  "account_id": "desk-prudente",
+  "epoch": 1,
+  "cash": 10000.0,
+  "positions": {
+    "BNO": {
+      "instrument": "BNO",
+      "qty_bbl": 21.0,
+      "avg_price": 63.39209555403547,
+      "opened_ts": "2026-10-09T14:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 64.41999816894531,
+      "low_water": 63.33000183105469,
+      "strategies": [
+        "trend",
+        "carry"
+      ],
+      "last_price": 63.9900016784668,
+      "last_ts": "2026-10-09T22:18:08.352514Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10020.536051043478,
+  "day_start_equity": 10000.0,
+  "day_start_date": "2026-10-09",
+  "last_mark_ts": "2026-10-09T22:18:08.352514Z",
+  "last_prices": {
+    "BNO": 63.9900016784668
+  },
+  "last_price_source": "yahoo (ritardo 10-15 min)",
+  "last_price_asof": "2026-10-09T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "05c49f9690893cf8e0bc89a8b34977003a5990f8"
+  ],
+  "n_fills": 1,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-08T21:19:21.847468Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 10000.0,
+  "epoch_n_fills": 1,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.46402906516486236,
+  "total_financing": 0.0,
+  "last_equity": 10012.556028613059,
+  "last_bar_ts": {
+    "BNO|30m": "2026-10-09T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

@@ -1,0 +1,7 @@
+{"ts": "2026-10-01T18:30:00Z", "n_signals": 2, "n_orders": 1, "instruments": ["BZZ26/CLX26"], "strategies": ["S1", "S3"]}
+{"ts": "2026-10-02T18:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3"]}
+{"ts": "2026-10-05T18:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3"]}
+{"ts": "2026-10-06T18:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3"]}
+{"ts": "2026-10-07T18:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3", "S8"]}
+{"ts": "2026-10-08T18:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3", "S8"]}
+{"ts": "2026-10-09T18:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3", "S8"]}

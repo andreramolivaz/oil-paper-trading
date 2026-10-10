@@ -1,0 +1,19 @@
+{"ts": "2024-06-03T18:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S1", "S18"]}
+{"ts": "2024-06-04T18:30:00Z", "n_signals": 5, "n_orders": 0, "instruments": [], "strategies": ["S17", "S18", "S2", "S3", "S8"]}
+{"ts": "2024-06-05T18:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S17", "S3", "S8"]}
+{"ts": "2024-06-06T18:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3", "S8"]}
+{"ts": "2024-06-07T18:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S1", "S3"]}
+{"ts": "2024-06-10T18:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S15", "S18", "S3"]}
+{"ts": "2024-06-11T18:30:00Z", "n_signals": 3, "n_orders": 1, "instruments": ["BZQ24"], "strategies": ["S1", "S15", "S18"]}
+{"ts": "2024-06-12T18:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S1", "S15"]}
+{"ts": "2024-06-13T18:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S1", "S15"]}
+{"ts": "2024-06-14T18:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S1", "S15", "S8"]}
+{"ts": "2024-06-17T18:30:00Z", "n_signals": 4, "n_orders": 0, "instruments": [], "strategies": ["S1", "S15", "S16", "S18"]}
+{"ts": "2024-06-18T18:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S1", "S15", "S18"]}
+{"ts": "2024-06-20T18:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S1", "S15"]}
+{"ts": "2024-06-21T18:30:00Z", "n_signals": 4, "n_orders": 1, "instruments": ["BZQ24"], "strategies": ["S1", "S13", "S15", "S8"]}
+{"ts": "2024-06-24T18:30:00Z", "n_signals": 3, "n_orders": 1, "instruments": ["BZQ24"], "strategies": ["S1", "S15", "S8"]}
+{"ts": "2024-06-25T18:30:00Z", "n_signals": 3, "n_orders": 0, "instruments": [], "strategies": ["S1", "S13", "S8"]}
+{"ts": "2024-06-26T18:30:00Z", "n_signals": 2, "n_orders": 1, "instruments": ["BZU24"], "strategies": ["S1", "S8"]}
+{"ts": "2024-06-27T18:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S1", "S8"]}
+{"ts": "2024-06-28T18:30:00Z", "n_signals": 2, "n_orders": 0, "instruments": [], "strategies": ["S1", "S8"]}
