@@ -308,8 +308,8 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
 - Site: the terminal (`site/src/pages/terminal.ts`) formats `desk.json` and computes nothing. Plain monospace
   text, colour only for sign and state.
 
-## State of play (2026-10-09)
-Phases 1-11 of `docs/PLAN.md` are implemented. Phase 10 (this date) added the desk after three days of a flat
+## State of play (2026-10-12)
+Phases 1-11 of `docs/PLAN.md` are implemented. Phase 10 (8 October) added the desk after three days of a flat
 account with zero trades. The four causes, all fixed and pinned by `tests/test_tick_job.py`:
 1. nothing was promoted, so the master's weight was zero by construction (now: the desk books trade);
 2. the end of day ran after midnight London and asked for a date that had not settled (now: latest SETTLED date);
@@ -326,7 +326,7 @@ short leveraged-ETF pairs) failed after costs; oil options are expensive on aver
 hedged premium selling does not survive four legs, and what is left is a put credit spread sold in the
 direction of the forecast - weak, model-based evidence, hence a paper book marked experimental.
 
-Phase 11 (the same date, on the owner's request for a higher Sharpe) answered that a Sharpe rises with
+Phase 11 (9 October, on the owner's request for a higher Sharpe) answered that a Sharpe rises with
 independent sources of return and with the short side, not with leverage or tuning. Sixteen published signals
 were tried once each on the desk's own series; four were kept (acceleration, skew, copper trend, inverted
 dollar trend) and twelve rejected with their numbers (breakout, continuous carry, trend-curve agreement,
@@ -419,6 +419,29 @@ days out of 9 917 change label. So it is not a one-line fix: it rewrites the reg
 S11, S14, S17, the gate's "geopolitical long" condition, the S20 weights and the forecast ensemble read, and
 it must be followed by a new validation. Until then no label says "geopolitico" in the middle of a war, so
 the safeguards those strategies hang on that word are off. Nothing on the desk reads the regime.
+
+The first weekend (9-12 October), read on GitHub and on the data branch. On Friday the runner whose turn ended
+at 22:05 UTC handed over; its successor ticked twice (22:05 off the slot, 22:18), found the market closed at
+22:48 and started nobody ("weekend: no successor"). On Saturday at 10:05 the weekly job ran for the first time
+with the desk live (17 minutes, ok): it recomputed the desk backtest under the same fingerprint (0.56 / 0.77 /
+0.64 through 9 October) and the first system's validation (nothing promoted, master Sharpe -0.76, PBO 0.80),
+saved `models/regime.pkl`, deleted 280 raw snapshots (the state went from 88 to 64 MB) and squashed the data
+branch to one commit. The scheduled watchdog ran ten times from Friday night to Sunday evening, three to seven
+hours apart: nine times "weekend: nothing to do", and at 22:27 UTC on Sunday - 27 minutes after Globex reopened,
+57 after its own window - it found no runner and started one. That runner's first tick (22:27, off the slot)
+refreshed the daily tables as "older than 36 hours", the futures' too: that Sunday evening Yahoo had no row
+after Friday's and Friday's rows were those of Saturday, so the evening refresh that spoils a weekday's row did
+no harm - seen once, not proven. It fed no bar - the 22:00 one was still forming and nothing of Friday was fed
+again - and the fund books stayed on Friday's official close (63.99, `last_price_asof` 2026-10-09 20:30) for 32
+ticks. Copper's row of Friday, a live 6.704 when it was read during the session, was 6.6425 with the spot
+month's volume on Saturday morning: final a day later, as measured. On Monday the 13:48 tick marked the fund
+books on the first print (BNO +2.3 % on Friday's close), the 14:18 tick fed the first bar (13:30-14:00) as news
+(no breaker, no stop, no order), the runner's turn ended at 14:28, its successor ticked at 14:28:51 without
+taking the forming bar for finished, and the 14:48 tick fed the 14:00 bar once. One thing to know when reading
+an evening: on the day itself Yahoo's half-hour table of a fund ends with a row stamped 16:00 New York that
+holds the official close (the books were marked on it on Friday); by the next session that row is gone. From
+Friday 20:18 to Monday 14:48 UTC: 42 ticks, all ok, 194 downloads, none failed. Still NOT seen: a decision that
+TRADES under the new forecast, a short position through SCO, a roll.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
