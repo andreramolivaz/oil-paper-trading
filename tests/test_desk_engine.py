@@ -15,6 +15,7 @@ from engine.core.calendar import add_business_days
 from engine.core.config import RiskConfig
 from engine.core.events import Bar
 from engine.core.store import StateStore
+from engine.desk import signals as sg
 from engine.desk.backtest import FILL_SAME_CLOSE, performance, ruin_probabilities, run_backtest, yearly_returns
 from engine.desk.book import Book, BookConfig
 from engine.desk.data import held_contract
@@ -781,10 +782,15 @@ def test_each_way_a_vehicle_is_traded_gets_its_own_attribution_table():
     from engine.desk.book import load_books
     from engine.desk.report import attribution_variants, sleeve_configs
 
+    seven = tuple(sg.SLEEVES)
+    price = ("trend", "accel", "skew")
     assert attribution_variants(load_books()) == [
-        ("BNO", "BNO", True, None),  # the long-only fund book
-        ("BNO + SCO", "BNO", False, "SCO"),  # the fund book whose short side is the inverse fund
-        ("MCL", "MCL", False, None),  # the futures book sells the future itself
+        ("BNO", "BNO", True, None, seven),  # the long-only fund book
+        ("BNO + SCO", "BNO", False, "SCO", seven),  # the fund book whose short side is the inverse fund
+        ("CPER", "CPER", True, None, price),  # the satellite books read the price source alone
+        ("DBA", "DBA", True, None, price),
+        ("GLD", "GLD", True, None, price),
+        ("MCL", "MCL", False, None, seven),  # the futures book sells the future itself
     ]
     both = [SPINTO, dataclasses.replace(SPINTO, id="solo-long", long_only=True)]
     assert [v[0] for v in attribution_variants(both)] == ["MCL", "MCL (long e short)"]
@@ -793,6 +799,10 @@ def test_each_way_a_vehicle_is_traded_gets_its_own_attribution_table():
     assert [c.id.split(":")[1] for c in rows[-2:]] == ["prima", "tutte"]
     assert rows[-2].sleeves == {"trend": 1.0, "carry": 1.0, "carry_momentum": 1.0}  # what the desk read before
     assert len({c.id for c in rows}) == len(rows)
+    # a satellite's table: its three sleeves, their source, and the three together - no "before", no flat rows
+    rows = sleeve_configs("GLD", True, None, price)
+    assert [c.id.split(":")[1] for c in rows] == ["trend", "accel", "skew", "prezzo", "tutte"]
+    assert rows[-1].sleeves == {"trend": 1.0, "accel": 1.0, "skew": 1.0} and all(c.long_only for c in rows)
 
 
 def test_the_backtest_fingerprint_changes_with_the_rules_and_only_with_them(monkeypatch):

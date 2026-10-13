@@ -52,6 +52,7 @@ DISCLAIMER = (
 MAX_CURVE_POINTS = 360
 MAX_DECISIONS = 40
 MAX_FILLS = 60
+STRESS_MOVES = (-0.30, -0.20, -0.10, 0.10, 0.20)  # gaps of the vehicle's price the books are revalued on
 
 
 # ----------------------------------------------------------------------------------------------- helpers
@@ -255,12 +256,24 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
     day = decision_day(vehicle, now)
     store = StateStore(Path(state_dir) / "desk" / cfg.id)
     equity_rows = _current_epoch(store.read_jsonl("equity"), st.epoch)
+    # what a gap in the vehicle's price does to the book, at the last marks: the positions revalued at once,
+    # with an inverse fund moving by its multiple. Before any stop-out or breaker, which can only cut the loss
+    # later; the weekend gaps of 2026 reached 16 %, so the first number to read is the -20 % one.
+    stress = {}
+    for move in STRESS_MOVES:
+        pnl = sum(
+            float(pos.qty_bbl) * float(st.last_prices.get(symbol, pos.avg_price)) * book.multiplier(symbol) * move
+            for symbol, pos in st.positions.items()
+            if pos.qty_bbl != 0
+        )
+        stress[f"{move:+.0%}"] = _r(pnl / equity, 5) if equity > 0 else None
     decisions = [d for d in desk_store(state_dir).tail_jsonl(DECISIONS_LOG, 400) if d.get("book") == cfg.id]
     full_cap = min(10.0, cfg.max_leverage, vehicle.max_leverage)
     cap_today = book._cap(today)
     return {
         "id": cfg.id,
         "kind": "linear",
+        "role": cfg.role,  # "core": one of the books the desk is judged on; "candidate": a paper book beside them
         "name": cfg.name,
         "description": cfg.description,
         "vehicle": vehicle.id,
@@ -313,6 +326,8 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
             "spread_and_slippage": _r(st.total_slippage_usd, 2),
             "financing": _r(st.total_financing, 2),
         },
+        # the book's return on a gap of the vehicle's price, as a fraction of equity, before any stop
+        "stress": stress,
         "last_decision": decisions[-1] if decisions else None,
         "decision_owed": desk.state.last_decision_day.get(cfg.id) != day.isoformat(),
         "last_roll": desk.state.last_roll.get(cfg.id),
@@ -340,6 +355,7 @@ def options_block(state_dir: Path, risk: RiskConfig, config_dir: Path | None) ->
     return {
         "id": cfg.id,
         "kind": "options",
+        "role": "core",
         "name": cfg.name,
         "description": cfg.description,
         "vehicle": "/".join(u.symbol for u in cfg.underlyings),
@@ -546,12 +562,25 @@ def build_desk_payload(
     data = build_desk_data(raw, settings)
     desk = build_desk(settings.state_dir, risk)
     options_cfg = load_options_config(settings.config_dir)
-    books: list[dict[str, Any]] = [book_block(b, desk, settings.state_dir, now) for b in desk.books.values()]
+    linear = [book_block(b, desk, settings.state_dir, now) for b in desk.books.values()]
+    # the core books first (the options book among them), then the candidates: the page reads them in order
+    books: list[dict[str, Any]] = [b for b in linear if b["role"] == "core"]
     options = options_block(settings.state_dir, risk, settings.config_dir)
     if options is not None:
         books.append(options)
-    total = sum(float(b["equity"] or 0.0) for b in books)
-    initial = sum(float(b["initial_capital"] or 0.0) for b in books)
+    books += [b for b in linear if b["role"] != "core"]
+
+    def totals(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        total = sum(float(b["equity"] or 0.0) for b in rows)
+        initial = sum(float(b["initial_capital"] or 0.0) for b in rows)
+        return {
+            "equity": _r(total, 2),
+            "initial_capital": _r(initial, 2),
+            "pnl": _r(total - initial, 2),
+            "pnl_pct": _r(total / initial - 1.0, 5) if initial > 0 else None,
+            "n_books": len(rows),
+        }
+
     today = now.astimezone(NEW_YORK).date()
     payload = {
         "generated_at": iso(now),
@@ -559,12 +588,9 @@ def build_desk_payload(
         "market": market_block(data, now),
         "forecast": forecast_block(data),
         "books": books,
-        "total": {
-            "equity": _r(total, 2),
-            "initial_capital": _r(initial, 2),
-            "pnl": _r(total - initial, 2),
-            "pnl_pct": _r(total / initial - 1.0, 5) if initial > 0 else None,
-        },
+        # the sum of the core books (the desk as it is judged) and, apart, the sum of the candidate books
+        "total": totals([b for b in books if b["role"] == "core"]),
+        "total_candidates": totals([b for b in books if b["role"] != "core"]),
         "decisions": decisions_block(settings.state_dir, options_cfg.id if options_cfg else None),
         "fills": fills_block(settings.state_dir, desk, options_cfg.id if options_cfg else None),
         "health": health_block(store, now),
