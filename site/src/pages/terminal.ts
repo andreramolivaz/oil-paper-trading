@@ -341,7 +341,9 @@ function bookDetails(doc: DeskDoc): string {
         ${stress}
         ${liq}
         ${b.last_roll ? `<p class="t-dim">Last roll: ${escapeHtml(b.last_roll)}</p>` : ""}
-        ${costs ? `<p class="t-dim">Costs paid so far: ${costs}. Fills: ${b.n_fills ?? 0}.</p>` : ""}
+        ${costs ? `<p class="t-dim">Costs paid so far: ${costs}. Fills: ${b.n_fills ?? 0}.${
+          b.distributions ? ` Distributions received: ${usd(b.distributions, 2)}.` : ""
+        }</p>` : ""}
         ${b.note ? `<p class="t-dim">${escapeHtml(b.note)}</p>` : ""}
         ${b.rules.short_note ? `<p class="t-dim">${escapeHtml(String(b.rules.short_note))}</p>` : ""}
       </details>`;
@@ -592,7 +594,7 @@ function howTo(): string {
     in cash, holds at most the account's worth of it, and the leverage shown is the oil exposure (twice the dollars).</p>
     <p><b>Candidates.</b> The same rules on gold, copper and agriculture funds (the forces named: geopolitics, electricity
     demand, weather), each a separate paper account, forecast on its own price only. Nearly uncorrelated with the oil
-    books; tested once each before they started (gold 0.50, copper 0.26, agriculture 0.29; natural gas through its funds
+    books; tested once each before they started (gold 0.50, copper 0.26, agriculture 0.34; natural gas through its funds
     failed and was left out). They are judged on real fills from here on.</p>
     <p><b>Execution.</b> An order fills at the open of the first 30-minute bar that starts after the decision, with the
     instrument's real spread and commissions. Never at the price that produced the signal.</p>

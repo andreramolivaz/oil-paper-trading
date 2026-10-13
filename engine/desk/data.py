@@ -97,6 +97,9 @@ class DeskData:
     macro: dict[str, pd.Series] = field(default_factory=dict)  # "copper", "dollar" -> daily closes
     # an inverse fund some book buys to be short ("SCO") -> its daily bars: open, high, low, close
     legs: dict[str, pd.DataFrame] = field(default_factory=dict)
+    # a fund's cash distributions, per share, by ex-date (``fund_distributions``): what a holder is paid and the
+    # raw bars do not show. Only the funds that ever paid one have an entry.
+    distributions: dict[str, pd.Series] = field(default_factory=dict)
     meta: dict[str, Any] = field(default_factory=dict)
 
     def truncate(self, day: pd.Timestamp) -> DeskData:
@@ -104,6 +107,7 @@ class DeskData:
         out = DeskData(ovx=self.ovx.loc[:day], hormuz=self.hormuz, meta=dict(self.meta))
         out.macro = {name: closes.loc[:day] for name, closes in self.macro.items()}
         out.legs = {name: bars.loc[:day] for name, bars in self.legs.items()}
+        out.distributions = {name: d.loc[:day] for name, d in self.distributions.items()}
         for key, s in self.series.items():
             out.series[key] = VehicleSeries(
                 vehicle=s.vehicle,
@@ -526,6 +530,38 @@ def fund_bars(table: pd.DataFrame, symbol: str) -> tuple[pd.DataFrame, pd.Series
     return bars, returns
 
 
+DISTRIBUTION_MIN_USD = 0.01  # below a cent per share the jump in the adjustment factor is rounding, not a payment
+DISTRIBUTION_MIN_SHARE = 0.0005  # and below 0.05 % of the price likewise
+
+
+def fund_distributions(table: pd.DataFrame) -> pd.Series:
+    """A fund's cash distributions per share, by ex-date, read off its daily table.
+
+    Yahoo's ``adjclose`` is the close scaled by a factor that is flat between events and, on an ex-date, drops
+    for every earlier day by ``1 - D / close_prev``; the raw ``close`` is not scaled (splits are applied to both,
+    so they cancel). The amount is therefore ``close_prev * (1 - factor_prev / factor_today)``, within Yahoo's
+    rounding. A book holding the fund is paid it in cash (``PaperBroker.credit_distribution``): the raw bars the
+    book is marked on fall by it on the ex-date, the adjusted returns the forecast reads do not, and without the
+    credit the book booked a payment as a loss (found by review on 2026-10-13: DBA paid 3.5-4.4 % every
+    December since 2023). Empty when the table has no adjusted close or no event passed the thresholds.
+    """
+    if table.empty or "close" not in table.columns or "adjclose" not in table.columns:
+        return pd.Series(dtype="float64")
+    close = table["close"].astype("float64")
+    adj = table["adjclose"].astype("float64")
+    ok = close.notna() & adj.notna() & (close > 0) & (adj > 0)
+    close, adj = close[ok], adj[ok]
+    if len(close) < 2:
+        return pd.Series(dtype="float64")
+    factor = adj / close
+    prev_close = close.shift(1)
+    amount = prev_close * (1.0 - factor.shift(1) / factor)
+    keep = (amount >= DISTRIBUTION_MIN_USD) & (amount >= DISTRIBUTION_MIN_SHARE * prev_close)
+    out = amount[keep].round(4)
+    out.name = "distribution"
+    return out
+
+
 def price_only_series(vehicle: str, table: pd.DataFrame) -> VehicleSeries | None:
     """The series of a fund forecast on its own price alone (the satellite markets): trend, acceleration and
     skew on the fund's own returns, no curve and no other market. None when the history is too short."""
@@ -582,6 +618,7 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
     bz_front = _daily(load("brent_front"))
     uso = _daily(load("uso_daily"))
     bno = _daily(load("bno_daily"))
+    _note_distributions(data, "BNO", bno)
 
     # ---- other markets: copper and the dollar index, for the macro sleeves --------------------------------
     macro_forecasts: dict[str, pd.Series] = {}
@@ -706,9 +743,14 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
         table = _daily(load(daily_entry))
         series = price_only_series(vehicle_id, table) if not table.empty else None
         if series is None:
-            data.meta["notes"].append(f"{vehicle_id}: no daily prices archived")
+            data.meta["notes"].append(
+                f"{vehicle_id}: no daily prices archived"
+                if table.empty
+                else f"{vehicle_id}: {len(table)} daily rows archived, {SATELLITE_MIN_DAYS} needed before a forecast"
+            )
             continue
         data.series[vehicle_id] = series
+        _note_distributions(data, vehicle_id, table)
 
     # ---- context ------------------------------------------------------------------------------------------
     ovx = _daily(load("ovx"))
@@ -724,6 +766,7 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
         table = _daily(load(daily_entry))
         if table.empty or "close" not in table.columns:
             continue
+        _note_distributions(data, fund_id, table)
         bars = table.reindex(columns=["open", "high", "low", "close"]).astype("float64")
         bars = bars.where(bars > 0).dropna(subset=["close"])
         for col in ("open", "high", "low"):
@@ -742,6 +785,13 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
         if frame is not None and not frame.empty:
             data.intraday[vehicle] = frame
     return data
+
+
+def _note_distributions(data: DeskData, symbol: str, table: pd.DataFrame) -> None:
+    """Keep a fund's distributions on the desk data when it ever paid one."""
+    paid = fund_distributions(table) if not table.empty else pd.Series(dtype="float64")
+    if not paid.empty:
+        data.distributions[symbol] = paid
 
 
 def _anchor_close(held: pd.Series, contracts: pd.DataFrame, front_close: pd.Series) -> float:

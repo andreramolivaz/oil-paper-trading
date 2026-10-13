@@ -323,6 +323,8 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
             "spread_and_slippage": _r(st.total_slippage_usd, 2),
             "financing": _r(st.total_financing, 2),
         },
+        # cash the fund paid its holders, credited on the ex-date (a fund's raw price falls by it that day)
+        "distributions": _r(st.total_distributions, 2),
         # the book's return on a gap of the vehicle's price, as a fraction of equity, before any stop
         "stress": stress,
         "last_decision": decisions[-1] if decisions else None,

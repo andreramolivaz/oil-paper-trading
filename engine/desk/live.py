@@ -236,6 +236,7 @@ class TickReport:
     decisions: list[dict[str, Any]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     books: dict[str, dict[str, Any]] = field(default_factory=dict)
+    failed: list[str] = field(default_factory=list)  # vehicles whose share of the tick raised (books untouched)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -246,12 +247,14 @@ class TickReport:
             "decisions": self.decisions,
             "notes": self.notes,
             "books": self.books,
+            "failed": self.failed,
         }
 
     def message(self) -> str:
         orders = sum(int(d.get("n_orders") or 0) for d in self.decisions)
         text = f"{self.bars} bars, {self.fills} fills, {len(self.decisions)} decisions ({orders} orders)"
-        return text + (f", {self.rolled} rolls" if self.rolled else "")
+        text += f", {self.rolled} rolls" if self.rolled else ""
+        return text + (f"; FAILED for {', '.join(self.failed)}" if self.failed else "")
 
 
 def _symbols_to_feed(desk: Desk, vehicle: Vehicle, today: date) -> list[str]:
@@ -300,158 +303,182 @@ def live_tick(
     report = TickReport(now=now)
     today_ny = now.astimezone(NEW_YORK).date()
     for vehicle_id in desk.vehicles():
-        vehicle = get_vehicle(vehicle_id)
-        books = desk.books_on(vehicle_id)
-        series = data.series.get(vehicle_id)
-        frame = data.intraday.get(vehicle_id)
-        if series is None:
-            report.notes.append(f"{vehicle_id}: no price series, books idle")
-            continue
-
-        # 1. bars completed since the last tick, per book: a book that was just reset has seen none of them,
-        #    the others must not be shown the same bar twice
-        vol_last = float(series.vol.iloc[-1]) if len(series.vol) and pd.notna(series.vol.iloc[-1]) else None
-        own_symbols = _symbols_to_feed(desk, vehicle, today_ny)
-        knew: dict[str, datetime | None] = {}  # book -> how recent its prices were when this tick began
-        for book in books:
-            state = book.broker.state
-            # A purchase of an inverse fund the book is no longer configured for (``short_via`` was removed
-            # while the order was queued) must not fill: it would open a side the book may not have, and the
-            # next decision would only sell it a day later.
-            stray = {
-                o.order_id
-                for o in book.broker.pending_orders()
-                if o.instrument in INVERSE_FUNDS and o.instrument != book.short_symbol and o.qty_bbl > 0
-            }
-            if stray:
-                book.broker.cancel_pending(stray, reason="the book no longer has a short side")
-                report.notes.append(
-                    f"{vehicle_id}: cancelled the queued purchase of an inverse fund for {book.id}, "
-                    "which no longer has a short side"
-                )
-            # what this book trades and where each symbol is read: the vehicle's table, and the inverse fund's
-            # own table for a short leg (priced on ITS volatility, which is the multiple of the oil's)
-            tables: list[tuple[str, pd.DataFrame | None, float | None]] = [(s, frame, vol_last) for s in own_symbols]
-            for fund in INVERSE_FUNDS.values():
-                if book.uses(fund.id):  # configured for it, or still holding it, or with an order on it
-                    leg_vol = None if vol_last is None else vol_last * abs(fund.multiplier)
-                    tables.append((fund.id, data.intraday.get(fund.id), leg_vol))
-            # What the book already knows: the time of the newest PRICE it has been marked on. Not the clock
-            # of the tick that marked it - the feed is fifteen minutes behind, so a tick that happens to run
-            # between a bar's end and its delivery (every restart of the runner ticks at once, at any minute)
-            # has not seen that bar, and must not make the next tick skip it.
-            known_to = knew[book.id] = state.last_price_asof or state.last_mark_ts
-            # A symbol this book was never fed: a new book, the contract a position has just been rolled into,
-            # an inverse fund used for the first time. Nothing before what the book already knows can matter
-            # to it, and feeding the archive's older bars would mark a live position at prices that are days
-            # old - enough to trip a stop-out that never happened. The time is read BEFORE any bar of this
-            # tick is fed: one symbol's bars must not hide the other's (a book that changes side fills both
-            # legs on the same half hour, not one today and one tomorrow).
-            never_fed = known_to or now
-            # ... except the bars that can fill an order: an order waits for the first bar that starts after
-            # it, and a symbol whose table was missing when that bar was delivered must still be shown it when
-            # the table returns (it is then a LATE bar: it fills, and judges nothing).
-            queued_since: dict[str, datetime] = {}  # symbol -> when its oldest order still queued was placed
-            for queued in book.broker.pending_orders():
-                placed = ensure_utc(queued.ts)
-                queued_since[queued.instrument] = min(queued_since.get(queued.instrument, placed), placed)
-            batch: list[tuple[Bar, float | None]] = []
-            for symbol, table, symbol_vol in tables:
-                seen = state.last_bar_ts.get(f"{symbol}|{INTRADAY_INTERVAL}")
-                if seen is None:
-                    seen = min(never_fed, queued_since[symbol]) if symbol in queued_since else never_fed
-                batch += [(bar, symbol_vol) for bar in completed_bars(table, symbol, now, seen)]
-            # A symbol that HAS been fed can still bring bars older than what the book knows: its table was
-            # missing for a tick or a day while the book was marked on something newer (the other leg, a daily
-            # close), and now it is back. Those bars fill what was waiting for them and nothing more
-            # (``Desk.feed``): replayed as news they would price today's position at yesterday morning's
-            # level against today's opening equity and trip the daily-loss breaker on a loss that never was.
-            report.fills += len(desk.feed(book, batch, late_until=known_to))
-            report.bars += len(batch)
-        if frame is None or frame.empty:
-            report.notes.append(f"{vehicle_id}: no intraday bars archived (orders and stops waiting)")
-        for fund_id in desk.short_legs(vehicle_id):
-            table = data.intraday.get(fund_id)
-            if table is None or table.empty:
-                report.notes.append(f"{vehicle_id}: no intraday bars of {fund_id} (the short side waits)")
-
-        # 2. interest on borrowed cash
-        desk.accrue_financing(vehicle_id, today_ny, now)
-
-        # 3-4. roll and decision, once per trading day
-        day = decision_day(vehicle, now)
-        pending = [b for b in books if desk.state.last_decision_day.get(b.id) != day.isoformat()]
-        if pending and vehicle_id in blocked:
-            report.notes.append(f"{vehicle_id}: {blocked[vehicle_id]}")
-        elif pending:
-            inputs = _forecast_row(series, day)
-            if inputs is None:
-                last = series.last_day()
-                report.notes.append(
-                    f"{vehicle_id}: decision of {day.isoformat()} waiting, data end at "
-                    f"{'n/a' if last is None else last.date().isoformat()}"
-                )
-            else:
-                forecast, vol = inputs
-                symbol = (
-                    held_contract(ROOT_OF_VEHICLE[vehicle_id], next_business_day(day))
-                    if vehicle.kind == "future"
-                    else vehicle_id
-                )
-                price, price_ts = latest_price(data, vehicle_id, symbol, now)
-                if price is None or price_ts is None or now - price_ts > MAX_PRICE_AGE:
-                    report.notes.append(f"{vehicle_id}: no recent price for {symbol}, decision postponed")
-                else:
-                    if vehicle.kind == "future":
-                        prices = {symbol: price}
-                        for book in books:
-                            for old in book.other_contract_positions(symbol):
-                                old_price, old_ts = latest_price(data, vehicle_id, old, now)
-                                if old_price is not None and old_ts is not None and abs(old_ts - price_ts) <= ROLL_SYNC:
-                                    prices[old] = old_price
-                        report.rolled += desk.roll(vehicle_id, symbol, prices, now)
-                        waiting = [b.id for b in pending if b.other_contract_positions(symbol)]
-                        if waiting:
-                            # these books keep the old contract and their decision stays owed: both are tried
-                            # again on the next tick (the calendar leaves five sessions before the expiry)
-                            report.notes.append(
-                                f"{vehicle_id}: roll to {symbol} postponed for {', '.join(waiting)} (the old "
-                                "contract has no price of the same moment): decision waiting"
-                            )
-                    # the inverse fund of a book with a short leg is priced on its own table; without a recent
-                    # price the long leg is still decided, the short one keeps what it has
-                    leg_prices: dict[str, float] = {}
-                    for fund_id in desk.short_legs(vehicle_id):
-                        leg_price, leg_ts = latest_price(data, fund_id, fund_id, now)
-                        if leg_price is not None and leg_ts is not None and now - leg_ts <= MAX_PRICE_AGE:
-                            leg_prices[fund_id] = leg_price
-                        else:
-                            report.notes.append(f"{vehicle_id}: no recent price for {fund_id}")
-                    decided = desk.decide(vehicle_id, now, day, symbol, price, forecast, vol, leg_prices=leg_prices)
-                    for decision in decided:
-                        report.decisions.append(decision.to_dict())
-
-        # 5. mark
-        for book in books:
-            marks: dict[str, float] = {}
-            asof: datetime | None = None
-            symbols = {s for s, p in book.broker.positions.items() if p.qty_bbl != 0} or set(
-                _symbols_to_feed(desk, vehicle, today_ny)[:1]
-            )
-            for symbol in symbols:
-                price, price_ts = latest_price(data, _price_table(vehicle_id, symbol), symbol, now)
-                if price is not None:
-                    marks[symbol] = price
-                    asof = price_ts if asof is None or (price_ts is not None and price_ts > asof) else asof
-            # A tick that found no price for what the book holds has learnt nothing about it: its prices are
-            # as old as they were when the tick began (the bars of a symbol it does not hold, fed above, are
-            # not news about its position), and saying "as of now" would make the next real bars look old.
-            known = asof if asof is not None else knew.get(book.id)
-            snap = book.broker.mark(marks, now, "yahoo (10-15 min delay)", known)
-            report.books[book.id] = {
-                "equity": round(float(snap.equity), 2),
-                "leverage": round(book.effective_leverage(float(snap.equity)), 3),
-                "status": str(snap.status),
-            }
+        # One vehicle's bad table (a frame the archive holds in a shape nobody expected) must not leave the
+        # other vehicles' books unfed, unmarked and unstopped: the error is reported and the loop goes on. The
+        # books on the failed vehicle are exactly where the tick found them.
+        try:
+            _tick_vehicle(desk, data, vehicle_id, now, today_ny, blocked, report)
+        except Exception as exc:  # the other vehicles must be served whatever this one raised
+            log.exception("tick: vehicle %s failed, its books are left as they were", vehicle_id)
+            report.notes.append(f"{vehicle_id}: tick failed, books left as they were ({type(exc).__name__}: {exc})")
+            report.failed.append(vehicle_id)
     desk.save()
     return report
+
+
+def _tick_vehicle(
+    desk: Desk,
+    data: DeskData,
+    vehicle_id: str,
+    now: datetime,
+    today_ny: date,
+    blocked: dict[str, str],
+    report: TickReport,
+) -> None:
+    """One vehicle's share of a tick: bars, financing and distributions, roll, decision, marks (see live_tick)."""
+    vehicle = get_vehicle(vehicle_id)
+    books = desk.books_on(vehicle_id)
+    series = data.series.get(vehicle_id)
+    frame = data.intraday.get(vehicle_id)
+    if series is None:
+        report.notes.append(f"{vehicle_id}: no price series, books idle")
+        return
+
+    # 1. bars completed since the last tick, per book: a book that was just reset has seen none of them,
+    #    the others must not be shown the same bar twice
+    vol_last = float(series.vol.iloc[-1]) if len(series.vol) and pd.notna(series.vol.iloc[-1]) else None
+    own_symbols = _symbols_to_feed(desk, vehicle, today_ny)
+    knew: dict[str, datetime | None] = {}  # book -> how recent its prices were when this tick began
+    for book in books:
+        state = book.broker.state
+        # A purchase of an inverse fund the book is no longer configured for (``short_via`` was removed
+        # while the order was queued) must not fill: it would open a side the book may not have, and the
+        # next decision would only sell it a day later.
+        stray = {
+            o.order_id
+            for o in book.broker.pending_orders()
+            if o.instrument in INVERSE_FUNDS and o.instrument != book.short_symbol and o.qty_bbl > 0
+        }
+        if stray:
+            book.broker.cancel_pending(stray, reason="the book no longer has a short side")
+            report.notes.append(
+                f"{vehicle_id}: cancelled the queued purchase of an inverse fund for {book.id}, "
+                "which no longer has a short side"
+            )
+        # what this book trades and where each symbol is read: the vehicle's table, and the inverse fund's
+        # own table for a short leg (priced on ITS volatility, which is the multiple of the oil's)
+        tables: list[tuple[str, pd.DataFrame | None, float | None]] = [(s, frame, vol_last) for s in own_symbols]
+        for fund in INVERSE_FUNDS.values():
+            if book.uses(fund.id):  # configured for it, or still holding it, or with an order on it
+                leg_vol = None if vol_last is None else vol_last * abs(fund.multiplier)
+                tables.append((fund.id, data.intraday.get(fund.id), leg_vol))
+        # What the book already knows: the time of the newest PRICE it has been marked on. Not the clock
+        # of the tick that marked it - the feed is fifteen minutes behind, so a tick that happens to run
+        # between a bar's end and its delivery (every restart of the runner ticks at once, at any minute)
+        # has not seen that bar, and must not make the next tick skip it.
+        known_to = knew[book.id] = state.last_price_asof or state.last_mark_ts
+        # A symbol this book was never fed: a new book, the contract a position has just been rolled into,
+        # an inverse fund used for the first time. Nothing before what the book already knows can matter
+        # to it, and feeding the archive's older bars would mark a live position at prices that are days
+        # old - enough to trip a stop-out that never happened. The time is read BEFORE any bar of this
+        # tick is fed: one symbol's bars must not hide the other's (a book that changes side fills both
+        # legs on the same half hour, not one today and one tomorrow).
+        never_fed = known_to or now
+        # ... except the bars that can fill an order: an order waits for the first bar that starts after
+        # it, and a symbol whose table was missing when that bar was delivered must still be shown it when
+        # the table returns (it is then a LATE bar: it fills, and judges nothing).
+        queued_since: dict[str, datetime] = {}  # symbol -> when its oldest order still queued was placed
+        for queued in book.broker.pending_orders():
+            placed = ensure_utc(queued.ts)
+            queued_since[queued.instrument] = min(queued_since.get(queued.instrument, placed), placed)
+        batch: list[tuple[Bar, float | None]] = []
+        for symbol, table, symbol_vol in tables:
+            seen = state.last_bar_ts.get(f"{symbol}|{INTRADAY_INTERVAL}")
+            if seen is None:
+                seen = min(never_fed, queued_since[symbol]) if symbol in queued_since else never_fed
+            batch += [(bar, symbol_vol) for bar in completed_bars(table, symbol, now, seen)]
+        # A symbol that HAS been fed can still bring bars older than what the book knows: its table was
+        # missing for a tick or a day while the book was marked on something newer (the other leg, a daily
+        # close), and now it is back. Those bars fill what was waiting for them and nothing more
+        # (``Desk.feed``): replayed as news they would price today's position at yesterday morning's
+        # level against today's opening equity and trip the daily-loss breaker on a loss that never was.
+        report.fills += len(desk.feed(book, batch, late_until=known_to))
+        report.bars += len(batch)
+    if frame is None or frame.empty:
+        report.notes.append(f"{vehicle_id}: no intraday bars archived (orders and stops waiting)")
+    for fund_id in desk.short_legs(vehicle_id):
+        table = data.intraday.get(fund_id)
+        if table is None or table.empty:
+            report.notes.append(f"{vehicle_id}: no intraday bars of {fund_id} (the short side waits)")
+
+    # 2. interest on borrowed cash, and the cash a fund paid its holders
+    desk.accrue_financing(vehicle_id, today_ny, now)
+    paid = desk.credit_distributions(vehicle_id, data.distributions, today_ny, now)
+    if paid:
+        report.notes.append(f"{vehicle_id}: distributions credited, {paid:.2f} $")
+
+    # 3-4. roll and decision, once per trading day
+    day = decision_day(vehicle, now)
+    pending = [b for b in books if desk.state.last_decision_day.get(b.id) != day.isoformat()]
+    if pending and vehicle_id in blocked:
+        report.notes.append(f"{vehicle_id}: {blocked[vehicle_id]}")
+    elif pending:
+        inputs = _forecast_row(series, day)
+        if inputs is None:
+            last = series.last_day()
+            report.notes.append(
+                f"{vehicle_id}: decision of {day.isoformat()} waiting, data end at "
+                f"{'n/a' if last is None else last.date().isoformat()}"
+            )
+        else:
+            forecast, vol = inputs
+            symbol = (
+                held_contract(ROOT_OF_VEHICLE[vehicle_id], next_business_day(day))
+                if vehicle.kind == "future"
+                else vehicle_id
+            )
+            price, price_ts = latest_price(data, vehicle_id, symbol, now)
+            if price is None or price_ts is None or now - price_ts > MAX_PRICE_AGE:
+                report.notes.append(f"{vehicle_id}: no recent price for {symbol}, decision postponed")
+            else:
+                if vehicle.kind == "future":
+                    prices = {symbol: price}
+                    for book in books:
+                        for old in book.other_contract_positions(symbol):
+                            old_price, old_ts = latest_price(data, vehicle_id, old, now)
+                            if old_price is not None and old_ts is not None and abs(old_ts - price_ts) <= ROLL_SYNC:
+                                prices[old] = old_price
+                    report.rolled += desk.roll(vehicle_id, symbol, prices, now)
+                    waiting = [b.id for b in pending if b.other_contract_positions(symbol)]
+                    if waiting:
+                        # these books keep the old contract and their decision stays owed: both are tried
+                        # again on the next tick (the calendar leaves five sessions before the expiry)
+                        report.notes.append(
+                            f"{vehicle_id}: roll to {symbol} postponed for {', '.join(waiting)} (the old "
+                            "contract has no price of the same moment): decision waiting"
+                        )
+                # the inverse fund of a book with a short leg is priced on its own table; without a recent
+                # price the long leg is still decided, the short one keeps what it has
+                leg_prices: dict[str, float] = {}
+                for fund_id in desk.short_legs(vehicle_id):
+                    leg_price, leg_ts = latest_price(data, fund_id, fund_id, now)
+                    if leg_price is not None and leg_ts is not None and now - leg_ts <= MAX_PRICE_AGE:
+                        leg_prices[fund_id] = leg_price
+                    else:
+                        report.notes.append(f"{vehicle_id}: no recent price for {fund_id}")
+                decided = desk.decide(vehicle_id, now, day, symbol, price, forecast, vol, leg_prices=leg_prices)
+                for decision in decided:
+                    report.decisions.append(decision.to_dict())
+
+    # 5. mark
+    for book in books:
+        marks: dict[str, float] = {}
+        asof: datetime | None = None
+        symbols = {s for s, p in book.broker.positions.items() if p.qty_bbl != 0} or set(
+            _symbols_to_feed(desk, vehicle, today_ny)[:1]
+        )
+        for symbol in symbols:
+            price, price_ts = latest_price(data, _price_table(vehicle_id, symbol), symbol, now)
+            if price is not None:
+                marks[symbol] = price
+                asof = price_ts if asof is None or (price_ts is not None and price_ts > asof) else asof
+        # A tick that found no price for what the book holds has learnt nothing about it: its prices are
+        # as old as they were when the tick began (the bars of a symbol it does not hold, fed above, are
+        # not news about its position), and saying "as of now" would make the next real bars look old.
+        known = asof if asof is not None else knew.get(book.id)
+        snap = book.broker.mark(marks, now, "yahoo (10-15 min delay)", known)
+        report.books[book.id] = {
+            "equity": round(float(snap.equity), 2),
+            "leverage": round(book.effective_leverage(float(snap.equity)), 3),
+            "status": str(snap.status),
+        }

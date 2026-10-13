@@ -106,7 +106,7 @@ contratto o un «altro mercato» nel motore.
 
 Dichiarati prima della prova (`docs/RESEARCH.md`, capitolo 8): un quarto candidato, il gas naturale con i fondi
 UNG e KOLD, aveva uno Sharpe negativo sull'intera storia e per il filtro dichiarato non è partito. I tre che
-partono misurano 0,50 (oro, t 2,3 su vent'anni), 0,26 (rame) e 0,29 (agricoltura) dopo i costi; con i tre libri
+partono misurano 0,50 (oro, t 2,3 su vent'anni), 0,26 (rame) e 0,34 (agricoltura) dopo i costi; con i tre libri
 sul greggio a capitale uguale lo Sharpe del portafoglio passa da 0,80 a 0,87 e la perdita massima da −61% a
 −30%: è diversificazione, non alfa, e il sito lo scrive. Il terminale mostra per ogni libro anche che cosa
 perderebbe su un gap del −20% dello strumento alla posizione di oggi (`stress`).

@@ -80,7 +80,10 @@ def sleeve_configs(
     for source, members in sg.SOURCES.items():
         present = [name for name in members if name in sleeves_used]
         if present:
-            configs.append(reference(source, SOURCE_LABELS[source], dict.fromkeys(present, 1.0)))
+            label = SOURCE_LABELS[source]
+            if source == "prezzo" and vehicle not in ("BNO", "MCL"):
+                label = label.replace("the price of crude", "the fund's own price")  # a satellite reads its own
+            configs.append(reference(source, label, dict.fromkeys(present, 1.0)))
     if set(sleeves_used) == set(sg.SLEEVES):
         configs.append(reference(BEFORE_ID, "Before: trend, carry, carry-momentum", dict.fromkeys(BEFORE_SLEEVES, 1.0)))
         configs.append(reference("tutte", "Now: the seven together, a third per source", None))
@@ -89,7 +92,10 @@ def sleeve_configs(
     return configs
 
 
-MODEL_VERSION = 2  # bump when the replay changes in a way that the rules below do not show
+MODEL_VERSION = 3  # bump when the replay changes in a way that the rules below do not show (3: distributions credited)
+# Fields of a book, a vehicle, an inverse fund or the account rules that are written for the reader and change
+# nothing in the replay: a rename or a translation must not cost a recompute on the next tick.
+COSMETIC_FIELDS = frozenset({"name", "description", "note", "robinhood", "unit", "label", "short_note"})
 
 
 def canonical(value: Any) -> str:
@@ -120,12 +126,21 @@ def model_signature(books: list[BookConfig], options_cfg: Any | None = None, ris
     from engine.desk import options as option_book
 
     def constants(module: Any) -> list[tuple[str, str]]:
-        """Upper-case module constants of plain types (numbers, text, tuples and dicts of them)."""
+        """Upper-case module constants of plain types (numbers, text, tuples and dicts of them), except the
+        labels written for the reader: a translated word must not cost a recompute."""
         plain = (int, float, str, bool, tuple, dict, frozenset)
-        return sorted((n, canonical(v)) for n, v in vars(module).items() if n.isupper() and isinstance(v, plain))
+        return sorted(
+            (n, canonical(v))
+            for n, v in vars(module).items()
+            if n.isupper() and isinstance(v, plain) and not n.endswith(("_LABELS", "_LABEL", "_NOTE", "_NOTES"))
+        )
+
+    def fields(obj: Any) -> list[tuple[str, Any]]:
+        """A dataclass's fields that enter the replay: names, descriptions and notes are for the reader."""
+        return sorted((k, v) for k, v in dataclasses.asdict(obj).items() if k not in COSMETIC_FIELDS)
 
     def rows(items: dict[str, Any]) -> list[Any]:
-        return [sorted(dataclasses.asdict(v).items(), key=lambda kv: kv[0]) for _, v in sorted(items.items())]
+        return [fields(v) for _, v in sorted(items.items())]
 
     spec = [
         MODEL_VERSION,
@@ -134,11 +149,11 @@ def model_signature(books: list[BookConfig], options_cfg: Any | None = None, ris
         constants(replay),  # warm-up, fill rules
         constants(sizing),  # the hard cap
         constants(option_book),  # the smiles and the costs of the options replay
-        [sorted(dataclasses.asdict(b).items(), key=lambda kv: kv[0]) for b in books],
+        [fields(b) for b in books],
         rows(VEHICLES),
         rows(INVERSE_FUNDS),
-        None if options_cfg is None else sorted(dataclasses.asdict(options_cfg).items(), key=lambda kv: kv[0]),
-        None if risk is None else sorted(dataclasses.asdict(risk).items(), key=lambda kv: kv[0]),
+        None if options_cfg is None else fields(options_cfg),
+        None if risk is None else fields(risk),
     ]
     return hashlib.sha1(canonical(spec).encode("utf-8")).hexdigest()[:12]
 
@@ -173,18 +188,20 @@ def _row_kind(key: str) -> str:
 
 
 def portfolio_stats(
-    result: BacktestResult, ids: list[str], label: str, start: date | None = None
+    result: BacktestResult, ids: list[str], label: str, start: date | None = None, end: date | None = None
 ) -> dict[str, Any] | None:
     """The books in ``ids`` held together with equal capital, rebalanced daily, over the window on which all of
     them have an equity curve: the Sharpe ratio of the sum is what a reader of several books wants, and it is
-    not the average of their Sharpe ratios. None when fewer than two of the books have a curve. ``start`` cuts
-    the window short, so that two portfolios can be compared over the same days."""
+    not the average of their Sharpe ratios. None when fewer than two of the books have a curve. ``start`` and
+    ``end`` cut the window, so that two portfolios can be compared over the same days."""
     curves = [result.books[i].equity for i in ids if i in result.books and not result.books[i].equity.empty]
     if len(curves) < 2:
         return None
     frame = pd.concat(curves, axis=1).dropna()
     if start is not None:
         frame = frame.loc[frame.index >= pd.Timestamp(start)]
+    if end is not None:
+        frame = frame.loc[frame.index <= pd.Timestamp(end)]
     if len(frame) < 60:
         return None
     returns = frame.pct_change().dropna().mean(axis=1)
@@ -222,6 +239,7 @@ def portfolio_block(result: BacktestResult, books: list[BookConfig]) -> dict[str
                 core,
                 "the core books together, over the candidates' window",
                 start=date.fromisoformat(all_stats["start"]),
+                end=date.fromisoformat(all_stats["end"]),
             )
             if matched is not None:
                 out["core_matched"] = matched

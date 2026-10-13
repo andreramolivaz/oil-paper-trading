@@ -424,3 +424,64 @@ def test_hormuz_summary_measures_a_closure_against_the_years_before_it():
     open_ = hormuz_summary(frame.loc[:"2026-02-28"])
     assert open_["closed"] is False and open_["ratio"] == pytest.approx(1.0)
     assert hormuz_summary(pd.DataFrame()) == {} and hormuz_summary(frame.iloc[:10]) == {}
+
+
+# -------------------------------------------------------------------------------------------- distributions
+def _fund_table_with_distributions(events: dict[int, float], n: int = 400, seed: int = 5) -> pd.DataFrame:
+    """A fund's daily table as Yahoo serves it: the raw close is what traded, the adjusted close is the close
+    scaled by a factor that drops, for every day BEFORE an ex-date, by ``1 - amount / close_prev``."""
+    idx = pd.bdate_range("2024-01-02", periods=n, name="date")
+    rng = np.random.default_rng(seed)
+    raw = 20.0 * np.exp(np.cumsum(rng.normal(0.0002, 0.008, size=n)))
+    factor = np.ones(n)
+    for row, amount in sorted(events.items()):
+        factor[:row] *= 1.0 - amount / raw[row - 1]
+    adj = raw * factor
+    return pd.DataFrame(
+        {"open": raw * 0.999, "high": raw * 1.004, "low": raw * 0.996, "close": raw, "adjclose": adj.round(6)},
+        index=idx,
+    )
+
+
+def test_a_funds_distributions_are_read_off_the_adjusted_close():
+    """Yahoo gives no dividend table with the bars: the amount paid per share on an ex-date is the jump in the
+    ratio of adjusted to raw close, and nothing else in the table moves it (splits are in both closes)."""
+    from engine.desk.data import fund_distributions
+
+    table = _fund_table_with_distributions({150: 0.96, 330: 1.084})
+    paid = fund_distributions(table)
+    assert list(paid.index) == [table.index[150], table.index[330]]
+    assert paid.iloc[0] == pytest.approx(0.96, abs=1e-3) and paid.iloc[1] == pytest.approx(1.084, abs=1e-3)
+    assert paid.name == "distribution"
+    # the table of a fund that never paid anything, and a table without an adjusted close, have none
+    assert fund_distributions(_fund_table_with_distributions({})).empty
+    assert fund_distributions(table.drop(columns=["adjclose"])).empty
+    # rounding noise in the adjusted close is not a payment: half a cent on a 20 $ fund is below both thresholds
+    noisy = table.copy()
+    noisy["adjclose"] = (noisy["adjclose"] * (1.0 + 1e-5 * np.sin(np.arange(len(noisy))))).round(6)
+    assert len(fund_distributions(noisy)) == 2
+    # and the desk data keeps them by symbol, truncated with everything else
+    from engine.desk.data import DeskData
+
+    data = DeskData(meta={"missing": [], "notes": []})
+    data.distributions["DBA"] = paid
+    cut = data.truncate(table.index[200])
+    assert list(cut.distributions["DBA"].index) == [table.index[150]]
+
+
+def test_the_desk_data_notes_the_distributions_of_every_fund_it_reads(tmp_path):
+    """BNO, the inverse fund and the satellites: each fund's table is read for its payments, and a fund that
+    never paid has no entry (the archived BNO, SCO, GLD and CPER tables show none; DBA pays every December)."""
+    from engine.desk.data import fund_distributions
+
+    history = make_desk_raw_frames(n=1100)
+    idx = history["bno_daily"].index
+    dba = _fund_table_with_distributions({700: 0.5}, n=len(idx)).set_axis(idx)
+    store = RawStore(tmp_path / "raw")
+    for entry, frame in history.items():
+        save_raw_frame(store, entry, frame)
+    save_raw_frame(store, "dba_daily", dba)
+    data = build_desk_data(store)
+    assert "DBA" in data.series and set(data.distributions) == {"DBA"}
+    pd.testing.assert_series_equal(data.distributions["DBA"], fund_distributions(dba))
+    assert "BNO" not in data.distributions  # the synthetic BNO table pays nothing
