@@ -36,7 +36,13 @@ DAILY = [
 DAILY_SATELLITES = [
     "GLD", "IAU", "GLL", "CPER", "UNG", "KOLD", "BOIL", "DBA", "CORN", "WEAT", "SOYB", "URA",
     "GC=F", "HG=F", "NG=F", "ZC=F", "ZW=F", "ZS=F", "TLT", "SPY", "UUP", "SGOV",
+    # phase 13 (13 October 2026): the themes as markets - utilities, lithium, semiconductors, clean energy;
+    # SH and TBF, the inverse funds of equities and Treasuries, for a short side later
+    "XLU", "LIT", "SMH", "ICLN", "SH", "TBF",
 ]  # fmt: skip
+# Kalshi, the prediction market: the public API needs no key. The whole catalogue of series and the open
+# markets are saved as JSON so that the oil, Hormuz and Iran markets can be found by reading, not guessing.
+KALSHI_BASE = "https://api.elections.kalshi.com/trade-api/v2"
 INTRADAY_1H = ["BZ=F", "CL=F", "MCL=F", "BNO", "USO", "UCO", "SCO", "XLE"]
 INTRADAY_SHORT = ["BZ=F", "CL=F", "MCL=F", "BNO", "USO"]
 SHORT_INTERVALS = ["30m", "15m", "5m"]
@@ -54,14 +60,65 @@ def _save(frame: Any, path: Path) -> int:
     return len(out)
 
 
+def _kalshi_catalogue(out: Path) -> int:
+    """Page through the prediction market's series and open markets and save them as JSON (no key needed)."""
+    import time
+
+    import requests
+
+    out.mkdir(parents=True, exist_ok=True)
+    session = requests.Session()
+    session.headers["Accept"] = "application/json"
+
+    def page(path: str, params: dict[str, Any], key: str) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = None
+        for _ in range(400):
+            q = dict(params)
+            if cursor:
+                q["cursor"] = cursor
+            r = session.get(f"{KALSHI_BASE}/{path}", params=q, timeout=30)
+            r.raise_for_status()
+            body = r.json()
+            rows.extend(body.get(key) or [])
+            cursor = body.get("cursor") or None
+            if not cursor:
+                break
+            time.sleep(0.25)
+        return rows
+
+    series = page("series", {"limit": 1000}, "series")
+    (out / "series.json").write_text(json.dumps(series, indent=0))
+    print(f"ok   kalshi/series {len(series)} rows", flush=True)
+    markets = page("markets", {"limit": 1000, "status": "open"}, "markets")
+    (out / "markets_open.json").write_text(json.dumps(markets, indent=0))
+    print(f"ok   kalshi/markets_open {len(markets)} rows", flush=True)
+    # the settled markets of the series that look like ours, for the history that may exist
+    words = ("oil", "brent", "wti", "crude", "hormuz", "iran", "opec", "ceasefire", "gasoline", "tanker")
+    ours = [s for s in series if any(w in json.dumps(s).lower() for w in words)]
+    (out / "series_ours.json").write_text(json.dumps(ours, indent=1))
+    print(f"ok   kalshi/series_ours {len(ours)} rows: {[s.get('ticker') for s in ours][:40]}", flush=True)
+    settled: list[dict[str, Any]] = []
+    for s in ours[:40]:
+        try:
+            params = {"limit": 1000, "series_ticker": s.get("ticker"), "status": "settled"}
+            settled += page("markets", params, "markets")
+        except Exception as exc:  # one series must not stop the rest
+            print(f"FAIL kalshi/settled {s.get('ticker')}: {exc}", flush=True)
+    (out / "markets_settled_ours.json").write_text(json.dumps(settled, indent=0))
+    print(f"ok   kalshi/markets_settled_ours {len(settled)} rows", flush=True)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="out/research")
     parser.add_argument(
         "--only",
-        choices=["all", "satellites"],
+        choices=["all", "satellites", "kalshi"],
         default="all",
-        help="'satellites': only the daily tables of DAILY_SATELLITES (phase 12 research), a few dozen requests",
+        help="'satellites': only the daily tables of DAILY_SATELLITES (phase 12 research), a few dozen requests; "
+        "'kalshi': the prediction market's catalogue (series, open markets) as JSON",
     )
     args = parser.parse_args()
     out = Path(args.out)
@@ -79,6 +136,8 @@ def main() -> int:
             print(f"FAIL {key:<28} {manifest['failed'][key]}", flush=True)
 
     safe = lambda s: s.replace("=", "_").replace("^", "_").replace(".", "_")  # noqa: E731
+    if args.only == "kalshi":
+        return _kalshi_catalogue(out / "kalshi")
     if args.only == "satellites":
         for symbol in DAILY_SATELLITES:
             run(
