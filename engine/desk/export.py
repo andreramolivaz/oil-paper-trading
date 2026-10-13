@@ -538,6 +538,7 @@ def backtest_summary(state_dir: Path) -> dict[str, Any] | None:
         "generated_at": (payload.get("meta") or {}).get("generated_at"),
         "fill_rule": (payload.get("meta") or {}).get("fill_rule"),
         "books": books,
+        "portfolio": payload.get("portfolio") or {},
         "benchmarks": {
             k: {"name": v.get("name"), "stats": v.get("stats")} for k, v in (payload.get("benchmarks") or {}).items()
         },
