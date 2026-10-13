@@ -20,18 +20,18 @@
 #   daily_loss_breaker    loss on the day, as a fraction of the day's opening equity, that flattens the book
 books:
   - id: prudente
-    name: Prudente
+    name: Prudent
     vehicle: BNO
     vol_target: 0.12
     max_leverage: 1.0
     long_only: true
     daily_loss_breaker: 0.05
     description: >-
-      Un quarto di Kelly sul fondo Brent, mai a leva e mai short. È il libro che si potrebbe tenere su un conto
-      senza margine: compra BNO quando la previsione è long, sta in contanti negli altri casi.
+      A quarter of Kelly on the Brent fund, never levered and never short. It is the book one could keep in an
+      account without margin: it buys BNO when the forecast is long and stays in cash otherwise.
 
   - id: dinamico
-    name: Dinamico
+    name: Dynamic
     vehicle: BNO
     vol_target: 0.25
     max_leverage: 2.0
@@ -40,12 +40,12 @@ books:
     short_via: SCO
     daily_loss_breaker: 0.08
     description: >-
-      Mezzo Kelly sul fondo Brent, long e short. Long: BNO fino a 2x a margine (il massimo che la Regulation T
-      consente overnight). Short: compra SCO, il fondo che ogni giorno rende -2 volte il WTI, in contanti e mai
-      oltre il 100% del conto. Stesse previsioni del libro prudente, il doppio del rischio e anche il lato short.
+      Half Kelly on the Brent fund, long and short. Long: BNO up to 2x on margin (the most Regulation T allows
+      overnight). Short: it buys SCO, the fund that returns -2 times WTI each day, with cash and never beyond
+      100% of the account. The same forecast as the prudent book, twice the risk, and the short side too.
 
   - id: spinto
-    name: Spinto
+    name: Aggressive
     vehicle: MCL
     vol_target: 0.50
     max_leverage: 10.0
@@ -53,9 +53,10 @@ books:
     long_only: false
     daily_loss_breaker: 0.15
     description: >-
-      Kelly pieno sul future micro WTI, long e short, fino a 10x. La leva non è scelta: esce dal rapporto fra
-      l'obiettivo di volatilità e la volatilità del momento. Con il greggio al 50% di volatilità resta fra
-      1x e 2x; servono mercati calmi e una previsione forte per vederla salire. Può azzerare il conto.
+      Full Kelly on the micro WTI future, long and short, up to 10x. The leverage is not chosen: it comes out of
+      the ratio between the volatility target and the volatility of the moment. With crude at 50% volatility it
+      stays between 1x and 2x; it takes calm markets and a strong forecast to see it rise. It can wipe out the
+      account.
 
   # ---- the satellite markets (phase 12, docs/RESEARCH.md chapter 8) --------------------------------------------
   # Candidate books: paper books beside the four core ones, judged on real fills before anybody trusts them.
@@ -74,8 +75,8 @@ books:
     sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
     daily_loss_breaker: 0.05
     description: >-
-      Un quarto di Kelly sul fondo oro, mai a leva e mai short: le regole del libro prudente, la previsione
-      letta sul prezzo dell'oro stesso. Il mercato della geopolitica.
+      A quarter of Kelly on the gold fund, never levered and never short: the prudent book's rules, the forecast
+      read on the price of gold itself. The market of geopolitics.
 
   - id: copper
     name: Copper
@@ -87,8 +88,8 @@ books:
     sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
     daily_loss_breaker: 0.05
     description: >-
-      Un quarto di Kelly sul fondo rame, mai a leva e mai short: le regole del libro prudente, la previsione
-      letta sul prezzo del rame stesso. Il mercato dell'elettrificazione e dei data center.
+      A quarter of Kelly on the copper fund, never levered and never short: the prudent book's rules, the
+      forecast read on the price of copper itself. The market of electrification and data centres.
 
   - id: agri
     name: Agriculture
@@ -100,8 +101,8 @@ books:
     sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
     daily_loss_breaker: 0.05
     description: >-
-      Un quarto di Kelly sul fondo agricolo (mais, soia, grano, zucchero, caffè, cacao, bestiame), mai a leva e
-      mai short: le regole del libro prudente sul mercato che il tempo meteorologico muove di più.
+      A quarter of Kelly on the agriculture fund (corn, soybeans, wheat, sugar, coffee, cocoa, livestock), never
+      levered and never short: the prudent book's rules on the market the weather moves most.
 
 # The options book (engine/desk/options.py): put credit spreads sold below the market when the forecast is
 # long, priced on the real delayed bid and ask. Its replay is a model and is labelled approx everywhere; the
@@ -111,7 +112,7 @@ books:
 options_book:
   enabled: true
   id: opzioni
-  name: Opzioni
+  name: Options
   forecast_threshold: 5.0        # combined forecast needed to sell a put spread
   short_delta: 0.20              # delta of the put sold
   dte_min: 21                    # days to expiry: listed expiry closest to dte_target inside [dte_min, dte_max]
@@ -128,9 +129,9 @@ options_book:
   fee_per_contract: 0.05         # regulatory and clearing fees; Robinhood charges no commission on options
   decision_time_ny: [15, 0]
   underlyings:
-    - {symbol: USO, chain: uso_options, daily: uso_daily, forecast: MCL, label: "fondo WTI"}
-    - {symbol: BNO, chain: bno_options, daily: bno_daily, forecast: BNO, label: "fondo Brent"}
+    - {symbol: USO, chain: uso_options, daily: uso_daily, forecast: MCL, label: "WTI fund"}
+    - {symbol: BNO, chain: bno_options, daily: bno_daily, forecast: BNO, label: "Brent fund"}
   description: >-
-    Spread di put a credito su USO (e su BNO quando le quotazioni lo consentono), venduti sotto il mercato
-    quando la previsione è long. Perdita massima definita all'apertura: 5% del conto per struttura, due
-    strutture al massimo. Sperimentale: la simulazione è un modello, il libro serve a misurarlo sui prezzi veri.
+    Put credit spreads on USO (and on BNO when the quotes allow it), sold below the market when the forecast is
+    long. Maximum loss defined at the opening: 5% of the account per structure, two structures at most.
+    Experimental: the simulation is a model, the book exists to measure it on real prices.

@@ -270,31 +270,31 @@ def _desk_daily_entries(runner: LiveRunner, desk: Any, now: Any) -> tuple[set[st
         attempted = _source_attempted_at(runner, names[0])
         reason, wanted = "", set(names)
         if checked is None and attempted is None:
-            reason = "da scaricare"
+            reason = "to download"
         elif checked is None:
             # the last attempt failed: a decision that is waiting asks again at every tick, the rest once an hour
             if owed or hours_since(attempted) >= RED_RETRY_HOURS:
-                reason = "ultimo tentativo non riuscito"
+                reason = "last attempt failed"
         elif hours_since(checked) > DAILY_MAX_AGE_HOURS:
-            reason = f"vecchi di {hours_since(checked):.0f} ore"
+            reason = f"{hours_since(checked):.0f} hours old"
         elif after_close and ensure_utc(checked) < close.astimezone(UTC):
-            reason = "chiusure ufficiali del giorno"
+            reason = "official closes of the day"
         elif owed and day is not None and decision_ts is not None and pd.Timestamp(checked) < decision_ts:
-            reason = f"decisione del {day.isoformat()} da prendere"
+            reason = f"decision of {day.isoformat()} to take"
         # A table added to the list since the last download (a new sleeve, a new leg) has never been asked for:
         # it is asked for now, not when the probe next happens to be due. It alone, unless the others are due
         # as well: they were read when their rule said so, and a futures table read again late in the evening
         # comes back with the day's row overwritten by the first minutes of the next session.
         never = [name for name in names if _source_attempted_at(runner, name) is None]
         if never and not reason:
-            reason, wanted = f"mai scaricate: {', '.join(never)}", set(never)
+            reason, wanted = f"never downloaded: {', '.join(never)}", set(never)
         if reason:
             entries |= wanted
             reasons.append(f"{vehicle_id}: {reason}")
     attempted = _source_attempted_at(runner, DESK_CONTEXT_ENTRIES[0])
     if attempted is None or hours_since(attempted) > CONTEXT_MAX_AGE_HOURS:
         entries |= set(DESK_CONTEXT_ENTRIES)
-        reasons.append("contesto: una volta al giorno")
+        reasons.append("context: once a day")
 
     # Copper and the dollar. A decision of day D reads their closes of the days before D, and those are on file
     # in their final form only in a table downloaded on D itself: so the tables are downloaded on the tick that
@@ -308,14 +308,12 @@ def _desk_daily_entries(runner: LiveRunner, desk: Any, now: Any) -> tuple[set[st
     for name in DESK_MACRO_ENTRIES:
         ok, tried = _source_checked_at(runner, name), _source_attempted_at(runner, name)
         if tried is None:
-            macro_reason = "da scaricare"
+            macro_reason = "to download"
         elif ok is None:
             if owed_days or hours_since(tried) >= RED_RETRY_HOURS:
-                macro_reason = macro_reason or "ultimo tentativo non riuscito"
+                macro_reason = macro_reason or "last attempt failed"
         elif needed_from is not None and pd.Timestamp(ensure_utc(ok)) < needed_from:
-            macro_reason = (
-                macro_reason or f"chiusure di rame e dollaro per la decisione del {max(owed_days).isoformat()}"
-            )
+            macro_reason = macro_reason or f"copper and dollar closes for the decision of {max(owed_days).isoformat()}"
     if macro_reason:
         entries |= set(DESK_MACRO_ENTRIES)
         reasons.append(f"macro: {macro_reason}")
@@ -375,10 +373,10 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
                 from engine.desk.report import run_desk_backtest
 
                 run_desk_backtest(runner.raw, runner.settings, runner.risk, runner.store)
-                detail["desk_backtest"] = f"calcolato: {stale}"
+                detail["desk_backtest"] = f"computed: {stale}"
         except Exception as exc:
             log.warning("desk backtest skipped: %s", exc)
-            detail["desk_backtest"] = f"non riuscito: {str(exc)[:160]}"
+            detail["desk_backtest"] = f"failed: {str(exc)[:160]}"
 
         # The first system's end of day comes LAST: it takes minutes (features, regime, forecasts) and the books
         # must not wait for it. It is tried at most LEGACY_EOD_ATTEMPTS times per date: a date that keeps failing
@@ -391,7 +389,7 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
                     detail["legacy_eod"] = {
                         "day": target.isoformat(),
                         "status": "skipped",
-                        "message": f"{failed} tentativi falliti",
+                        "message": f"{failed} failed attempts",
                     }
                 else:
                     outcome = eod(runner, f"{job_id}-eod", day=target, force=True)
@@ -424,8 +422,8 @@ def _overtaken_by_the_clock(desk: Any, planned_at: Any, now: Any) -> dict[str, s
         vehicle = get_vehicle(vehicle_id)
         if decision_day(vehicle, ensure_utc(now)) != decision_day(vehicle, ensure_utc(planned_at)):
             late[vehicle_id] = (
-                "l'ora della decisione è passata mentre il giro scaricava i dati: si decide al prossimo giro, "
-                "sulle tabelle lette dopo quell'ora"
+                "the decision time passed while the tick was downloading the data: the decision is taken on the "
+                "next tick, on the tables read after that time"
             )
     return late
 
@@ -447,13 +445,13 @@ def _desk_backtest_stale(runner: LiveRunner, missing_now: set[str] | None = None
     except ValueError:  # a file cut short by a crash is a file that is not there
         on_file = None
     if not isinstance(on_file, dict) or not on_file:
-        return "mancava"
+        return "was missing"
     meta = on_file.get("meta") or {}
     config_dir = runner.settings.config_dir
     if meta.get("model") != model_signature(load_books(config_dir), load_options_config(config_dir), runner.risk):
-        return "le regole sono cambiate"
+        return "the rules changed"
     arrived = sorted(set(meta.get("missing") or []) - missing_now) if missing_now is not None else []
-    return f"sono arrivate tabelle che mancavano ({', '.join(arrived)})" if arrived else ""
+    return f"tables that were missing have arrived ({', '.join(arrived)})" if arrived else ""
 
 
 # What each vehicle's daily decision cannot do without: every table of at least one of the listed sets must be
@@ -479,8 +477,8 @@ def _blocked_vehicles(runner: LiveRunner, vehicles: Iterable[str] | None = None)
             continue
         usable = any(all(status.get(name, "red") != "red" for name in names) for names in alternatives)
         if not usable:
-            names = " o ".join("+".join(a) for a in alternatives)
-            blocked[vehicle] = f"fonte {names} non disponibile: nessuna nuova decisione finché non torna"
+            names = " or ".join("+".join(a) for a in alternatives)
+            blocked[vehicle] = f"source {names} unavailable: no new decision until it is back"
     return blocked
 
 

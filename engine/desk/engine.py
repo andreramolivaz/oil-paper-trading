@@ -234,11 +234,11 @@ class Desk:
             # answer to an older question, so it is replaced, never added to: two decisions less than a bar
             # apart (a book started just before its decision time, a feed that delivered no bar in between)
             # would otherwise buy the same target twice.
-            replaced = book.broker.cancel_pending(reason=f"sostituito dalla decisione del {day.isoformat()}")
+            replaced = book.broker.cancel_pending(reason=f"replaced by the decision of {day.isoformat()}")
             decision, orders = book.orders(ts, day, symbol, price, forecast, vol, leg_price)
             if replaced:
-                decision.rationale += " L'ordine della decisione precedente era ancora in coda: annullato" + (
-                    ", lo sostituisce questo." if orders else "."
+                decision.rationale += " The previous decision's order was still queued: cancelled" + (
+                    ", this one replaces it." if orders else "."
                 )
                 for order in orders:
                     order.rationale = decision.rationale
@@ -246,17 +246,17 @@ class Desk:
                 refused = [o.instrument for o in orders if not book.broker.submit(o)]
                 queued = len(orders) - len(refused)
                 decision.n_orders = queued  # what is really in the queue, not what the book asked for
-                decision.status = "ordine in coda" if queued == 1 else f"{queued} ordini in coda"
+                decision.status = "order queued" if queued == 1 else f"{queued} orders queued"
                 if refused:
-                    why = f"rifiutato ({', '.join(refused)}): {book.broker.state.last_reject_reason}"
+                    why = f"refused ({', '.join(refused)}): {book.broker.state.last_reject_reason}"
                     decision.status = why if queued == 0 else f"{decision.status}; {why}"
-                    # the rationale says "compro" and "vendo": when the broker said no, it must say that too
+                    # the rationale says "buy" and "sell": when the broker said no, it must say that too
                     decision.rationale += (
-                        f" Il broker ha rifiutato l'ordine su {' e su '.join(refused)}: non viene eseguito "
-                        "(il motivo è nello stato della decisione)."
+                        f" The broker refused the order on {' and on '.join(refused)}: it is not executed "
+                        "(the reason is in the decision's status)."
                     )
             else:
-                decision.status = decision.status or "nessun ordine"
+                decision.status = decision.status or "no order"
             self.state.last_decision_day[book.id] = day.isoformat()
             if self.store is not None:
                 self.store.append_jsonl(DECISIONS_LOG, _clean(decision.to_dict()), ts=ts)

@@ -33,17 +33,17 @@ BACKTEST_FILE = "backtest.json"
 SLEEVE_VOL_TARGET = 0.15
 SLEEVE_LABELS = {
     "trend": "Trend (EWMAC)",
-    "accel": "Accelerazione del trend",
-    "skew": "Asimmetria dei rendimenti (skew)",
-    "carry": "Carry (pendenza della curva)",
+    "accel": "Trend acceleration",
+    "skew": "Return asymmetry (skew)",
+    "carry": "Carry (curve slope)",
     "carry_momentum": "Carry-momentum",
-    "copper": "Trend del rame",
-    "dollar": "Trend del dollaro (invertito)",
+    "copper": "Copper trend",
+    "dollar": "Dollar trend (inverted)",
 }
 SOURCE_LABELS = {
-    "prezzo": "Fonte 1 - il prezzo del greggio (trend, accelerazione, skew)",
-    "curva": "Fonte 2 - la curva dei future (carry, carry-momentum)",
-    "macro": "Fonte 3 - altri mercati (rame, dollaro)",
+    "prezzo": "Source 1 - the price of crude (trend, acceleration, skew)",
+    "curva": "Source 2 - the futures curve (carry, carry-momentum)",
+    "macro": "Source 3 - other markets (copper, dollar)",
 }
 # the three sleeves the books read until phase 11: kept in the table so the upgrade can be judged on one page
 BEFORE_ID = "prima"
@@ -80,10 +80,10 @@ def sleeve_configs(
         if present:
             configs.append(reference(source, SOURCE_LABELS[source], dict.fromkeys(present, 1.0)))
     if set(sleeves_used) == set(sg.SLEEVES):
-        configs.append(reference(BEFORE_ID, "Prima: trend, carry, carry-momentum", dict.fromkeys(BEFORE_SLEEVES, 1.0)))
-        configs.append(reference("tutte", "Adesso: le sette insieme, un terzo per fonte", None))
+        configs.append(reference(BEFORE_ID, "Before: trend, carry, carry-momentum", dict.fromkeys(BEFORE_SLEEVES, 1.0)))
+        configs.append(reference("tutte", "Now: the seven together, a third per source", None))
     elif len(sleeves_used) > 1:
-        configs.append(reference("tutte", "Insieme, a pesi uguali", dict.fromkeys(sleeves_used, 1.0)))
+        configs.append(reference("tutte", "Together, at equal weights", dict.fromkeys(sleeves_used, 1.0)))
     return configs
 
 
@@ -155,7 +155,7 @@ def attribution_variants(books: list[BookConfig]) -> list[tuple[str, str, bool, 
         if long_only:
             out.append((vehicle, vehicle, True, None, used))
         if sells and any(not b.long_only for b in on_vehicle):
-            out.append((f"{vehicle} (long e short)" if long_only else vehicle, vehicle, False, None, used))
+            out.append((f"{vehicle} (long and short)" if long_only else vehicle, vehicle, False, None, used))
         for fund in sorted({b.short_via for b in on_vehicle if b.short_via is not None}):
             out.append((f"{vehicle} + {fund}", vehicle, False, fund, used))
     return out
@@ -203,7 +203,7 @@ def desk_backtest_payload(
             "vol_target": SLEEVE_VOL_TARGET,
             "long_only": long_only,
             "short_via": short_via,
-            "note": "conto di riferimento mille volte più grande, per togliere l'effetto del lotto minimo",
+            "note": "reference account a thousand times larger, to remove the effect of the minimum lot",
             "rows": [
                 {
                     "id": cfg.id.split(":", 1)[1],
@@ -232,7 +232,7 @@ def desk_backtest_payload(
 
 
 def summary_lines(payload: dict[str, Any]) -> list[str]:
-    lines = ["libro       veicolo  anni   CAGR    vol  Sharpe     t   maxDD  leva p95  leva max  P(-50% in 1a)"]
+    lines = ["book        vehicle  years   CAGR    vol  Sharpe     t   maxDD   lev p95  lev max  P(-50% in 1y)"]
     for book_id, b in payload.get("books", {}).items():
         s = b.get("stats", {})
         ruin = b.get("ruin", {})
@@ -245,7 +245,7 @@ def summary_lines(payload: dict[str, Any]) -> list[str]:
     for vehicle, b in payload.get("benchmarks", {}).items():
         s = b.get("stats", {})
         lines.append(
-            f"{'compra e tieni':<11} {vehicle:<5} {s.get('years', 0):>5.1f} {s.get('cagr', 0):>6.1%} "
+            f"{'buy and hold':<11} {vehicle:<5} {s.get('years', 0):>5.1f} {s.get('cagr', 0):>6.1%} "
             f"{s.get('vol', 0):>6.1%} {s.get('sharpe') or 0:>6.2f} {s.get('t_stat') or 0:>5.2f} "
             f"{s.get('max_drawdown', 0):>7.1%}"
         )
@@ -282,9 +282,9 @@ def run_desk_backtest(
     if opt.get("available"):
         st = opt["headline"]["stats"]
         lines.append(
-            f"opzioni (≈ modello) USO  {st.get('years', 0):>5.1f} {st.get('cagr', 0):>6.1%} {st.get('vol', 0):>6.1%} "
+            f"options (≈ model) USO  {st.get('years', 0):>5.1f} {st.get('cagr', 0):>6.1%} {st.get('vol', 0):>6.1%} "
             f"{st.get('sharpe') or 0:>6.2f} {st.get('t_stat') or 0:>5.2f} {st.get('max_drawdown', 0):>7.1%}   "
-            f"Sharpe fra {opt['sharpe_range'][0]:.2f} e {opt['sharpe_range'][1]:.2f} secondo smile e costi"
+            f"Sharpe between {opt['sharpe_range'][0]:.2f} and {opt['sharpe_range'][1]:.2f} depending on smile and costs"
         )
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)
