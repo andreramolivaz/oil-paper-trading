@@ -912,6 +912,66 @@ che archivia ogni giorno i mercati su petrolio, stretto, Iran, cessate il fuoco 
 implicita nelle opzioni USO che il desk già scarica: la divergenza è un dato nuovo, senza storico; (3) nessun
 libro la negozia finché non ha almeno un anno di archivio. Prior sul segnale: ignoto; sulla liquidità: sottile.
 
+### Risultati (13 ottobre, notte; registrazione sopra, numeri dopo)
+
+**A. I temi.** Replay reale, distribuzioni accreditate, mezzo spread dichiarato:
+
+| Libro | Anni | Sharpe (t) | Rend. annuo | Vol | Perdita max | Anni positivi | A costi doppi | Comprato e tenuto |
+|---|---|---|---|---|---|---|---|---|
+| Uranio, URA | 14,7 | 0,35 (1,3) | +3,0% | 9,8% | −28% | 6/15 | 0,33 | 0,17 (−0,2%, −87%) |
+| Utilities, XLU | 25,5 | 0,43 (2,2) | +3,1% | 7,8% | −20% | 15/26 | 0,42 | 0,48 (+7,6%, −52%) |
+| Litio, LIT | 15,0 | **0,67 (2,6)** | +5,4% | 8,2% | −24% | 6/16 | 0,66 | 0,39 (+7,4%, −66%) |
+| Semiconduttori, SMH | 25,1 | 0,47 (2,4) | +4,6% | 10,8% | −21% | 18/26 | 0,46 | 0,58 (+14,4%, −70%) |
+| Energia pulita, ICLN | 17,1 | **0,75 (3,1)** | +6,9% | 9,4% | −20% | 8/18 | 0,74 | 0,18 (+1,1%, −73%) |
+
+Tutti e cinque passano il filtro (il filtro non ha morso: è una selezione, e lo si dice). Correlazioni con i
+libri sul greggio fra −0,08 e 0,09; SMH e SPY 0,65, LIT/ICLN/SMH fra loro 0,35-0,39 (una famiglia, non cinque
+mercati). Il portafoglio a capitale uguale dal 30 gennaio 2013:
+
+| Portafoglio | Sharpe (t) | Rend. annuo | Vol | Perdita max | Prima / seconda metà |
+|---|---|---|---|---|---|
+| I tre più oro, rame, agricoltura, TLT, SPY (otto) | 0,93 (3,4) | +10,6% | 11,6% | −22% | 0,83 / 1,01 |
+| Gli otto più i cinque temi (tredici) | **1,18 (4,4)** | +9,1% | 7,7% | −13% | 0,97 / 1,36 |
+| I cinque temi da soli | 1,07 (3,9) | +6,2% | 5,9% | −10% | 0,61 / 1,45 |
+
+Metà del guadagno dei temi sta nella seconda metà (2020-2026: litio, energia pulita, nucleare hanno avuto i
+loro anni); nella prima valgono 0,61. Entrano come candidati, tutti e cinque, con TLT e SPY: dodici libri
+candidati accanto ai quattro.
+
+**B. L'allocatore.** Misurato sulle curve dei libri (regola applicata al rendimento del giorno dopo; il motore
+fa lo stesso attraverso l'obiettivo di volatilità):
+
+| Regola | Portafoglio | Senza → con: Sharpe | Perdita max | Rend. annuo | Metà |
+|---|---|---|---|---|---|
+| D1 controllo del drawdown (DD max 20%, pavimento 0,25) | tre libri greggio | 0,80 → 0,66 | −61% → −28% | +21% → +10% | 0,83/0,79 → 0,69/0,63 |
+| | otto | 0,93 → 0,88 | −22% → −15% | +10,6% → +7,8% | 0,83/1,01 → 0,78/0,97 |
+| D2 momentum delle strategie (36 mesi) | otto, dal 2016 | 0,80 → 0,61 | −22% → −24% | +8,8% → +7,6% | 1,03/0,55 → 0,77/0,39 |
+| D4(i) interruttore bolla (+100% in due anni → metà rischio per un anno) | tre libri greggio | 0,80 → **0,87** | −61% → −52% | +21% → +23% | 0,83/0,79 → 0,84/0,90 |
+| | tre più tre satelliti | 0,87 → **0,94** | −30% → −24% | +12,8% → +13,5% | 0,76/0,97 → 0,77/1,08 |
+| | otto | 0,93 → **1,00** | −22% → −18% | +10,6% → +11,1% | 0,83/1,01 → 0,85/1,13 |
+
+Verdetti con le regole scritte prima. *D1 non entra*: taglia la perdita massima di un terzo, ma costa 0,14 di
+Sharpe sul greggio (il moltiplicatore sta al pavimento metà dei giorni: un portafoglio al 29% di volatilità
+vive in drawdown) e 0,05 sugli otto, e il rendimento composto di un terzo; la stessa perdita massima si ottiene
+con un obiettivo di rischio più basso senza perdere Sharpe. Resta nella configurazione, spento, come leva di
+preferenza del proprietario (`config/allocator.yaml`), non come regola misurata. *D2 non entra*: peggio di
+1/N in entrambe le metà, come previsto. *D4(i) entra*: più Sharpe e meno perdita in tutti i portafogli e in
+entrambe le metà, con parametri pubblicati e non toccati; i giorni dimezzati sono il 18% della storia del fondo
+Brent (2018-19, 2022-24, 2026) e il 30% di quella del WTI (quasi tutta nell'era della backwardation 1988-2006,
+poi 2022-24 e 2026); oro 2025-26, rame 2022-23, SPY 2011-12 e 2022-23, mai per agricoltura e Treasury. Oggi è
+acceso sul Brent e sul WTI: i tre libri sul greggio partono con l'obiettivo di volatilità dimezzato. *D3* e
+*D4(ii)* entrano come politiche dichiarate, non misurate.
+
+**C. Kalshi.** Catalogo letto dal runner: 15 011 serie, 400 000 mercati aperti nelle prime 400 pagine. Le serie
+che servono esistono: Brent giornaliero, settimanale e mensile (`KXBRENTD`, `KXBRENTW`, `KXBRENTMON`), WTI
+(`KXWTI`, `KXWTIW`, `KXWTIMONTHLY`, più i 15 minuti e l'ora), lo stretto (`KXCLOSEHORMUZ`, `KXHORMUZRETURN`,
+`KXHORMUZNORM`, `KXHORMUZWEEKLY`, `KXMAXSHIPSHORMUZ`), Iran (`KXUSAIRANAGREEMENT`, `KXUSIRANMEETING`,
+`KXIRANCRUDE`), OPEC (`KXOPECCUTS`), scorte EIA (`KXEIACRUDEW`), produzione saudita (`KXSAUDICRUDE`). Un
+mercato porta bid e ask del sì, ultimo prezzo, volume, open interest, soglia e regola di regolamento (il WTI
+giornaliero regola sul contratto ICE WBS). Limite di richieste: un 429 dopo una trentina di chiamate serrate;
+l'adattatore ne fa una al secondo. Dall'archivio di oggi in poi il desk salva ogni giorno i prezzi di quei
+mercati; il primo test possibile fra un anno.
+
 ### D. Che cosa questo cambia nelle regole dure
 
 «La taglia di un libro è previsione / 10 × obiettivo / volatilità, nient'altro» diventa «... × obiettivo ×
