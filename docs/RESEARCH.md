@@ -481,6 +481,8 @@ volatilità) e le tre fonti sono d'accordo.
 2. Altri mercati. È l'unica via onesta a uno Sharpe più alto: lo stesso sistema su gas naturale, prodotti
    raffinati, metalli e indici porta 0,6 su un mercato verso 1 su un paniere, perché le scommesse sono
    indipendenti. Su Robinhood esistono i future micro corrispondenti; servirebbero le loro serie per contratto.
+   Fatto in parte nella fase 12 (capitolo 8) con i fondi di oro, rame e agricoltura; il gas naturale va fatto
+   con il future micro /MNG e il carry della sua curva, non con i fondi, che lo hanno bocciato.
 3. Curva del Brent reale: fra qualche mese la pendenza di BNO non avrà più bisogno della procura WTI.
 4. Contratti a evento contro la probabilità implicita nelle opzioni, in piccolo.
 5. Replica di Ewald e altri (2025) sulla stagionalità infragiornaliera del Brent, l'unico lavoro che dichiara
@@ -561,9 +563,89 @@ trading in avanti li può giudicare.
 Lo Sharpe che interessa è quello del portafoglio: i libri attivi insieme, poi con i satelliti, a capitale
 uguale. La correlazione fra i rendimenti giornalieri dei libri è riportata per intero.
 
-### Risultati
+### Risultati (13 ottobre 2026, serie fino al 13 ottobre)
 
-*(scritti dopo la prova, sotto questa riga; la parte sopra non viene toccata)*
+**A. I libri satellite.** Replay reale del desk (`desk-backtest`: ordine deciso alla chiusura ed eseguito
+all'apertura dopo, costi dichiarati, conto da 10 000 $), prezzi rettificati di Yahoo scaricati il 13 ottobre.
+
+| Libro | Fondo | Anni | Sharpe (t) | Rend. annuo | Vol | Perdita max | Anni positivi | Costi/anno | A costi doppi | Stessa chiusura | Corr. con dinamico |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Oro | GLD | 20,7 | **0,50 (2,3)** | +3,6% | 7,8% | −22% | 12/21 | 0,04% | 0,49 | 0,48 | 0,04 |
+| Rame | CPER | 13,7 | 0,26 (1,0) | +2,5% | 12,2% | −24% | 9/14 | 0,35% | 0,24 | 0,26 | 0,06 |
+| Agricoltura | DBA | 18,5 | 0,29 (1,3) | +1,7% | 6,6% | −19% | 10/19 | 0,18% | 0,27 | 0,27 | 0,10 |
+| Gas | UNG, short con KOLD | 18,3 | **−0,12 (−0,5)** | −5,4% | 23,4% | −71% | 6/19 | 0,38% | −0,14 | −0,03 | 0,02 |
+
+Comprare e tenere il fondo, senza leva: GLD 0,59 (+9,7% l'anno con il 18,5% di volatilità e il −46% di perdita
+massima), CPER 0,25, DBA 0,03, UNG −0,47 (−99,9% in diciotto anni: il contango se lo mangia). Per segnale, al
+15% di volatilità e sul conto di riferimento (long-only; il gas long e short): oro trend 0,58, accelerazione
+0,43, skew 0,21; rame 0,06 / 0,01 / 0,40; agricoltura 0,12 / 0,16 / 0,22; gas 0,17 / −0,19 / −0,10.
+
+**Il filtro dichiarato si applica al gas: non parte.** Con i fondi, il gas naturale non si negozia: UNG perde il
+contango ogni mese e KOLD perde il ricalcolo giornaliero su un mercato con l'80% di volatilità; la soglia di
+perdita giornaliera dell'8% è scattata undici volte. La strada giusta è il future micro Henry Hub (/MNG,
+1 000 mmBtu: circa 3 000 $ di nozionale, un terzo del conto per lotto), dove il carry si incassa e nessun fondo
+decade: richiede le serie per contratto del gas e una stagionalità della curva che il motore oggi non ha. È nel
+capitolo 7, non in un libro.
+
+**C. Il portafoglio** (rendimenti giornalieri a capitale uguale, dal febbraio 2013, quando tutti i libri hanno
+dati; lo Sharpe è sui rendimenti del portafoglio, non la media degli Sharpe):
+
+| Portafoglio | Sharpe (t) | Rend. annuo | Vol | Perdita max |
+|---|---|---|---|---|
+| I tre libri lineari (prudente, dinamico, spinto) | 0,81 (3,0) | +23,6% | 29,3% | −62% |
+| I tre più oro, rame, agricoltura | **0,87 (3,2)** | +13,2% | 15,2% | −31% |
+| I tre più i quattro satelliti (gas compreso) | 0,82 (3,0) | +11,1% | 13,6% | −31% |
+| Oro, rame, agricoltura da soli | 0,48 (1,8) | +2,8% | 5,9% | −12% |
+| Prudente e dinamico | 0,84 (3,1) | +15,2% | 18,1% | −39% |
+| Prudente e dinamico più i tre satelliti | **0,93 (3,4)** | +7,8% | 8,4% | −16% |
+
+Correlazione fra i rendimenti giornalieri: oro, rame e agricoltura con i libri sul greggio fra 0,03 e 0,16, fra
+loro 0,11-0,25; il gas con tutto 0,00-0,03. Gli anni cattivi dei libri sul greggio, con i tre satelliti a
+capitale uguale: 2023 da −16,7% a −8,9%, 2024 da −19,1% a −3,9%, 2025 da −28,8% a −9,5%; e quelli buoni
+dimezzati (2014 da +61% a +28%, 2026 da +98% a +44%).
+
+**Lettura.** Lo Sharpe sale di poco (0,81 → 0,87) perché i satelliti portano poco rischio: un quarto di Kelly,
+solo long, su mercati che il nostro segnale legge debolmente (rame e agricoltura a t ≈ 1). Quello che portano
+è la quasi indipendenza: la volatilità e la perdita massima del portafoglio si dimezzano e tre anni negativi su
+tre diventano sopportabili. È diversificazione, non alfa: il rendimento a capitale uguale scende perché metà del
+capitale rende il 2-4% l'anno. Il filtro dichiarato ne ha fermato uno su quattro; nessuno dei tre che partono
+è stato scelto sul risultato.
+
+**B. Le fonti sul greggio** (banco della fase 11, WTI dai contratti EIA 1983-2024 e dal contratto tenuto dopo):
+
+| Candidato | WTI, Sharpe (t) | Prima / seconda metà | Un giorno di ritardo | Fondo Brent long-only | Esito |
+|---|---|---|---|---|---|
+| Basis-momentum a 12 mesi, segno (Boons e Prado) | 0,02 (0,1) | 0,27 / −0,23 | −0,03 | −0,33 | scartato |
+| lo stesso, continuo (vicino) | 0,25 (1,6) | 0,48 / −0,13 | 0,22 | −0,05 | scartato: niente dopo il 2005 |
+| lo stesso, a 6 e a 18 mesi (vicini) | 0,12 / 0,19 | 0,42 / −0,19 · 0,33 / 0,05 | 0,07 / 0,13 | −0,41 / −0,12 | scartato |
+| Indice GPR a 30 giorni contro un anno, continuo | −0,07 (−0,5) | −0,04 / −0,11 | −0,07 | −0,03 | scartato |
+| lo stesso, a segno · invertito | 0,04 · 0,05 | 0,12 / −0,03 · 0,01 / 0,08 | −0,00 · 0,04 | 0,16 · −0,22 | scartato |
+
+Nel campione dell'articolo (fino al 2014) il basis-momentum aveva qualcosa anche qui (0,27 nella prima metà);
+dopo, nulla. Il rischio geopolitico misurato dalle notizie non dice nulla sulla direzione del greggio il giorno
+dopo, in nessuna delle tre forme: era atteso, ora è misurato.
+
+**Lo spread di calendario.** Lungo il contratto tenuto e corto quello due mesi dopo quando la base è in
+backwardation, il contrario in contango, 25% di volatilità obiettivo, 1983-2024: **lordo 0,62 (t 3,9)**, al
+contrario −1,85 (il segno è quello giusto, il premio di termine esiste, come nella letteratura); **netto −0,64**.
+La volatilità dello spread è il 5% l'anno, quindi l'esposizione mediana è 4,4 volte il nozionale per gamba; le
+due gambe di /MCL (1,5 punti base di mezzo spread e 1,27 $ per lotto per lato), rinnovate ogni mese e girate a
+ogni cambio di segno, costano il 34% l'anno. Il premio di termine si vede e non si incassa con questi strumenti;
+con un conto istituzionale (spread di un tick sul /CL, nessuna commissione) i costi scendono di dieci volte e
+il netto torna positivo: non è il nostro caso, e non lo si finge.
+
+**Che cosa parte.** Tre libri candidati in paper trading accanto ai quattro: oro (GLD), rame (CPER),
+agricoltura (DBA), con le regole del libro prudente e la sola fonte del prezzo. Nessuna nuova fonte nei libri
+sul greggio. Il gas non parte. Il backtest dei quattro libri è identico, numero per numero, prima e dopo questa
+fase (verificato rieseguendolo con il codice precedente sulle stesse serie).
+
+**Uno Sharpe sopra 3 con una strategia sola**, chiesto il 13 ottobre: non esiste su questi strumenti e a questa
+frequenza, e un backtest che lo mostrasse sarebbe la prova di un errore (anticipazione, costi omessi, scelta fra
+molti tentativi), non di una strategia. Uno Sharpe di 3 è un t di 3 dopo un solo anno: certezza statistica. Le
+strategie sistematiche documentate su un mercato valgono 0,3-0,5 dopo i costi, i fondi di managed futures
+diversificati 0,5-0,8, i fondi quantitativi migliori 2-3 con migliaia di segnali, decine di mercati e
+infrastruttura al millisecondo. La leva non cambia lo Sharpe. Quello che si può fare onestamente è quanto sopra:
+più mercati indipendenti, costi veri, numeri scritti prima di guardarli.
 
 ## Fonti
 

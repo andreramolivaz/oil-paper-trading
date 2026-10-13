@@ -52,6 +52,16 @@ NEW_YORK = ZoneInfo("America/New_York")
 MACRO_TABLES: tuple[tuple[str, str, bool], ...] = (("copper", "copper_daily", False), ("dollar", "dxy_daily", True))
 # The inverse funds (vehicles.INVERSE_FUNDS): fund -> (daily table, 30-minute table).
 LEG_TABLES: dict[str, tuple[str, str]] = {"SCO": ("sco_daily", "sco_intraday")}
+# The satellite markets (phase 12): fund vehicle -> (daily table, 30-minute table). Each is read like BNO - the
+# fund's own adjusted close is the investable return - and forecast on the price source alone (trend,
+# acceleration, skew on its own history): no curve is archived for them and copper and the dollar are oil's
+# leading indicators, not theirs. Nothing here touches the series of BNO or MCL.
+SATELLITE_TABLES: dict[str, tuple[str, str]] = {
+    "GLD": ("gld_daily", "gld_intraday"),
+    "CPER": ("cper_daily", "cper_intraday"),
+    "DBA": ("dba_daily", "dba_intraday"),
+}
+SATELLITE_MIN_DAYS = 300  # a fund with less history than the slowest trend filter has no forecast yet
 FAR_MIN_DAYS = 300  # the far contract of the slope is the nearest December at least this far past the front
 MARKET_OF_ROOT = {"CL": "US", "BZ": "ICE"}
 EIA_COLUMNS = ("RCLC1", "RCLC2", "RCLC3", "RCLC4")
@@ -498,6 +508,50 @@ def _forecast_frame(
     return frame
 
 
+def fund_bars(table: pd.DataFrame, symbol: str) -> tuple[pd.DataFrame, pd.Series]:
+    """A fund's daily bars and investable returns from its daily table: the adjusted close is the return series
+    (dividends and splits are in it), the raw open/high/low/close are the bars an order fills on. Rows without a
+    positive close are dropped; a missing open, high or low is the close of its day."""
+    if table.empty or "close" not in table.columns:
+        return pd.DataFrame(), pd.Series(dtype="float64")
+    price = table["adjclose"] if "adjclose" in table.columns and table["adjclose"].notna().any() else table["close"]
+    price = price.astype("float64").dropna()
+    price = price[price > 0]
+    returns = price.pct_change().dropna()
+    bars = table.reindex(returns.index)[["open", "high", "low", "close"]].astype("float64")
+    bars = bars.where(bars > 0)
+    for col in ("open", "high", "low"):
+        bars[col] = bars[col].where(bars[col].notna(), bars["close"])
+    bars["symbol"] = symbol
+    return bars, returns
+
+
+def price_only_series(vehicle: str, table: pd.DataFrame) -> VehicleSeries | None:
+    """The series of a fund forecast on its own price alone (the satellite markets): trend, acceleration and
+    skew on the fund's own returns, no curve and no other market. None when the history is too short."""
+    bars, returns = fund_bars(table, vehicle)
+    if len(returns) < SATELLITE_MIN_DAYS:
+        return None
+    index = pd.DatetimeIndex(returns.index)
+    curve = pd.DataFrame(
+        {"carry": np.nan, "carry_momentum": np.nan, "slope": np.nan, "slope_approx": False, "slope_pair": ""},
+        index=index,
+    )
+    curve["slope_pair"] = curve["slope_pair"].astype("object")
+    skew = sg.skew_forecast(returns) if len(returns) > sg.SKEW_MIN_HISTORY else None
+    return VehicleSeries(
+        vehicle=vehicle,
+        bars=bars,
+        returns=returns,
+        return_source=pd.Series("fondo", index=index, dtype="object"),
+        forecasts=_forecast_frame(returns, curve, skew, None),
+        vol=sg.ew_vol(returns),
+        slope=curve["slope"],
+        slope_approx=curve["slope_approx"].astype(bool),
+        slope_pair=curve["slope_pair"],
+    )
+
+
 # ----------------------------------------------------------------------------------------------- public API
 def build_desk_data(store: RawStore, settings: Settings | None = None, asof: datetime | None = None) -> DeskData:
     """Assemble every series the desk needs from the raw snapshots. Missing tables degrade the result (a
@@ -647,6 +701,15 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
     else:
         data.meta["notes"].append("MCL: storico WTI insufficiente")
 
+    # ---- the satellite markets: each fund on its own price, nothing else -----------------------------------
+    for vehicle_id, (daily_entry, _) in SATELLITE_TABLES.items():
+        table = _daily(load(daily_entry))
+        series = price_only_series(vehicle_id, table) if not table.empty else None
+        if series is None:
+            data.meta["notes"].append(f"{vehicle_id}: nessun prezzo giornaliero archiviato")
+            continue
+        data.series[vehicle_id] = series
+
     # ---- context ------------------------------------------------------------------------------------------
     ovx = _daily(load("ovx"))
     if not ovx.empty:
@@ -670,6 +733,7 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
     # "BZ" is not a vehicle: no book trades ICE Brent. Its bars are only the Brent price the terminal shows.
     intraday = [("BNO", "bno_intraday"), ("MCL", "cl_intraday"), ("BZ", "bz_intraday")]
     intraday += [(fund_id, entry) for fund_id, (_, entry) in LEG_TABLES.items()]
+    intraday += [(vehicle_id, entry) for vehicle_id, (_, entry) in SATELLITE_TABLES.items()]
     # These tables keep the time each row was downloaded, as the archive stores it: the live tick needs it to
     # tell a finished bar from one that was read while it was forming and has not been read since
     # (``live.completed_bars``). Dropped here, as it once was, the rule that reads it never runs.
