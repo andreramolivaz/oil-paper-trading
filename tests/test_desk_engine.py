@@ -76,7 +76,7 @@ def test_an_order_fills_at_the_open_of_the_first_bar_that_starts_after_the_decis
     desk = Desk([Book(PRUDENTE, RISK)])
     t0 = datetime(2026, 10, 8, 19, 3, tzinfo=UTC)
     decisions = desk.decide("BNO", t0, date(2026, 10, 8), "BNO", 60.0, dict(LONG), 0.30)
-    assert len(decisions) == 1 and decisions[0].status == "ordine in coda"
+    assert len(decisions) == 1 and decisions[0].status == "order queued"
     units = decisions[0].order_units
     # the bar that was already forming when the book decided cannot fill it
     assert desk.on_bar("BNO", _bar("BNO", datetime(2026, 10, 8, 19, 30, tzinfo=UTC), 60.0, 60.5)) == []
@@ -107,8 +107,8 @@ def test_a_new_decision_replaces_the_order_still_queued_and_never_adds_to_it():
     assert first.order_units == second.order_units > 0
     pending = book.broker.pending_orders()
     assert len(pending) == 1 and pending[0].qty_bbl == second.order_units
-    assert "annullato, lo sostituisce questo" in second.rationale and pending[0].rationale == second.rationale
-    assert "annullato" not in first.rationale
+    assert "cancelled, this one replaces it" in second.rationale and pending[0].rationale == second.rationale
+    assert "cancelled" not in first.rationale
     # the first bar after the second decision fills once: the book holds its target, not twice its target
     fills = desk.on_bar("BNO", _bar("BNO", datetime(2026, 10, 8, 20, 0, tzinfo=UTC), 60.0, 60.0))
     assert len(fills) == 1 and book.units("BNO") == second.target_units
@@ -118,7 +118,7 @@ def test_a_new_decision_replaces_the_order_still_queued_and_never_adds_to_it():
     assert desk.decide("BNO", ts + timedelta(days=1), date(2026, 10, 9), "BNO", 60.0, strong, 0.30)[0].order_units > 0
     held = desk.decide("BNO", ts + timedelta(days=4), date(2026, 10, 12), "BNO", 60.0, dict(LONG), 0.30)[0]
     assert held.order_units == 0 and book.broker.pending_orders() == []
-    assert held.rationale.endswith("era ancora in coda: annullato.")
+    assert held.rationale.endswith("was still queued: cancelled.")
     assert book.units("BNO") == second.target_units
 
 
@@ -186,7 +186,7 @@ def _long_then_short(desk: Desk) -> tuple[Book, datetime, float]:
     assert book.units("BNO") * 60.0 / 10_000 > 1.7 and book.units("SCO") == 0.0
     t1 = t0 + timedelta(days=1)
     decision = desk.decide("BNO", t1, date(2026, 10, 7), "BNO", 60.0, dict(WEAK), 0.10, leg_prices={"SCO": 20.0})[0]
-    assert decision.n_orders == 2 and decision.status == "2 ordini in coda"
+    assert decision.n_orders == 2 and decision.status == "2 orders queued"
     assert [(o.instrument, o.qty_bbl < 0) for o in book.broker.pending_orders()] == [("BNO", True), ("SCO", False)]
     return book, t1, float(decision.legs[0]["target_units"])
 
@@ -559,7 +559,7 @@ def test_a_roll_waits_until_both_contracts_are_priced_at_the_same_moment(tmp_pat
     desk = build_desk(tmp_path, RISK, [cfg])
     report = live_tick(desk, data, now)
     assert report.rolled == 0 and report.decisions == []
-    assert any("roll verso" in note and "spinto" in note for note in report.notes)
+    assert any("roll to" in note and "spinto" in note for note in report.notes)
     book = desk.books["spinto"]
     assert book.units(old) == held and book.units(new) == 0 and book.broker.pending_orders() == []
 
@@ -576,7 +576,7 @@ def test_a_roll_waits_until_both_contracts_are_priced_at_the_same_moment(tmp_pat
 def test_a_blocked_vehicle_takes_no_new_decision_but_is_still_marked(tmp_path):
     data, desk, day = _live_setup(tmp_path)
     now = datetime(day.year, day.month, day.day, 19, 3, tzinfo=UTC)
-    report = live_tick(desk, data, now, blocked={"BNO": "fonte bno_daily non disponibile"})
+    report = live_tick(desk, data, now, blocked={"BNO": "source bno_daily unavailable"})
     assert report.decisions == [] and any("bno_daily" in note for note in report.notes)
     assert set(report.books) == {"prudente", "dinamico"}
     # the decision is still owed: it is taken as soon as the source is back
@@ -589,7 +589,7 @@ def test_a_decision_waits_for_the_day_it_is_about(tmp_path):
     next_day = add_business_days(day, 1, "US")
     late = datetime(next_day.year, next_day.month, next_day.day, 19, 3, tzinfo=UTC)
     report = live_tick(desk, data, late)  # the daily table has no row for `next_day` yet
-    assert report.decisions == [] and any("in attesa" in note for note in report.notes)
+    assert report.decisions == [] and any("waiting" in note for note in report.notes)
 
 
 def test_latest_price_prefers_a_newer_daily_close_to_a_stale_intraday_bar():
@@ -630,7 +630,7 @@ def test_live_the_short_side_is_bought_and_marked_on_the_inverse_fund_own_bars(t
     data, desk, day = _pair_live(tmp_path, forecast=-12.0)
     t_decide = datetime(day.year, day.month, day.day, 19, 18, tzinfo=UTC)  # 15:18 New York
     first = live_tick(desk, data, t_decide)
-    assert first.bars == 0 and len(first.decisions) == 1 and first.message().endswith("1 decisioni (1 ordini)")
+    assert first.bars == 0 and len(first.decisions) == 1 and first.message().endswith("1 decisions (1 orders)")
     decision = first.decisions[0]
     fund_frame = data.intraday["SCO"]
     quote = float(fund_frame["close"].iloc[fund_frame.index.get_indexer([pd.Timestamp(t_decide)], method="ffill")[0]])
@@ -675,7 +675,7 @@ def test_live_a_change_of_side_fills_both_legs_on_the_same_half_hour(tmp_path):
     first = live_tick(desk, data, t_decide)
     decision = first.decisions[0]
     assert decision["n_orders"] == 2 and decision["order_units"] == -held and decision["legs"][0]["order_units"] > 0
-    assert first.message().endswith("1 decisioni (2 ordini)")
+    assert first.message().endswith("1 decisions (2 orders)")
     desk = build_desk(tmp_path, RISK, [PAIR])
     second = live_tick(desk, data, t_decide + timedelta(minutes=60))
     book = desk.books["coppia"]
@@ -714,7 +714,7 @@ def test_live_an_order_on_a_symbol_never_fed_fills_when_its_table_returns_after_
     third, desk = tick(t_decide + timedelta(minutes=60), visible=False)  # 16:18: the fund's 15:30 bar
     book = desk.books["coppia"]
     assert third.fills == 1 and book.units("BNO") == 0.0 and book.units("SCO") == 0.0  # sold, and waiting
-    assert any("nessuna barra intraday di SCO" in note for note in third.notes)
+    assert any("no intraday bars of SCO" in note for note in third.notes)
     fourth, desk = tick(t_decide + timedelta(minutes=90), visible=True)  # 16:48: the table is back
     book = desk.books["coppia"]
     assert fourth.fills == 1 and book.units("SCO") == decision["legs"][0]["target_units"]
@@ -737,7 +737,7 @@ def test_live_a_queued_purchase_of_the_inverse_fund_does_not_fill_once_the_book_
     book = desk.books["coppia"]
     assert second.fills == 0 and book.broker.positions == {} and book.broker.pending_orders() == []
     assert second.books["coppia"]["leverage"] == 0.0
-    assert any("annullato l'acquisto di un fondo inverso in coda per coppia" in note for note in second.notes)
+    assert any("cancelled the queued purchase of an inverse fund for coppia" in note for note in second.notes)
     # with the configuration unchanged the same bar fills it (the control)
     other = tmp_path / "control"
     data, desk, day = _pair_live(other, forecast=-12.0)
@@ -748,7 +748,7 @@ def test_live_a_queued_purchase_of_the_inverse_fund_does_not_fill_once_the_book_
 
 def test_an_order_the_broker_refuses_is_not_counted_as_queued_and_the_decision_says_so(tmp_path):
     """A book halted by its daily-loss breaker still takes its decision (the day's reading is on the page), and
-    the broker refuses the order. The decision said "1 ordine" and "Compro 438 azioni" and nothing else."""
+    the broker refuses the order. The decision said "1 order" and "Buy 438 shares" and nothing else."""
     from engine.core.events import AccountStatus
 
     data, desk, day = _pair_live(tmp_path, forecast=-12.0)
@@ -757,9 +757,9 @@ def test_an_order_the_broker_refuses_is_not_counted_as_queued_and_the_decision_s
     report = live_tick(desk, data, datetime(day.year, day.month, day.day, 19, 18, tzinfo=UTC))
     (decision,) = report.decisions
     assert decision["legs"][0]["order_units"] > 0  # what the book asked for is still on the record
-    assert decision["n_orders"] == 0 and report.message().endswith("1 decisioni (0 ordini)")
-    assert decision["status"].startswith("rifiutato (SCO)")
-    assert "Il broker ha rifiutato l'ordine su SCO: non viene eseguito" in decision["rationale"]
+    assert decision["n_orders"] == 0 and report.message().endswith("1 decisions (0 orders)")
+    assert decision["status"].startswith("refused (SCO)")
+    assert "The broker refused the order on SCO: it is not executed" in decision["rationale"]
     assert desk.books["coppia"].broker.pending_orders() == []
 
 
@@ -768,9 +768,9 @@ def test_live_without_the_inverse_fund_the_long_side_still_trades_and_the_short_
     t_decide = datetime(day.year, day.month, day.day, 19, 18, tzinfo=UTC)
     report = live_tick(desk, data, t_decide)
     assert len(report.decisions) == 1 and report.decisions[0]["n_orders"] == 0
-    assert report.decisions[0]["limited_by"] == "nessun prezzo per SCO"
-    assert any("nessun prezzo recente per SCO" in note for note in report.notes)
-    assert any("nessuna barra intraday di SCO" in note for note in report.notes)
+    assert report.decisions[0]["limited_by"] == "no price for SCO"
+    assert any("no recent price for SCO" in note for note in report.notes)
+    assert any("no intraday bars of SCO" in note for note in report.notes)
     # a long day needs nothing of the inverse fund
     data, desk, day = _pair_live(tmp_path / "long", forecast=12.0, with_fund=False)
     report = live_tick(desk, data, datetime(day.year, day.month, day.day, 19, 18, tzinfo=UTC))
@@ -793,7 +793,7 @@ def test_each_way_a_vehicle_is_traded_gets_its_own_attribution_table():
         ("MCL", "MCL", False, None, seven),  # the futures book sells the future itself
     ]
     both = [SPINTO, dataclasses.replace(SPINTO, id="solo-long", long_only=True)]
-    assert [v[0] for v in attribution_variants(both)] == ["MCL", "MCL (long e short)"]
+    assert [v[0] for v in attribution_variants(both)] == ["MCL", "MCL (long and short)"]
     rows = sleeve_configs("BNO", False, "SCO")
     assert len(rows) == 7 + 3 + 2 and all(c.short_via == "SCO" and not c.long_only for c in rows)
     assert [c.id.split(":")[1] for c in rows[-2:]] == ["prima", "tutte"]
@@ -1196,7 +1196,7 @@ def test_live_an_inverse_fund_left_without_its_configuration_keeps_its_own_price
     desk = build_desk(tmp_path, RISK, [bare])
     decided = live_tick(desk, data, t_decide)
     (decision,) = decided.decisions
-    assert decision["legs"][0]["order_units"] == -shares and "non ha più un lato short" in decision["rationale"]
+    assert decision["legs"][0]["order_units"] == -shares and "no longer has a short side" in decision["rationale"]
     desk = build_desk(tmp_path, RISK, [bare])
     after = live_tick(desk, data, t_decide + timedelta(minutes=60))
     assert after.fills == 1 and desk.books["coppia"].broker.positions == {}

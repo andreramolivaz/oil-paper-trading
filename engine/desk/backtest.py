@@ -195,7 +195,7 @@ def ruin_probabilities(
         "median_final": round(float(np.median(final)), 3),
         "p5_final": round(float(np.percentile(final, 5)), 3),
         "p95_final": round(float(np.percentile(final, 95)), 3),
-        "method": "bootstrap a blocchi stazionari sui rendimenti giornalieri del libro",
+        "method": "stationary block bootstrap of the book's own daily returns",
     }
 
 
@@ -334,7 +334,7 @@ def run_vehicle(
                 (
                     Bar(
                         symbol=sym, ts=ts + timedelta(minutes=1), open=px, high=px, low=px, close=px,
-                        interval="1m", source="backtest (stessa chiusura)",
+                        interval="1m", source="backtest (same close)",
                     ),
                     v,
                 )
@@ -423,7 +423,7 @@ def run_backtest(
         if len(ret) > 60:
             eq = (1.0 + ret).cumprod() * float(base_risk.initial_capital)
             benchmarks[vehicle_id] = {
-                "name": f"{vehicle_id} comprato e tenuto (1x)",
+                "name": f"{vehicle_id} bought and held (1x)",
                 "stats": performance(eq),
                 "yearly": {str(k): v for k, v in yearly_returns(eq).items()},
                 "curve": downsample(eq, 400),
@@ -434,9 +434,9 @@ def run_backtest(
         "initial_capital": float(base_risk.initial_capital),
         "fill": fill,
         "fill_rule": (
-            "ordine deciso alla chiusura, eseguito all'apertura della seduta successiva"
+            "order decided at the close, filled at the open of the next session"
             if fill == FILL_NEXT_OPEN
-            else "ordine eseguito alla stessa chiusura su cui è deciso (estremo ottimistico)"
+            else "order filled at the same close it was decided on (optimistic extreme)"
         ),
         "missing": list(data.meta.get("missing", [])),
     }

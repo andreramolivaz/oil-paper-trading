@@ -198,7 +198,7 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
     at_1448 = datetime(2026, 10, 8, 18, 48, tzinfo=UTC)
     got, why = jobs._desk_daily_entries(_runner(tmp_path, health(last_night, last_night, last_night)), desk, at_1448)
     assert got == mcl | macro
-    assert "macro: chiusure di rame e dollaro per la decisione del 2026-10-08" in why
+    assert "macro: copper and dollar closes for the decision of 2026-10-08" in why
     desk.state.last_decision_day["spinto"] = "2026-10-08"
     at_1518 = datetime(2026, 10, 8, 19, 18, tzinfo=UTC)
     # then the fund's, half an hour later: that one download of copper and the dollar serves this decision too
@@ -223,7 +223,7 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
     assert jobs._desk_daily_entries(_runner(tmp_path, red), desk, at_1618 + timedelta(minutes=30))[0] == set()
     at_1718 = at_1618 + timedelta(minutes=60)
     got, why = jobs._desk_daily_entries(_runner(tmp_path, red), desk, at_1718)
-    assert got == bno and "BNO: ultimo tentativo non riuscito" in why
+    assert got == bno and "BNO: last attempt failed" in why
     desk.state.last_decision_day["prudente"] = "2026-10-07"
     assert jobs._desk_daily_entries(_runner(tmp_path, red), desk, at_1618 + timedelta(minutes=30))[0] == bno
     desk.state.last_decision_day["prudente"] = "2026-10-08"
@@ -237,7 +237,7 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
         assert entries(late, *fresh_evening, at_1448) == set()
     friday_1448 = datetime(2026, 10, 9, 18, 48, tzinfo=UTC)
     got, why = jobs._desk_daily_entries(_runner(tmp_path, health(*fresh_evening, at_1448)), desk, friday_1448)
-    assert got == mcl | macro and "per la decisione del 2026-10-09" in why
+    assert got == mcl | macro and "for the decision of 2026-10-09" in why
     for book in desk.books.values():
         desk.state.last_decision_day[book.id] = "2026-10-09"
     friday_close = datetime(2026, 10, 9, 20, 18, tzinfo=UTC)
@@ -259,7 +259,7 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
         *[{"source": n, "status": "red", "checked_at": monday_1448.isoformat()} for n in sorted(macro)],
     ]
     got, why = jobs._desk_daily_entries(_runner(tmp_path, failed), desk, monday_1518)
-    assert got == bno | macro and "macro: ultimo tentativo non riuscito" in why
+    assert got == bno | macro and "macro: last attempt failed" in why
     # ... each table on its own: the dollar's download failed, copper's did not. Probing copper for both left
     # the dollar unasked, and the books on a dollar close two days old without anybody being told.
     one_failed = [
@@ -267,13 +267,13 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
         {"source": "dxy_daily", "status": "red", "checked_at": monday_1448.isoformat()},
     ]
     got, why = jobs._desk_daily_entries(_runner(tmp_path, one_failed), desk, monday_1518)
-    assert got == bno | macro and "macro: ultimo tentativo non riuscito" in why
+    assert got == bno | macro and "macro: last attempt failed" in why
     one_old = [
         *[row for row in health(*fresh, monday_1448) if row["source"] != "dxy_daily"],
         {"source": "dxy_daily", "status": "green", "last_success_at": friday_1448.isoformat()},
     ]
     got, why = jobs._desk_daily_entries(_runner(tmp_path, one_old), desk, monday_1518)
-    assert got == bno | macro and "macro: chiusure di rame e dollaro per la decisione del 2026-10-12" in why
+    assert got == bno | macro and "macro: copper and dollar closes for the decision of 2026-10-12" in why
     # ... and once every decision of the day has been taken, once an hour like any table nobody is waiting for
     for book in desk.books.values():
         desk.state.last_decision_day[book.id] = "2026-10-12"
@@ -284,7 +284,7 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
     ]
     assert jobs._desk_daily_entries(_runner(tmp_path, still_red), desk, monday_1518 + timedelta(minutes=30))[0] == set()
     got, why = jobs._desk_daily_entries(_runner(tmp_path, still_red), desk, monday_1518 + timedelta(minutes=60))
-    assert macro <= got and "macro: ultimo tentativo non riuscito" in why
+    assert macro <= got and "macro: last attempt failed" in why
     # A desk that was down at a decision time catches the decision up the next morning, and downloads the two
     # tables for it then; the same day's own decision, in the afternoon, downloads them again: the close it
     # reads is yesterday's, and the morning's table was read before the sources had finished writing it.
@@ -318,10 +318,10 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
     known = health(*this_morning, friday_1448)
     without_new = [row for row in known if row["source"] not in {"sco_daily", "dxy_daily"}]
     got, why = jobs._desk_daily_entries(_runner(tmp_path, without_new), desk, monday_morning)
-    assert got == {"sco_daily"} | macro and "BNO: mai scaricate: sco_daily" in why and "macro: da scaricare" in why
+    assert got == {"sco_daily"} | macro and "BNO: never downloaded: sco_daily" in why and "macro: to download" in why
     # ... and with the rest of its group when that is due on the same tick: a decision is not made to wait
     got, why = jobs._desk_daily_entries(_runner(tmp_path, without_new), desk, monday_1518)
-    assert bno <= got and "BNO: decisione del 2026-10-12 da prendere" in why
+    assert bno <= got and "BNO: decision of 2026-10-12 to take" in why
 
 
 def test_the_satellite_books_tables_are_planned_like_the_funds_and_only_while_a_book_is_on_them(tmp_path):
@@ -396,7 +396,7 @@ def test_a_decision_time_that_passes_during_the_downloads_waits_for_the_next_tic
     desk = build_desk(tmp_path / "plain", RiskConfig.load(), [b for b in load_books() if b.role == "core"])
     before, after = datetime(2026, 10, 8, 18, 59, 52, tzinfo=UTC), datetime(2026, 10, 8, 19, 0, 3, tzinfo=UTC)
     waits = jobs._overtaken_by_the_clock(desk, before, after)
-    assert set(waits) == {"BNO"} and "prossimo giro" in waits["BNO"]  # the future decided at 14:35, long ago
+    assert set(waits) == {"BNO"} and "next tick" in waits["BNO"]  # the future decided at 14:35, long ago
     assert jobs._overtaken_by_the_clock(desk, after, after + timedelta(seconds=9)) == {}
     assert set(jobs._overtaken_by_the_clock(desk, before - timedelta(hours=1), after)) == {"BNO", "MCL"}
     # the satellite books decide with the fund's books: the same race, the same wait
@@ -424,7 +424,7 @@ def test_a_decision_time_that_passes_during_the_downloads_waits_for_the_next_tic
     outcome = jobs.tick(runner, "t-race", legacy=False)
     assert outcome.status == "ok"
     assert [d["book"] for d in outcome.detail["desk"]["decisions"]] == []  # nobody decided on this morning's row
-    assert any("prossimo giro" in note for note in outcome.detail["desk"]["notes"])
+    assert any("next tick" in note for note in outcome.detail["desk"]["notes"])
     # the next tick starts after the decision time: it asks for the fund's tables, and then decides
     at_1518 = datetime(2026, 10, 8, 19, 18, tzinfo=UTC)
     asked: list[str] = []
@@ -625,7 +625,7 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
     assert [d["book"] for d in decisions] == ["prudente", "dinamico"]
     # the futures book has a forecast but no price for the contract it would hold (no per-contract table in
     # this archive): it does not guess one from another contract, it waits and says so
-    assert any("nessun prezzo recente per CL" in note for note in first.detail["desk"]["notes"])
+    assert any("no recent price for CL" in note for note in first.detail["desk"]["notes"])
     # no option chain in this archive: the options book has nothing to decide on and its decision stays owed
     assert first.detail["options"]["decisions"] == [] and first.detail["options"]["open"] == 0
     # the daily tables were fresh, so only the per-tick bars are downloaded - plus the option chains, because
@@ -635,7 +635,7 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
     assert (settings.state_dir / "desk" / "opzioni" / "book.json").exists()
     # a desk that never had a backtest computes it on its first tick, so the terminal is whole from day one;
     # after that it is the weekly job's
-    assert first.detail["desk_backtest"] == "calcolato: mancava"
+    assert first.detail["desk_backtest"] == "computed: was missing"
     assert (settings.state_dir / "desk" / "backtest.json").exists()
 
     assert jobs.tick(runner, "t-1", legacy=False).status == "skipped"  # the same run, replayed
@@ -653,7 +653,7 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
     on_file["meta"]["model"] = "regole-vecchie"
     backtest_file.write_text(json.dumps(on_file), encoding="utf-8")
     changed = jobs.tick(runner, "t-2b", legacy=False)
-    assert changed.detail["desk_backtest"] == "calcolato: le regole sono cambiate"
+    assert changed.detail["desk_backtest"] == "computed: the rules changed"
     assert json.loads(backtest_file.read_text(encoding="utf-8"))["meta"]["model"] == current
     assert "desk_backtest" not in jobs.tick(runner, "t-2c", legacy=False).detail
     # ... and so is one that was computed while a table was missing, once the table has arrived: a replay
@@ -661,24 +661,24 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
     assert "sco_daily" in on_file["meta"]["missing"]  # this archive has none
     assert jobs._desk_backtest_stale(runner, set(on_file["meta"]["missing"])) == ""
     arrived = jobs._desk_backtest_stale(runner, set(on_file["meta"]["missing"]) - {"sco_daily"})
-    assert arrived == "sono arrivate tabelle che mancavano (sco_daily)"
+    assert arrived == "tables that were missing have arrived (sco_daily)"
 
     # The check before the replay can fail as well as the replay: a file cut short by a crash is a file that
     # is not there, and anything else that goes wrong while looking (a configuration that does not load) is
     # reported in the tick's detail. Neither costs the books their tick.
     whole = backtest_file.read_text(encoding="utf-8")
     backtest_file.write_text(whole[: len(whole) // 2], encoding="utf-8")
-    assert jobs._desk_backtest_stale(runner, set()) == "mancava"
+    assert jobs._desk_backtest_stale(runner, set()) == "was missing"
     backtest_file.write_text(whole, encoding="utf-8")
 
     def unreadable(*_args, **_kwargs):
-        raise RuntimeError("configurazione illeggibile")
+        raise RuntimeError("unreadable configuration")
 
     with monkeypatch.context() as patch:
         patch.setattr(jobs, "_desk_backtest_stale", unreadable)
         broken = jobs.tick(runner, "t-2d", legacy=False)
     assert broken.status == "ok" and broken.exit_code == 0
-    assert broken.detail["desk_backtest"] == "non riuscito: configurazione illeggibile"
+    assert broken.detail["desk_backtest"] == "failed: unreadable configuration"
     assert set(broken.detail["desk"]["books"]) == {"prudente", "dinamico", "spinto"}
 
     # a red fund table blocks the fund's books and nothing else

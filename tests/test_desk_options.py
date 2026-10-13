@@ -142,7 +142,7 @@ def test_the_brent_fund_chain_gives_no_candidate_and_says_which_quote_was_too_wi
     chain = op.load_chain(_store(tmp_path), "bno_options", "BNO")
     assert chain is not None
     cand, why = op.candidate(chain, CFG, equity=10_000.0)
-    assert cand is None and "larga" in why and "del prezzo" in why
+    assert cand is None and "wide" in why and "of the price" in why
 
 
 def test_paper_fills_sit_a_quarter_of_the_spread_inside_the_bad_side():
@@ -223,9 +223,9 @@ def test_the_tick_sells_nothing_below_the_threshold_and_says_why(tmp_path):
     report = op.options_tick(state, RISK, _data(3.9), store, NOW, CFG)
     assert report["opened"] == 0 and report["equity"] == 10_000.0
     uso, bno = report["decisions"]
-    assert uso["underlying"] == "USO" and uso["action"] == "nessuna" and "sotto la soglia di +5" in uso["reason"]
+    assert uso["underlying"] == "USO" and uso["action"] == "none" and "below the threshold of +5" in uso["reason"]
     assert uso["candidate"] is not None  # the structure it WOULD sell is still on the record
-    assert bno["action"] == "nessuna" and "minuti fa" in bno["reason"]  # the Brent chain was two hours old
+    assert bno["action"] == "none" and "minutes ago" in bno["reason"]  # the Brent chain was two hours old
     monitor = json.loads((state / "desk" / "opzioni" / "monitor.json").read_text())
     assert [u["symbol"] for u in monitor["underlyings"]] == ["USO", "BNO"]
     assert monitor["underlyings"][0]["gate"]["open"] is False
@@ -235,9 +235,7 @@ def test_the_tick_opens_one_structure_once_and_spaces_the_next(tmp_path):
     store, state = _store(tmp_path / "raw"), tmp_path / "state"
     first = op.options_tick(state, RISK, _data(7.0), store, NOW, CFG)
     assert first["opened"] == 1 and first["open"] == 1 and first["equity"] < 10_000.0
-    assert (
-        first["decisions"][0]["action"] == "aperta" and "Vendo 1 spread di put USO" in first["decisions"][0]["reason"]
-    )
+    assert first["decisions"][0]["action"] == "opened" and "Sell 1 put spread on USO" in first["decisions"][0]["reason"]
     again = op.options_tick(state, RISK, _data(7.0), store, NOW + timedelta(minutes=30), CFG)
     assert again["opened"] == 0 and again["decisions"] == [] and again["open"] == 1  # one decision a day
     # the next session: the forecast is still long, but the last entry was one session ago
@@ -252,7 +250,7 @@ def test_the_tick_opens_one_structure_once_and_spaces_the_next(tmp_path):
     frame["quote_ts"] = pd.Timestamp(tomorrow - timedelta(minutes=10))
     store.save("uso_options", "cboe", FetchResult("cboe", frame, tomorrow))
     later = op.options_tick(state, RISK, data, store, tomorrow, CFG)
-    assert later["opened"] == 0 and "una nuova ogni 10 sedute" in later["decisions"][0]["reason"]
+    assert later["opened"] == 0 and "a new one every 10 sessions" in later["decisions"][0]["reason"]
     assert not op.decision_due(state, tomorrow)  # the day's decision is on record, whatever the config's clock
 
 
@@ -265,7 +263,7 @@ def test_stale_quotes_and_closed_markets_never_trade(tmp_path):
     assert report["opened"] == 0 and report["decisions"] == [] and op.decision_due(state, late) is True
     assert op.OptionsBook.load(CFG, RISK, op.options_store(state, CFG)).last_decision_day is None
     monitor = json.loads((state / "desk" / "opzioni" / "monitor.json").read_text())
-    assert "servono meno di 45 minuti" in monitor["underlyings"][0]["gate"]["reason"]
+    assert "less than 45 minutes needed" in monitor["underlyings"][0]["gate"]["reason"]
     closed = datetime(2026, 10, 8, 20, 30, tzinfo=UTC)  # after the close: no decision at all
     assert op.options_tick(tmp_path / "other", RISK, _data(9.0), store, closed, CFG)["decisions"] == []
     saturday = datetime(2026, 10, 10, 18, 30, tzinfo=UTC)

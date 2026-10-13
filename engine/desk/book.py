@@ -215,27 +215,35 @@ class Decision:
         return d
 
 
-SOURCE_LABEL_IT = {"prezzo": "prezzo", "curva": "curva", "macro": "altri mercati"}
+# the three sources of the forecast (signals.SOURCES) as the rationale names them
+SOURCE_LABELS = {"prezzo": "price", "curva": "curve", "macro": "other markets"}
 
 
 def _signed(x: float | None, digits: int = 1) -> str:
-    """Signed number with an Italian decimal comma ('+6,2'); 'n/d' when missing."""
+    """Signed number ('+6.2'); 'n/a' when missing."""
     if x is None or not math.isfinite(x):
-        return "n/d"
-    return f"{x:+.{digits}f}".replace(".", ",")
+        return "n/a"
+    return f"{x:+.{digits}f}"
 
 
 def _plain(x: float, digits: int = 2) -> str:
-    return f"{x:.{digits}f}".replace(".", ",")
+    return f"{x:.{digits}f}"
 
 
 def _units(x: float) -> str:
-    return f"{abs(x):,.0f}".replace(",", ".")
+    """Whole units, unsigned, with a thousands separator ('1,250')."""
+    return f"{abs(x):,.0f}"
+
+
+def _count(x: float, unit: str) -> str:
+    """A quantity with its unit, singular for one: '1 share', '19 shares', '100 barrels'."""
+    n = _units(x)
+    return f"{n} {unit[:-1] if n == '1' and unit.endswith('s') else unit}"
 
 
 def _pct(x: float | None) -> str:
     if x is None or not math.isfinite(x):
-        return "n/d"
+        return "n/a"
     return f"{x * 100:.0f}%"
 
 
@@ -351,15 +359,15 @@ class Book:
             raw = max(0.0, raw)
         full_cap = min(HARD_CAP, cfg.max_leverage, self.vehicle.max_leverage)
         cap = self._cap(day)
-        limited = "obiettivo di volatilità"
+        limited = "volatility target"
         if abs(raw) > cap:
-            limited = "tetto prima della chiusura dei mercati" if cap < full_cap else "tetto di leva del libro"
+            limited = "pre-closure ceiling" if cap < full_cap else "the book's leverage ceiling"
         capped = max(-cap, min(cap, raw))
         if self.short is not None and capped < -self.short.max_exposure:
             # the short side is an inverse fund bought with cash: it cannot carry more than its own multiple
-            capped, limited = -self.short.max_exposure, "il fondo inverso si compra solo in contanti"
+            capped, limited = -self.short.max_exposure, "the inverse fund is bought with cash only"
         if raw == 0.0:
-            limited = "nessuna previsione" if forecast == 0 or not math.isfinite(forecast) else "solo long"
+            limited = "no forecast" if forecast == 0 or not math.isfinite(forecast) else "long only"
         return raw, capped, limited
 
     def decide(
@@ -419,16 +427,14 @@ class Book:
             and equity > 0
         )
         if not usable:
-            reason = (
-                "Dati insufficienti per dimensionare (previsione, volatilità o prezzo mancanti): posizione invariata."
-            )
-            dec = Decision(ts, cfg.id, cfg.vehicle, symbol, price, equity, forecast, vol, 0.0, 0.0, "dati mancanti",
+            reason = "Not enough data to size the position (forecast, volatility or price missing): position unchanged."
+            dec = Decision(ts, cfg.id, cfg.vehicle, symbol, price, equity, forecast, vol, 0.0, 0.0, "missing data",
                            current, current, 0.0, reason, str(snap.status))  # fmt: skip
             dec.legs = self._leg_rows(leg, leg_ref, leg_current, leg_current, 0.0)
             return dec, []
         assert combined is not None and vol is not None
         raw, exposure, limited = self.exposure(float(combined), float(vol), day)
-        ceiling = limited  # what cut the exposure wanted, if anything did: the words for "sarebbe ... x"
+        ceiling = limited  # what cut the exposure wanted, if anything did: the words for "would be ... x"
         lot = self.vehicle.lot
         per_lot = equity / price / lot  # lots that one times the equity buys
         band = cfg.buffer * cfg.vol_target / float(vol)  # the buffer, as a multiple of equity
@@ -465,10 +471,10 @@ class Book:
         if exposure != 0 and target == 0 and leg_target == 0:
             # wanted, but smaller than what the position sizes allow: a whole lot for a future, the edge of
             # the inertia band for a fund of one-share lots
-            limited = "lotto minimo" if lot > 1 else "fascia di inerzia"
+            limited = "minimum lot" if lot > 1 else "inertia band"
         unpriced = exposure < 0 and leg is not None and not fresh  # a short is wanted and cannot be opened
         if unpriced and leg is not None and leg_delta >= 0:
-            limited = f"nessun prezzo per {leg.id}"
+            limited = f"no price for {leg.id}"
         rationale = self._rationale(
             forecast, float(vol), raw, exposure, ceiling, target, current, delta, symbol, actual,
             leg, leg_ref, leg_target, leg_current, leg_delta, equity, price, fresh,
@@ -567,53 +573,53 @@ class Book:
         v = self.vehicle
         # the three sources of the forecast, each the average of its sleeves (the sleeves are in the table)
         sources = sg.source_values(forecast, self.cfg.sleeves)
-        parts = ", ".join(f"{SOURCE_LABEL_IT.get(name, name)} {_signed(value)}" for name, value in sources.items())
-        text = f"{parts[:1].upper()}{parts[1:]}: previsione {_signed(forecast.get('combined'))} su 20. "
-        if exposure == 0 and limited == "solo long":
+        parts = ", ".join(f"{SOURCE_LABELS.get(name, name)} {_signed(value)}" for name, value in sources.items())
+        text = f"{parts[:1].upper()}{parts[1:]}: forecast {_signed(forecast.get('combined'))} out of 20. "
+        if exposure == 0 and limited == "long only":
             # a negative forecast in a book that cannot be short: there is no size to explain, only the reason
-            text += "Negativa, e questo libro non va short: resta in contanti"
+            text += "Negative, and this book does not go short: it stays in cash"
         else:
             text += (
-                f"Volatilità {_pct(vol)} contro un obiettivo del {_pct(self.cfg.vol_target)}: "
-                f"esposizione {_plain(abs(exposure))}x"
+                f"Volatility {_pct(vol)} against a target of {_pct(self.cfg.vol_target)}: "
+                f"exposure {_plain(abs(exposure))}x"
             )
         if abs(raw) > abs(exposure) + 1e-9:
-            text += f" (sarebbe {_plain(abs(raw))}x, limitata da: {limited})"
+            text += f" (would be {_plain(abs(raw))}x, limited by: {limited})"
         if leg is None or (leg_target == 0 and leg_current == 0 and exposure >= 0):
             # one instrument, or a book with a short leg that neither holds nor wants it today
-            return self._position_text(text, symbol, v.unit_it, v.lot, target, current, delta, exposure, actual)
+            return self._position_text(text, symbol, v.unit, v.lot, target, current, delta, exposure, actual)
         # ---- a book with a short leg in play: the leg that carries today's side leads, the other follows
         if self.short is None:
             # the configuration no longer has a short side, the account still holds one: it is sold
             worth = target * price / equity if equity > 0 else 0.0
-            lead = self._position_text(text, symbol, v.unit_it, v.lot, target, current, delta, exposure, worth)
-            return f"{lead} Vendo {_units(leg_delta)} {leg.unit_it} di {leg.id}: il libro non ha più un lato short."
+            lead = self._position_text(text, symbol, v.unit, v.lot, target, current, delta, exposure, worth)
+            return f"{lead} Sell {_count(leg_delta, leg.unit)} of {leg.id}: the book no longer has a short side."
         if exposure < 0:
             if leg_price is None:
-                lead = f"{text}, short. Nessun prezzo recente per {leg.id}: il lato short non si apre."
+                lead = f"{text}, short. No recent price for {leg.id}: the short side does not open."
             elif not fresh:
                 # held, and priced only on its last mark: it may shrink on that price, it does not grow -
                 # and when it stays where it is, that is why, not the inertia band
-                text += f", short. Nessun prezzo recente per {leg.id}: il lato short non cresce"
+                text += f", short. No recent price for {leg.id}: the short side does not grow"
                 worth = leg.multiplier * leg_target * leg_price / equity if equity > 0 else 0.0
                 lead = self._position_text(
-                    text, leg.id, leg.unit_it, 1.0, leg_target, leg_current, leg_delta, exposure, worth, True,
+                    text, leg.id, leg.unit, 1.0, leg_target, leg_current, leg_delta, exposure, worth, True,
                     band=leg_delta != 0,
                 )  # fmt: skip
             else:
                 text += (
-                    f", short (tramite {leg.id}, che ogni giorno rende {_signed(leg.multiplier, 0)} volte il WTI: "
-                    "in dollari ne basta la metà)"
+                    f", short (through {leg.id}, which returns {_signed(leg.multiplier, 0)} times WTI each day: "
+                    "half the dollars are enough)"
                 )
                 worth = leg.multiplier * leg_target * leg_price / equity if equity > 0 else 0.0
                 lead = self._position_text(
-                    text, leg.id, leg.unit_it, 1.0, leg_target, leg_current, leg_delta, exposure, worth, True
+                    text, leg.id, leg.unit, 1.0, leg_target, leg_current, leg_delta, exposure, worth, True
                 )
-            other = self._closing_text(symbol, v.unit_it, target, current, delta, "long")
+            other = self._closing_text(symbol, v.unit, target, current, delta, "long")
         else:
             worth = target * price / equity if equity > 0 else 0.0
-            lead = self._position_text(text, symbol, v.unit_it, v.lot, target, current, delta, exposure, worth)
-            other = self._closing_text(leg.id, leg.unit_it, leg_target, leg_current, leg_delta, "short")
+            lead = self._position_text(text, symbol, v.unit, v.lot, target, current, delta, exposure, worth)
+            other = self._closing_text(leg.id, leg.unit, leg_target, leg_current, leg_delta, "short")
         return f"{lead} {other}".strip()
 
     def _position_text(
@@ -634,38 +640,36 @@ class Book:
         ``inverse`` marks the inverse fund, whose long position is the book's short side; ``band=False`` when a
         position differs from the size wanted for a reason that is not the inertia band (and has been said)."""
         if inverse:
-            side = "short" if target > 0 else "nessuna posizione"
+            side = "short" if target > 0 else "no position"
         else:
-            side = "long" if target > 0 else ("short" if target < 0 else "nessuna posizione")
+            side = "long" if target > 0 else ("short" if target < 0 else "no position")
         held = f"{side}, {_plain(abs(actual))}x" if target != 0 else side
         # one lot can be most of the account: when whole lots move the position away from the size wanted,
         # the reader is told by how much instead of being left to wonder why 0.47x became 0.91x
         if target != 0 and lot > 1 and abs(abs(actual) - abs(exposure)) > 0.1:
             one_lot = abs(actual) / (abs(target) / lot)
-            held += f"; un lotto da {_units(lot)} {unit} vale {_plain(one_lot)}x del conto"
+            held += f"; one lot of {_count(lot, unit)} is {_plain(one_lot)}x of the account"
         elif band and target != 0 and abs(abs(actual) - abs(exposure)) > 0.01:
             # the buffer at work: the position stops at the edge of the band, or stays where it is inside it
-            held += "; dentro la fascia di inerzia" if delta == 0 else "; al bordo della fascia di inerzia"
+            held += "; inside the inertia band" if delta == 0 else "; at the edge of the inertia band"
         if delta == 0:
             if target == 0 and current == 0:
                 if exposure != 0 and lot > 1:
                     # wanted, but smaller than the size at which a whole lot is the nearer choice
-                    return (
-                        f"{text}, meno di quanto serve per un lotto intero ({_units(lot)} {unit}): "
-                        f"nessuna posizione su {symbol}."
-                    )
-                return f"{text}. Nessuna posizione su {symbol}."
-            return f"{text}. Posizione invariata: {_units(current)} {unit} su {symbol} ({held})."
-        verb = "Compro" if delta > 0 else "Vendo"
-        return f"{text}. {verb} {_units(delta)} {unit} di {symbol}: obiettivo {_units(target)} ({held})."
+                    return f"{text}, less than a whole lot ({_count(lot, unit)}) needs: no position in {symbol}."
+                return f"{text}. No position in {symbol}."
+            return f"{text}. Position unchanged: {_count(current, unit)} of {symbol} ({held})."
+        verb = "Buy" if delta > 0 else "Sell"
+        return f"{text}. {verb} {_count(delta, unit)} of {symbol}: target {_units(target)} ({held})."
 
     @staticmethod
     def _closing_text(symbol: str, unit: str, target: float, current: float, delta: float, side: str) -> str:
         """What happens to the leg that does NOT carry today's side: sold, trimmed, or a remainder left alone."""
+        remain = "remains" if _units(target) == "1" else "remain"
         if delta < 0 and target == 0:
-            return f"Vendo {_units(delta)} {unit} di {symbol}: il lato {side} si chiude."
+            return f"Sell {_count(delta, unit)} of {symbol}: the {side} side closes."
         if delta < 0:
-            return f"Vendo {_units(delta)} {unit} di {symbol}: del lato {side} ne restano {_units(target)}."
+            return f"Sell {_count(delta, unit)} of {symbol}: {_units(target)} {remain} on the {side} side."
         if target > 0:
-            return f"Restano {_units(target)} {unit} di {symbol} (lato {side}, dentro la fascia di inerzia)."
+            return f"{_count(target, unit)} of {symbol} {remain} ({side} side, inside the inertia band)."
         return ""

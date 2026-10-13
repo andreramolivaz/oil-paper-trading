@@ -278,7 +278,7 @@ def investable_futures_returns(
             ret = (wide[code] / prev_wide[code] - 1.0).where(prev_wide[code] > 0)
             take = mask & ret.notna().to_numpy()
             out[take] = ret[take]
-            source[take] = "contratto"
+            source[take] = "contract"
 
     # 2. EIA contract 1 / contract 2 settlements (exact, across the roll)
     if eia is not None and not eia.empty and {"RCLC1", "RCLC2"} <= set(eia.columns):
@@ -315,7 +315,7 @@ def investable_futures_returns(
         fund_ret = (u / u.shift(1) - 1.0).where(u.shift(1) > 0)
         take = out.isna() & fund_ret.notna()
         out[take] = fund_ret[take]
-        source[take] = "fondo (approx)"
+        source[take] = "fund (approx)"
     keep = out.notna()
     return out[keep], source[keep], held[keep]
 
@@ -543,7 +543,7 @@ def price_only_series(vehicle: str, table: pd.DataFrame) -> VehicleSeries | None
         vehicle=vehicle,
         bars=bars,
         returns=returns,
-        return_source=pd.Series("fondo", index=index, dtype="object"),
+        return_source=pd.Series("fund", index=index, dtype="object"),
         forecasts=_forecast_frame(returns, curve, skew, None),
         vol=sg.ew_vol(returns),
         slope=curve["slope"],
@@ -648,7 +648,7 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
             vehicle="BNO",
             bars=bars,
             returns=returns,
-            return_source=pd.Series("fondo", index=returns.index, dtype="object"),
+            return_source=pd.Series("fund", index=returns.index, dtype="object"),
             forecasts=_forecast_frame(returns, curve, skew, macro_forecasts),
             vol=sg.ew_vol(returns),
             slope=curve["slope"],
@@ -656,7 +656,7 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
             slope_pair=curve["slope_pair"],
         )
     else:
-        data.meta["notes"].append("BNO: nessun prezzo giornaliero archiviato")
+        data.meta["notes"].append("BNO: no daily prices archived")
 
     # ---- MCL: the held WTI contract -----------------------------------------------------------------------
     returns, source, held = wti_returns, wti_source, wti_held
@@ -699,14 +699,14 @@ def build_desk_data(store: RawStore, settings: Settings | None = None, asof: dat
             slope_pair=curve["slope_pair"].astype("object"),
         )
     else:
-        data.meta["notes"].append("MCL: storico WTI insufficiente")
+        data.meta["notes"].append("MCL: not enough WTI history")
 
     # ---- the satellite markets: each fund on its own price, nothing else -----------------------------------
     for vehicle_id, (daily_entry, _) in SATELLITE_TABLES.items():
         table = _daily(load(daily_entry))
         series = price_only_series(vehicle_id, table) if not table.empty else None
         if series is None:
-            data.meta["notes"].append(f"{vehicle_id}: nessun prezzo giornaliero archiviato")
+            data.meta["notes"].append(f"{vehicle_id}: no daily prices archived")
             continue
         data.series[vehicle_id] = series
 

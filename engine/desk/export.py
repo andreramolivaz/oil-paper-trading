@@ -44,11 +44,8 @@ log = logging.getLogger(__name__)
 
 DESK_FILE = "desk.json"
 DESK_BACKTEST_FILE = "desk_backtest.json"
-PRICE_SOURCE = "Yahoo Finance, ritardo 10-15 minuti"
-DISCLAIMER = (
-    "Simulazione a scopo di studio su dati reali. Nessun consiglio finanziario, nessun ordine reale, "
-    "nessun broker collegato."
-)
+PRICE_SOURCE = "Yahoo Finance, 10-15 minute delay"
+DISCLAIMER = "Study simulation on real data. No financial advice, no real orders, no broker connected."
 MAX_CURVE_POINTS = 360
 MAX_DECISIONS = 40
 MAX_FILLS = 60
@@ -143,20 +140,20 @@ def market_block(data: DeskData, now: datetime) -> dict[str, Any]:
     bno = data.series.get("BNO")
     if bno is not None:
         price, ts = latest_price(data, "BNO", "BNO", now)
-        out["bno"] = _quote("BNO (fondo Brent)", "BNO", price, ts, *_prev_close(bno.bars["close"], today))
+        out["bno"] = _quote("BNO (Brent fund)", "BNO", price, ts, *_prev_close(bno.bars["close"], today))
     if not data.ovx.empty:
         out["ovx"] = {
             "value": _r(data.ovx.iloc[-1], 2),
             "asof": pd.Timestamp(data.ovx.index[-1]).date().isoformat(),
             "source": "Cboe OVX (FRED / Yahoo)",
-            "note": "volatilità implicita a 30 giorni delle opzioni su USO",
+            "note": "30-day implied volatility of USO options",
         }
     spread = None
     if out["brent"]["price"] is not None and out["wti"]["price"] is not None:
         spread = out["brent"]["price"] - out["wti"]["price"]
     out["brent_wti"] = {
         "value": _r(spread, 2),
-        "note": f"{bz_code} meno {cl_code}: scadenze diverse, non è lo spread a pari scadenza",
+        "note": f"{bz_code} minus {cl_code}: different expiries, not the same-expiry spread",
     }
     out["hormuz"] = hormuz_summary(data.hormuz) or None
     # the two markets the macro sleeves read: the last close a later day's download has confirmed, with its date
@@ -174,8 +171,8 @@ def market_block(data: DeskData, now: datetime) -> dict[str, Any]:
 
 
 MACRO_QUOTES = {
-    "copper": ("Rame (future COMEX, $/libbra)", "Yahoo Finance HG=F, chiusura giornaliera"),
-    "dollar": ("Indice del dollaro (DXY)", "Yahoo Finance DX-Y.NYB, chiusura giornaliera"),
+    "copper": ("Copper (COMEX future, $/lb)", "Yahoo Finance HG=F, daily close"),
+    "dollar": ("Dollar index (DXY)", "Yahoo Finance DX-Y.NYB, daily close"),
 }
 
 
@@ -241,7 +238,7 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
             {
                 "symbol": symbol,
                 "units": float(pos.qty_bbl),
-                "unit": vehicle.unit_it,
+                "unit": vehicle.unit,
                 # the side of the OIL exposure: shares of an inverse fund are a short position
                 "side": "long" if pos.qty_bbl * times > 0 else "short",
                 "multiplier": times,
@@ -280,7 +277,7 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         "vehicle_name": vehicle.name,
         "underlying": vehicle.underlying,
         "robinhood": vehicle.robinhood,
-        "note": vehicle.note_it,
+        "note": vehicle.note,
         "rules": {
             "vol_target": cfg.vol_target,
             "max_leverage": full_cap,
@@ -288,7 +285,7 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
             "long_only": bool(cfg.long_only or (not vehicle.allow_short and book.short is None)),
             # the inverse fund the book buys to be short (null: it sells the vehicle itself, or is long only)
             "short_via": book.short_symbol,
-            "short_note": None if book.short is None else book.short.note_it,
+            "short_note": None if book.short is None else book.short.note,
             "daily_loss_breaker": cfg.daily_loss_breaker,
             "margin_rate": vehicle.margin_rate,
             "decision_time_ny": f"{vehicle.decision_time_ny[0]:02d}:{vehicle.decision_time_ny[1]:02d}",
@@ -359,7 +356,7 @@ def options_block(state_dir: Path, risk: RiskConfig, config_dir: Path | None) ->
         "name": cfg.name,
         "description": cfg.description,
         "vehicle": "/".join(u.symbol for u in cfg.underlyings),
-        "robinhood": "spread di opzioni su USO e BNO (livello 3)",
+        "robinhood": "option spreads on USO and BNO (level 3)",
         "experimental": True,
         "rules": monitor.get("rules") or {},
         "equity": _r(equity, 2),
@@ -419,7 +416,8 @@ def decisions_block(state_dir: Path, options_id: str | None) -> list[dict[str, A
                     "forecast": _r(d.get("forecast"), 2),
                     "exposure": None,
                     "limited_by": None,
-                    "order_units": 1 if d.get("action") == "aperta" else 0,
+                    # the log is append-only: rows written before 2026-10-13 carry the Italian "aperta"
+                    "order_units": 1 if d.get("action") in ("opened", "aperta") else 0,
                     "text": d.get("reason"),
                     "status": d.get("action"),
                 }
@@ -442,7 +440,7 @@ def fills_block(state_dir: Path, desk: Desk, options_id: str | None) -> list[dic
                     "book": book.id,
                     "symbol": f.get("instrument"),
                     "units": f.get("qty_bbl"),
-                    "unit": book.vehicle.unit_it,
+                    "unit": book.vehicle.unit,
                     "price": _r(f.get("price"), 4),
                     "reference_price": _r(f.get("reference_price"), 4),
                     "cost_bps": _r(meta.get("total_adverse_bps"), 2),
@@ -471,7 +469,7 @@ def fills_block(state_dir: Path, desk: Desk, options_id: str | None) -> list[dic
                     "reference_price": None,
                     "cost_bps": None,
                     "commission": None,
-                    "reason": "apertura" if t.get("action") == "open" else "scadenza",
+                    "reason": "open" if t.get("action") == "open" else "expiry",
                     "realized_pnl": _r(t.get("pnl"), 2),
                     "decided_at": None,
                     "leverage_after": None,

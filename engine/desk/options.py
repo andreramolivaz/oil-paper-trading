@@ -79,16 +79,16 @@ class Underlying:
     chain: str  # raw-store entry of its option chain
     daily: str  # raw-store entry of its daily bars (the unadjusted close settles an expiry)
     forecast: str  # the desk series whose forecast decides the direction
-    label_it: str = ""
+    label: str = ""  # how the terminal names it ("WTI fund")
 
 
 @dataclass(frozen=True)
 class OptionsConfig:
     id: str = OPTIONS_BOOK_ID
-    name: str = "Opzioni"
+    name: str = "Options"
     underlyings: tuple[Underlying, ...] = (
-        Underlying("USO", "uso_options", "uso_daily", "MCL", "fondo WTI"),
-        Underlying("BNO", "bno_options", "bno_daily", "BNO", "fondo Brent"),
+        Underlying("USO", "uso_options", "uso_daily", "MCL", "WTI fund"),
+        Underlying("BNO", "bno_options", "bno_daily", "BNO", "Brent fund"),
     )
     forecast_threshold: float = 5.0
     short_delta: float = 0.20
@@ -134,7 +134,7 @@ def load_options_config(config_dir: Path | None = None) -> OptionsConfig | None:
                 chain=str(u["chain"]),
                 daily=str(u["daily"]),
                 forecast=str(u["forecast"]),
-                label_it=str(u.get("label", "")),
+                label=str(u.get("label", "")),
             )
             for u in listed
         )
@@ -208,14 +208,14 @@ def expiries_in_window(chain: Chain, cfg: OptionsConfig) -> list[tuple[pd.Timest
 
 
 def candidate(chain: Chain, cfg: OptionsConfig, equity: float) -> tuple[dict[str, Any] | None, str]:
-    """The put credit spread the book would sell on this chain right now, or ``(None, why not)`` in Italian.
+    """The put credit spread the book would sell on this chain right now, or ``(None, why not)``.
 
     It does not look at the forecast or at what is already open: it answers "is there something tradeable
     here", which the terminal shows every day whether or not the book acts on it.
     """
     window = expiries_in_window(chain, cfg)
     if not window:
-        return None, f"nessuna scadenza quotata fra {cfg.dte_min} e {cfg.dte_max} giorni"
+        return None, f"no listed expiry between {cfg.dte_min} and {cfg.dte_max} days"
     budget = cfg.risk_per_structure * equity
     f = cfg.fill_fraction
     reasons: list[str] = []
@@ -223,21 +223,21 @@ def candidate(chain: Chain, cfg: OptionsConfig, equity: float) -> tuple[dict[str
         puts = _quoted(chain.frame[(chain.frame["expiry"] == expiry) & (chain.frame["right"] == "P")])
         puts = puts[puts["strike"] < chain.price]
         if puts.empty:
-            reasons.append(f"{expiry.date().isoformat()}: nessuna put quotata sotto il prezzo")
+            reasons.append(f"{expiry.date().isoformat()}: no put quoted below the price")
             continue
         gap = (puts["delta"].abs() - cfg.short_delta).abs()
         near = puts[gap <= cfg.delta_tolerance]
         if near.empty:
-            reasons.append(f"{expiry.date().isoformat()}: nessuna put vicina a delta {cfg.short_delta:.2f}")
+            reasons.append(f"{expiry.date().isoformat()}: no put near delta {cfg.short_delta:.2f}")
             continue
         # among the strikes near the target delta, the closest one that is quoted tightly enough to sell
         tight = near[near["rel_spread"] <= cfg.max_leg_spread]
         if tight.empty:
             worst = near.loc[near.index[int(gap[near.index].to_numpy().argmin())]]
             reasons.append(
-                f"{expiry.date().isoformat()}: la put da vendere ({worst['strike']:g}) è quotata "
+                f"{expiry.date().isoformat()}: the put to sell ({worst['strike']:g}) is quoted "
                 f"{float(worst['bid']):.2f}-{float(worst['ask']):.2f}, "
-                f"larga il {float(worst['rel_spread']):.0%} del prezzo"
+                f"{float(worst['rel_spread']):.0%} of the price wide"
             )
             continue
         short = tight.loc[tight.index[int(gap[tight.index].to_numpy().argmin())]]
@@ -277,8 +277,8 @@ def candidate(chain: Chain, cfg: OptionsConfig, equity: float) -> tuple[dict[str
         if best is not None:
             return best, ""
         reasons.append(
-            f"{expiry.date().isoformat()}: nessuna ala entro il budget di {budget:,.0f} $".replace(",", ".")
-            + (f" ({too_wide} strike scartati perché quotati troppo larghi)" if too_wide else "")
+            f"{expiry.date().isoformat()}: no wing within the budget of {budget:,.0f} $"
+            + (f" ({too_wide} strikes discarded because quoted too wide)" if too_wide else "")
         )
     return None, "; ".join(reasons[:3])
 
@@ -674,7 +674,7 @@ def _business_days_between(a: date, b: date) -> int:
 
 
 def _fmt(x: float | None, digits: int = 2) -> str:
-    return "n/d" if x is None or not math.isfinite(x) else f"{x:.{digits}f}".replace(".", ",")
+    return "n/a" if x is None or not math.isfinite(x) else f"{x:.{digits}f}"
 
 
 def options_tick(
@@ -722,14 +722,14 @@ def options_tick(
         forecast, vol = _forecast(data, u.forecast, day or now.astimezone(NEW_YORK).date())
         entry: dict[str, Any] = {
             "symbol": u.symbol,
-            "label": u.label_it,
+            "label": u.label,
             "forecast_series": u.forecast,
             "forecast": forecast,
             "realized_vol": vol,
             "threshold": cfg.forecast_threshold,
         }
         cand: dict[str, Any] | None = None
-        why = "nessuna catena di opzioni archiviata"
+        why = "no option chain archived"
         if chain is not None:
             entry.update(chain_quality(chain, cfg))
             entry["quote_age_minutes"] = round(max(0.0, chain.age_minutes(now)), 1)
@@ -749,16 +749,16 @@ def options_tick(
             "book": cfg.id,
             "underlying": u.symbol,
             "forecast": forecast,
-            "action": "nessuna",
+            "action": "none",
             "reason": gate["reason"],
             "candidate": cand,
         }
         if gate["open"] and cand is not None and forecast is not None:
             rationale = _rationale(cfg, u, cand, forecast)
             structure = book.open(cand, now, day, forecast, rationale)
-            decision.update({"action": "aperta", "reason": rationale, "structure": structure["id"]})
+            decision.update({"action": "opened", "reason": rationale, "structure": structure["id"]})
             report["opened"] += 1
-            cand, why = None, "struttura appena aperta"
+            cand, why = None, "structure just opened"
         report["decisions"].append(decision)
         book._log("decisions", decision, now)
         if chain is not None and "points" in entry:
@@ -812,28 +812,31 @@ def _gate(
 ) -> dict[str, Any]:
     """Every condition an entry needs, in the order they are checked, with the first one that fails."""
     checks: list[tuple[str, bool, str]] = []
-    checks.append(("conto attivo", book.status == "active", "conto fermo: equity sotto il 5% del capitale"))
+    checks.append(("account active", book.status == "active", "account halted: equity below 5% of the capital"))
     fresh = chain is not None and chain.age_minutes(now) <= cfg.max_quote_age_minutes
     age = (
-        "nessuna catena scaricata"
+        "no chain downloaded"
         if chain is None
-        else f"quotazioni di {chain.age_minutes(now):.0f} minuti fa: servono meno di {cfg.max_quote_age_minutes} minuti"
+        else (
+            f"quotes from {chain.age_minutes(now):.0f} minutes ago: "
+            f"less than {cfg.max_quote_age_minutes} minutes needed"
+        )
     )
-    checks.append(("quotazioni fresche", fresh, age))
+    checks.append(("fresh quotes", fresh, age))
     ok_forecast = forecast is not None and forecast >= cfg.forecast_threshold
     checks.append(
         (
-            "previsione",
+            "forecast",
             ok_forecast,
-            f"previsione {u.forecast} {_fmt(forecast, 1)} sotto la soglia di +{cfg.forecast_threshold:g}: "
-            "nessuna vendita di put (il lato ribassista non ha mostrato margine e non si tratta)",
+            f"forecast {u.forecast} {_fmt(forecast, 1)} below the threshold of +{cfg.forecast_threshold:g}: "
+            "no put sold (the bearish side showed no edge and is not traded)",
         )
     )
     checks.append(
         (
-            "posti liberi",
+            "free slots",
             len(book.structures) < cfg.max_open,
-            f"già {len(book.structures)} strutture aperte (massimo {cfg.max_open})",
+            f"already {len(book.structures)} structures open (maximum {cfg.max_open})",
         )
     )
     spaced = True
@@ -842,19 +845,19 @@ def _gate(
         spaced = gap >= cfg.min_business_days_between_entries
     checks.append(
         (
-            "distanza dall'ultima",
+            "spacing from the last",
             spaced,
-            f"ultima apertura il {book.last_entry_day}: una nuova ogni {cfg.min_business_days_between_entries} sedute",
+            f"last opened on {book.last_entry_day}: a new one every {cfg.min_business_days_between_entries} sessions",
         )
     )
     duplicate = cand is not None and any(
         s["underlying"] == cand["underlying"] and s["expiry"] == cand["expiry"] for s in book.structures
     )
-    checks.append(("struttura negoziabile", cand is not None and not duplicate, why or "scadenza già in portafoglio"))
+    checks.append(("tradeable structure", cand is not None and not duplicate, why or "expiry already in the book"))
     failed = next((c for c in checks if not c[1]), None)
     return {
         "open": failed is None,
-        "reason": "tutte le condizioni soddisfatte" if failed is None else failed[2],
+        "reason": "all conditions met" if failed is None else failed[2],
         "checks": [{"name": name, "ok": ok} for name, ok, _ in checks],
     }
 
@@ -863,12 +866,12 @@ def _rationale(cfg: OptionsConfig, u: Underlying, cand: dict[str, Any], forecast
     short, long = cand["short"], cand["long"]
     n = int(cand["contracts"])
     return (
-        f"Previsione {u.forecast} {_fmt(forecast, 1)} (soglia +{cfg.forecast_threshold:g}). "
-        f"Vendo {n} spread di put {u.symbol} {short['strike']:g}/{long['strike']:g} "
-        f"scadenza {cand['expiry']} ({cand['dte']} giorni): incasso {_fmt(float(cand['credit']))} $ per azione "
-        f"(a metà prezzo sarebbero {_fmt(float(cand['credit_mid']))}), "
-        f"perdita massima {_fmt(float(cand['max_loss_per_contract']) * n, 0)} $, "
-        f"pareggio a {_fmt(float(cand['breakeven']))} con il fondo a {_fmt(float(cand['underlying_price']))}."
+        f"Forecast {u.forecast} {_fmt(forecast, 1)} (threshold +{cfg.forecast_threshold:g}). "
+        f"Sell {n} put spread{'' if n == 1 else 's'} on {u.symbol} {short['strike']:g}/{long['strike']:g} "
+        f"expiring {cand['expiry']} ({cand['dte']} days): credit {_fmt(float(cand['credit']))} $ per share "
+        f"(at the mid it would be {_fmt(float(cand['credit_mid']))}), "
+        f"maximum loss {_fmt(float(cand['max_loss_per_contract']) * n, 0)} $, "
+        f"breakeven at {_fmt(float(cand['breakeven']))} with the fund at {_fmt(float(cand['underlying_price']))}."
     )
 
 
@@ -1041,7 +1044,7 @@ def replay_payload(data: DeskData, raw: RawStore, cfg: OptionsConfig, initial_ca
     price = _daily(_latest(raw, "uso_daily"))
     series = data.series.get("MCL")
     if price.empty or data.ovx.empty or series is None:
-        return {"approx": True, "available": False, "reason": "servono USO giornaliero, OVX e la previsione WTI"}
+        return {"approx": True, "available": False, "reason": "needs the USO daily table, OVX and the WTI forecast"}
     column = "adjclose" if "adjclose" in price.columns and price["adjclose"].notna().any() else "close"
     px = price[column].astype("float64").dropna()
     px = px.loc[data.ovx.index[0] :]
@@ -1078,9 +1081,9 @@ def replay_payload(data: DeskData, raw: RawStore, cfg: OptionsConfig, initial_ca
         "available": True,
         "underlying": "USO",
         "method": (
-            "Modello, non storico di quotazioni: Black-Scholes sull'indice OVX, smile e spread denaro-lettera "
-            "fissi letti sulla catena USO dell'8 ottobre 2026, strike continui, 21 sedute alla scadenza, "
-            "ala larga il 4% del prezzo."
+            "A model, not a history of quotes: Black-Scholes on the OVX index, a fixed smile and a fixed bid-ask "
+            "spread read on the USO chain of 8 October 2026, continuous strikes, 21 sessions to expiry, "
+            "a wing 4% of the price wide."
         ),
         "sharpe_range": [min(sharpes), max(sharpes)] if sharpes else None,
         "headline": headline,

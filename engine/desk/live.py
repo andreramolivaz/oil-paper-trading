@@ -250,8 +250,8 @@ class TickReport:
 
     def message(self) -> str:
         orders = sum(int(d.get("n_orders") or 0) for d in self.decisions)
-        text = f"{self.bars} barre, {self.fills} eseguiti, {len(self.decisions)} decisioni ({orders} ordini)"
-        return text + (f", {self.rolled} roll" if self.rolled else "")
+        text = f"{self.bars} bars, {self.fills} fills, {len(self.decisions)} decisions ({orders} orders)"
+        return text + (f", {self.rolled} rolls" if self.rolled else "")
 
 
 def _symbols_to_feed(desk: Desk, vehicle: Vehicle, today: date) -> list[str]:
@@ -305,7 +305,7 @@ def live_tick(
         series = data.series.get(vehicle_id)
         frame = data.intraday.get(vehicle_id)
         if series is None:
-            report.notes.append(f"{vehicle_id}: nessuna serie di prezzo, libri fermi")
+            report.notes.append(f"{vehicle_id}: no price series, books idle")
             continue
 
         # 1. bars completed since the last tick, per book: a book that was just reset has seen none of them,
@@ -324,10 +324,10 @@ def live_tick(
                 if o.instrument in INVERSE_FUNDS and o.instrument != book.short_symbol and o.qty_bbl > 0
             }
             if stray:
-                book.broker.cancel_pending(stray, reason="il libro non ha più un lato short")
+                book.broker.cancel_pending(stray, reason="the book no longer has a short side")
                 report.notes.append(
-                    f"{vehicle_id}: annullato l'acquisto di un fondo inverso in coda per {book.id}, "
-                    "che non ha più un lato short"
+                    f"{vehicle_id}: cancelled the queued purchase of an inverse fund for {book.id}, "
+                    "which no longer has a short side"
                 )
             # what this book trades and where each symbol is read: the vehicle's table, and the inverse fund's
             # own table for a short leg (priced on ITS volatility, which is the multiple of the oil's)
@@ -369,11 +369,11 @@ def live_tick(
             report.fills += len(desk.feed(book, batch, late_until=known_to))
             report.bars += len(batch)
         if frame is None or frame.empty:
-            report.notes.append(f"{vehicle_id}: nessuna barra intraday archiviata (ordini e stop in attesa)")
+            report.notes.append(f"{vehicle_id}: no intraday bars archived (orders and stops waiting)")
         for fund_id in desk.short_legs(vehicle_id):
             table = data.intraday.get(fund_id)
             if table is None or table.empty:
-                report.notes.append(f"{vehicle_id}: nessuna barra intraday di {fund_id} (il lato short aspetta)")
+                report.notes.append(f"{vehicle_id}: no intraday bars of {fund_id} (the short side waits)")
 
         # 2. interest on borrowed cash
         desk.accrue_financing(vehicle_id, today_ny, now)
@@ -388,8 +388,8 @@ def live_tick(
             if inputs is None:
                 last = series.last_day()
                 report.notes.append(
-                    f"{vehicle_id}: decisione del {day.isoformat()} in attesa, dati fermi al "
-                    f"{'n/d' if last is None else last.date().isoformat()}"
+                    f"{vehicle_id}: decision of {day.isoformat()} waiting, data end at "
+                    f"{'n/a' if last is None else last.date().isoformat()}"
                 )
             else:
                 forecast, vol = inputs
@@ -400,7 +400,7 @@ def live_tick(
                 )
                 price, price_ts = latest_price(data, vehicle_id, symbol, now)
                 if price is None or price_ts is None or now - price_ts > MAX_PRICE_AGE:
-                    report.notes.append(f"{vehicle_id}: nessun prezzo recente per {symbol}, decisione rimandata")
+                    report.notes.append(f"{vehicle_id}: no recent price for {symbol}, decision postponed")
                 else:
                     if vehicle.kind == "future":
                         prices = {symbol: price}
@@ -415,8 +415,8 @@ def live_tick(
                             # these books keep the old contract and their decision stays owed: both are tried
                             # again on the next tick (the calendar leaves five sessions before the expiry)
                             report.notes.append(
-                                f"{vehicle_id}: roll verso {symbol} rimandato per {', '.join(waiting)} (il vecchio "
-                                "contratto non ha un prezzo dello stesso momento): decisione in attesa"
+                                f"{vehicle_id}: roll to {symbol} postponed for {', '.join(waiting)} (the old "
+                                "contract has no price of the same moment): decision waiting"
                             )
                     # the inverse fund of a book with a short leg is priced on its own table; without a recent
                     # price the long leg is still decided, the short one keeps what it has
@@ -426,7 +426,7 @@ def live_tick(
                         if leg_price is not None and leg_ts is not None and now - leg_ts <= MAX_PRICE_AGE:
                             leg_prices[fund_id] = leg_price
                         else:
-                            report.notes.append(f"{vehicle_id}: nessun prezzo recente per {fund_id}")
+                            report.notes.append(f"{vehicle_id}: no recent price for {fund_id}")
                     decided = desk.decide(vehicle_id, now, day, symbol, price, forecast, vol, leg_prices=leg_prices)
                     for decision in decided:
                         report.decisions.append(decision.to_dict())
@@ -447,7 +447,7 @@ def live_tick(
             # as old as they were when the tick began (the bars of a symbol it does not hold, fed above, are
             # not news about its position), and saying "as of now" would make the next real bars look old.
             known = asof if asof is not None else knew.get(book.id)
-            snap = book.broker.mark(marks, now, "yahoo (ritardo 10-15 min)", known)
+            snap = book.broker.mark(marks, now, "yahoo (10-15 min delay)", known)
             report.books[book.id] = {
                 "equity": round(float(snap.equity), 2),
                 "leverage": round(book.effective_leverage(float(snap.equity)), 3),

@@ -125,7 +125,7 @@ def test_the_export_shows_a_short_side_held_in_the_inverse_fund_as_a_short(tmp_p
     assert b["stress"]["+10%"] == pytest.approx(0.1 * b["exposure"], abs=1e-4) and b["stress"]["+10%"] < 0
     decision = next(d for d in doc["decisions"] if d["book"] == "dinamico")
     assert decision["order_units"] > 0 and decision["legs"][0]["symbol"] == "SCO"  # the order was on the leg
-    assert decision["exposure"] < 0 and "tramite SCO" in decision["text"]
+    assert decision["exposure"] < 0 and "through SCO" in decision["text"]
     assert [(f["book"], f["symbol"], f["units"] > 0) for f in doc["fills"]] == [("dinamico", "SCO", True)]
     # the forecast block: the seven sleeves, the three sources, and the close the macro sleeves were read at
     fc = doc["forecast"]["BNO"]

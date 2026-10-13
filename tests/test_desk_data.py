@@ -84,7 +84,7 @@ def test_the_return_on_a_roll_is_the_held_contract_own_return_never_the_gap_betw
     returns, source, held = investable_futures_returns(
         "CL", wide, pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=float)
     )
-    assert (source == "contratto").all()
+    assert (source == "contract").all()
     assert held[pd.Timestamp("2020-04-14")] == "CLK20" and held[pd.Timestamp("2020-04-15")] == "CLM20"
     assert returns[pd.Timestamp("2020-04-14")] == pytest.approx(0.0)
     # first day in June: June against June. Mixing the two contracts would have printed +50 %.
@@ -119,7 +119,7 @@ def test_the_front_series_is_used_only_while_it_is_the_held_contract_and_the_fun
     assert source[pd.Timestamp("2020-04-13")] == "front" and returns[pd.Timestamp("2020-04-13")] == pytest.approx(0.02)
     # from the day after the roll the front is a contract the book no longer holds
     for day in ("2020-04-15", "2020-04-17", "2020-04-20", "2020-04-21", "2020-04-22"):
-        assert source[pd.Timestamp(day)] == "fondo (approx)", day
+        assert source[pd.Timestamp(day)] == "fund (approx)", day
         assert returns[pd.Timestamp(day)] == pytest.approx(0.005)
     assert source[pd.Timestamp("2020-04-23")] == "front"
 
@@ -183,7 +183,7 @@ def test_build_desk_data_assembles_both_vehicles_and_labels_what_is_a_proxy(tmp_
     data = build_desk_data(store)
     assert set(data.series) == {"BNO", "MCL"}
     bno, mcl = data.series["BNO"], data.series["MCL"]
-    assert (bno.return_source == "fondo").all() and (mcl.return_source == "eia").all()
+    assert (bno.return_source == "fund").all() and (mcl.return_source == "eia").all()
     # no Brent per-contract table was archived: the fund's slope is the WTI curve, and says so
     assert bno.slope_approx.all() and not mcl.slope_approx.any()
     assert list(bno.forecasts.columns) == [*sg.SLEEVES, "combined"] == list(mcl.forecasts.columns)
@@ -396,7 +396,7 @@ def test_a_satellite_fund_is_read_on_its_own_price_and_forecast_on_the_price_sou
     pd.testing.assert_series_equal(series.returns, returns)
     assert (series.returns == gld["adjclose"].pct_change().dropna()).all()  # the adjusted close is the return
     assert (series.bars["close"] == gld["close"].reindex(series.bars.index)).all()  # the raw bars fill orders
-    assert (series.bars["symbol"] == "GLD").all() and (series.return_source == "fondo").all()
+    assert (series.bars["symbol"] == "GLD").all() and (series.return_source == "fund").all()
     f = series.forecasts
     assert list(f.columns) == [*sg.SLEEVES, "combined"]
     assert f[["carry", "carry_momentum", "copper", "dollar"]].isna().all().all()  # no curve, no other market

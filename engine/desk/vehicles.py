@@ -27,7 +27,7 @@ class Vehicle:
     kind: str  # "etf" | "future"
     name: str
     underlying: str  # "brent" | "wti"
-    unit_it: str  # how one unit is called in the Italian UI
+    unit: str  # how one unit is called in the UI, plural ("shares", "barrels")
     lot: float  # smallest tradeable quantity, in broker units (shares, or barrels for futures)
     margin_rate: float  # initial margin as a fraction of notional
     stop_out_level: float  # equity / margin below which the broker force-reduces
@@ -38,7 +38,7 @@ class Vehicle:
     session: str  # "us_regular" | "globex"
     decision_time_ny: tuple[int, int]  # when the daily decision is taken, New York clock
     robinhood: str
-    note_it: str
+    note: str
 
     @property
     def max_leverage(self) -> float:
@@ -50,7 +50,7 @@ BNO = Vehicle(
     kind="etf",
     name="United States Brent Oil Fund",
     underlying="brent",
-    unit_it="azioni",
+    unit="shares",
     lot=1.0,
     margin_rate=0.50,
     stop_out_level=0.70,  # 0.70 * 50 % = 35 % of the position: the fund's maintenance requirement
@@ -60,8 +60,8 @@ BNO = Vehicle(
     allow_short=False,
     session="us_regular",
     decision_time_ny=(15, 0),
-    robinhood="BNO (azioni; opzioni settimanali quotate)",
-    note_it="ETF sul Brent: detiene il future ICE più vicino e lo rolla due settimane prima della scadenza.",
+    robinhood="BNO (shares; weekly options listed)",
+    note="Brent ETF: holds the nearest ICE future and rolls it two weeks before the expiry.",
 )
 
 MCL = Vehicle(
@@ -69,7 +69,7 @@ MCL = Vehicle(
     kind="future",
     name="Micro WTI Crude Oil",
     underlying="wti",
-    unit_it="barili",
+    unit="barrels",
     lot=100.0,
     margin_rate=0.10,
     stop_out_level=0.50,
@@ -79,8 +79,8 @@ MCL = Vehicle(
     allow_short=True,
     session="globex",
     decision_time_ny=(14, 35),
-    robinhood="/MCL (future micro WTI, 100 barili)",
-    note_it="Su Robinhood non c'è un future sul Brent: la leva lineare passa dal WTI, con rischio di base.",
+    robinhood="/MCL (micro WTI future, 100 barrels)",
+    note="Robinhood has no Brent future: the linear leverage goes through WTI, with basis risk.",
 )
 
 # ---- the satellite markets (phase 12): the same price forecast, on the funds of other markets -----------------
@@ -95,7 +95,7 @@ GLD = Vehicle(
     kind="etf",
     name="SPDR Gold Shares",
     underlying="gold",
-    unit_it="shares",
+    unit="shares",
     lot=1.0,
     margin_rate=0.50,
     stop_out_level=0.70,
@@ -106,7 +106,7 @@ GLD = Vehicle(
     session="us_regular",
     decision_time_ny=(15, 0),
     robinhood="GLD (shares)",
-    note_it="Gold fund: holds bullion in a vault, no roll and no curve; 0.40 % a year.",
+    note="Gold fund: holds bullion in a vault, no roll and no curve; 0.40 % a year.",
 )
 
 CPER = Vehicle(
@@ -114,7 +114,7 @@ CPER = Vehicle(
     kind="etf",
     name="United States Copper Index Fund",
     underlying="copper",
-    unit_it="shares",
+    unit="shares",
     lot=1.0,
     margin_rate=0.50,
     stop_out_level=0.70,
@@ -125,7 +125,7 @@ CPER = Vehicle(
     session="us_regular",
     decision_time_ny=(15, 0),
     robinhood="CPER (shares)",
-    note_it="Copper fund: holds COMEX copper futures along a rules-based curve position; thin, pays its spread.",
+    note="Copper fund: holds COMEX copper futures along a rules-based curve position; thin, pays its spread.",
 )
 
 DBA = Vehicle(
@@ -133,7 +133,7 @@ DBA = Vehicle(
     kind="etf",
     name="Invesco DB Agriculture Fund",
     underlying="agriculture",
-    unit_it="shares",
+    unit="shares",
     lot=1.0,
     margin_rate=0.50,
     stop_out_level=0.70,
@@ -144,7 +144,7 @@ DBA = Vehicle(
     session="us_regular",
     decision_time_ny=(15, 0),
     robinhood="DBA (shares)",
-    note_it="Agriculture fund: corn, soybeans, wheat, sugar, coffee, cocoa, cattle and hogs futures, rolled on rules.",
+    note="Agriculture fund: corn, soybeans, wheat, sugar, coffee, cocoa, cattle and hogs futures, rolled on rules.",
 )
 
 VEHICLES: dict[str, Vehicle] = {v.id: v for v in (BNO, MCL, GLD, CPER, DBA)}
@@ -163,9 +163,9 @@ class InverseFund:
     underlying: str  # "wti": the short side of a Brent book carries the Brent-WTI basis
     multiplier: float  # oil exposure of one dollar held, per day (-2.0)
     max_weight: float  # ceiling on its notional as a fraction of equity: 1.0 = cash only, never borrowed
-    unit_it: str
+    unit: str  # how one unit is called in the UI, plural
     robinhood: str
-    note_it: str
+    note: str
 
     @property
     def max_exposure(self) -> float:
@@ -179,12 +179,12 @@ SCO = InverseFund(
     underlying="wti",
     multiplier=-2.0,
     max_weight=1.0,
-    unit_it="azioni",
-    robinhood="SCO (azioni)",
-    note_it=(
-        "ETF che ogni giorno rende -2 volte un indice di future sul WTI: il lato short del libro si ottiene "
-        "comprandolo in contanti, e non può perdere più di quanto vi è investito. Su più giorni il suo "
-        "rendimento non è -2 volte quello del greggio (ricalcolo giornaliero, commissione 0,95% l'anno)."
+    unit="shares",
+    robinhood="SCO (shares)",
+    note=(
+        "ETF that returns -2 times a WTI futures index each day: the book's short side is obtained by buying it "
+        "with cash, and it cannot lose more than what is invested in it. Over several days its return is not "
+        "-2 times the crude's (daily reset, 0.95% a year in fees)."
     ),
 )
 
