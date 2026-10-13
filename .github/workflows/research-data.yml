@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: "all (default) or satellites (phase 12: the daily tables of the other markets only)"
+        description: "all (default), satellites (the daily tables of the other markets only) or kalshi (the prediction market's catalogue)"
         required: false
         default: "all"
   push:
