@@ -4,6 +4,11 @@ name: research data (manual)
 # Nothing is written to the data branch: this is a research tool, not part of the trading loop.
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: "all (default) or satellites (phase 12: the daily tables of the other markets only)"
+        required: false
+        default: "all"
   push:
     branches: ["research-fetch"]
 
@@ -27,7 +32,7 @@ jobs:
           uv venv .venv --python 3.12
           uv pip install --python .venv/bin/python -r requirements.lock
       - name: Fetch
-        run: .venv/bin/python scripts/research_fetch.py --out out/research
+        run: .venv/bin/python scripts/research_fetch.py --out out/research --only "${{ inputs.only || 'all' }}"
       - uses: actions/upload-artifact@v4
         with:
           name: research-data

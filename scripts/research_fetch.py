@@ -31,6 +31,12 @@ DAILY = [
     "BZ=F", "CL=F", "MCL=F", "QM=F", "HO=F", "RB=F", "NG=F",
     "BNO", "USO", "UCO", "SCO", "DBO", "OILK", "XLE", "XOP", "^OVX", "^VIX", "DX-Y.NYB",
 ]  # fmt: skip
+# Phase 12 (October 2026): the funds of the other markets a satellite book could trade from a Robinhood account,
+# their inverse funds, and the continuous futures of the same markets for context. Daily only.
+DAILY_SATELLITES = [
+    "GLD", "IAU", "GLL", "CPER", "UNG", "KOLD", "BOIL", "DBA", "CORN", "WEAT", "SOYB", "URA",
+    "GC=F", "HG=F", "NG=F", "ZC=F", "ZW=F", "ZS=F", "TLT", "SPY", "UUP", "SGOV",
+]  # fmt: skip
 INTRADAY_1H = ["BZ=F", "CL=F", "MCL=F", "BNO", "USO", "UCO", "SCO", "XLE"]
 INTRADAY_SHORT = ["BZ=F", "CL=F", "MCL=F", "BNO", "USO"]
 SHORT_INTERVALS = ["30m", "15m", "5m"]
@@ -51,6 +57,12 @@ def _save(frame: Any, path: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="out/research")
+    parser.add_argument(
+        "--only",
+        choices=["all", "satellites"],
+        default="all",
+        help="'satellites': only the daily tables of DAILY_SATELLITES (phase 12 research), a few dozen requests",
+    )
     args = parser.parse_args()
     out = Path(args.out)
     yahoo = YahooAdapter(min_interval=1.3, retries=2, backoff=4.0)
@@ -67,6 +79,16 @@ def main() -> int:
             print(f"FAIL {key:<28} {manifest['failed'][key]}", flush=True)
 
     safe = lambda s: s.replace("=", "_").replace("^", "_").replace(".", "_")  # noqa: E731
+    if args.only == "satellites":
+        for symbol in DAILY_SATELLITES:
+            run(
+                f"daily/{symbol}",
+                lambda s=symbol: yahoo.fetch_daily(s, date(2000, 1, 1), today),
+                out / "daily" / f"{safe(symbol)}.parquet",
+            )
+        (out / "manifest.json").write_text(json.dumps(manifest, indent=1))
+        print(f"\n{len(manifest['ok'])} ok, {len(manifest['failed'])} failed, {yahoo.requests_made} requests")
+        return 0
     for symbol in DAILY:
         run(
             f"daily/{symbol}",
