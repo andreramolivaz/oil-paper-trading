@@ -104,6 +104,100 @@ books:
       A quarter of Kelly on the agriculture fund (corn, soybeans, wheat, sugar, coffee, cocoa, livestock), never
       levered and never short: the prudent book's rules on the market the weather moves most.
 
+  # Phase 13 (13 October 2026): bonds, equities and the owner's themes - the electricity for the data centres,
+  # electrification, the AI investment and its bubble, the energy transition - each measured once before it
+  # started (docs/RESEARCH.md, chapter 9: 0.37, 0.58, 0.35, 0.43, 0.67, 0.47, 0.75 after costs). Same rules.
+  - id: bonds
+    name: Treasuries
+    role: candidate
+    vehicle: TLT
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
+    daily_loss_breaker: 0.05
+    description: >-
+      A quarter of Kelly on long Treasuries, never levered and never short: the market that pays when growth
+      and inflation fall. Coupons credited on the ex-date.
+
+  - id: equities
+    name: Equities
+    role: candidate
+    vehicle: SPY
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
+    daily_loss_breaker: 0.05
+    description: >-
+      A quarter of Kelly on the S&P 500, never levered and never short: a way of being in equities that steps
+      aside in the declines, not a signal that anticipates them.
+
+  - id: uranium
+    name: Uranium
+    role: candidate
+    vehicle: URA
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
+    daily_loss_breaker: 0.05
+    description: >-
+      A quarter of Kelly on the uranium fund, never levered and never short: the nuclear leg of the electricity
+      the data centres need.
+
+  - id: utilities
+    name: Utilities
+    role: candidate
+    vehicle: XLU
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
+    daily_loss_breaker: 0.05
+    description: >-
+      A quarter of Kelly on US utilities, never levered and never short: the grid that carries the new
+      electricity demand; moves with interest rates.
+
+  - id: lithium
+    name: Lithium
+    role: candidate
+    vehicle: LIT
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
+    daily_loss_breaker: 0.05
+    description: >-
+      A quarter of Kelly on the lithium and battery fund, never levered and never short: electrification, a
+      boom-and-bust market the trend rule rides and leaves.
+
+  - id: semis
+    name: Semiconductors
+    role: candidate
+    vehicle: SMH
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
+    daily_loss_breaker: 0.05
+    description: >-
+      A quarter of Kelly on semiconductors, never levered and never short: the AI investment itself. Shares
+      two thirds of its moves with the S&P 500, so it counts for less than a separate market.
+
+  - id: clean
+    name: Clean energy
+    role: candidate
+    vehicle: ICLN
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
+    daily_loss_breaker: 0.05
+    description: >-
+      A quarter of Kelly on the clean energy fund (solar, wind, hydrogen), never levered and never short: the
+      energy transition, which boomed in 2020 and bust after; the trend rule earned the boom and sat out the bust.
+
 # The options book (engine/desk/options.py): put credit spreads sold below the market when the forecast is
 # long, priced on the real delayed bid and ask. Its replay is a model and is labelled approx everywhere; the
 # book exists to measure the idea on real quotes. Every number here is a rule of the book, not a fitted value:

@@ -104,6 +104,21 @@ desk:
     - {adapter: yahoo, symbol: "CPER"}
   dba_daily:
     - {adapter: yahoo, symbol: "DBA"}
+  # phase 13: bonds, equities and the themes (docs/RESEARCH.md, chapter 9)
+  tlt_daily:
+    - {adapter: yahoo, symbol: "TLT"}
+  spy_daily:
+    - {adapter: yahoo, symbol: "SPY"}
+  ura_daily:
+    - {adapter: yahoo, symbol: "URA"}
+  xlu_daily:
+    - {adapter: yahoo, symbol: "XLU"}
+  lit_daily:
+    - {adapter: yahoo, symbol: "LIT"}
+  smh_daily:
+    - {adapter: yahoo, symbol: "SMH"}
+  icln_daily:
+    - {adapter: yahoo, symbol: "ICLN"}
   # Tanker transits through the Strait of Hormuz and Bab el-Mandeb, from AIS positions (IMF PortWatch).
   # Weekly publication, a week at a time: context and a risk input, never a trading signal on its own.
   hormuz:
@@ -129,6 +144,20 @@ desk_intraday:
     - {adapter: yahoo_intraday, symbol: "CPER", interval: "30m", lookback_days: 10}
   dba_intraday:
     - {adapter: yahoo_intraday, symbol: "DBA", interval: "30m", lookback_days: 10}
+  tlt_intraday:
+    - {adapter: yahoo_intraday, symbol: "TLT", interval: "30m", lookback_days: 10}
+  spy_intraday:
+    - {adapter: yahoo_intraday, symbol: "SPY", interval: "30m", lookback_days: 10}
+  ura_intraday:
+    - {adapter: yahoo_intraday, symbol: "URA", interval: "30m", lookback_days: 10}
+  xlu_intraday:
+    - {adapter: yahoo_intraday, symbol: "XLU", interval: "30m", lookback_days: 10}
+  lit_intraday:
+    - {adapter: yahoo_intraday, symbol: "LIT", interval: "30m", lookback_days: 10}
+  smh_intraday:
+    - {adapter: yahoo_intraday, symbol: "SMH", interval: "30m", lookback_days: 10}
+  icln_intraday:
+    - {adapter: yahoo_intraday, symbol: "ICLN", interval: "30m", lookback_days: 10}
 
 # Real option chains with bid and ask (Cboe delayed quotes, 15 minutes, no key).
 options:

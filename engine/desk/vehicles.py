@@ -147,7 +147,53 @@ DBA = Vehicle(
     note="Agriculture fund: corn, soybeans, wheat, sugar, coffee, cocoa, cattle and hogs futures, rolled on rules.",
 )
 
-VEHICLES: dict[str, Vehicle] = {v.id: v for v in (BNO, MCL, GLD, CPER, DBA)}
+
+def _fund(id_: str, name: str, underlying: str, half_spread_bps: float, note: str) -> Vehicle:
+    """A fund traded like GLD: commission-free shares, Regulation T margin, decided at 15:00 New York."""
+    return Vehicle(
+        id=id_,
+        kind="etf",
+        name=name,
+        underlying=underlying,
+        unit="shares",
+        lot=1.0,
+        margin_rate=0.50,
+        stop_out_level=0.70,
+        commission_per_lot=0.0,
+        half_spread_bps=half_spread_bps,
+        financing_rate=0.0525,
+        allow_short=False,
+        session="us_regular",
+        decision_time_ny=(15, 0),
+        robinhood=f"{id_} (shares)",
+        note=note,
+    )
+
+
+# ---- phase 13 (13 October 2026): bonds, equities and the themes of the owner's question -----------------------
+# Treasuries and the S&P 500 are the two markets with the most documented trend premium after commodities
+# (Hurst, Ooi, Pedersen 2017); the five theme funds are the owner's questions as markets - the electricity the
+# data centres need (uranium, utilities), electrification (lithium), the AI investment and its bubble
+# (semiconductors), the energy transition (clean energy). Measured one by one in docs/RESEARCH.md, chapter 9.
+TLT = _fund("TLT", "iShares 20+ Year Treasury Bond", "treasuries", 1.0, "Long Treasuries: a coupon a month, credited.")
+SPY = _fund("SPY", "SPDR S&P 500", "equities", 1.0, "The S&P 500: the most liquid fund there is; dividends quarterly.")
+URA = _fund(
+    "URA", "Global X Uranium", "uranium", 5.0, "Uranium miners and trusts: the nuclear leg of data-centre power; thin."
+)
+XLU = _fund(
+    "XLU", "Utilities Select Sector", "utilities", 1.0, "US utilities: the grid the new demand runs on; rate-sensitive."
+)
+LIT = _fund(
+    "LIT", "Global X Lithium & Battery Tech", "lithium", 3.0, "Lithium and batteries: electrification; boom and bust."
+)
+SMH = _fund(
+    "SMH", "VanEck Semiconductor", "semiconductors", 1.0, "Semiconductors: the AI investment itself; 0.65 with SPY."
+)
+ICLN = _fund(
+    "ICLN", "iShares Global Clean Energy", "clean energy", 3.0, "Solar, wind, hydrogen: boom in 2020, bust after."
+)
+
+VEHICLES: dict[str, Vehicle] = {v.id: v for v in (BNO, MCL, GLD, CPER, DBA, TLT, SPY, URA, XLU, LIT, SMH, ICLN)}
 
 
 @dataclass(frozen=True)

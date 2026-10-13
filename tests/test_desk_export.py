@@ -35,12 +35,14 @@ def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_pat
     text = (tmp_path / "out" / "desk.json").read_text()
     assert "NaN" not in text and "Infinity" not in text
     doc = json.loads(text)
-    # the core books first, the options book among them, then the candidate books of phase 12
-    assert [b["id"] for b in doc["books"]] == ["prudente", "dinamico", "spinto", "opzioni", "gold", "copper", "agri"]
-    assert [b["role"] for b in doc["books"]] == ["core"] * 4 + ["candidate"] * 3
+    # the core books first, the options book among them, then the candidate books of phases 12 and 13
+    candidates = ["gold", "copper", "agri", "bonds", "equities", "uranium", "utilities", "lithium", "semis", "clean"]
+    assert [b["id"] for b in doc["books"]] == ["prudente", "dinamico", "spinto", "opzioni", *candidates]
+    assert [b["role"] for b in doc["books"]] == ["core"] * 4 + ["candidate"] * len(candidates)
     assert all(b["equity"] == 10_000.0 and b["pnl_total"] == 0.0 for b in doc["books"])
     assert doc["total"] == {"equity": 40_000.0, "initial_capital": 40_000.0, "pnl": 0.0, "pnl_pct": 0.0, "n_books": 4}
-    assert doc["total_candidates"]["equity"] == 30_000.0 and doc["total_candidates"]["n_books"] == 3
+    assert doc["total_candidates"]["equity"] == 10_000.0 * len(candidates)
+    assert doc["total_candidates"]["n_books"] == len(candidates)
     # a book with nothing in it loses nothing on any gap
     assert doc["books"][0]["stress"] == {"-30%": 0.0, "-20%": 0.0, "-10%": 0.0, "+10%": 0.0, "+20%": 0.0}
     for key in ("brent", "wti"):

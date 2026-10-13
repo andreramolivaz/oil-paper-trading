@@ -835,14 +835,17 @@ def test_each_way_a_vehicle_is_traded_gets_its_own_attribution_table():
 
     seven = tuple(sg.SLEEVES)
     price = ("trend", "accel", "skew")
-    assert attribution_variants(load_books()) == [
+    variants = attribution_variants(load_books())
+    assert variants[:2] == [
         ("BNO", "BNO", True, None, seven),  # the long-only fund book
         ("BNO + SCO", "BNO", False, "SCO", seven),  # the fund book whose short side is the inverse fund
-        ("CPER", "CPER", True, None, price),  # the satellite books read the price source alone
-        ("DBA", "DBA", True, None, price),
-        ("GLD", "GLD", True, None, price),
-        ("MCL", "MCL", False, None, seven),  # the futures book sells the future itself
     ]
+    assert ("MCL", "MCL", False, None, seven) in variants  # the futures book sells the future itself
+    # the satellite books (phases 12 and 13) read the price source alone, one table each, in alphabetical order
+    satellites = [v for v in variants if v[0] not in ("BNO", "BNO + SCO", "MCL")]
+    assert [v[0] for v in satellites] == sorted(v[0] for v in satellites)
+    assert all(v == (v[0], v[0], True, None, price) for v in satellites)
+    assert {v[0] for v in satellites} == {"CPER", "DBA", "GLD", "TLT", "SPY", "URA", "XLU", "LIT", "SMH", "ICLN"}
     both = [SPINTO, dataclasses.replace(SPINTO, id="solo-long", long_only=True)]
     assert [v[0] for v in attribution_variants(both)] == ["MCL", "MCL (long and short)"]
     rows = sleeve_configs("BNO", False, "SCO")
