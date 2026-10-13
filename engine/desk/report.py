@@ -50,11 +50,16 @@ BEFORE_ID = "prima"
 BEFORE_SLEEVES = ("trend", "carry", "carry_momentum")
 
 
-def sleeve_configs(vehicle: str, long_only: bool, short_via: str | None = None) -> list[BookConfig]:
+def sleeve_configs(
+    vehicle: str, long_only: bool, short_via: str | None = None, used: tuple[str, ...] | None = None
+) -> list[BookConfig]:
     """Reference books at the same volatility target and without a tight cap: every sleeve alone, every source
     alone, the three sleeves the desk read before the other four were added, and all seven together.
-    ``short_via`` gives them the short leg of the fund book they stand for."""
+    ``short_via`` gives them the short leg of the fund book they stand for. ``used`` restricts the table to the
+    sleeves the books on this vehicle read (a satellite book reads the price source alone): the rows of sleeves
+    it has no data for would be flat lines, and "before" means nothing to it."""
     prefix = vehicle if short_via is None else f"{vehicle}+{short_via}"
+    sleeves_used = tuple(sg.SLEEVES) if used is None else tuple(name for name in sg.SLEEVES if name in used)
 
     def reference(key: str, name: str, sleeves: dict[str, float] | None) -> BookConfig:
         return BookConfig(
@@ -69,11 +74,16 @@ def sleeve_configs(vehicle: str, long_only: bool, short_via: str | None = None) 
             daily_loss_breaker=0.5,
         )
 
-    configs = [reference(sleeve, SLEEVE_LABELS[sleeve], {sleeve: 1.0}) for sleeve in sg.SLEEVES]
+    configs = [reference(sleeve, SLEEVE_LABELS[sleeve], {sleeve: 1.0}) for sleeve in sleeves_used]
     for source, members in sg.SOURCES.items():
-        configs.append(reference(source, SOURCE_LABELS[source], dict.fromkeys(members, 1.0)))
-    configs.append(reference(BEFORE_ID, "Prima: trend, carry, carry-momentum", dict.fromkeys(BEFORE_SLEEVES, 1.0)))
-    configs.append(reference("tutte", "Adesso: le sette insieme, un terzo per fonte", None))
+        present = [name for name in members if name in sleeves_used]
+        if present:
+            configs.append(reference(source, SOURCE_LABELS[source], dict.fromkeys(present, 1.0)))
+    if set(sleeves_used) == set(sg.SLEEVES):
+        configs.append(reference(BEFORE_ID, "Prima: trend, carry, carry-momentum", dict.fromkeys(BEFORE_SLEEVES, 1.0)))
+        configs.append(reference("tutte", "Adesso: le sette insieme, un terzo per fonte", None))
+    elif len(sleeves_used) > 1:
+        configs.append(reference("tutte", "Insieme, a pesi uguali", dict.fromkeys(sleeves_used, 1.0)))
     return configs
 
 
@@ -131,21 +141,23 @@ def model_signature(books: list[BookConfig], options_cfg: Any | None = None, ris
     return hashlib.sha1(canonical(spec).encode("utf-8")).hexdigest()[:12]
 
 
-def attribution_variants(books: list[BookConfig]) -> list[tuple[str, str, bool, str | None]]:
+def attribution_variants(books: list[BookConfig]) -> list[tuple[str, str, bool, str | None, tuple[str, ...]]]:
     """The ways the books on file trade a vehicle, each of which gets its own attribution table:
-    ``(label, vehicle, long_only, short_via)``. A fund held long only and the same fund with its short side in
-    an inverse fund are two different tables: the second shows what the short side adds, sleeve by sleeve."""
-    out: list[tuple[str, str, bool, str | None]] = []
+    ``(label, vehicle, long_only, short_via, sleeves used)``. A fund held long only and the same fund with its
+    short side in an inverse fund are two different tables: the second shows what the short side adds, sleeve
+    by sleeve. The sleeves are the union of what the books on the vehicle read."""
+    out: list[tuple[str, str, bool, str | None, tuple[str, ...]]] = []
     for vehicle in sorted({b.vehicle for b in books}):
         on_vehicle = [b for b in books if b.vehicle == vehicle]
+        used = tuple(name for name in sg.SLEEVES if any(b.sleeves.get(name, 0.0) > 0 for b in on_vehicle))
         sells = VEHICLES[vehicle].allow_short
         long_only = any(b.long_only or (not sells and b.short_via is None) for b in on_vehicle)
         if long_only:
-            out.append((vehicle, vehicle, True, None))
+            out.append((vehicle, vehicle, True, None, used))
         if sells and any(not b.long_only for b in on_vehicle):
-            out.append((f"{vehicle} (long e short)" if long_only else vehicle, vehicle, False, None))
+            out.append((f"{vehicle} (long e short)" if long_only else vehicle, vehicle, False, None, used))
         for fund in sorted({b.short_via for b in on_vehicle if b.short_via is not None}):
-            out.append((f"{vehicle} + {fund}", vehicle, False, fund))
+            out.append((f"{vehicle} + {fund}", vehicle, False, fund, used))
     return out
 
 
@@ -179,11 +191,11 @@ def desk_backtest_payload(
     payload["double_cost"] = _stats_only(doubled)
     payload["same_close"] = _stats_only(same_close)
     sleeves: dict[str, Any] = {}
-    for label, vehicle, long_only, short_via in attribution_variants(books):
+    for label, vehicle, long_only, short_via, used in attribution_variants(books):
         # Attribution is run on a large account so that one lot is a rounding error: with ten thousand dollars
         # a single micro contract is most of the position and the sleeves could not be told apart.
         big = dataclasses.replace(risk, initial_capital=risk.initial_capital * 1000.0)
-        configs = sleeve_configs(vehicle, long_only, short_via)
+        configs = sleeve_configs(vehicle, long_only, short_via, used)
         res = run_backtest(data, configs, big, start=start, end=end, ruin=False)
         res_close = run_backtest(data, configs, big, start=start, end=end, ruin=False, fill=FILL_SAME_CLOSE)
         sleeves[label] = {

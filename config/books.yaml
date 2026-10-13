@@ -57,6 +57,52 @@ books:
       l'obiettivo di volatilità e la volatilità del momento. Con il greggio al 50% di volatilità resta fra
       1x e 2x; servono mercati calmi e una previsione forte per vederla salire. Può azzerare il conto.
 
+  # ---- the satellite markets (phase 12, docs/RESEARCH.md chapter 8) --------------------------------------------
+  # Candidate books: paper books beside the four core ones, judged on real fills before anybody trusts them.
+  # Same rules as the prudente book, the price source of the forecast alone (trend, acceleration, skew computed
+  # on the fund's own history), no curve, no copper and no dollar. Why these markets: the weather moves
+  # agriculture (and natural gas, which was tried through its funds and failed the declared filter: a negative
+  # Sharpe after costs on eighteen years, docs/RESEARCH.md chapter 8), geopolitics moves gold, the electricity
+  # demand of AI moves copper - bets that are not the crude bet the core books already hold.
+  - id: gold
+    name: Gold
+    role: candidate
+    vehicle: GLD
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
+    daily_loss_breaker: 0.05
+    description: >-
+      Un quarto di Kelly sul fondo oro, mai a leva e mai short: le regole del libro prudente, la previsione
+      letta sul prezzo dell'oro stesso. Il mercato della geopolitica.
+
+  - id: copper
+    name: Copper
+    role: candidate
+    vehicle: CPER
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
+    daily_loss_breaker: 0.05
+    description: >-
+      Un quarto di Kelly sul fondo rame, mai a leva e mai short: le regole del libro prudente, la previsione
+      letta sul prezzo del rame stesso. Il mercato dell'elettrificazione e dei data center.
+
+  - id: agri
+    name: Agriculture
+    role: candidate
+    vehicle: DBA
+    vol_target: 0.12
+    max_leverage: 1.0
+    long_only: true
+    sleeves: {trend: 1.0, accel: 1.0, skew: 1.0}
+    daily_loss_breaker: 0.05
+    description: >-
+      Un quarto di Kelly sul fondo agricolo (mais, soia, grano, zucchero, caffè, cacao, bestiame), mai a leva e
+      mai short: le regole del libro prudente sul mercato che il tempo meteorologico muove di più.
+
 # The options book (engine/desk/options.py): put credit spreads sold below the market when the forecast is
 # long, priced on the real delayed bid and ask. Its replay is a model and is labelled approx everywhere; the
 # book exists to measure the idea on real quotes. Every number here is a rule of the book, not a fitted value:

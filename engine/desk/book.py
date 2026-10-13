@@ -59,6 +59,9 @@ class BookConfig:
     buffer: float = 0.10  # no trade while the target is within this fraction of a normal-size position
     daily_loss_breaker: float = 0.08
     description: str = ""
+    # "core": one of the books the desk is judged on; "candidate": a paper book run beside them to be judged on
+    # real fills before anybody trusts it (the satellite markets of phase 12). Same engine, same rules.
+    role: str = "core"
 
     def __post_init__(self) -> None:
         if not (0 < self.max_leverage <= HARD_CAP):
@@ -70,6 +73,8 @@ class BookConfig:
         unknown = set(self.sleeves) - set(sg.SLEEVES)
         if unknown:
             raise ValueError(f"book {self.id}: unknown sleeves {sorted(unknown)}")
+        if self.role not in ("core", "candidate"):
+            raise ValueError(f"book {self.id}: role must be 'core' or 'candidate', not {self.role!r}")
         if self.short_via is not None:
             get_inverse_fund(self.short_via)
             if self.long_only:
@@ -102,6 +107,7 @@ def load_books(config_dir: Path | None = None) -> list[BookConfig]:
                 buffer=float(entry.get("buffer", 0.10)),
                 daily_loss_breaker=float(entry.get("daily_loss_breaker", 0.08)),
                 description=str(entry.get("description", "")),
+                role=str(entry.get("role", "core")),
             )
         )
     ids = [b.id for b in books]

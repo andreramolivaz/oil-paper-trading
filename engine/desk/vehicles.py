@@ -83,7 +83,71 @@ MCL = Vehicle(
     note_it="Su Robinhood non c'è un future sul Brent: la leva lineare passa dal WTI, con rischio di base.",
 )
 
-VEHICLES: dict[str, Vehicle] = {v.id: v for v in (BNO, MCL)}
+# ---- the satellite markets (phase 12): the same price forecast, on the funds of other markets -----------------
+# Each is a fund a Robinhood account holds like BNO (commission-free, Regulation T margin 50 %, maintenance 35 %),
+# decided at the same time of day and filled on the same half-hour bars. The half-spreads are the ones quoted on
+# an ordinary day (GLD trades like a large stock; CPER and DBA are thinner and pay more). Why these three is in
+# ``docs/RESEARCH.md``, chapter 8: the weather moves agriculture, geopolitics moves gold, the electricity demand
+# of AI moves copper - independent bets beside the crude the four core books hold. Natural gas through its funds
+# (UNG, short via KOLD) was tried there and failed the declared filter; it is not a vehicle.
+GLD = Vehicle(
+    id="GLD",
+    kind="etf",
+    name="SPDR Gold Shares",
+    underlying="gold",
+    unit_it="shares",
+    lot=1.0,
+    margin_rate=0.50,
+    stop_out_level=0.70,
+    commission_per_lot=0.0,
+    half_spread_bps=1.0,
+    financing_rate=0.0525,
+    allow_short=False,
+    session="us_regular",
+    decision_time_ny=(15, 0),
+    robinhood="GLD (shares)",
+    note_it="Gold fund: holds bullion in a vault, no roll and no curve; 0.40 % a year.",
+)
+
+CPER = Vehicle(
+    id="CPER",
+    kind="etf",
+    name="United States Copper Index Fund",
+    underlying="copper",
+    unit_it="shares",
+    lot=1.0,
+    margin_rate=0.50,
+    stop_out_level=0.70,
+    commission_per_lot=0.0,
+    half_spread_bps=8.0,
+    financing_rate=0.0525,
+    allow_short=False,
+    session="us_regular",
+    decision_time_ny=(15, 0),
+    robinhood="CPER (shares)",
+    note_it="Copper fund: holds COMEX copper futures along a rules-based curve position; thin, pays its spread.",
+)
+
+DBA = Vehicle(
+    id="DBA",
+    kind="etf",
+    name="Invesco DB Agriculture Fund",
+    underlying="agriculture",
+    unit_it="shares",
+    lot=1.0,
+    margin_rate=0.50,
+    stop_out_level=0.70,
+    commission_per_lot=0.0,
+    half_spread_bps=5.0,
+    financing_rate=0.0525,
+    allow_short=False,
+    session="us_regular",
+    decision_time_ny=(15, 0),
+    robinhood="DBA (shares)",
+    note_it="Agriculture fund: corn, soybeans, wheat, sugar, coffee, cocoa, cattle and hogs futures, rolled on rules.",
+)
+
+VEHICLES: dict[str, Vehicle] = {v.id: v for v in (BNO, MCL, GLD, CPER, DBA)}
 
 
 @dataclass(frozen=True)

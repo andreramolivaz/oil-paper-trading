@@ -176,6 +176,10 @@ DESK_VEHICLE_ENTRIES: dict[str, tuple[str, ...]] = {
     # when the half-hour bars are missing, and its history is what the backtest replays the short side on.
     "BNO": ("bno_daily", "brent_front", "bz_contracts", "sco_daily"),
     "MCL": ("cl_contracts", "wti_front", "uso_daily"),
+    # the satellite markets (phase 12): each fund's own table
+    "GLD": ("gld_daily",),
+    "CPER": ("cper_daily",),
+    "DBA": ("dba_daily",),
 }
 DESK_CONTEXT_ENTRIES = ("hormuz", "bab_el_mandeb", "wti_curve_hist")  # slow tables: one attempt a day
 # Copper and the dollar index, read by the macro sleeves as of the close BEFORE the decision day: downloaded once
@@ -457,6 +461,9 @@ def _desk_backtest_stale(runner: LiveRunner, missing_now: set[str] | None = None
 DESK_REQUIRES: dict[str, tuple[tuple[str, ...], ...]] = {
     "BNO": (("bno_daily",),),
     "MCL": (("cl_contracts",), ("wti_front",)),
+    "GLD": (("gld_daily",),),
+    "CPER": (("cper_daily",),),
+    "DBA": (("dba_daily",),),
 }
 
 
@@ -512,7 +519,10 @@ def _weekly_alt_due(runner: LiveRunner, now: Any) -> bool:
 # Tables that are downloaded whole at every tick: yesterday's snapshot is a subset of today's. One stamped copy
 # is kept (plus `latest`); the option chains also keep the first snapshot of each ISO week, which is the only
 # history of real option quotes this project will ever have.
-EPHEMERAL_RAW = ("bno_intraday", "sco_intraday", "cl_intraday", "bz_intraday", "brent_intraday_1h")
+EPHEMERAL_RAW = (
+    "bno_intraday", "sco_intraday", "cl_intraday", "bz_intraday", "brent_intraday_1h",
+    "gld_intraday", "cper_intraday", "dba_intraday",
+)  # fmt: skip
 WEEKLY_RAW = ("bno_options", "uso_options")
 
 
