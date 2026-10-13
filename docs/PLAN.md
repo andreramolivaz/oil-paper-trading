@@ -123,7 +123,13 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   backtest sono identici prima e dopo. Il sito passa all'inglese su richiesta del proprietario, a quattro
   pagine: le sei pagine del primo sistema sono sostituite da una pagina di archivio e la libreria di grafici
   è rimossa. Allo Sharpe sopra 3 chiesto con una strategia sola si è risposto che non esiste su questi
-  strumenti e che un backtest che lo mostrasse sarebbe la prova di un errore.
+  strumenti e che un backtest che lo mostrasse sarebbe la prova di un errore. Una revisione indipendente
+  prima della messa in linea ha trovato i quattro libri identici byte per byte e un difetto che contava (le
+  distribuzioni in contanti di un fondo contabilizzate come perdita: corretto, `docs/RESEARCH.md`), più tre
+  cose piccole corrette subito (un veicolo che fallisce non ferma più il giro degli altri, le tabelle da mezz'ora
+  dei satelliti giudicate come tali, l'impronta del backtest cieca ai testi) e due lasciate: il gruppo intraday
+  è scaricato intero (tre richieste in più a giro su un desk senza candidati, che non è il caso in linea) e una
+  tabella rossa di un candidato con una decisione in sospeso è ritentata a ogni giro.
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

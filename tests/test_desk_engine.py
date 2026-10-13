@@ -378,6 +378,11 @@ def test_the_core_books_are_compared_with_the_candidates_over_the_candidates_win
     assert block["core_matched"]["books"] == ["prudente", "spinto"]
     assert block["core"]["start"] < block["all"]["start"] == block["core_matched"]["start"]
     assert block["core_matched"]["end"] == block["all"]["end"]
+    # a candidate that ends early (its table stopped) cuts the matched window at both ends
+    short = run_backtest(data.truncate(data.series["BNO"].bars.index[-30]), [PRUDENTE, SPINTO, gold], RISK, ruin=False)
+    short.books["gold"].equity = short.books["gold"].equity.iloc[:-20]
+    cut = portfolio_block(short, [PRUDENTE, SPINTO, gold])
+    assert cut["all"]["end"] == cut["core_matched"]["end"] < cut["core"]["end"]
     # without candidates there is one portfolio and nothing to match
     assert set(portfolio_block(res, [PRUDENTE, SPINTO])) == {"core"}
 
@@ -849,6 +854,8 @@ def test_each_way_a_vehicle_is_traded_gets_its_own_attribution_table():
     rows = sleeve_configs("GLD", True, None, price)
     assert [c.id.split(":")[1] for c in rows] == ["trend", "accel", "skew", "prezzo", "tutte"]
     assert rows[-1].sleeves == {"trend": 1.0, "accel": 1.0, "skew": 1.0} and all(c.long_only for c in rows)
+    assert "the fund's own price" in rows[3].name and "crude" not in rows[3].name  # gold is not crude
+    assert "the price of crude" in sleeve_configs("BNO", True)[7].name
 
 
 def test_the_backtest_fingerprint_changes_with_the_rules_and_only_with_them(monkeypatch):
@@ -893,6 +900,14 @@ def test_the_backtest_fingerprint_changes_with_the_rules_and_only_with_them(monk
         with monkeypatch.context() as patch:
             change(patch)
             assert model_signature(books, options) != base
+        assert model_signature(books, options) == base
+    # what is written for the reader is not a rule: a renamed book, a translated note or label, a vehicle's
+    # description cost no recompute (every text became English on 2026-10-13 and the tick recomputed once)
+    renamed = [dataclasses.replace(books[0], name="Prudent", description="the same book, another word"), *books[1:]]
+    assert model_signature(renamed, options) == base
+    with monkeypatch.context() as patch:
+        patch.setitem(vehicles.VEHICLES, "BNO", dataclasses.replace(vehicles.BNO, note="another note", unit="units"))
+        patch.setattr(sizing, "SOURCE_LABELS", {"prezzo": "Preis", "curva": "Kurve", "macro": "andere"})
         assert model_signature(books, options) == base
     # one spelling per value: a set is walked in an order that changes from one process to the next
     assert canonical(frozenset(["b", "a", "c"])) == canonical({"c", "b", "a"}) == "{'a', 'b', 'c'}"

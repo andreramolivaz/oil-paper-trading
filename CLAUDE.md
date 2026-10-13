@@ -185,6 +185,14 @@ How a tick works (`engine/live/jobs.py::tick`, driven by `scripts/runner_loop.sh
   "old contract to roll".
   NOT handled: a split or reverse split of SCO or BNO (SCO has had several) - reset the book when one is
   announced; and a rollback to code older than phase 11 while SCO is held - flatten the book first.
+- **A fund's distribution is cash, not a loss.** The forecast reads Yahoo's adjusted close, the fills and marks
+  the raw bars: on an ex-date the raw price falls by the amount paid. `data.fund_distributions` reads the
+  amounts off the jump in the adjustment factor (no dividend table is downloaded), `Desk.credit_distributions`
+  has the broker credit `shares x amount` once per (symbol, ex-date) on the shares held when the ex-date
+  opened (`day_start_positions`), in the replay before the day's bar and live at the tick whose download shows
+  the ex-date (until then, that morning, the loss is visible). Measured on the archive: only DBA ever paid
+  (3.5-4.4 % every December since 2023); BNO, SCO, GLD, CPER never. `MODEL_VERSION` 3. A split is still not
+  handled.
 - **Copper and the dollar: the previous close, from a table read the day after.** A decision of day D reads
   their close of D-1 (`data.known_before`: strictly before, at most seven days old). And the row of the day a
   table is DOWNLOADED on is not that day's close (`data.final_rows`, measured on Yahoo's `HG=F`, 5-9 October
@@ -458,11 +466,11 @@ KOLD for the short side) under the prudent book's rules and the price source alo
 books (basis-momentum, the geopolitical risk index), the calendar spread as a measurement, and a declared
 filter: a negative after-cost Sharpe over the whole history does not start. Results, all on real adjusted
 closes downloaded by the `research-data` workflow (Yahoo rate-limits the workspace): gold 0.50 (t 2.3, 20.7
-years), copper 0.26, agriculture 0.29, gas -0.12 (filtered out: UNG lost 99.9 % to its contango since 2007,
+years), copper 0.26, agriculture 0.34, gas -0.12 (filtered out: UNG lost 99.9 % to its contango since 2007,
 KOLD its daily reset); basis-momentum 0.02, GPR -0.07 to 0.05, both rejected; the calendar spread 0.62 gross
 (t 3.9) and -0.64 net (34 %/year of /MCL legs on a 10 000 $ account) - the term premium exists and is not
 collectable with these instruments. The three oil books plus the three satellites at equal capital: Sharpe
-0.80 -> 0.87, volatility 29 % -> 15 %, max drawdown -61 % -> -30 %, 2023/24/25 from -17/-19/-27 % to -9/-4/-8 %
+0.80 -> 0.87, volatility 29 % -> 15 %, max drawdown -61 % -> -30 %, 2023/24/25 from -17/-19/-27 % to -9/-3/-8 %
 (and the good years halved). It is diversification, not alpha, and the site says so. The three satellites run
 as CANDIDATE books (`role: candidate`, own total, judged on real fills); the four core books and their backtest
 payload are byte-identical before and after (verified by re-running the previous code on the same series).
@@ -474,6 +482,13 @@ instrument), `total_candidates` and `backtest.portfolio` (`core`, `all`, `core_m
 the candidates' window, so the two rows compare like with like), the tick planning the satellites' tables like
 the funds' and only while a book is on them. Every string the desk writes for the reader became English, so the
 fingerprint changed and the first tick after the deploy recomputes the backtest once ("the rules changed").
+Before it shipped, an independent reviewer attacked the engine side with its own simulators (the first live
+ticks of the new books on the archive path, download planning over 36 slots, a core-only desk against the full
+one tick by tick, main's code against this branch on one archive) and found the core books byte-identical and
+one defect that mattered: a fund's cash distribution booked as a loss (fixed, above, with the DBA numbers), plus
+hardening items left for later (`docs/PLAN.md`: per-vehicle isolation in `live_tick`, the satellites' intraday
+tables in `INTRADAY_ENTRIES`/`FRESHNESS`, `core_matched` cut at both ends, a fingerprint blind to cosmetic text,
+the intraday group downloaded whole, a red candidate table retried every tick).
 Site: four English pages (terminal with the candidates group and the "if -20 % gap" column, backtest with the
 portfolios and the phase-12 rejects, reset, one archive page on the first system that translates its Italian
 strategy names and regime labels by id); the six Italian pages of the first system and their chart library are

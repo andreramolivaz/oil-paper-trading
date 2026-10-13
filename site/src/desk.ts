@@ -213,6 +213,8 @@ export interface Book {
   pending?: { symbol: string; units: number; decided_at: string; reason: string }[];
   n_fills?: number;
   costs?: { commission: Num; spread_and_slippage: Num; financing: Num };
+  /** Cash the fund paid its holders, credited on the ex-date (the raw price falls by it that day). */
+  distributions?: Num;
   /** The book's return on a gap of the vehicle's price ("-20%" -> fraction of equity), before any stop. */
   stress?: Record<string, Num>;
   last_decision?: DecisionRecord | null;

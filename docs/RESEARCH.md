@@ -567,12 +567,15 @@ uguale. La correlazione fra i rendimenti giornalieri dei libri è riportata per 
 
 **A. I libri satellite.** Replay reale del desk (`desk-backtest`: ordine deciso alla chiusura ed eseguito
 all'apertura dopo, costi dichiarati, conto da 10 000 $), prezzi rettificati di Yahoo scaricati il 13 ottobre.
+La riga dell'agricoltura è quella DOPO la correzione delle distribuzioni (vedi sotto, «Le distribuzioni di un
+fondo»): prima leggeva 0,29 (1,3), +1,7%, −19%, perché il libro contabilizzava come perdita i 3,5-4,4% che DBA
+paga ogni dicembre. GLD, CPER, BNO e SCO non hanno mai pagato nulla: le loro righe non cambiano.
 
 | Libro | Fondo | Anni | Sharpe (t) | Rend. annuo | Vol | Perdita max | Anni positivi | Costi/anno | A costi doppi | Stessa chiusura | Corr. con dinamico |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Oro | GLD | 20,7 | **0,50 (2,3)** | +3,6% | 7,8% | −22% | 12/21 | 0,04% | 0,49 | 0,48 | 0,04 |
 | Rame | CPER | 13,7 | 0,26 (1,0) | +2,5% | 12,2% | −24% | 9/14 | 0,35% | 0,24 | 0,26 | 0,06 |
-| Agricoltura | DBA | 18,5 | 0,29 (1,3) | +1,7% | 6,6% | −19% | 10/19 | 0,18% | 0,27 | 0,27 | 0,10 |
+| Agricoltura | DBA | 18,5 | 0,34 (1,5) | +2,0% | 6,5% | −18% | 10/19 | 0,18% | 0,31 | 0,32 | 0,10 |
 | Gas | UNG, short con KOLD | 18,3 | **−0,12 (−0,5)** | −5,4% | 23,4% | −71% | 6/19 | 0,38% | −0,14 | −0,03 | 0,02 |
 
 Comprare e tenere il fondo, senza leva: GLD 0,59 (+9,7% l'anno con il 18,5% di volatilità e il −46% di perdita
@@ -605,7 +608,7 @@ dava 0,81 / +23,6% per i tre libri e 0,82 con il gas: è stata sostituita con i 
 
 Correlazione fra i rendimenti giornalieri: oro, rame e agricoltura con i libri sul greggio fra 0,03 e 0,16, fra
 loro 0,11-0,25; il gas con tutto 0,00-0,03. Gli anni cattivi dei libri sul greggio, con i tre satelliti a
-capitale uguale: 2023 da −16,7% a −8,9%, 2024 da −19,1% a −3,9%, 2025 da −26,6% a −8,3%; e quelli buoni
+capitale uguale: 2023 da −16,7% a −8,9%, 2024 da −19,1% a −3,3%, 2025 da −26,6% a −8,3%; e quelli buoni
 dimezzati (2014 da +61% a +28%, 2026 da +98% a +44%).
 
 **Lettura.** Lo Sharpe sale di poco (0,80 → 0,87) perché i satelliti portano poco rischio: un quarto di Kelly,
@@ -637,6 +640,20 @@ due gambe di /MCL (1,5 punti base di mezzo spread e 1,27 $ per lotto per lato), 
 ogni cambio di segno, costano il 34% l'anno. Il premio di termine si vede e non si incassa con questi strumenti;
 con un conto istituzionale (spread di un tick sul /CL, nessuna commissione) i costi scendono di dieci volte e
 il netto torna positivo: non è il nostro caso, e non lo si finge.
+
+**Le distribuzioni di un fondo** (trovato dalla revisione indipendente del 13 ottobre, prima della messa in
+linea). I rendimenti che la previsione legge vengono dalla chiusura rettificata di Yahoo, gli eseguiti e le
+valutazioni dalle barre grezze: il giorno in cui un fondo stacca una distribuzione in contanti la barra grezza
+scende dell'importo e il libro contabilizzava una perdita che il conto vero non ha (riceve i contanti). Misurato
+sulle tabelle archiviate, con il salto del fattore di rettifica (`fund_distributions`): BNO, USO, SCO, GLD e CPER
+non hanno mai pagato nulla; DBA ha pagato 0,18 $ (2018), 0,26 (2019), 0,10 (2022), 0,96 (2023, 4,4%), 1,08
+(2024, 3,9%) e 0,91 (2025, 3,5%), ogni volta a fine dicembre: a 0,9x un libro perdeva il 3-4% in un giorno che
+per chi lo detiene è piatto, a un passo dalla soglia giornaliera del 5%. Corretto: il broker accredita
+``quote × importo`` sulla posizione all'apertura della data di stacco, una volta per data, nel replay (prima
+della barra del giorno) e dal vivo (al giro il cui scaricamento mostra lo stacco: la mattina dello stacco, fino
+a quel giro, la perdita si vede e la nota lo dice). Per l'agricoltura lo Sharpe passa da 0,29 a 0,34 e il
+rendimento annuo da +1,7% a +2,0% (669 $ accreditati in diciotto anni); gli altri libri sono identici numero per
+numero. Resta non gestito un raggruppamento di quote, come prima.
 
 **Che cosa parte.** Tre libri candidati in paper trading accanto ai quattro: oro (GLD), rame (CPER),
 agricoltura (DBA), con le regole del libro prudente e la sola fonte del prezzo. Nessuna nuova fonte nei libri

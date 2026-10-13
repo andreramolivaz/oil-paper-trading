@@ -254,11 +254,14 @@ def run_vehicle(
     root: str = "CL",
     fill: str = FILL_NEXT_OPEN,
     legs: dict[str, pd.DataFrame] | None = None,
+    distributions: dict[str, pd.Series] | None = None,
 ) -> dict[str, dict[str, list[Any]]]:
     """Drive every book on one vehicle through its daily bars. Returns per-book daily records.
 
     ``legs`` are the daily bars of the inverse funds (``DeskData.legs``): a book with a short leg is fed the
-    fund's real bar of the same day next to the vehicle's, and decides on both closes.
+    fund's real bar of the same day next to the vehicle's, and decides on both closes. ``distributions`` are
+    the funds' cash payments (``DeskData.distributions``), credited on the ex-date before its bar, on the shares
+    held at the previous close.
 
     ``fill`` brackets the one thing a daily replay cannot know, which is how long after the decision the order
     fills. Live, a book decides half an hour before the fund's close (or just after the futures settlement)
@@ -299,6 +302,8 @@ def run_vehicle(
             source="backtest",
             is_settlement=True,
         )
+        if distributions:
+            desk.credit_distributions(series.vehicle, distributions, day, ts)
         # the inverse funds of the books with a short leg: their own bar of the day, spread priced on their
         # own volatility (the multiple of the oil's)
         group: list[tuple[Bar, float | None]] = [(bar, vol_f)]
@@ -366,7 +371,9 @@ def run_backtest(
         if series is None or series.bars.empty:
             log.warning("backtest: no data for vehicle %s, its books are skipped", vehicle_id)
             continue
-        records = run_vehicle(desk, series, start_ts, end_ts, fill=fill, legs=data.legs)
+        records = run_vehicle(
+            desk, series, start_ts, end_ts, fill=fill, legs=data.legs, distributions=data.distributions
+        )
         for book in desk.books_on(vehicle_id):
             rec = records[book.id]
             if not rec["t"]:
@@ -405,6 +412,7 @@ def run_backtest(
                     "commission": round(st.total_commission, 2),
                     "spread_and_slippage": round(st.total_slippage_usd, 2),
                     "financing": round(st.total_financing, 2),
+                    "distributions": round(st.total_distributions, 2),  # income, not a cost: shown beside them
                     # the account compounds, so dollars of cost are compared with the average equity
                     "per_year_of_mean_equity": round(total_cost / mean_equity / years, 4),
                 },

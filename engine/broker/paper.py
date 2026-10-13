@@ -146,6 +146,9 @@ class BrokerState:
     total_commission: float = 0.0
     total_slippage_usd: float = 0.0
     total_financing: float = 0.0  # interest on borrowed cash (funds held on margin), charged by the desk
+    total_distributions: float = 0.0  # cash a fund paid its holders (credited by the desk, see credit_distribution)
+    day_start_positions: dict[str, float] = field(default_factory=dict)  # qty per symbol when the day turned
+    distributions_seen: dict[str, str] = field(default_factory=dict)  # symbol -> last ex-date considered
     last_equity: float = 10_000.0
     last_bar_ts: dict[str, datetime] = field(default_factory=dict)  # "symbol|interval" -> last processed bar end
     rejections: list[dict[str, Any]] = field(default_factory=list)
@@ -194,6 +197,9 @@ class BrokerState:
             "total_commission": self.total_commission,
             "total_slippage_usd": self.total_slippage_usd,
             "total_financing": self.total_financing,
+            "total_distributions": self.total_distributions,
+            "day_start_positions": dict(self.day_start_positions),
+            "distributions_seen": dict(self.distributions_seen),
             "last_equity": self.last_equity,
             "last_bar_ts": {k: iso(v) for k, v in self.last_bar_ts.items()},
             "rejections": list(self.rejections),
@@ -232,6 +238,9 @@ class BrokerState:
         st.total_commission = float(d.get("total_commission", 0.0))
         st.total_slippage_usd = float(d.get("total_slippage_usd", 0.0))
         st.total_financing = float(d.get("total_financing", 0.0))
+        st.total_distributions = float(d.get("total_distributions", 0.0))
+        st.day_start_positions = {k: float(v) for k, v in dict(d.get("day_start_positions", {})).items()}
+        st.distributions_seen = {str(k): str(v) for k, v in dict(d.get("distributions_seen", {})).items()}
         st.last_equity = float(d.get("last_equity", st.cash))
         st.last_bar_ts = {k: t for k, v in dict(d.get("last_bar_ts", {})).items() if (t := parse_iso(v)) is not None}
         st.rejections = [dict(r) for r in d.get("rejections", [])]
@@ -422,6 +431,8 @@ class PaperBroker:
         if st.day_start_date is None or d > st.day_start_date:
             st.day_start_equity = self._equity()
             st.day_start_date = d
+            # what was held at the previous close: the quantity a distribution with today's ex-date is paid on
+            st.day_start_positions = {k: p.qty_bbl for k, p in st.positions.items() if p.qty_bbl != 0}
         if st.status == AccountStatus.HALTED_BREAKER and st.breaker_until is not None and d >= st.breaker_until:
             st.status = AccountStatus.ACTIVE
             st.breaker_until = None
@@ -1185,6 +1196,53 @@ class PaperBroker:
         self._update_equity_stats(ensure_utc(ts))
         self._persist()
         return amount
+
+    def credit_distribution(self, symbol: str, per_share: float, ex_date: date, ts: datetime) -> float:
+        """Credit a fund's cash distribution: ``per_share`` times the shares held when the ex-date opened.
+
+        The holder of record is whoever held the fund at the close before the ex-date. When the account has
+        turned to the ex-date already, that is ``day_start_positions``; before the first event of the ex-date
+        (the daily replay credits before the day's bar) it is the position as it stands. A fund is never held
+        short here (a sale is reduce-only), so a negative quantity owes nothing. Each (symbol, ex-date) is
+        credited once; returns the amount credited (0 when nothing was held or the date was seen already).
+        """
+        st = self.state
+        key = ex_date.isoformat()
+        if st.status == AccountStatus.DEAD or per_share <= 0 or not math.isfinite(per_share):
+            return 0.0
+        if st.distributions_seen.get(symbol, "") >= key:
+            return 0.0
+        st.distributions_seen[symbol] = key
+        if st.day_start_date is not None and st.day_start_date >= ex_date and symbol in st.day_start_positions:
+            qty = st.day_start_positions[symbol]
+        else:
+            pos = st.positions.get(symbol)
+            qty = pos.qty_bbl if pos is not None else 0.0
+        if qty <= 0:
+            self._persist()
+            return 0.0
+        amount = qty * per_share
+        st.cash += amount
+        st.total_distributions += amount
+        log.info(
+            "%s: %s distribution of %s: %.2f x %.4f = %.2f credited",
+            self.account_id,
+            symbol,
+            key,
+            qty,
+            per_share,
+            amount,
+        )
+        self._update_equity_stats(ensure_utc(ts))
+        self._persist()
+        return amount
+
+    def note_distributions_seen(self, symbol: str, day: date) -> None:
+        """Record that every ex-date of ``symbol`` up to ``day`` has been considered (credited or not)."""
+        st = self.state
+        if st.distributions_seen.get(symbol, "") < day.isoformat():
+            st.distributions_seen[symbol] = day.isoformat()
+            self._persist()
 
     def roll(self, from_symbol: str, to_symbol: str, from_price: float, to_price: float, ts: datetime) -> list[Fill]:
         """Roll the whole position from one contract to the next: close old, open new with the same quantity.

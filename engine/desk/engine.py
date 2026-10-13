@@ -22,8 +22,10 @@ import logging
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
+
+import pandas as pd
 
 from engine.core.events import Bar, Fill
 from engine.core.store import StateStore
@@ -172,6 +174,29 @@ class Desk:
             self.state.last_financing_day[book.id] = day.isoformat()
             if days > 0:
                 total += book.broker.charge_financing(rate, float(min(days, 10)), ts)
+        return total
+
+    def credit_distributions(self, vehicle: str, distributions: dict[str, pd.Series], day: date, ts: datetime) -> float:
+        """Credit each book on ``vehicle`` the cash its funds paid, for every ex-date up to ``day`` not yet seen.
+
+        ``distributions`` is ``DeskData.distributions`` (symbol -> per-share amount by ex-date). A book that has
+        never seen a symbol starts at ``day`` itself: the history before a book existed is not its income. The
+        broker credits each (symbol, ex-date) once, on the shares held when the ex-date opened, so this may run
+        on every tick. A futures contract pays nothing and is never in ``distributions``.
+        """
+        total = 0.0
+        if not distributions:
+            return total
+        for book in self.books_on(vehicle):
+            for symbol, paid in distributions.items():
+                if symbol != book.vehicle.id and not book.uses(symbol):
+                    continue
+                seen = book.broker.state.distributions_seen.get(symbol)
+                since = date.fromisoformat(seen) if seen else day - timedelta(days=1)
+                due = paid[(paid.index > pd.Timestamp(since)) & (paid.index <= pd.Timestamp(day))]
+                for ex_ts, per_share in zip(pd.DatetimeIndex(due.index), due.to_numpy(dtype="float64"), strict=True):
+                    total += book.broker.credit_distribution(symbol, float(per_share), ex_ts.date(), ts)
+                book.broker.note_distributions_seen(symbol, day)
         return total
 
     # ------------------------------------------------------------------ step 2: roll
