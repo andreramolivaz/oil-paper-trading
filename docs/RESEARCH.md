@@ -668,6 +668,36 @@ diversificati 0,5-0,8, i fondi quantitativi migliori 2-3 con migliaia di segnali
 infrastruttura al millisecondo. La leva non cambia lo Sharpe. Quello che si può fare onestamente è quanto sopra:
 più mercati indipendenti, costi veri, numeri scritti prima di guardarli.
 
+### D. Registrazione del 13 ottobre, sera: obbligazioni, azioni e il rendimento della liquidità
+
+**La domanda del proprietario.** «Nuovi segnali da integrare? Voglio uno strumento che guadagni anche se il
+mercato scende, con un obiettivo del 10-15% l'anno senza rischiare.» La risposta onesta viene prima del test:
+un rendimento senza rischio esiste ed è quello dei buoni del Tesoro (il 4% circa nel 2025, misurato sotto con
+SGOV); tutto ciò che sta sopra è pagato con rischio, e «guadagna anche se scende» è ciò che il lato short e il
+trend-following danno nei crolli (2014, 2015, 2020) e non nei mercati laterali (2023-2025). Quello che si può
+ancora misurare, dichiarato qui prima di guardare un numero:
+
+1. **Altri due mercati indipendenti, con fondi che Robinhood tiene: i Treasury a 20 anni (TLT) e l'indice
+   S&P 500 (SPY)**, con le regole del libro prudente e la sola fonte del prezzo (trend, accelerazione,
+   asimmetria sul prezzo rettificato del fondo), solo long, obiettivo di volatilità 12%, tetto 1x, soglia
+   giornaliera 5%, mezzo spread 1 pb (SPY) e 1 pb (TLT), distribuzioni accreditate. Sono i due mercati che
+   nella letteratura sul trend-following (Hurst, Ooi, Pedersen, *A century of evidence on trend-following
+   investing*, 2017) hanno il premio più documentato dopo le materie prime, e i meno correlati con il greggio.
+   Prior dichiarato: Sharpe 0,2-0,5 ciascuno da soli, correlazione con i libri sul greggio sotto 0,2; per il
+   portafoglio di tutti i libri a capitale uguale mi aspetto +0,05-0,10 di Sharpe. Il filtro è quello della
+   parte A: uno Sharpe negativo sull'intera storia non parte. Il lato short (SH, TBF) richiede tabelle che non
+   ho: resta per dopo.
+2. **Il rendimento della liquidità.** I libri tengono in contanti dal 50% al 90% del conto (leva mediana del
+   prudente 0,09x) e il broker simulato non remunera i contanti. Misuro, con il rendimento totale di SGOV
+   (buoni del Tesoro a 0-3 mesi, dal giugno 2020, unica serie in archivio), quanto avrebbe reso la liquidità
+   inutilizzata di ogni libro anno per anno. È l'unico guadagno «senza rischiare» del sistema, e vale quanto
+   vale il tasso: nulla dal 2009 al 2016, il 4-5% dal 2023.
+3. **Che cosa NON provo** perché già misurato o fuori dalle regole: più leva (lo Sharpe non cambia), vendita di
+   premio con le opzioni (negativa a quattro gambe), segnali infragiornalieri, notizie e indici geopolitici
+   (nulla), parametri ottimizzati.
+
+Tabelle: Yahoo via il workflow `research-data` del 13 ottobre (TLT dal 2002, SPY dal 2000, SGOV dal 2020).
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
