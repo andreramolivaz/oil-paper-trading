@@ -336,6 +336,23 @@ def test_the_replay_is_deterministic_and_costs_only_ever_hurt():
     assert set(a.benchmarks) == {"BNO", "MCL"} and a.books["spinto"].vehicle == "MCL"
 
 
+def test_the_books_together_are_an_equal_capital_portfolio_rebalanced_daily():
+    """The Sharpe of several books held together is measured on the sum, never averaged from theirs."""
+    from engine.desk.backtest import performance
+    from engine.desk.report import portfolio_stats
+
+    data = make_desk_data(n_days=420)
+    res = run_backtest(data, [PRUDENTE, SPINTO], RISK, ruin=False)
+    both = portfolio_stats(res, ["prudente", "spinto"], "both")
+    assert both is not None and both["books"] == ["prudente", "spinto"] and both["label"] == "both"
+    frame = pd.concat([res.books["prudente"].equity, res.books["spinto"].equity], axis=1).dropna()
+    want = (1.0 + frame.pct_change().dropna().mean(axis=1)).cumprod() * float(frame.iloc[0].sum())
+    assert both["stats"] == performance(want) and both["start"] == frame.index[0].date().isoformat()
+    # one book alone, or a book that has no curve, is not a portfolio
+    assert portfolio_stats(res, ["prudente"], "one") is None
+    assert portfolio_stats(res, ["prudente", "nessuno"], "missing") is None
+
+
 def test_the_replay_holds_the_contract_the_calendar_says_and_rolls_before_the_expiry():
     data = make_desk_data(n_days=420)
     series = data.series["MCL"]
