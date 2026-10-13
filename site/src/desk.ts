@@ -181,6 +181,8 @@ export interface DecisionRecord {
 export interface Book {
   id: string;
   kind: "linear" | "options";
+  /** "core": one of the books the desk is judged on; "candidate": a paper book run beside them (phase 12). */
+  role?: "core" | "candidate";
   name: string;
   description: string;
   vehicle: string;
@@ -211,6 +213,8 @@ export interface Book {
   pending?: { symbol: string; units: number; decided_at: string; reason: string }[];
   n_fills?: number;
   costs?: { commission: Num; spread_and_slippage: Num; financing: Num };
+  /** The book's return on a gap of the vehicle's price ("-20%" -> fraction of equity), before any stop. */
+  stress?: Record<string, Num>;
   last_decision?: DecisionRecord | null;
   decision_owed?: boolean;
   last_roll?: string | null;
@@ -294,9 +298,21 @@ export interface Ruin {
   method?: string;
 }
 
+/** Several books held together with equal capital, rebalanced daily (engine/desk/report.py). */
+export interface PortfolioStats {
+  label: string;
+  books: string[];
+  start: string;
+  end: string;
+  stats: Stats;
+  yearly?: Record<string, number>;
+  method?: string;
+}
+
 export interface BacktestSummary {
   generated_at?: string;
   fill_rule?: string;
+  portfolio?: Record<string, PortfolioStats>;
   books: Record<
     string,
     {
@@ -335,7 +351,9 @@ export interface DeskDoc {
   market: MarketBlock;
   forecast: Record<string, ForecastBlock>;
   books: Book[];
-  total: { equity: Num; initial_capital: Num; pnl: Num; pnl_pct: Num };
+  /** The sum of the core books, and apart the sum of the candidate books. */
+  total: { equity: Num; initial_capital: Num; pnl: Num; pnl_pct: Num; n_books?: number };
+  total_candidates?: { equity: Num; initial_capital: Num; pnl: Num; pnl_pct: Num; n_books?: number };
   decisions: DecisionRow[];
   fills: FillRow[];
   health: HealthBlock;
@@ -372,6 +390,7 @@ export interface SleeveRow {
 export interface BacktestDoc {
   meta: { generated_at: string; fill_rule: string; initial_capital: number; cost_multiplier: number };
   books: Record<string, BacktestBook>;
+  portfolio?: Record<string, PortfolioStats>;
   benchmarks: Record<string, { name: string; stats: Stats; yearly: Record<string, number>; curve: CurvePoint[] }>;
   double_cost: Record<string, { stats: Stats }>;
   same_close: Record<string, { stats: Stats }>;
@@ -380,7 +399,7 @@ export interface BacktestDoc {
     string,
     { vehicle?: string; vol_target: number; long_only: boolean; short_via?: string | null; note: string; rows: SleeveRow[] }
   >;
-  books_config: { id: string; name: string; vehicle: string; vol_target: number; max_leverage: number }[];
+  books_config: { id: string; name: string; vehicle: string; vol_target: number; max_leverage: number; role?: string }[];
   data: Record<
     string,
     { start: string; end: string; days: number; return_sources: Record<string, number>; slope_approx_share: number }
@@ -396,12 +415,28 @@ export interface BacktestDoc {
   };
 }
 
+/** The portfolios the payload may carry, in the order they are shown, with the English label of each.
+ *  "core_matched" is the core books cut to the candidates' window: the row to compare "all" with. */
+export const PORTFOLIO_ORDER: [string, string][] = [
+  ["core", "Core books together"],
+  ["core_matched", "Core books, over the candidates' window"],
+  ["all", "Core and candidates together"],
+];
+
+export function portfolios(block: Record<string, PortfolioStats> | undefined): [string, string, PortfolioStats][] {
+  if (!block) return [];
+  return PORTFOLIO_ORDER.filter(([key]) => key in block).map(([key, label]) => [key, label, block[key]!]);
+}
+
 /** One colour per book, the same everywhere a book is drawn. The order is the validated series palette. */
 export const BOOK_COLOR: Record<string, string> = {
   prudente: "var(--series-1)",
   dinamico: "var(--series-3)",
   spinto: "var(--series-2)",
   opzioni: "var(--series-6)",
+  gold: "var(--series-4)",
+  copper: "var(--series-5)",
+  agri: "var(--series-7)",
 };
 
 export const bookColor = (id: string): string => BOOK_COLOR[id] ?? "var(--series-4)";

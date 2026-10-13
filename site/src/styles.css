@@ -31,6 +31,7 @@
   --series-4: #c98500;
   --series-5: #d55181;
   --series-6: #9085e9;
+  --series-7: #2fa6a0;
 
   /* fixed status hues (never themed) plus the ink/fill pair each theme uses */
   --good: #0ca30c;
@@ -84,6 +85,7 @@
   --series-4: #8a5c00;
   --series-5: #b03a68;
   --series-6: #4a3aa7;
+  --series-7: #1d7a75;
   /* on a near-white surface a status hue cannot carry itself as text, so the chips become filled */
   --good-ink: #084f08;
   --warning-ink: #4a3300;

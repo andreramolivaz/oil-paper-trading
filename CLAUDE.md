@@ -2,14 +2,17 @@
 
 Brent crude research + paper-trading system. Engine in Python 3.12 runs on GitHub Actions (one long-lived
 runner that ticks every 30 minutes), persists JSON state on the `data` branch, and a static site (GitHub Pages,
-Italian, dark, mobile-first) reads that JSON. **Paper trading only. Real data only. Never fabricate a value.**
+English since 2026-10-13, dark, mobile-first, four pages) reads that JSON. **Paper trading only. Real data only.
+Never fabricate a value.**
 
 There are two systems in this repository and it matters which one you are touching:
 
-* **The desk** (`engine/desk`, `config/books.yaml`) is what trades: four paper books of 10 000 $ that buy one
-  forecast (seven sleeves from three sources: the price of crude, the futures curve, copper and the dollar)
-  through instruments a Robinhood account can hold - the BNO fund, the inverse fund SCO for the short side of
-  a fund book, the /MCL micro WTI future, put credit spreads on USO/BNO. The terminal page shows it.
+* **The desk** (`engine/desk`, `config/books.yaml`) is what trades: four paper books of 10 000 $ (`role: core`)
+  that buy one forecast (seven sleeves from three sources: the price of crude, the futures curve, copper and the
+  dollar) through instruments a Robinhood account can hold - the BNO fund, the inverse fund SCO for the short
+  side of a fund book, the /MCL micro WTI future, put credit spreads on USO/BNO - and, since phase 12, three
+  CANDIDATE books (`role: candidate`: gold GLD, copper CPER, agriculture DBA) that run the prudent book's rules
+  on the price source alone, beside the four and in their own total. The terminal page shows it.
 * **The first system** (`engine/strategies`, `engine/portfolio`, `engine/backtest/session.py`, ...) is 21
   strategies on shadow accounts behind a seven-condition validation gate. Nothing passed, so its master account
   is flat by construction. It still runs daily (the tick runs its end of day) and is reachable from the site's
@@ -40,7 +43,7 @@ python -m engine.cli fetch --snapshot          # pull all sources, write point-i
 python -m engine.cli eod                       # first system, after ICE settlement (the tick calls it when due)
 python -m engine.cli weekly                    # COT, rig count, retrain, full backtest, validation report
 python -m engine.cli backtest --start 1990-01-01 --end 2026-10-01 --report out/backtest
-python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|all]
+python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|copper|agri|all]
 python -m engine.cli export-site               # site-data/: desk.json for the terminal + the first system's files
 
 # dashboard
@@ -55,9 +58,10 @@ engine/desk/
   signals.py    the seven sleeves (trend, accel, skew | carry, carry-momentum | copper, dollar), the
                 combination by source, exposure = f/10 * target/vol
   data.py       the series: which contract is held when, its return and where it came from, the curve slope,
-                the macro closes read a day late (known_before), the inverse fund's bars (DeskData.legs)
+                the macro closes read a day late (known_before), the inverse fund's bars (DeskData.legs); the
+                satellite funds (SATELLITE_TABLES) on their own adjusted close, price source only
   vehicles.py   BNO and /MCL as Robinhood offers them: lot, margin, fees, financing, decision time; SCO, the
-                inverse fund a fund book BUYS to be short
+                inverse fund a fund book BUYS to be short; GLD, CPER, DBA for the candidate books
   book.py       one book: sizing, ceilings, Carver's position buffer, one or two legs, the orders and their
                 Italian rationale
   engine.py     Desk: bars -> roll -> decision. The SAME three steps in the replay and live
@@ -66,7 +70,7 @@ engine/desk/
   options.py    the options book on real Cboe quotes + its model replay (always approx)
   report.py     desk-backtest payload, attribution by sleeve and by source, the rules' fingerprint
   export.py     site-data/desk.json
-config/books.yaml   the three linear books and the options book
+config/books.yaml   the three linear books, the options book and the three candidate books (role: candidate)
 ```
 
 The forecast (`signals.py`): three SOURCES of information weigh a third each, the sleeves inside a source weigh
@@ -221,7 +225,8 @@ engine/
   report/      backtest report + site JSON export
   monitoring/  source health, cron lag, GitHub issue alerts, live-vs-backtest divergence
 config/        strategies.yaml, risk.yaml, events.yaml, data_sources.yaml
-site/          Vite + TypeScript (vanilla) + TradingView Lightweight Charts
+site/          Vite + TypeScript (vanilla), SVG charts drawn by hand, no chart library; four pages: terminal,
+               backtest, reset, archive (one English page on the first system)
 tests/         pytest; `network` marker for tests hitting real sources
 .github/workflows/  ci, runner (the tick loop), watchdog (restarts it), weekly, reset, deploy, keepalive,
                     eod (manual re-run of one date), research-data (manual download for research)
@@ -294,7 +299,10 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
 - A job that has nothing to do exits 0. A red cross must mean something broke.
 
 ## Conventions
-- Code, comments, commit messages: **English**. UI, README, docs for the user: **Italian**.
+- Code, comments, commit messages: **English**. The site and every string the desk writes for the reader
+  (rationales, statuses, notes, labels in `desk.json`): **English** (the owner's instruction of 2026-10-13; the
+  site was Italian before). README and `docs/`: **Italian**. The first system's own strings (strategy names,
+  regime labels, `summary.json` texts) are still Italian and the archive page translates them by id.
 - Type hints everywhere; `mypy engine` must pass. `ruff` with the config in `pyproject.toml`.
 - All timestamps UTC-aware (`datetime` with `tzinfo=UTC`). London/New York via `zoneinfo`.
 - Prices in USD/bbl; positions in barrels (lot = 100 bbl default, `config/risk.yaml`).
@@ -308,8 +316,8 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
 - Site: the terminal (`site/src/pages/terminal.ts`) formats `desk.json` and computes nothing. Plain monospace
   text, colour only for sign and state.
 
-## State of play (2026-10-12)
-Phases 1-11 of `docs/PLAN.md` are implemented. Phase 10 (8 October) added the desk after three days of a flat
+## State of play (2026-10-13)
+Phases 1-12 of `docs/PLAN.md` are implemented. Phase 10 (8 October) added the desk after three days of a flat
 account with zero trades. The four causes, all fixed and pinned by `tests/test_tick_job.py`:
 1. nothing was promoted, so the master's weight was zero by construction (now: the desk books trade);
 2. the end of day ran after midnight London and asked for a date that had not settled (now: latest SETTLED date);
@@ -442,6 +450,34 @@ an evening: on the day itself Yahoo's half-hour table of a fund ends with a row 
 holds the official close (the books were marked on it on Friday); by the next session that row is gone. From
 Friday 20:18 to Monday 14:48 UTC: 42 ticks, all ok, 194 downloads, none failed. Still NOT seen: a decision that
 TRADES under the new forecast, a short position through SCO, a roll.
+
+Phase 12 (13 October, on the owner's request to "find new strategies for the current situation, keep the active
+ones, make the site simple and in English"; `docs/RESEARCH.md` chapter 8) was pre-registered before any test:
+four satellite markets through Robinhood funds (gold GLD, copper CPER, agriculture DBA, natural gas UNG with
+KOLD for the short side) under the prudent book's rules and the price source alone, two new sources for the oil
+books (basis-momentum, the geopolitical risk index), the calendar spread as a measurement, and a declared
+filter: a negative after-cost Sharpe over the whole history does not start. Results, all on real adjusted
+closes downloaded by the `research-data` workflow (Yahoo rate-limits the workspace): gold 0.50 (t 2.3, 20.7
+years), copper 0.26, agriculture 0.29, gas -0.12 (filtered out: UNG lost 99.9 % to its contango since 2007,
+KOLD its daily reset); basis-momentum 0.02, GPR -0.07 to 0.05, both rejected; the calendar spread 0.62 gross
+(t 3.9) and -0.64 net (34 %/year of /MCL legs on a 10 000 $ account) - the term premium exists and is not
+collectable with these instruments. The three oil books plus the three satellites at equal capital: Sharpe
+0.80 -> 0.87, volatility 29 % -> 15 %, max drawdown -61 % -> -30 %, 2023/24/25 from -17/-19/-27 % to -9/-4/-8 %
+(and the good years halved). It is diversification, not alpha, and the site says so. The three satellites run
+as CANDIDATE books (`role: candidate`, own total, judged on real fills); the four core books and their backtest
+payload are byte-identical before and after (verified by re-running the previous code on the same series).
+The owner also asked for "a Sharpe above 3 with one strategy": answered that it does not exist on these
+instruments at this frequency and that a backtest showing it would be the proof of an error, not of a strategy
+(`docs/RESEARCH.md` has the paragraph). Engine side: `vehicles.GLD/CPER/DBA`, `data.SATELLITE_TABLES` and
+`price_only_series`, `BookConfig.role`, `export` with `stress` (the book's return on a -30..+20 % gap of its
+instrument), `total_candidates` and `backtest.portfolio` (`core`, `all`, `core_matched`: the core books cut to
+the candidates' window, so the two rows compare like with like), the tick planning the satellites' tables like
+the funds' and only while a book is on them. Every string the desk writes for the reader became English, so the
+fingerprint changed and the first tick after the deploy recomputes the backtest once ("the rules changed").
+Site: four English pages (terminal with the candidates group and the "if -20 % gap" column, backtest with the
+portfolios and the phase-12 rejects, reset, one archive page on the first system that translates its Italian
+strategy names and regime labels by id); the six Italian pages of the first system and their chart library are
+gone (bundle 300 -> 73 kB), their paths redirect to the archive.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

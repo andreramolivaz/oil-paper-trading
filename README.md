@@ -2,7 +2,9 @@
 
 Sistema di ricerca e **paper trading** sul petrolio. Scarica dati reali, calcola una previsione da sette
 segnali (il prezzo del greggio, la curva dei future, il rame e il dollaro), e la fa comprare a quattro conti
-simulati da 10.000 $ che differiscono per quanta leva usano e per il lato short. Tutto è pubblicato su un terminale di una pagina: <https://andreramolivaz.github.io/oil-paper-trading/>.
+simulati da 10.000 $ che differiscono per quanta leva usano e per il lato short; dal 13 ottobre 2026 tre libri
+**candidati** (oro, rame, agricoltura) girano accanto a loro con le stesse regole. Tutto è pubblicato su un
+terminale di una pagina, in inglese: <https://andreramolivaz.github.io/oil-paper-trading/>.
 
 > **Simulazione a scopo di studio su dati reali. Nessun consiglio finanziario, nessun ordine reale, nessun
 > broker collegato.** Ogni numero mostrato porta la sua fonte e il suo orario; quando un dato manca il sistema
@@ -47,9 +49,19 @@ va onestamente, e gli obiettivi di rischio dei libri non sono stati alzati. Il m
 cui il progetto era nato, **non ha mostrato margine dopo i costi** in nessuna delle forme provate ed è stato
 lasciato fuori. Il perché, con i numeri e le fonti, è in `docs/RESEARCH.md`.
 
+**I tre libri candidati** (fase 12, 13 ottobre 2026). Oro (GLD), rame (CPER) e agricoltura (DBA), ognuno un
+conto di carta da 10.000 $ con le regole del libro prudente e la sola fonte del prezzo: i mercati che la
+geopolitica, la domanda di elettricità e il tempo muovono, quasi scorrelati dal greggio (0,03-0,16). Dichiarati
+prima della prova e misurati una volta: Sharpe 0,50, 0,26 e 0,29 dopo i costi; con i tre libri sul greggio a
+capitale uguale il portafoglio passa da 0,80 a 0,87 di Sharpe e da −61% a −30% di perdita massima, e i tre anni
+negativi 2023-2025 si dimezzano. È diversificazione, non alfa. Il gas naturale, provato con i fondi UNG e KOLD,
+aveva uno Sharpe negativo e non è partito. Si giudicano sugli eseguiti reali: non entrano nel totale del desk.
+Uno Sharpe sopra 3 con una strategia sola, chiesto lo stesso giorno, non esiste su questi strumenti: un backtest
+che lo mostrasse sarebbe la prova di un errore (`docs/RESEARCH.md`, capitolo 8).
+
 Il primo sistema (21 strategie su conti ombra, regimi, previsioni di prezzo) continua a girare ogni giorno e
-resta consultabile dalla pagina **Archivio**: nessuna sua strategia ha superato la validazione, quindi il suo
-conto è fermo per costruzione.
+resta consultabile dalla pagina **Archive** del sito, una pagina sola: nessuna sua strategia ha superato la
+validazione, quindi il suo conto è fermo per costruzione.
 
 ## Come funziona
 

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Dashboard statica (GitHub Pages) del paper trading sul Brent: legge i JSON prodotti dal motore sul branch data.",
+  "description": "Static site (GitHub Pages) of the Brent paper-trading desk: reads the JSON the engine writes on the data branch.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,8 +13,5 @@
   "devDependencies": {
     "typescript": "~5.6.3",
     "vite": "^5.4.11"
-  },
-  "dependencies": {
-    "lightweight-charts": "^5.0.0"
   }
 }

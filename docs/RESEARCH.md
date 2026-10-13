@@ -587,24 +587,28 @@ perdita giornaliera dell'8% è scattata undici volte. La strada giusta è il fut
 decade: richiede le serie per contratto del gas e una stagionalità della curva che il motore oggi non ha. È nel
 capitolo 7, non in un libro.
 
-**C. Il portafoglio** (rendimenti giornalieri a capitale uguale, dal febbraio 2013, quando tutti i libri hanno
-dati; lo Sharpe è sui rendimenti del portafoglio, non la media degli Sharpe):
+**C. Il portafoglio** (capitale uguale in ogni libro, ribilanciato ogni giorno, dal 30 gennaio 2013, il primo
+giorno in cui tutti i libri hanno una curva; lo Sharpe è sui rendimenti del portafoglio, non la media degli
+Sharpe; è il metodo di `report.portfolio_stats`, e i numeri sono quelli che `desk-backtest` scrive nel payload
+e il sito mostra; la prima stesura di questa tabella, calcolata a mano sulle curve di un passaggio precedente,
+dava 0,81 / +23,6% per i tre libri e 0,82 con il gas: è stata sostituita con i numeri riproducibili dal comando):
 
 | Portafoglio | Sharpe (t) | Rend. annuo | Vol | Perdita max |
 |---|---|---|---|---|
-| I tre libri lineari (prudente, dinamico, spinto) | 0,81 (3,0) | +23,6% | 29,3% | −62% |
-| I tre più oro, rame, agricoltura | **0,87 (3,2)** | +13,2% | 15,2% | −31% |
-| I tre più i quattro satelliti (gas compreso) | 0,82 (3,0) | +11,1% | 13,6% | −31% |
-| Oro, rame, agricoltura da soli | 0,48 (1,8) | +2,8% | 5,9% | −12% |
-| Prudente e dinamico | 0,84 (3,1) | +15,2% | 18,1% | −39% |
-| Prudente e dinamico più i tre satelliti | **0,93 (3,4)** | +7,8% | 8,4% | −16% |
+| I tre libri lineari (prudente, dinamico, spinto), stessa finestra | 0,80 (3,0) | +21,2% | 29,3% | −61% |
+| I tre libri lineari su tutta la loro storia comune (dal 2011) | 0,73 (2,8) | +18,3% | 28,8% | −61% |
+| I tre più oro, rame, agricoltura | **0,87 (3,2)** | +12,8% | 15,2% | −30% |
+| I tre più i quattro satelliti (gas compreso) | 0,80 (3,0) | +10,5% | 13,6% | −29% |
+| Oro, rame, agricoltura da soli | 0,47 (1,7) | +2,7% | 5,9% | −12% |
+| Prudente e dinamico | 0,84 (3,1) | +14,5% | 18,1% | −38% |
+| Prudente e dinamico più i tre satelliti | **0,92 (3,4)** | +7,7% | 8,4% | −15% |
 
 Correlazione fra i rendimenti giornalieri: oro, rame e agricoltura con i libri sul greggio fra 0,03 e 0,16, fra
 loro 0,11-0,25; il gas con tutto 0,00-0,03. Gli anni cattivi dei libri sul greggio, con i tre satelliti a
-capitale uguale: 2023 da −16,7% a −8,9%, 2024 da −19,1% a −3,9%, 2025 da −28,8% a −9,5%; e quelli buoni
+capitale uguale: 2023 da −16,7% a −8,9%, 2024 da −19,1% a −3,9%, 2025 da −26,6% a −8,3%; e quelli buoni
 dimezzati (2014 da +61% a +28%, 2026 da +98% a +44%).
 
-**Lettura.** Lo Sharpe sale di poco (0,81 → 0,87) perché i satelliti portano poco rischio: un quarto di Kelly,
+**Lettura.** Lo Sharpe sale di poco (0,80 → 0,87) perché i satelliti portano poco rischio: un quarto di Kelly,
 solo long, su mercati che il nostro segnale legge debolmente (rame e agricoltura a t ≈ 1). Quello che portano
 è la quasi indipendenza: la volatilità e la perdita massima del portafoglio si dimezzano e tre anni negativi su
 tre diventano sopportabili. È diversificazione, non alfa: il rendimento a capitale uguale scende perché metà del

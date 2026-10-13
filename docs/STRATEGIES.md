@@ -90,6 +90,27 @@ scadenza. Il fondo a margine paga il 5,25% l'anno sul prestito.
 Ogni libro si ferma per il resto della giornata se perde più della sua soglia (5%, 8%, 15%) e per sempre, fino
 al reset, se scende sotto il 5% del capitale iniziale.
 
+### I libri candidati (fase 12, 13 ottobre 2026)
+
+Tre libri di carta ACCANTO ai quattro, con `role: candidate` in `config/books.yaml`: non entrano nel totale del
+desk, hanno il loro, e si giudicano sugli eseguiti reali prima che qualcuno si fidi. Le regole sono quelle del
+libro prudente, senza un parametro nuovo; la previsione è la sola fonte del prezzo (trend, accelerazione,
+asimmetria) calcolata sul prezzo rettificato del fondo stesso, perché nessuno dei tre ha una curva per
+contratto o un «altro mercato» nel motore.
+
+| Libro | Fondo | Che cosa lo muove | Obiettivo di volatilità | Tetto | Direzione | Costo dichiarato |
+|---|---|---|---|---|---|---|
+| **Gold** | GLD | geopolitica, tassi reali, banche centrali | 12% | 1x | solo long | 1 pb di mezzo spread |
+| **Copper** | CPER | ciclo globale, domanda di elettricità (anche dei data center) | 12% | 1x | solo long | 8 pb |
+| **Agri** | DBA | tempo meteorologico, raccolti | 12% | 1x | solo long | 5 pb |
+
+Dichiarati prima della prova (`docs/RESEARCH.md`, capitolo 8): un quarto candidato, il gas naturale con i fondi
+UNG e KOLD, aveva uno Sharpe negativo sull'intera storia e per il filtro dichiarato non è partito. I tre che
+partono misurano 0,50 (oro, t 2,3 su vent'anni), 0,26 (rame) e 0,29 (agricoltura) dopo i costi; con i tre libri
+sul greggio a capitale uguale lo Sharpe del portafoglio passa da 0,80 a 0,87 e la perdita massima da −61% a
+−30%: è diversificazione, non alfa, e il sito lo scrive. Il terminale mostra per ogni libro anche che cosa
+perderebbe su un gap del −20% dello strumento alla posizione di oggi (`stress`).
+
 ### Il libro delle opzioni (`engine/desk/options.py`) — sperimentale
 
 Vende uno **spread di put a credito** sotto il mercato quando la previsione (la stessa dei libri lineari, con i

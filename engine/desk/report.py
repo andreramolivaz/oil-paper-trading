@@ -172,19 +172,26 @@ def _row_kind(key: str) -> str:
     return "before" if key == BEFORE_ID else "all"
 
 
-def portfolio_stats(result: BacktestResult, ids: list[str], label: str) -> dict[str, Any] | None:
+def portfolio_stats(
+    result: BacktestResult, ids: list[str], label: str, start: date | None = None
+) -> dict[str, Any] | None:
     """The books in ``ids`` held together with equal capital, rebalanced daily, over the window on which all of
     them have an equity curve: the Sharpe ratio of the sum is what a reader of several books wants, and it is
-    not the average of their Sharpe ratios. None when fewer than two of the books have a curve."""
+    not the average of their Sharpe ratios. None when fewer than two of the books have a curve. ``start`` cuts
+    the window short, so that two portfolios can be compared over the same days."""
     curves = [result.books[i].equity for i in ids if i in result.books and not result.books[i].equity.empty]
     if len(curves) < 2:
         return None
     frame = pd.concat(curves, axis=1).dropna()
+    if start is not None:
+        frame = frame.loc[frame.index >= pd.Timestamp(start)]
     if len(frame) < 60:
         return None
     returns = frame.pct_change().dropna().mean(axis=1)
     equity = (1.0 + returns).cumprod() * float(frame.iloc[0].sum())
     stats = performance(equity)
+    if not stats:
+        return None
     return {
         "label": label,
         "books": [i for i in ids if i in result.books],
@@ -194,6 +201,31 @@ def portfolio_stats(result: BacktestResult, ids: list[str], label: str) -> dict[
         "yearly": {str(k): v for k, v in yearly_returns(equity).items()},
         "method": "equal capital in every book, rebalanced daily, over the days all of them have",
     }
+
+
+def portfolio_block(result: BacktestResult, books: list[BookConfig]) -> dict[str, Any]:
+    """The books together: the core books (what the desk is judged on) over their whole common history and,
+    when there are candidates, everything over ITS common window and the core books again over that same window,
+    so that the two rows say what adding the candidates did and not what the extra years did."""
+    core = [b.id for b in books if b.role == "core"]
+    everything = [b.id for b in books]
+    out: dict[str, Any] = {}
+    core_stats = portfolio_stats(result, core, "the core books together")
+    if core_stats is not None:
+        out["core"] = core_stats
+    if len(everything) > len(core):
+        all_stats = portfolio_stats(result, everything, "core and candidate books together")
+        if all_stats is not None:
+            out["all"] = all_stats
+            matched = portfolio_stats(
+                result,
+                core,
+                "the core books together, over the candidates' window",
+                start=date.fromisoformat(all_stats["start"]),
+            )
+            if matched is not None:
+                out["core_matched"] = matched
+    return out
 
 
 def _stats_only(result: BacktestResult) -> dict[str, Any]:
@@ -216,17 +248,7 @@ def desk_backtest_payload(
     payload = base.to_dict()
     payload["double_cost"] = _stats_only(doubled)
     payload["same_close"] = _stats_only(same_close)
-    # the books together: the core books (what the desk is judged on) and the core books with the candidates
-    core = [b.id for b in books if b.role == "core"]
-    everything = [b.id for b in books]
-    payload["portfolio"] = {
-        key: value
-        for key, value in (
-            ("core", portfolio_stats(base, core, "the core books together")),
-            ("all", portfolio_stats(base, everything, "core and candidate books together")),
-        )
-        if value is not None and (key == "core" or len(everything) > len(core))
-    }
+    payload["portfolio"] = portfolio_block(base, books)
     sleeves: dict[str, Any] = {}
     for label, vehicle, long_only, short_via, used in attribution_variants(books):
         # Attribution is run on a large account so that one lot is a rounding error: with ten thousand dollars

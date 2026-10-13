@@ -351,6 +351,35 @@ def test_the_books_together_are_an_equal_capital_portfolio_rebalanced_daily():
     # one book alone, or a book that has no curve, is not a portfolio
     assert portfolio_stats(res, ["prudente"], "one") is None
     assert portfolio_stats(res, ["prudente", "nessuno"], "missing") is None
+    # a start date cuts the window, so two portfolios can be compared over the same days
+    later = frame.index[40].date()
+    cut = portfolio_stats(res, ["prudente", "spinto"], "later", start=later)
+    assert cut is not None and cut["start"] == later.isoformat() and cut["end"] == both["end"]
+    assert cut["stats"]["years"] < both["stats"]["years"]
+
+
+def test_the_core_books_are_compared_with_the_candidates_over_the_candidates_window():
+    """A candidate with a shorter history must not be compared with the core books over years it never saw: the
+    payload carries the core books over their whole window AND over the candidates' window."""
+    from engine.desk.report import portfolio_block
+
+    data = make_desk_data(n_days=600)
+    # a gold fund whose archive starts 100 sessions after the oil series (both outlive the 300-day warm-up)
+    gold_start = data.series["BNO"].bars.index[100].date()
+    data.series["GLD"] = make_vehicle_series("GLD", n_days=500, start=gold_start, seed=11, price0=180.0)
+    gold = BookConfig(
+        id="gold", name="Gold", vehicle="GLD", vol_target=0.12, max_leverage=1.0, long_only=True, role="candidate"
+    )
+    res = run_backtest(data, [PRUDENTE, SPINTO, gold], RISK, ruin=False)
+
+    block = portfolio_block(res, [PRUDENTE, SPINTO, gold])
+    assert set(block) == {"core", "all", "core_matched"}
+    assert block["core"]["books"] == ["prudente", "spinto"] and block["all"]["books"] == ["prudente", "spinto", "gold"]
+    assert block["core_matched"]["books"] == ["prudente", "spinto"]
+    assert block["core"]["start"] < block["all"]["start"] == block["core_matched"]["start"]
+    assert block["core_matched"]["end"] == block["all"]["end"]
+    # without candidates there is one portfolio and nothing to match
+    assert set(portfolio_block(res, [PRUDENTE, SPINTO])) == {"core"}
 
 
 def test_the_replay_holds_the_contract_the_calendar_says_and_rolls_before_the_expiry():

@@ -1,16 +1,17 @@
-/** The backtest page: what the three linear books would have done, how fragile that is, and what was rejected.
+/** The backtest page: what the linear books would have done, how fragile that is, and what was rejected.
  *
  * Reads `desk_backtest.json`, the payload the weekly job writes. Everything a reader needs to distrust a
  * backtest is on the page: the t-statistic next to every Sharpe ratio, each calendar year, the same replay at
  * double cost and with the optimistic fill, every sleeve and every source on its own next to the mix read
- * before and the one read now, where each day's return came from.
+ * before and the one read now, the books held together, where each day's return came from.
  */
 import { lineChart, lineLegend, type LineSeries } from "../charts/lines";
 import { repoUrl } from "../config";
 import { load } from "../data";
-import { bookColor, type BacktestDoc, type CurvePoint, type Stats } from "../desk";
+import { bookColor, portfolios, type BacktestDoc, type CurvePoint, type Stats } from "../desk";
 import { EMPTY, escapeHtml, leverage, num, percent, relative, signedPercent, tone } from "../format";
 
+const MINUS = "−";
 const span = (cls: string, text: string): string => `<span class="${cls}">${text}</span>`;
 
 function section(title: string, body: string, note = ""): string {
@@ -27,53 +28,108 @@ function points(curve: CurvePoint[]): { t: number; v: number }[] {
 const sharpeCell = (s: Stats | undefined): string =>
   s ? `${num(s.sharpe ?? null, 2)}<small>t ${num(s.t_stat ?? null, 1)}</small>` : EMPTY;
 
-function summary(doc: BacktestDoc, names: Map<string, string>): string {
-  const rows = Object.entries(doc.books)
-    .map(([id, b]) => {
-      const s = b.stats;
-      return `<tr>
-        <th scope="row"><span class="t-key" style="--sw:${bookColor(id)}"></span>${escapeHtml(names.get(id) ?? id)}<small>${escapeHtml(
-          b.vehicle,
-        )} · ${escapeHtml(b.start.slice(0, 4))}–${escapeHtml(b.end.slice(0, 4))}</small></th>
-        <td class="n">${signedPercent(s.cagr ?? null, 1)}</td>
-        <td class="n">${percent(s.vol ?? null, 0)}</td>
-        <td class="n">${sharpeCell(s)}</td>
-        <td class="n down">${percent(s.max_drawdown ?? null, 0)}<small>${num((s.longest_drawdown_days ?? 0) / 252, 1)} anni sotto</small></td>
-        <td class="n down">${percent(s.worst_day ?? null, 1)}<small>sett. ${percent(s.worst_week ?? null, 0)}</small></td>
-        <td class="n">${leverage(s.leverage_median ?? null)}<small>95° ${leverage(s.leverage_p95 ?? null)} · max ${leverage(
-          s.leverage_max ?? null,
-        )}</small></td>
-        <td class="n">${percent(s.share_days_invested ?? null, 0)}<small>short ${percent(s.share_days_short ?? null, 0)}</small></td>
-        <td class="n">${percent(b.costs.per_year_of_mean_equity ?? null, 2)}<small>${b.n_fills} eseguiti</small></td>
-        <td class="n">×${num(s.final_multiple ?? null, 2)}${b.died ? `<small class="down">azzerato il ${escapeHtml(b.died)}</small>` : ""}</td>
-      </tr>`;
-    })
-    .join("");
+const years = (a: string, b: string): string => `${escapeHtml(a.slice(0, 4))}–${escapeHtml(b.slice(0, 4))}`;
+
+type Names = Map<string, string>;
+type Roles = Map<string, string>;
+
+function bookRow(id: string, b: BacktestDoc["books"][string], names: Names): string {
+  const s = b.stats;
+  return `<tr>
+    <th scope="row"><span class="t-key" style="--sw:${bookColor(id)}"></span>${escapeHtml(names.get(id) ?? id)}<small>${escapeHtml(
+      b.vehicle,
+    )} · ${years(b.start, b.end)}</small></th>
+    <td class="n">${signedPercent(s.cagr ?? null, 1)}</td>
+    <td class="n">${percent(s.vol ?? null, 0)}</td>
+    <td class="n">${sharpeCell(s)}</td>
+    <td class="n down">${percent(s.max_drawdown ?? null, 0)}<small>${num((s.longest_drawdown_days ?? 0) / 252, 1)} years under water</small></td>
+    <td class="n down">${percent(s.worst_day ?? null, 1)}<small>week ${percent(s.worst_week ?? null, 0)}</small></td>
+    <td class="n">${leverage(s.leverage_median ?? null)}<small>95th ${leverage(s.leverage_p95 ?? null)} · max ${leverage(
+      s.leverage_max ?? null,
+    )}</small></td>
+    <td class="n">${percent(s.share_days_invested ?? null, 0)}<small>short ${percent(s.share_days_short ?? null, 0)}</small></td>
+    <td class="n">${percent(b.costs.per_year_of_mean_equity ?? null, 2)}<small>${b.n_fills} fills</small></td>
+    <td class="n">×${num(s.final_multiple ?? null, 2)}${b.died ? `<small class="down">wiped out on ${escapeHtml(b.died)}</small>` : ""}</td>
+  </tr>`;
+}
+
+function summary(doc: BacktestDoc, names: Names, roles: Roles): string {
+  const order = new Map(doc.books_config.map((b, i) => [b.id, i]));
+  const entries = Object.entries(doc.books).sort(([a], [b]) => (order.get(a) ?? 99) - (order.get(b) ?? 99));
+  const core = entries.filter(([id]) => roles.get(id) !== "candidate").map(([id, b]) => bookRow(id, b, names));
+  const cand = entries.filter(([id]) => roles.get(id) === "candidate").map(([id, b]) => bookRow(id, b, names));
   const bench = Object.entries(doc.benchmarks)
     .map(([id, b]) => {
       const s = b.stats;
-      return `<tr class="t-bench"><th scope="row">${escapeHtml(id)} comprato e tenuto<small>senza leva, senza costi</small></th>
+      return `<tr class="t-bench"><th scope="row">${escapeHtml(id)} bought and held<small>no leverage, no costs</small></th>
         <td class="n">${signedPercent(s.cagr ?? null, 1)}</td><td class="n">${percent(s.vol ?? null, 0)}</td>
         <td class="n">${sharpeCell(s)}</td>
-        <td class="n down">${percent(s.max_drawdown ?? null, 0)}<small>${num((s.longest_drawdown_days ?? 0) / 252, 1)} anni sotto</small></td>
-        <td class="n down">${percent(s.worst_day ?? null, 1)}<small>sett. ${percent(s.worst_week ?? null, 0)}</small></td>
-        <td class="n">1,00x</td><td class="n">100%</td><td></td><td class="n">×${num(s.final_multiple ?? null, 2)}</td></tr>`;
+        <td class="n down">${percent(s.max_drawdown ?? null, 0)}<small>${num((s.longest_drawdown_days ?? 0) / 252, 1)} years under water</small></td>
+        <td class="n down">${percent(s.worst_day ?? null, 1)}<small>week ${percent(s.worst_week ?? null, 0)}</small></td>
+        <td class="n">1.00x</td><td class="n">100%</td><td></td><td class="n">×${num(s.final_multiple ?? null, 2)}</td></tr>`;
     })
     .join("");
+  const candBlock = cand.length
+    ? `<tr class="t-break"><th colspan="10" class="t-dim w">Candidates: the prudent book's rules on another market, forecast on its own price</th></tr>${cand.join("")}`
+    : "";
   return section(
-    "Risultato",
+    "Result",
     `<div class="t-scroll"><table class="t-table t-backtest">
-      <thead><tr><th>Libro</th><th class="n">Rend. annuo</th><th class="n">Volatilità</th><th class="n">Sharpe</th>
-        <th class="n">Perdita max</th><th class="n">Giorno peggiore</th><th class="n">Leva mediana</th>
-        <th class="n">Giorni investito</th><th class="n">Costi/anno</th><th class="n">Capitale</th></tr></thead>
-      <tbody>${rows}${bench}</tbody></table></div>
-      <p class="t-dim">${escapeHtml(doc.meta.fill_rule)}; capitale iniziale ${num(doc.meta.initial_capital, 0)} $ per libro.
-      «t» è lo Sharpe per la radice degli anni: sotto 2 il risultato non si distingue con sicurezza dal caso.</p>`,
-    `calcolato ${escapeHtml(relative(doc.meta.generated_at))}`,
+      <thead><tr><th>Book</th><th class="n">Yearly return</th><th class="n">Volatility</th><th class="n">Sharpe</th>
+        <th class="n">Max drawdown</th><th class="n">Worst day</th><th class="n">Median leverage</th>
+        <th class="n">Days invested</th><th class="n">Costs/year</th><th class="n">Capital</th></tr></thead>
+      <tbody>${core.join("")}${candBlock}${bench}</tbody></table></div>
+      <p class="t-dim">${escapeHtml(doc.meta.fill_rule.charAt(0).toUpperCase() + doc.meta.fill_rule.slice(1))}; initial capital ${num(doc.meta.initial_capital, 0)} $ per book.
+      "t" is the Sharpe times the square root of the years: below 2 the result cannot be told from luck with confidence.</p>`,
+    `computed ${escapeHtml(relative(doc.meta.generated_at))}`,
   );
 }
 
-function ruin(doc: BacktestDoc, names: Map<string, string>): string {
+function together(doc: BacktestDoc): string {
+  const port = portfolios(doc.portfolio);
+  if (!port.length) return "";
+  const rows = port
+    .map(([, label, p]) => {
+      const s = p.stats;
+      return `<tr><th scope="row">${escapeHtml(label)}<small>${p.books.length} books · ${years(p.start, p.end)}</small></th>
+        <td class="n">${signedPercent(s.cagr ?? null, 1)}</td>
+        <td class="n">${percent(s.vol ?? null, 0)}</td>
+        <td class="n"><b>${sharpeCell(s)}</b></td>
+        <td class="n down">${percent(s.max_drawdown ?? null, 0)}<small>${num((s.longest_drawdown_days ?? 0) / 252, 1)} years under water</small></td>
+        <td class="n down">${percent(s.worst_day ?? null, 1)}<small>week ${percent(s.worst_week ?? null, 0)}</small></td></tr>`;
+    })
+    .join("");
+  const yearsSeen = [...new Set(port.flatMap(([, , p]) => Object.keys(p.yearly ?? {})))].sort().reverse().slice(0, 12);
+  const yearly = yearsSeen.length
+    ? `<div class="t-scroll"><table class="t-table t-years">
+        <thead><tr><th>Year</th>${port.map(([, label]) => `<th class="n">${escapeHtml(label)}</th>`).join("")}</tr></thead>
+        <tbody>${yearsSeen
+          .map(
+            (y) =>
+              `<tr><th scope="row">${escapeHtml(y)}</th>${port
+                .map(([, , p]) => {
+                  const v = p.yearly?.[y];
+                  return `<td class="n">${v === undefined ? "" : span(tone(v), signedPercent(v, 1))}</td>`;
+                })
+                .join("")}</tr>`,
+          )
+          .join("")}</tbody></table></div>`
+    : "";
+  return section(
+    "The books together",
+    `<div class="t-scroll"><table class="t-table">
+      <thead><tr><th>Portfolio</th><th class="n">Yearly return</th><th class="n">Volatility</th><th class="n">Sharpe</th>
+        <th class="n">Max drawdown</th><th class="n">Worst day</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+      ${yearly}
+      <p class="t-dim">Equal capital in every book, rebalanced daily, over the days all of them have. The Sharpe of the sum
+      is not the average of the Sharpes: books that move independently add up to less risk than return. This is the
+      number the candidates were added for; it says nothing about any book alone.</p>`,
+    "the same backtests, held side by side",
+  );
+}
+
+function ruin(doc: BacktestDoc, names: Names): string {
   const rows = Object.entries(doc.books)
     .map(([id, b]) => {
       const r = b.ruin ?? {};
@@ -86,24 +142,23 @@ function ruin(doc: BacktestDoc, names: Map<string, string>): string {
     })
     .join("");
   return section(
-    "Rischio di rovina in un anno",
+    "Risk of ruin in one year",
     `<div class="t-scroll"><table class="t-table">
-      <thead><tr><th>Libro</th><th class="n">P(perdere un quarto)</th><th class="n">P(perdere metà)</th>
-        <th class="n">P(azzerare)</th><th class="n">5° percentile</th><th class="n">Mediana</th><th class="n">95° percentile</th></tr></thead>
+      <thead><tr><th>Book</th><th class="n">P(lose a quarter)</th><th class="n">P(lose half)</th>
+        <th class="n">P(wiped out)</th><th class="n">5th percentile</th><th class="n">Median</th><th class="n">95th percentile</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-      <p class="t-dim">Bootstrap a blocchi sui rendimenti giornalieri del libro stesso, 4 000 percorsi di un anno. I percorsi non
-      possono contenere un giorno peggiore del peggiore già visto: per un libro a leva questo numero è un minimo del rischio,
-      non un massimo.</p>`,
+      <p class="t-dim">Block bootstrap of the book's own daily returns, 4,000 one-year paths. No path can hold a day worse
+      than the worst already seen: for a leveraged book this number is a floor on the risk, not a ceiling.</p>`,
   );
 }
 
-function yearly(doc: BacktestDoc, names: Map<string, string>): string {
+function yearly(doc: BacktestDoc, names: Names): string {
   const cols: { id: string; label: string; data: Record<string, number> }[] = [
     ...Object.entries(doc.books).map(([id, b]) => ({ id, label: names.get(id) ?? id, data: b.yearly })),
-    ...Object.entries(doc.benchmarks).map(([id, b]) => ({ id: `bh-${id}`, label: `${id} tenuto`, data: b.yearly })),
+    ...Object.entries(doc.benchmarks).map(([id, b]) => ({ id: `bh-${id}`, label: `${id} held`, data: b.yearly })),
   ];
-  const years = [...new Set(cols.flatMap((c) => Object.keys(c.data)))].sort().reverse();
-  const rows = years
+  const allYears = [...new Set(cols.flatMap((c) => Object.keys(c.data)))].sort().reverse();
+  const rows = allYears
     .map(
       (y) =>
         `<tr><th scope="row">${escapeHtml(y)}</th>${cols
@@ -115,15 +170,15 @@ function yearly(doc: BacktestDoc, names: Map<string, string>): string {
     )
     .join("");
   return section(
-    "Anno per anno",
+    "Year by year",
     `<div class="t-scroll t-tall"><table class="t-table t-years">
-      <thead><tr><th>Anno</th>${cols.map((c) => `<th class="n">${escapeHtml(c.label)}</th>`).join("")}</tr></thead>
+      <thead><tr><th>Year</th>${cols.map((c) => `<th class="n">${escapeHtml(c.label)}</th>`).join("")}</tr></thead>
       <tbody>${rows}</tbody></table></div>`,
-    "tre anni negativi di fila si vedono qui, non in una media",
+    "three negative years in a row show here, not in an average",
   );
 }
 
-function sensitivity(doc: BacktestDoc, names: Map<string, string>): string {
+function sensitivity(doc: BacktestDoc, names: Names): string {
   const rows = Object.entries(doc.books)
     .map(([id, b]) => {
       const dc = doc.double_cost[id]?.stats;
@@ -138,13 +193,13 @@ function sensitivity(doc: BacktestDoc, names: Map<string, string>): string {
     })
     .join("");
   return section(
-    "Quanto dipende da costi ed esecuzione",
+    "How much depends on costs and execution",
     `<div class="t-scroll"><table class="t-table">
-      <thead><tr><th>Libro</th><th class="n">Sharpe</th><th class="n">a costi doppi</th><th class="n">eseguito alla chiusura</th>
-        <th class="n">Rend. annuo</th><th class="n">a costi doppi</th><th class="n">eseguito alla chiusura</th></tr></thead>
+      <thead><tr><th>Book</th><th class="n">Sharpe</th><th class="n">at double costs</th><th class="n">filled at the close</th>
+        <th class="n">Yearly return</th><th class="n">at double costs</th><th class="n">filled at the close</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-      <p class="t-dim">Dal vivo un libro decide nell'ultima ora di seduta e si esegue sulla barra successiva: il vero
-      risultato sta fra «apertura del giorno dopo» (la colonna principale, la più severa per i fondi) e «stessa chiusura».</p>`,
+      <p class="t-dim">Live, a book decides in the last hour of the session and fills on the next bar: the true result sits
+      between "next day's open" (the main column, the harshest for the funds) and "same close".</p>`,
   );
 }
 
@@ -153,53 +208,53 @@ function sleeves(doc: BacktestDoc): string {
     .map(([vehicle, block]) => {
       // three groups, a rule between them: the sleeves, the sources, then before against now
       const firstOf = (kind: string): number => block.rows.findIndex((r) => r.kind === kind);
-      const breaks = new Set([firstOf("source"), firstOf("before")]);
+      const breaks = new Set([firstOf("source"), firstOf("before"), firstOf("all")].filter((i) => i > 0));
+      const seen = new Set<string>();
       const rows = block.rows
-        .map(
-          (r, i) => `<tr class="${breaks.has(i) ? "t-break" : ""}${r.kind === "all" ? " t-all" : ""}"><th scope="row">${escapeHtml(r.name)}</th>
+        .map((r, i) => {
+          const brk = breaks.has(i) && !seen.has(r.kind ?? "");
+          seen.add(r.kind ?? "");
+          return `<tr class="${brk ? "t-break" : ""}${r.kind === "all" ? " t-all" : ""}"><th scope="row">${escapeHtml(r.name)}</th>
             <td class="n">${sharpeCell(r.stats)}</td>
             <td class="n">${sharpeCell(r.stats_same_close)}</td>
             <td class="n">${signedPercent(r.stats.cagr ?? null, 1)}</td>
             <td class="n down">${percent(r.stats.max_drawdown ?? null, 0)}</td>
-            <td class="n">${percent(r.stats.share_days_invested ?? null, 0)}</td></tr>`,
-        )
+            <td class="n">${percent(r.stats.share_days_invested ?? null, 0)}</td></tr>`;
+        })
         .join("");
-      const side = block.long_only ? "solo long" : block.short_via ? `long e short, lo short comprando ${escapeHtml(block.short_via)}` : "long e short";
-      return `<h3 class="t-sub">${escapeHtml(vehicle)} · ${side} · obiettivo di volatilità ${percent(
-        block.vol_target,
-        0,
-      )}</h3>
+      const side = block.long_only ? "long only" : block.short_via ? `long and short, short by buying ${escapeHtml(block.short_via)}` : "long and short";
+      return `<h3 class="t-sub">${escapeHtml(vehicle)} · ${side} · volatility target ${percent(block.vol_target, 0)}</h3>
       <div class="t-scroll"><table class="t-table">
-        <thead><tr><th>Componente</th><th class="n">Sharpe</th><th class="n">eseguito alla chiusura</th><th class="n">Rend. annuo</th>
-          <th class="n">Perdita max</th><th class="n">Giorni investito</th></tr></thead>
+        <thead><tr><th>Component</th><th class="n">Sharpe</th><th class="n">filled at the close</th><th class="n">Yearly return</th>
+          <th class="n">Max drawdown</th><th class="n">Days invested</th></tr></thead>
         <tbody>${rows}</tbody></table></div>`;
     })
     .join("");
   return section(
-    "I sette segnali, uno alla volta, poi per fonte, poi insieme",
-    `${blocks}<p class="t-dim">Conto di riferimento mille volte più grande, per togliere l'effetto del lotto minimo. Parametri
-    pubblicati, un terzo del peso a ogni fonte. La riga «Prima» è la previsione che i libri leggevano fino all'8 ottobre
-    2026 (trend, carry, carry-momentum); «Adesso» quella che leggono oggi. I quattro segnali aggiunti sono quelli rimasti
-    in piedi fra i sedici provati: gli altri dodici, con i loro numeri, sono in
-    <a href="${repoUrl()}/blob/main/docs/RESEARCH.md" target="_blank" rel="noopener">docs/RESEARCH.md</a>. Una parte del
-    miglioramento è selezione: mettere insieme a pesi uguali tutto ciò che è stato provato, senza scegliere nulla, dà
-    circa 0,1 di Sharpe in meno.</p>`,
+    "The signals one at a time, then by source, then together",
+    `${blocks}<p class="t-dim">Reference account a thousand times larger, to remove the effect of the minimum lot. Published
+    parameters, a third of the weight to each source. "Before" is the forecast the oil books read until 8 October 2026
+    (trend, carry, carry momentum); "Now" the one they read today. The four signals added are those that stood among the
+    sixteen tried; the other twelve, with their numbers, are in
+    <a href="${repoUrl()}/blob/main/docs/RESEARCH.md" target="_blank" rel="noopener">docs/RESEARCH.md</a>. Part of the
+    improvement is selection: putting everything that was tried together at equal weights, choosing nothing, gives about
+    0.1 of Sharpe less. The candidate funds read the price source alone.</p>`,
   );
 }
 
 function optionsReplay(doc: BacktestDoc): string {
   const o = doc.options;
   if (!o || !o.available || !o.cases) {
-    return section("≈ Opzioni", `<div class="t-empty">Simulazione non disponibile${o?.reason ? `: ${escapeHtml(o.reason)}` : ""}.</div>`);
+    return section("≈ Options", `<div class="t-empty">Simulation unavailable${o?.reason ? `: ${escapeHtml(o.reason)}` : ""}.</div>`);
   }
   const SMILE: Record<string, string> = {
-    piatto: "volatilità uguale su tutti gli strike",
-    ottobre_2026: "smile letto sulla catena dell'8 ottobre 2026",
-    put_ripido: "put lontane più care (forma abituale)",
+    piatto: "same volatility at every strike",
+    ottobre_2026: "smile read on the chain of 8 October 2026",
+    put_ripido: "far puts dearer (the usual shape)",
   };
   const rows = o.cases
     .map(
-      (c) => `<tr><th scope="row">${escapeHtml(SMILE[c.smile] ?? c.smile)}<small>costi ×${num(c.cost_multiplier, 0)}</small></th>
+      (c) => `<tr><th scope="row">${escapeHtml(SMILE[c.smile] ?? c.smile)}<small>costs ×${num(c.cost_multiplier, 0)}</small></th>
         <td class="n">${signedPercent(c.stats.cagr ?? null, 1)}</td>
         <td class="n">${percent(c.stats.vol ?? null, 1)}</td>
         <td class="n">${sharpeCell(c.stats)}</td>
@@ -210,27 +265,31 @@ function optionsReplay(doc: BacktestDoc): string {
     )
     .join("");
   return section(
-    "≈ Opzioni: simulazione su modello",
+    "≈ Options: a model replay",
     `<div class="t-scroll"><table class="t-table">
-      <thead><tr><th>Ipotesi</th><th class="n">Rend. annuo</th><th class="n">Volatilità</th><th class="n">Sharpe</th>
-        <th class="n">Perdita max</th><th class="n">Operazioni/anno</th><th class="n">Chiuse in utile</th>
-        <th class="n">Risultato medio / rischio</th></tr></thead>
+      <thead><tr><th>Assumption</th><th class="n">Yearly return</th><th class="n">Volatility</th><th class="n">Sharpe</th>
+        <th class="n">Max drawdown</th><th class="n">Trades/year</th><th class="n">Closed in profit</th>
+        <th class="n">Mean result / risk</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-      <p class="t-dim">${escapeHtml(o.method ?? "")} Non esiste uno storico gratuito di quotazioni di opzioni: questi numeri
-      dicono l'ordine di grandezza, non il secondo decimale. Nove operazioni su dieci chiudono in utile e una ogni tanto perde
-      dieci volte tanto: è la forma di questa strategia, non un difetto del conto. Il libro di carta esiste per sostituire il
-      modello con i prezzi veri.</p>`,
-    "approssimazione dichiarata",
+      <p class="t-dim">${escapeHtml(o.method ?? "")} No free history of option quotes exists: these numbers give the order of
+      magnitude, not the second decimal. Nine trades in ten close in profit and one now and then loses ten times as much:
+      that is the shape of this strategy, not a flaw of the account. The paper book exists to replace the model with real
+      prices.</p>`,
+    "declared approximation",
   );
 }
 
 function provenance(doc: BacktestDoc): string {
   const LABEL: Record<string, string> = {
-    fondo: "prezzo del fondo",
-    contratto: "contratto detenuto (esatto)",
-    eia: "regolamenti EIA dei contratti 1 e 2 (esatto)",
-    front: "primo contratto, nei giorni in cui è quello detenuto",
-    "fondo (approx)": "≈ fondo USO nei giorni di roll",
+    fund: "the fund's price",
+    contract: "the contract held (exact)",
+    eia: "EIA settlements of contracts 1 and 2 (exact)",
+    front: "front contract, on the days it is the one held",
+    "fund (approx)": "≈ the USO fund on roll days",
+    // the labels the payload carried before 13 October 2026
+    fondo: "the fund's price",
+    contratto: "the contract held (exact)",
+    "fondo (approx)": "≈ the USO fund on roll days",
   };
   const rows = Object.entries(doc.data)
     .map(([vehicle, d]) => {
@@ -245,39 +304,57 @@ function provenance(doc: BacktestDoc): string {
     })
     .join("");
   return section(
-    "Da dove vengono i dati",
+    "Where the data comes from",
     `<div class="t-scroll"><table class="t-table">
-      <thead><tr><th>Strumento</th><th>Periodo</th><th class="n">Sedute</th><th>Rendimento giornaliero</th>
-        <th class="n">≈ curva per procura</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <p class="t-dim">Per BNO la curva del Brent per contratto esiste solo da quando il motore la archivia: prima, la pendenza
-      è quella del WTI (contratti 2 e 4, EIA) ed è marcata come approssimazione.</p>`,
+      <thead><tr><th>Instrument</th><th>Period</th><th class="n">Sessions</th><th>Daily return</th>
+        <th class="n">≈ curve by proxy</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="t-dim">For BNO the Brent curve by contract exists only since the engine archives it: before that, the slope is
+      WTI's (contracts 2 and 4, EIA) and is marked as an approximation. The candidate funds have no curve and no other
+      market: their forecast is the price source alone.</p>`,
   );
 }
 
 function rejected(): string {
   const rows: [string, string][] = [
-    ["Momentum infragiornaliero (rottura dell'area di rumore) su BNO, USO, UCO, XLE", "Sharpe lordo fra −1,5 e −2,1 sulle barre orarie"],
-    ["Prima e ultima ora, seguito del mercoledì EIA, finestra di regolamento", "nessun effetto distinguibile dal caso (|t| sotto 1,7)"],
-    ["Ritorno alla media dello spread BNO–USO", "Sharpe fra −0,2 e −0,5 dopo i costi"],
-    ["Vendere insieme UCO e SCO per incassare il decadimento", "0,96 sull'intero campione ma −0,36 dal 2022: non regge"],
-    ["Comprare call e put insieme (straddle) ogni mese", "perde: le opzioni costano più della mossa che segue, t oltre −2,5"],
-    ["Vendere premio con condor o farfalle coperte", "a zero o sotto, una volta pagate quattro gambe e lo smile"],
-    ["Rottura del canale (breakout) a 40-320 giorni", "0,29 da sola, ma correlata 0,79 con il trend che c'è già: la stessa scommessa"],
-    ["Carry continuo, valore a cinque anni, trend solo dove la curva è d'accordo", "0,34 (e −0,21 sul fondo), −0,09, 0,40 ma correlato 0,88: nessuno aggiunge qualcosa"],
-    ["Flussi e posizionamento dei fondi (COT), pressione di copertura", "0,15 e −0,26: sul solo greggio non dicono nulla"],
-    ["Crescita dell'open interest, scorte EIA", "0,41 e 0,19 alla finestra pubblicata, zero o meno a quella accanto"],
-    ["Margine di raffinazione (crack spread) sopra la sua media", "0,31, ma 0,05 con un giorno di ritardo: era un artefatto di orario"],
-    ["Premio di volatilità (OVX meno realizzata), acquisti degli insider", "−0,35 e 0,07"],
+    ["Intraday momentum (noise-area breakout) on BNO, USO, UCO, XLE", `gross Sharpe between ${MINUS}1.5 and ${MINUS}2.1 on hourly bars`],
+    ["First and last hour, the day after the EIA Wednesday, the settlement window", "nothing distinguishable from chance (|t| under 1.7)"],
+    ["Mean reversion of the BNO–USO spread", `Sharpe between ${MINUS}0.2 and ${MINUS}0.5 after costs`],
+    ["Selling UCO and SCO together to collect the decay", `0.96 on the whole sample but ${MINUS}0.36 since 2022: does not hold`],
+    ["Buying a call and a put together (straddle) every month", `loses: the options cost more than the move that follows, t beyond ${MINUS}2.5`],
+    ["Selling premium with condors or covered butterflies", "zero or below, once four legs and the smile are paid"],
+    ["Channel breakout at 40-320 days", "0.29 alone, but correlated 0.79 with the trend already there: the same bet"],
+    [
+      "Continuous carry, five-year value, trend only where the curve agrees",
+      `0.34 (and ${MINUS}0.21 on the fund), ${MINUS}0.09, 0.40 but correlated 0.88: none adds anything`,
+    ],
+    ["Fund flows and positioning (COT), hedging pressure", `0.15 and ${MINUS}0.26: on crude alone they say nothing`],
+    ["Open-interest growth, EIA inventories", "0.41 and 0.19 at the published window, zero or less at the one beside it"],
+    ["Refining margin (crack spread) above its mean", "0.31, but 0.05 with a day of delay: it was a timing artefact"],
+    ["Volatility premium (OVX minus realised), insider buying", `${MINUS}0.35 and 0.07`],
+    // phase 12, 13 October 2026
+    [
+      "Natural gas through its funds (UNG, short by buying KOLD), the dynamic book's rules",
+      `${MINUS}0.12 over 18 years: UNG loses the contango every month (${MINUS}99.9% held since 2007), KOLD the daily reset; the 8% daily stop fired eleven times`,
+    ],
+    [
+      "Basis momentum: the twelve-month return of the curve's slope (Boons & Prado)",
+      `0.02 on WTI, 0.27 and ${MINUS}0.23 on the two halves; the continuous form 0.25, with nothing after 2005`,
+    ],
+    ["Geopolitical risk index (Caldara & Iacoviello), continuous, by sign and inverted", `${MINUS}0.07, 0.04 and 0.05: the news say nothing about the next day's direction`],
+    [
+      "Calendar spread: long the contract held, short the one two months out, by the sign of the basis",
+      `0.62 gross (t 3.9) but ${MINUS}0.64 net: 4.4x the notional per leg, two /MCL legs rolled monthly, 34% a year in costs`,
+    ],
   ];
   return section(
-    "Provato e scartato",
+    "Tried and rejected",
     `<div class="t-scroll"><table class="t-table t-log"><tbody>${rows
       .map(([a, b]) => `<tr><td class="w">${escapeHtml(a)}</td><td class="w t-dim">${escapeHtml(b)}</td></tr>`)
       .join("")}</tbody></table></div>
-    <p class="t-dim">Misure dell'ottobre 2026 su dati reali; per i segnali giornalieri, Sharpe sul WTI 1985-2026 con
-    l'obiettivo di volatilità al 15%. <a href="${repoUrl()}/blob/main/docs/RESEARCH.md" target="_blank"
-    rel="noopener">Metodo, numeri e fonti →</a></p>`,
-    "ciò che non ha retto resta fuori dai libri",
+    <p class="t-dim">Measured in October 2026 on real data; for the daily signals, Sharpe on WTI 1985-2026 with the 15%
+    volatility target, and for the candidates on each fund's own history. Every candidate was written down before its result was
+    looked at. <a href="${repoUrl()}/blob/main/docs/RESEARCH.md" target="_blank" rel="noopener">Method, numbers and sources →</a></p>`,
+    "what did not hold stays out of the books",
   );
 }
 
@@ -285,21 +362,23 @@ export async function renderBacktest(el: HTMLElement): Promise<void> {
   const loaded = await load<BacktestDoc>("desk_backtest.json");
   const doc = loaded.data;
   if (!doc || !doc.books) {
-    el.innerHTML = `<div class="term"><div class="t-empty">Backtest non ancora pubblicato: lo calcola il primo giro che ha i dati,
-      poi il lavoro settimanale (o <code>python -m engine.cli desk-backtest</code>).</div></div>`;
+    el.innerHTML = `<div class="term"><div class="t-empty">Backtest not published yet: the first tick that has the data computes it,
+      then the weekly job (or <code>python -m engine.cli desk-backtest</code>).</div></div>`;
     return;
   }
-  const names = new Map(doc.books_config.map((b) => [b.id, b.name]));
+  const names: Names = new Map(doc.books_config.map((b) => [b.id, b.name]));
+  const roles: Roles = new Map(doc.books_config.map((b) => [b.id, b.role ?? "core"]));
   const vehicles = [...new Set(Object.values(doc.books).map((b) => b.vehicle))];
   const charts = vehicles
     .map(
-      (v) => `<h3 class="t-sub">${escapeHtml(v)}: capitale da ${num(doc.meta.initial_capital, 0)} $, scala logaritmica</h3>
+      (v) => `<h3 class="t-sub">${escapeHtml(v)}: capital from ${num(doc.meta.initial_capital, 0)} $, log scale</h3>
         <div class="t-chart" id="bt-${escapeHtml(v)}"></div><div id="bt-${escapeHtml(v)}-legend"></div>`,
     )
     .join("");
   el.innerHTML = `<div class="term">
-    ${summary(doc, names)}
-    ${section("Curve", charts, "ogni libro contro il proprio strumento comprato e tenuto")}
+    ${summary(doc, names, roles)}
+    ${together(doc)}
+    ${section("Curves", charts, "each book against its own instrument bought and held")}
     ${ruin(doc, names)}
     ${sensitivity(doc, names)}
     ${sleeves(doc)}
@@ -317,11 +396,11 @@ export async function renderBacktest(el: HTMLElement): Promise<void> {
       .map(([id, b]) => ({ id, label: names.get(id) ?? id, color: bookColor(id), points: points(b.curve) }));
     const bench = doc.benchmarks[v];
     if (bench) {
-      series.push({ id: `bh-${v}`, label: `${v} comprato e tenuto`, color: "var(--text-muted)", points: points(bench.curve), dashed: true });
+      series.push({ id: `bh-${v}`, label: `${v} bought and held`, color: "var(--text-muted)", points: points(bench.curve), dashed: true });
     }
     const yearFmt = (t: number): string => String(new Date(t).getUTCFullYear());
     lineChart(target, series, {
-      ariaLabel: `Capitale dei libri su ${v} contro lo strumento comprato e tenuto`,
+      ariaLabel: `Capital of the books on ${v} against the instrument bought and held`,
       height: 240,
       log: true,
       fmt: (x) => num(x, 0),
@@ -330,4 +409,3 @@ export async function renderBacktest(el: HTMLElement): Promise<void> {
     legend.innerHTML = lineLegend(series, (x) => `${num(x, 0)} $`);
   }
 }
-

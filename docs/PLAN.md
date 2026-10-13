@@ -48,7 +48,7 @@ Altre decisioni della fase 10, con il motivo:
 | Cadenza intraday | Un solo cron `*/30 * * * *` con guardia in-job sull'orario ICE (01:00–23:00 Londra, DST via `zoneinfo`) | Più semplice e robusto di cron multipli per ora legale; le run fuori orario escono in pochi secondi. |
 | Fine giornata | Cron 18:40 e 19:40 UTC con guardia "è dopo le 19:30 a Londra e non ho ancora fatto l'EOD di oggi" | Copre BST e GMT; idempotente per costruzione. |
 | Idempotenza | Chiave `sha1(epoch, decision_ts, instrument, strategy_set)` su ogni ordine; `concurrency` per workflow | Il cron GitHub può ritardare o duplicare; nessun trade doppio. |
-| Frontend | Vite + TypeScript vanilla + TradingView Lightweight Charts, tema scuro, mobile-first, italiano | Leggero, nessun framework da mantenere; grafici finanziari nativi. |
+| Frontend | Vite + TypeScript vanilla, grafici SVG scritti a mano, tema scuro, mobile-first; in inglese dalla fase 12 (prima in italiano) | Leggero, nessun framework né libreria di grafici da mantenere; quattro pagine di testo che formattano il JSON e non calcolano nulla. |
 | Reset | `reset.yml` con `workflow_dispatch` e input `confirm=RESET`; pulsante del sito con token fine-grained nel `localStorage` oppure link alla pagina del workflow | Stato ufficiale unico e tracciato in `epochs.json`. |
 | Strumento master | Future Brent front-month in barili (lotto 100 bbl), roll esplicito 3 giorni prima della scadenza ICE; spread come posizioni multi-gamba | Specifiche ICE verificate; 100 bbl × ~100 $ ≈ capitale iniziale → granularità sensata per 10 000 $. |
 | Storico lungo | Brent spot EIA 1987+ per regimi/stress (Golfo 1990–91), BZ=F Yahoo 2007+ per il future, curva archiviata da oggi + proxy WTI C1–C4 EIA | Il più lungo possibile dalle fonti gratuite, con i proxy etichettati. |
@@ -115,6 +115,15 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   difetti nel funzionamento dal vivo in condizioni degradate (una tabella in ritardo, una gamba eseguita e
   l'altra no, la soglia di perdita valutata su una quotazione vecchia): corretti e fissati da test
   (`docs/VALIDATION.md`).
+- [x] 12. Altri mercati e nuove fonti, dichiarati prima della prova (`docs/RESEARCH.md`, capitolo 8): quattro
+  mercati satellite con i fondi di Robinhood sotto le regole del libro prudente (oro, rame, agricoltura
+  partono come libri **candidati** accanto ai quattro; il gas non parte per il filtro dichiarato), due fonti
+  nuove per il greggio (basis-momentum, indice di rischio geopolitico: nulla, scartate), lo spread di
+  calendario misurato (premio di termine reale, non incassabile con questi strumenti). I quattro libri e il loro
+  backtest sono identici prima e dopo. Il sito passa all'inglese su richiesta del proprietario, a quattro
+  pagine: le sei pagine del primo sistema sono sostituite da una pagina di archivio e la libreria di grafici
+  è rimossa. Allo Sharpe sopra 3 chiesto con una strategia sola si è risposto che non esiste su questi
+  strumenti e che un backtest che lo mostrasse sarebbe la prova di un errore.
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 
