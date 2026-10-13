@@ -847,6 +847,79 @@ ma solo nella seconda metà (0,82 contro 1,12 nella prima), e tutte le minime va
 portafoglio: un terzo della volatilità e del rendimento, concentrato nei libri meno volatili. Il prior era
 giusto. Entrambi i test chiudono una domanda e non aprono una modifica: niente entra in linea.
 
+## 9. Fase 13 (13 ottobre 2026, sera): i temi, i mercati che sanno prima, e un portafoglio che si ricalibra
+
+**La richiesta del proprietario**, nelle sue parole: tenere in considerazione elettrificazione, fabbisogno
+elettrico dei data center e bolle; «i mercati Kalshi che sanno prima: prendi i dati»; e un portafoglio la cui
+dinamicità «cambia in base a come va», in tutte le forme proposte (esposizione dopo le perdite, capitale
+verso i libri che vanno meglio, promozione e ritiro dei libri, regimi), **anche sui quattro libri in linea**.
+Tutto registrato qui prima di guardare un numero, con la regola di decisione per ciò che si misura e il
+motivo per ciò che non si misura.
+
+### A. I temi come mercati: altri satelliti
+
+Stesse regole dei satelliti della fase 12 (prudente, solo long, fonte prezzo, 12% di volatilità, tetto 1x,
+soglia 5%, distribuzioni accreditate, mezzo spread 2-5 pb), stesso filtro (uno Sharpe negativo sull'intera
+storia non parte), una prova ciascuno:
+
+| Tema | Fondo | Da quando | Che cosa rappresenta |
+|---|---|---|---|
+| Nucleare per i data center | URA | 2010 | uranio e miniere |
+| Rete elettrica e domanda di potenza | XLU | 1998 | utilities USA |
+| Elettrificazione, batterie | LIT | 2010 | litio e filiera delle batterie |
+| L'investimento in AI (e la sua bolla) | SMH | 2000 | semiconduttori |
+| Energia pulita | ICLN | 2008 | solare, eolico, idrogeno |
+
+Più TLT e SPY della parte D, che il filtro ha già passato. Prior: 0,2-0,5 ciascuno, correlazioni con il
+greggio sotto 0,2, SMH e XLU correlati a SPY (0,6-0,8: contano meno di quanto sembri). Misura: Sharpe e t,
+rendimento, perdita massima, anni positivi, e il portafoglio a capitale uguale con tutto il resto.
+
+### B. Il portafoglio che si ricalibra: le quattro forme, una per una
+
+- **D1. Esposizione dopo le perdite (controllo del drawdown).** Grossman e Zhou (1993): il rischio scala con
+  il cuscino. Regola: moltiplicatore m = max(0,25; 1 − DD / 0,20), dove DD è il calo dal massimo dell'equity
+  del PORTAFOGLIO dei libri (a capitale uguale) e 0,20 la perdita massima che si accetta; m moltiplica
+  l'obiettivo di volatilità di ogni libro, anche dei quattro, e risale con il recupero. Prior: lo Sharpe non
+  cambia (±0,03), la perdita massima scende di un terzo, il rendimento composto un po' meno. Regola di
+  decisione: entra se la perdita massima del portafoglio scende di almeno un quinto senza che lo Sharpe cali
+  di più di 0,05, in entrambe le metà.
+- **D2. Capitale verso i libri che vanno meglio (momentum delle strategie).** Pesi proporzionali allo Sharpe
+  degli ultimi 36 mesi di ogni libro, limitati fra 0,5/N e 2/N, ricalcolati ogni mese. Prior: nulla o
+  negativo (si compra alto; l'evidenza sul «momentum dei gestori» è debole e rumorosa). Regola di decisione:
+  come per i pesi della parte E, +0,05 in entrambe le metà, altrimenti 1/N.
+- **D3. Promozione e ritiro.** Non si misura: è governo del desk, e lo si dichiara. Un candidato diventa
+  nucleo dopo 12 mesi di eseguiti reali con Sharpe realizzato sopra 0 e perdita massima entro quella del suo
+  backtest; un libro, nucleo o candidato, viene fermato (posizione chiusa, conto in attesa) dopo 24 mesi con
+  Sharpe realizzato sotto −0,5; un libro fermato si riapre solo per decisione del proprietario. Le soglie sono
+  numeri tondi dichiarati, non ottimizzati; i mesi partono dall'8 ottobre 2026 per i quattro e dal 13 per i
+  satelliti.
+- **D4. Regimi.** Tre interruttori con tre gradi di evidenza. (i) *Bolla, misurabile*: Greenwood, Shleifer e
+  You (2019), un raddoppio del prezzo in due anni precede un crollo del 40% nel 53% dei casi (azioni); regola:
+  dopo un +100% a due anni del prezzo del veicolo, obiettivo di volatilità dimezzato per 12 mesi. Si misura
+  sul WTI 1986-2026 e sul fondo Brent; regola di decisione come D1. (ii) *Stretto chiuso, non misurabile*
+  (sette mesi di dati): con i transiti di Hormuz sotto il 10% della norma, tetto da fine settimana dimezzato.
+  Entra come scelta di politica, dichiarata, perché un gap del +16% in un fine settimana è già successo nel
+  2026 e il costo della regola è una parte del rendimento dei venerdì. (iii) *Volatilità implicita*: OVX è già
+  nel dimensionamento attraverso la volatilità realizzata; non si aggiunge nulla.
+
+### C. I mercati che sanno prima: Kalshi
+
+API pubblica, senza chiave (`api.elections.kalshi.com/trade-api/v2`), sondata la sera del 13 ottobre: esistono
+serie sul WTI (`WTIH`, sopra/sotto ogni ora; `WTIMIN`, minimo annuale; `KXWTIVSBRENT`), e il catalogo completo
+va letto da un runner con rete (il workspace non arriva oltre i registri). Che cosa si fa: (1) un adattatore
+che archivia ogni giorno i mercati su petrolio, stretto, Iran, cessate il fuoco e OPEC con i loro prezzi
+(probabilità); (2) sul terminale, la probabilità di «WTI sopra X» del mercato a eventi accanto a quella
+implicita nelle opzioni USO che il desk già scarica: la divergenza è un dato nuovo, senza storico; (3) nessun
+libro la negozia finché non ha almeno un anno di archivio. Prior sul segnale: ignoto; sulla liquidità: sottile.
+
+### D. Che cosa questo cambia nelle regole dure
+
+«La taglia di un libro è previsione / 10 × obiettivo / volatilità, nient'altro» diventa «... × obiettivo ×
+m / volatilità», dove m è il moltiplicatore dell'allocatore (D1 e D4), uguale per tutti i libri, scritto ogni
+giorno nello stato e sul terminale. Le decisioni dei libri non cambiano in nessun altro modo. Il backtest
+riporta i numeri con e senza allocatore, sempre.
+
+## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
 
