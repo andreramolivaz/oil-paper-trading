@@ -744,6 +744,56 @@ del Tesoro. Che cosa seguirebbe, se il proprietario lo vuole: TLT e SPY come qua
 serie dei buoni a 3 mesi (FRED DTB3, senza chiave); il lato short di azioni e obbligazioni con i fondi inversi
 SH e TBF (tabelle da scaricare, stesso meccanismo di SCO). Non seguirebbe nessuna leva in più.
 
+### E. Registrazione del 13 ottobre, notte: la previsione di volatilità e i pesi fra i libri
+
+Chiesto dal proprietario dopo la discussione sui libri di fisica: due test, scritti qui prima di guardare un
+numero, con la regola di decisione già fissata. Nessuno dei due tocca un segnale: il primo cambia il
+denominatore della posizione (`previsione / 10 × obiettivo / volatilità`), il secondo come si divide il
+capitale fra i libri.
+
+**1. La volatilità con cui si dimensiona.** Oggi è la media mobile esponenziale di Carver (span 35 giorni,
+pavimento 10%), `signals.ew_vol`. Candidati, tutti causali (walk-forward, stimati su dati fino al giorno prima,
+ristimati ogni 21 giorni, almeno 500 osservazioni), tutti con lo stesso pavimento del 10%, perché il pavimento
+è una regola del libro e non del modello:
+
+- V1. GARCH(1,1) con innovazioni t di Student (Bollerslev 1986), un passo avanti: il codice del primo sistema
+  (`engine/features/volatility.py`), parametri stimati, non scelti.
+- V2. HAR (Corsi 2009) sul logaritmo della varianza di Yang-Zhang (2000) calcolata sulle barre giornaliere
+  open-high-low-close: componenti a 1, 5 e 22 giorni, obiettivo la varianza media dei 22 giorni successivi,
+  stima OLS a finestra crescente. È un adattamento dichiarato: il HAR di Corsi usa la varianza realizzata
+  intraday, che su quarant'anni di storia non esiste; Yang-Zhang è lo stimatore giornaliero più efficiente
+  che la letteratura offra.
+- V3. Il nucleo logaritmico della cascata multifrattale (Bacry, Delour, Muzy 2001; Bacry, Kozhemyak, Muzy 2008):
+  la previsione del logaritmo della volatilità è la media dei logaritmi passati pesata come 1/k fino alla
+  scala integrale T = 512 giorni (due anni, l'ordine di grandezza stimato in letteratura), ricondotta alla
+  media con un solo coefficiente stimato walk-forward. Semplificazione dichiarata del predittore del MRW (non
+  stimo λ²: entra solo nel coefficiente).
+
+Misure: (i) qualità della previsione, indipendente dal trading: perdita QLIKE (Patton 2011) ed errore
+quadratico sul logaritmo, contro la volatilità realizzata dei 22 giorni successivi, per BNO, il contratto WTI,
+GLD, CPER, DBA; (ii) il replay reale del desk dei sei libri lineari con ciascuna regola, e il portafoglio a
+capitale uguale dei tre libri sul greggio più i tre satelliti. Regola di decisione, fissata ora: una regola
+sostituisce quella di Carver solo se batte la sua QLIKE su tutti e cinque i mercati, alza lo Sharpe del
+portafoglio di almeno 0,03 senza peggiorare la perdita massima di nessun libro del nucleo, e lo fa in
+entrambe le metà del campione. Prior: +0,02-0,05 di Sharpe, perdite massime un po' più basse; GARCH e HAR
+quasi equivalenti, il nucleo logaritmico a metà strada fra loro e la media esponenziale.
+
+**2. I pesi fra i libri.** Oggi capitale uguale (1/N), ribilanciato ogni giorno. Candidati, sui rendimenti
+giornalieri dei libri (i tre sul greggio, i tre satelliti, TLT e SPY della parte D: otto serie dal 2013),
+pesi calcolati su dati fino al giorno prima e tenuti 21 giorni, solo long, nessun libro oltre 2/N:
+
+- W1. Inverso della volatilità (parità di rischio senza correlazioni), volatilità a 63 giorni.
+- W2. Minima varianza sulla covarianza campionaria degli ultimi 252 giorni.
+- W3. Minima varianza sulla covarianza pulita con la teoria delle matrici casuali: gli autovalori sotto il
+  bordo di Marchenko-Pastur λ₊ = (1 + √(N/T))² sostituiti dalla loro media a traccia costante (Laloux, Cizeau,
+  Bouchaud, Potters 1999; Bun, Bouchaud, Potters 2017).
+- W4. Minima varianza sulla covarianza di Ledoit-Wolf (2004), il riferimento standard.
+
+Misure: Sharpe, volatilità, perdita massima e rotazione dei pesi, per metà di campione. Regola di decisione:
+si abbandona 1/N solo per un metodo che alzi lo Sharpe di almeno 0,05 in entrambe le metà. Prior: zero
+(DeMiguel, Garlappi, Uppal 2009: sotto i venti asset 1/N non si batte fuori campione), con W3 ≈ W4 > W2 e W1
+≈ 1/N. Lo si misura per chiudere la domanda.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
