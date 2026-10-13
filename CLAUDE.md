@@ -494,6 +494,22 @@ portfolios and the phase-12 rejects, reset, one archive page on the first system
 strategy names and regime labels by id); the six Italian pages of the first system and their chart library are
 gone (bundle 300 -> 73 kB), their paths redirect to the archive.
 
+Phase 12 went live on 2026-10-13 at 21:46 UTC (PR #10, rebase-merged as 84e944f4; CI green on the branch and on
+main; Pages redeployed in 35 s). Checked on GitHub and on the data branch, not assumed: the push cancelled the
+runner in progress (its last tick, 21:18, was pushed) and started a new one; its first tick (21:47, off the
+slot, 118 s) asked for exactly `gld_daily`, `cper_daily`, `dba_daily` beside the half-hour group (10 downloads,
+none failed), recomputed the backtest once ("computed: the rules changed", 7 books, portfolio `core` /
+`core_matched` / `all`), took the three candidate decisions on the day's last print - copper: forecast +10,
+volatility 22 % against a target of 12 %, 0.55x wanted, 123 CPER queued for the 14th's open (0.50x, at the
+edge of the inertia band); agriculture: forecast -0.8, long only, cash; gold: forecast +0.9, 0.05x, no
+position - and left the core books exactly where the previous runner had them (prudente 10 035.97 with 4 BNO
+and dinamico 10 072.94 with 6 BNO queued at 19:18 and filled at the 20:18 tick, under the old code). The health
+warnings are the five that were there before the deploy (copper's live row, DXY from FRED, the rig-count page,
+STEO). The public page renders the four English pages on the live JSON with no console error; the last Italian
+words on it are the decision texts the old engine wrote, which age out of the list. Still NOT seen: the first
+fill of a candidate book (due at the 13:30 UTC open of the 14th), a DBA distribution (late December), a tick
+with a failed vehicle.
+
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
 failure looked like a normal red cross. The giveaway: the run's name was the file path instead of `ci`.
