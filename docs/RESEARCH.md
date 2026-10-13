@@ -794,7 +794,59 @@ si abbandona 1/N solo per un metodo che alzi lo Sharpe di almeno 0,05 in entramb
 (DeMiguel, Garlappi, Uppal 2009: sotto i venti asset 1/N non si batte fuori campione), con W3 ≈ W4 > W2 e W1
 ≈ 1/N. Lo si misura per chiudere la domanda.
 
-## Fonti
+**Risultati (misurati subito dopo, stessa notte).**
+
+*La previsione di volatilità.* Qualità della previsione (QLIKE contro la volatilità realizzata dei 22 giorni
+successivi, più basso è meglio; finestra dove tutti i modelli hanno una previsione propria, i primi 500 giorni
+di ogni serie usano la media di Carver per tutti):
+
+| Mercato | V0 Carver | V1 GARCH-t | V2 HAR-YZ | V3 nucleo log |
+|---|---|---|---|---|
+| BNO | 0,343 | 0,307 | **0,253** | 0,281 |
+| WTI (contratto) | 0,282 | 0,251 | **0,200** | 0,347 |
+| GLD | 0,260 | 0,225 | **0,209** | 0,220 |
+| CPER | **0,277** | 0,651 | 0,443 | 0,467 |
+| DBA | 0,158 | 0,149 | **0,149** | 0,168 |
+| TLT | 0,187 | 0,180 | 0,178 | **0,173** |
+| SPY | 0,385 | 0,350 | **0,323** | 0,373 |
+
+Il replay reale dei libri (Sharpe; perdita massima fra parentesi) e il portafoglio a capitale uguale dal 2013:
+
+| | V0 Carver | V1 GARCH-t | V2 HAR-YZ | V3 nucleo log |
+|---|---|---|---|---|
+| Prudente | 0,56 (−23%) | **0,59 (−21%)** | 0,48 (−26%) | 0,47 (−26%) |
+| Dinamico | 0,77 (−50%) | **0,80 (−49%)** | 0,76 (−51%) | 0,69 (−46%) |
+| Spinto | 0,64 (−86%) | **0,70 (−84%)** | 0,67 (−81%) | 0,58 (−90%) |
+| Oro / rame / agricoltura | 0,50 / 0,26 / 0,34 | 0,51 / **0,13** / 0,34 | 0,49 / 0,20 / 0,33 | 0,48 / 0,17 / 0,34 |
+| Tre più tre satelliti | 0,87 (−30%) | **0,90 (−29%)** | 0,85 (−29%) | 0,77 (−28%) |
+| ... prima / seconda metà | 0,76 / 0,97 | 0,80 / 0,98 | 0,79 / 0,90 | 0,63 / 0,89 |
+| Tutti e otto (con TLT e SPY) | 0,93 (−22%) | **0,96 (−22%)** | 0,90 (−21%) | 0,82 (−21%) |
+
+Verdetto, con la regola scritta sopra: **resta la media di Carver.** Il GARCH è l'unico che migliora il trading
+(+0,03 sul portafoglio, esattamente la soglia, in entrambe le metà, perdite massime del nucleo non peggiori) ma
+fallisce la prima condizione: sul rame prevede peggio della media (0,65 contro 0,28, in entrambe le metà) e
+dimezza quel libro (0,26 → 0,13). Il HAR su Yang-Zhang è il miglior previsore su sei mercati su sette e fa
+negoziare peggio (prudente 0,56 → 0,48): una stima più reattiva muove la posizione più spesso e paga più
+spread, e con il tetto a 1x la precisione in più non compra nulla. È la lezione di Carver, misurata: per
+dimensionare serve una volatilità lenta, non una volatilità giusta. Il nucleo logaritmico è peggio di tutto.
+Riaprire il GARCH per il solo greggio sarebbe una selezione dopo il fatto; se mai, con altri anni di rame.
+
+*I pesi fra i libri* (otto libri dal 2014, il primo anno serve alla stima; pesi tenuti 21 giorni, tetto 2/N):
+
+| Metodo | Sharpe | Rend. annuo | Vol | Perdita max | Prima / seconda metà | Rotazione per ribilanciamento |
+|---|---|---|---|---|---|---|
+| 1/N (oggi) | 1,02 | +12,1% | 11,9% | −22% | **1,12** / 0,93 | 0 |
+| W1 inverso della volatilità | 1,00 | +4,2% | 4,2% | −8% | 1,00 / 1,04 | 0,19 |
+| W2 minima varianza, campionaria | 1,03 | +3,4% | 3,3% | −6% | 0,77 / 1,23 | 0,06 |
+| W3 minima varianza, matrici casuali | 1,02 | +3,4% | 3,3% | −6% | 0,72 / 1,26 | 0,06 |
+| W4 minima varianza, Ledoit-Wolf | 1,10 | +3,7% | 3,4% | −6% | 0,82 / 1,32 | 0,05 |
+
+Verdetto: **resta 1/N.** La pulizia con le matrici casuali non si distingue dalla covarianza campionaria (con
+otto serie e 252 giorni il bordo di Marchenko-Pastur è a 1,39: quasi nulla da pulire), Ledoit-Wolf vale +0,08
+ma solo nella seconda metà (0,82 contro 1,12 nella prima), e tutte le minime varianze sono un altro
+portafoglio: un terzo della volatilità e del rendimento, concentrato nei libri meno volatili. Il prior era
+giusto. Entrambi i test chiudono una domanda e non aprono una modifica: niente entra in linea.
+
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
 
