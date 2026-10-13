@@ -23,6 +23,7 @@ Exit codes used by the CLI: 0 ok or nothing-to-do, 1 error.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date
 from typing import Any
@@ -257,14 +258,14 @@ def _desk_daily_entries(runner: LiveRunner, desk: Any, now: Any) -> tuple[set[st
         return pd.Timestamp(year=day.year, month=day.month, day=day.day, hour=hour, minute=minute, tz=NEW_YORK)
 
     for vehicle_id, names in DESK_VEHICLE_ENTRIES.items():
-        owed, day, decision_ts = False, None, None
-        if vehicle_id in trading:
-            vehicle = get_vehicle(vehicle_id)
-            day = decision_day(vehicle, now)
-            owed = any(desk.state.last_decision_day.get(b.id) != day.isoformat() for b in desk.books_on(vehicle_id))
-            decision_ts = decision_time(vehicle_id, day)
-            if owed:
-                owed_days.add(day)
+        if vehicle_id not in trading:
+            continue  # a vehicle no book is on (a satellite taken out of the configuration) is not downloaded
+        vehicle = get_vehicle(vehicle_id)
+        day = decision_day(vehicle, now)
+        owed = any(desk.state.last_decision_day.get(b.id) != day.isoformat() for b in desk.books_on(vehicle_id))
+        decision_ts = decision_time(vehicle_id, day)
+        if owed:
+            owed_days.add(day)
         checked = _source_checked_at(runner, names[0])  # the last download that worked (None: never, or red now)
         attempted = _source_attempted_at(runner, names[0])
         reason, wanted = "", set(names)
@@ -351,7 +352,7 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         detail["raw_snapshots_deleted"] = _compact_raw(runner, fetched)
 
         data = build_desk_data(runner.raw, runner.settings)
-        blocked = _blocked_vehicles(runner)
+        blocked = _blocked_vehicles(runner, desk.vehicles())
         blocked.update(
             {v: why for v, why in _overtaken_by_the_clock(desk, planned_at, now).items() if v not in blocked}
         )
@@ -467,10 +468,15 @@ DESK_REQUIRES: dict[str, tuple[tuple[str, ...], ...]] = {
 }
 
 
-def _blocked_vehicles(runner: LiveRunner) -> dict[str, str]:
+def _blocked_vehicles(runner: LiveRunner, vehicles: Iterable[str] | None = None) -> dict[str, str]:
+    """The vehicles whose books may take no NEW decision on this tick, with the reason. ``vehicles`` restricts
+    the answer to the ones the desk trades (default: every vehicle the desk knows)."""
     status = {str(s.get("source")): str(s.get("status")) for s in runner.health().get("sources", [])}
     blocked: dict[str, str] = {}
+    wanted = set(DESK_REQUIRES) if vehicles is None else set(vehicles)
     for vehicle, alternatives in DESK_REQUIRES.items():
+        if vehicle not in wanted:
+            continue
         usable = any(all(status.get(name, "red") != "red" for name in names) for names in alternatives)
         if not usable:
             names = " o ".join("+".join(a) for a in alternatives)

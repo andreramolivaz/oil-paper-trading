@@ -26,7 +26,7 @@ def _settings(tmp_path) -> Settings:
     return dataclasses.replace(base, state_dir=tmp_path / "state")
 
 
-def test_an_empty_state_exports_four_untouched_books_and_no_made_up_price(tmp_path):
+def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_path):
     settings = _settings(tmp_path)
     written = ex.export_desk(
         settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir), tmp_path / "out"
@@ -35,9 +35,14 @@ def test_an_empty_state_exports_four_untouched_books_and_no_made_up_price(tmp_pa
     text = (tmp_path / "out" / "desk.json").read_text()
     assert "NaN" not in text and "Infinity" not in text
     doc = json.loads(text)
-    assert [b["id"] for b in doc["books"]] == ["prudente", "dinamico", "spinto", "opzioni"]
+    # the core books first, the options book among them, then the candidate books of phase 12
+    assert [b["id"] for b in doc["books"]] == ["prudente", "dinamico", "spinto", "opzioni", "gold", "copper", "agri"]
+    assert [b["role"] for b in doc["books"]] == ["core"] * 4 + ["candidate"] * 3
     assert all(b["equity"] == 10_000.0 and b["pnl_total"] == 0.0 for b in doc["books"])
-    assert doc["total"] == {"equity": 40_000.0, "initial_capital": 40_000.0, "pnl": 0.0, "pnl_pct": 0.0}
+    assert doc["total"] == {"equity": 40_000.0, "initial_capital": 40_000.0, "pnl": 0.0, "pnl_pct": 0.0, "n_books": 4}
+    assert doc["total_candidates"]["equity"] == 30_000.0 and doc["total_candidates"]["n_books"] == 3
+    # a book with nothing in it loses nothing on any gap
+    assert doc["books"][0]["stress"] == {"-30%": 0.0, "-20%": 0.0, "-10%": 0.0, "+10%": 0.0, "+20%": 0.0}
     for key in ("brent", "wti"):
         assert doc["market"][key]["price"] is None and doc["market"][key]["change"] is None
     assert doc["forecast"] == {} and doc["decisions"] == [] and doc["fills"] == [] and doc["backtest"] is None
@@ -115,6 +120,9 @@ def test_the_export_shows_a_short_side_held_in_the_inverse_fund_as_a_short(tmp_p
     assert b["exposure"] == pytest.approx(-2.0 * position["notional"] / b["equity"], abs=1e-3)
     assert b["leverage"] == pytest.approx(-b["exposure"]) and 1.0 < b["leverage"] <= b["cap_today"]
     assert position["notional"] <= b["equity"]  # paid in cash
+    # the gap stress: a short side held in a -2x fund GAINS on a fall of the oil, twice its dollars' worth
+    assert b["stress"]["-20%"] == pytest.approx(-0.2 * b["exposure"], abs=1e-4) and b["stress"]["-20%"] > 0
+    assert b["stress"]["+10%"] == pytest.approx(0.1 * b["exposure"], abs=1e-4) and b["stress"]["+10%"] < 0
     decision = next(d for d in doc["decisions"] if d["book"] == "dinamico")
     assert decision["order_units"] > 0 and decision["legs"][0]["symbol"] == "SCO"  # the order was on the leg
     assert decision["exposure"] < 0 and "tramite SCO" in decision["text"]

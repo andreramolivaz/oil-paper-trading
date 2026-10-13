@@ -365,6 +365,52 @@ def test_without_the_macro_tables_only_the_macro_sleeves_are_silent(tmp_path):
         assert last["combined"] == pytest.approx(float(np.clip(want * (1.0 + 0.75 * 3 / 6), -20.0, 20.0)))
 
 
+# ----------------------------------------------------------------------------------------------- satellites
+def test_a_satellite_fund_is_read_on_its_own_price_and_forecast_on_the_price_source_alone(tmp_path):
+    """The satellite markets (phase 12): a fund's daily table becomes a vehicle series like BNO's - adjusted
+    close as the return, raw bars for the fills - with trend, acceleration and skew on its own history and
+    nothing else; the series of the two oil vehicles do not change by its presence."""
+    from engine.desk.data import SATELLITE_TABLES, fund_bars, price_only_series
+
+    assert set(SATELLITE_TABLES) == {"GLD", "CPER", "DBA"}
+    history = make_desk_raw_frames(n=1100)
+    rng = np.random.default_rng(7)
+    idx = history["bno_daily"].index
+    gold = 150.0 * np.exp(np.cumsum(rng.normal(0.0003, 0.01, size=len(idx))))
+    gld = pd.DataFrame(
+        {"open": gold * 0.999, "high": gold * 1.004, "low": gold * 0.995, "close": gold, "adjclose": gold * 0.98},
+        index=idx,
+    )
+    plain, with_gold = RawStore(tmp_path / "plain"), RawStore(tmp_path / "gold")
+    for entry, frame in history.items():
+        save_raw_frame(plain, entry, frame)
+        save_raw_frame(with_gold, entry, frame)
+    save_raw_frame(with_gold, "gld_daily", gld)
+    base, data = build_desk_data(plain), build_desk_data(with_gold)
+    assert set(base.series) == {"BNO", "MCL"} and set(data.series) == {"BNO", "MCL", "GLD"}
+    assert {"cper_daily", "dba_daily"} <= set(data.meta["missing"]) and "gld_daily" not in data.meta["missing"]
+    for vehicle in ("BNO", "MCL"):  # the oil vehicles are untouched by a satellite's presence
+        pd.testing.assert_frame_equal(base.series[vehicle].forecasts, data.series[vehicle].forecasts)
+    series = data.series["GLD"]
+    bars, returns = fund_bars(gld, "GLD")
+    pd.testing.assert_series_equal(series.returns, returns)
+    assert (series.returns == gld["adjclose"].pct_change().dropna()).all()  # the adjusted close is the return
+    assert (series.bars["close"] == gld["close"].reindex(series.bars.index)).all()  # the raw bars fill orders
+    assert (series.bars["symbol"] == "GLD").all() and (series.return_source == "fondo").all()
+    f = series.forecasts
+    assert list(f.columns) == [*sg.SLEEVES, "combined"]
+    assert f[["carry", "carry_momentum", "copper", "dollar"]].isna().all().all()  # no curve, no other market
+    assert f[["trend", "accel", "skew"]].iloc[-1].notna().all()  # 1100 days: the skew has its history
+    pd.testing.assert_series_equal(f["trend"], sg.trend_forecast(series.returns), check_names=False)
+    pd.testing.assert_series_equal(f["skew"], sg.skew_forecast(series.returns), check_names=False)
+    last = f.iloc[-1]
+    want = np.mean([last["trend"], last["accel"], last["skew"]]) * (1.0 + 0.75 * 2 / 6)  # three sleeves of seven
+    assert last["combined"] == pytest.approx(float(np.clip(want, -20.0, 20.0)))
+    assert series.slope.isna().all() and not series.slope_approx.any()
+    # too short a history is no series at all, never a half-built one
+    assert price_only_series("GLD", gld.iloc[:200]) is None
+
+
 # ----------------------------------------------------------------------------------------------- Hormuz
 def test_hormuz_summary_measures_a_closure_against_the_years_before_it():
     idx = pd.date_range("2024-01-01", "2026-10-04", freq="D")

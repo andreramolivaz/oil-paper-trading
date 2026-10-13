@@ -43,13 +43,20 @@ def _book(vehicle: str = "BNO", **over) -> Book:
 
 
 # ----------------------------------------------------------------------------------------------- config
-def test_the_books_on_file_are_the_three_documented_ones_and_none_exceeds_the_hard_cap():
+def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap():
     books = {b.id: b for b in load_books()}
-    assert list(books) == ["prudente", "dinamico", "spinto"]
+    assert list(books) == ["prudente", "dinamico", "spinto", "gold", "copper", "agri"]
+    assert [b.id for b in books.values() if b.role == "core"] == ["prudente", "dinamico", "spinto"]
     assert books["prudente"].max_leverage == 1.0 and books["prudente"].long_only
     assert books["dinamico"].max_leverage == 2.0 and books["dinamico"].weekend_max_leverage == 1.5
     assert books["spinto"].vehicle == "MCL" and books["spinto"].max_leverage == 10.0 and not books["spinto"].long_only
     assert books["spinto"].weekend_max_leverage == 3.0
+    # the satellite books (phase 12): the prudente rules on another fund, the price source alone, candidates
+    for book_id, vehicle in (("gold", "GLD"), ("copper", "CPER"), ("agri", "DBA")):
+        b = books[book_id]
+        assert b.role == "candidate" and b.vehicle == vehicle and b.long_only and b.short_via is None
+        assert (b.vol_target, b.max_leverage, b.daily_loss_breaker) == (0.12, 1.0, 0.05)
+        assert b.sleeves == {"trend": 1.0, "accel": 1.0, "skew": 1.0}
     for b in books.values():
         assert 0 < b.max_leverage <= HARD_CAP
         assert b.max_leverage <= get_vehicle(b.vehicle).max_leverage + 1e-9  # the broker's margin allows it
@@ -208,7 +215,10 @@ def test_a_book_uses_its_own_sleeve_weights():
     third |= dict.fromkeys(("carry", "carry_momentum", "copper", "dollar"), 1 / 6)
     assert _book().cfg.sleeves == pytest.approx(third)
     for cfg in load_books():
-        assert cfg.sleeves == pytest.approx(third), cfg.id  # no book on file overrides the mix
+        if cfg.role == "core":
+            assert cfg.sleeves == pytest.approx(third), cfg.id  # no core book on file overrides the mix
+        else:
+            assert set(cfg.sleeves) == {"trend", "accel", "skew"}, cfg.id  # a satellite reads its price alone
 
 
 # ----------------------------------------------------------------------------------------------- the short leg

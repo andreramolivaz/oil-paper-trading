@@ -95,15 +95,21 @@ def test_a_vehicle_is_blocked_only_when_what_it_needs_is_red(tmp_path):
         _source("wti_front", "red"),
         _source("gpr", "red"),
     ]
-    assert jobs._blocked_vehicles(_runner(tmp_path, ok)) == {}
+    core = ("BNO", "MCL")
+    assert jobs._blocked_vehicles(_runner(tmp_path, ok), core) == {}
     no_fund = [_source("bno_daily", "red"), _source("cl_contracts", "green")]
-    blocked = jobs._blocked_vehicles(_runner(tmp_path, no_fund))
+    blocked = jobs._blocked_vehicles(_runner(tmp_path, no_fund), core)
     assert list(blocked) == ["BNO"] and "bno_daily" in blocked["BNO"]
     # the WTI book survives the loss of one of its two tables, not of both
     both = [_source("bno_daily", "green"), _source("cl_contracts", "red"), _source("wti_front", "red")]
-    assert list(jobs._blocked_vehicles(_runner(tmp_path, both))) == ["MCL"]
+    assert list(jobs._blocked_vehicles(_runner(tmp_path, both), core)) == ["MCL"]
     # a table never downloaded is not a table that works
-    assert set(jobs._blocked_vehicles(_runner(tmp_path, []))) == {"BNO", "MCL"}
+    assert set(jobs._blocked_vehicles(_runner(tmp_path, []), core)) == {"BNO", "MCL"}
+    # the satellite books (phase 12) each need their fund's daily table and nothing else; a vehicle the desk
+    # does not trade is not in the answer
+    sat = [_source("gld_daily", "green"), _source("cper_daily", "red")]
+    assert set(jobs._blocked_vehicles(_runner(tmp_path, sat), ("GLD", "CPER", "DBA"))) == {"CPER", "DBA"}
+    assert set(jobs._blocked_vehicles(_runner(tmp_path, []))) == {"BNO", "MCL", "GLD", "CPER", "DBA"}
 
 
 def test_the_weekly_table_is_retried_by_a_tick_at_most_once_a_day(tmp_path):
@@ -146,9 +152,11 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
     """The whole "prices" group is about sixty requests to Yahoo and the desk reads three of its tables. Asking
     for all of it at every refresh got the address rate limited, and a rate limit costs the tick its bars."""
     from engine.core.config import RiskConfig
+    from engine.desk.book import load_books
     from engine.desk.live import build_desk
 
-    desk = build_desk(tmp_path / "state", RiskConfig.load())
+    core = [b for b in load_books() if b.role == "core"]
+    desk = build_desk(tmp_path / "state", RiskConfig.load(), core)
     bno, mcl = set(jobs.DESK_VEHICLE_ENTRIES["BNO"]), set(jobs.DESK_VEHICLE_ENTRIES["MCL"])
     context = set(jobs.DESK_CONTEXT_ENTRIES)
     # the fund's own tables, plus the inverse fund a fund book buys to be short
@@ -316,21 +324,84 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
     assert bno <= got and "BNO: decisione del 2026-10-12 da prendere" in why
 
 
+def test_the_satellite_books_tables_are_planned_like_the_funds_and_only_while_a_book_is_on_them(tmp_path):
+    """The satellite funds (phase 12) decide at the fund's time and are read like BNO: their daily table on the
+    tick that owes their decision, once after the close, once a day as a safety net. A vehicle no book is on is
+    never downloaded."""
+    from engine.core.config import RiskConfig
+    from engine.desk.book import load_books
+    from engine.desk.live import build_desk
+
+    desk = build_desk(tmp_path / "state", RiskConfig.load())
+    assert {"GLD", "CPER", "DBA"} <= set(desk.vehicles())
+    sat = {"gld_daily", "cper_daily", "dba_daily"}
+    assert {jobs.DESK_VEHICLE_ENTRIES[v][0] for v in ("GLD", "CPER", "DBA")} == sat
+    others = {n for v, names in jobs.DESK_VEHICLE_ENTRIES.items() if v in ("BNO", "MCL") for n in names}
+    last_night = datetime(2026, 10, 7, 20, 20, tzinfo=UTC)
+    wednesday_decision = datetime(2026, 10, 7, 18, 48, tzinfo=UTC)
+
+    def health(when: datetime | None, sat_when: datetime | None) -> list[dict]:
+        rows = [
+            {"source": n, "status": "green", "last_success_at": wednesday_decision.isoformat()}
+            for n in jobs.DESK_MACRO_ENTRIES
+        ]
+        rows += [
+            {"source": n, "status": "green", "last_success_at": last_night.isoformat()}
+            for n in jobs.DESK_CONTEXT_ENTRIES
+        ]
+        if when is not None:
+            rows += [{"source": n, "status": "green", "last_success_at": when.isoformat()} for n in sorted(others)]
+        if sat_when is not None:
+            rows += [{"source": n, "status": "green", "last_success_at": sat_when.isoformat()} for n in sorted(sat)]
+        return rows
+
+    def entries(now: datetime, when: datetime | None, sat_when: datetime | None) -> set[str]:
+        return jobs._desk_daily_entries(_runner(tmp_path, health(when, sat_when)), desk, now)[0]
+
+    for book in desk.books.values():
+        desk.state.last_decision_day[book.id] = "2026-10-07"
+    morning = datetime(2026, 10, 8, 14, 18, tzinfo=UTC)
+    assert entries(morning, last_night, None) == sat  # never downloaded: asked for at once, alone
+    assert entries(morning, last_night, last_night) == set()
+    # at 15:18 the funds' books owe today's decision: the satellites' tables with BNO's, not MCL's
+    at_1518 = datetime(2026, 10, 8, 19, 18, tzinfo=UTC)
+    desk.state.last_decision_day["spinto"] = "2026-10-08"
+    got = entries(at_1518, last_night, last_night)
+    assert (
+        sat <= got and set(jobs.DESK_VEHICLE_ENTRIES["BNO"]) <= got and not got & set(jobs.DESK_VEHICLE_ENTRIES["MCL"])
+    )
+    for book in desk.books.values():
+        desk.state.last_decision_day[book.id] = "2026-10-08"
+    at_1618 = datetime(2026, 10, 8, 20, 18, tzinfo=UTC)
+    assert sat <= entries(at_1618, at_1518, at_1518)  # the official closes, once
+    later = entries(at_1618 + timedelta(minutes=30), at_1618, at_1618)
+    assert not later & sat and not later & others  # (the slow context tables have their own daily clock)
+    # a desk without the satellite books never asks for their tables
+    core = build_desk(tmp_path / "core", RiskConfig.load(), [b for b in load_books() if b.role == "core"])
+    for book in core.books.values():
+        core.state.last_decision_day[book.id] = "2026-10-07"
+    assert not jobs._desk_daily_entries(_runner(tmp_path, health(last_night, None)), core, morning)[0] & sat
+
+
 def test_a_decision_time_that_passes_during_the_downloads_waits_for_the_next_tick(tmp_path, monkeypatch):
     """What to download is planned on the clock the tick starts with (14:59:52 New York: the fund's decision is
     not due, nothing is asked for it); the decisions are taken on the clock read after the downloads (15:00:03:
     it is due). With a row for today on file from this morning the fund's books decided on it."""
     from engine.core.config import RiskConfig
+    from engine.desk.book import load_books
     from engine.desk.live import build_desk
     from engine.live.runner import LiveRunner
     from tests.synthetic import make_desk_raw_frames, save_raw_frame
 
-    desk = build_desk(tmp_path / "plain", RiskConfig.load())
+    desk = build_desk(tmp_path / "plain", RiskConfig.load(), [b for b in load_books() if b.role == "core"])
     before, after = datetime(2026, 10, 8, 18, 59, 52, tzinfo=UTC), datetime(2026, 10, 8, 19, 0, 3, tzinfo=UTC)
     waits = jobs._overtaken_by_the_clock(desk, before, after)
     assert set(waits) == {"BNO"} and "prossimo giro" in waits["BNO"]  # the future decided at 14:35, long ago
     assert jobs._overtaken_by_the_clock(desk, after, after + timedelta(seconds=9)) == {}
     assert set(jobs._overtaken_by_the_clock(desk, before - timedelta(hours=1), after)) == {"BNO", "MCL"}
+    # the satellite books decide with the fund's books: the same race, the same wait
+    full = build_desk(tmp_path / "full", RiskConfig.load())
+    assert set(jobs._overtaken_by_the_clock(full, before, after)) == {"BNO", "GLD", "CPER", "DBA"}
 
     # the whole tick: tables read at 10:18 with today's running row in them, yesterday's decisions taken
     settings = _settings(tmp_path)
@@ -396,6 +467,9 @@ def test_the_fetcher_downloads_single_tables_by_name_without_the_rest_of_their_g
         ("desk_intraday", "sco_intraday"),
         ("desk_intraday", "cl_intraday"),
         ("desk_intraday", "bz_intraday"),
+        ("desk_intraday", "gld_intraday"),
+        ("desk_intraday", "cper_intraday"),
+        ("desk_intraday", "dba_intraday"),
         ("prices", "wti_front"),
         ("desk", "bno_daily"),
     ]
