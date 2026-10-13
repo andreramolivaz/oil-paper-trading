@@ -698,6 +698,52 @@ ancora misurare, dichiarato qui prima di guardare un numero:
 
 Tabelle: Yahoo via il workflow `research-data` del 13 ottobre (TLT dal 2002, SPY dal 2000, SGOV dal 2020).
 
+**Risultati (misurati la sera stessa, dopo la registrazione; replay reale del desk con le distribuzioni
+accreditate: TLT ne paga una al mese, SPY una a trimestre).**
+
+| Libro (solo long, regole del prudente) | Anni | Sharpe (t) | Rend. annuo | Vol | Perdita max | A costi doppi | Comprato e tenuto |
+|---|---|---|---|---|---|---|---|
+| Treasury 20 anni, TLT | 23,0 | 0,37 (1,8) | +2,1% | 6,0% | −16% | 0,36 | 0,28 (+3,1%, −48%) |
+| S&P 500, SPY | 25,5 | **0,58 (2,9)** | +3,9% | 6,9% | −11% | 0,58 | 0,58 (+9,6%, −55%) |
+
+Sul SPY la regola non batte il fondo tenuto (stesso Sharpe), ne dimezza il rendimento e divide per cinque la
+perdita massima: è un modo di stare in azioni che esce nei ribassi, non un segnale che li anticipa. Il 2022
+resta negativo (−8,1%). Correlazioni con i libri sul greggio fra −0,04 e 0,17; TLT e SPY fra loro −0,18.
+
+| Portafoglio a capitale uguale, dal 30 gennaio 2013 | Sharpe (t) | Rend. annuo | Vol | Perdita max |
+|---|---|---|---|---|
+| I tre libri sul greggio | 0,80 (3,0) | +21,2% | 29,3% | −61% |
+| I tre più oro, rame, agricoltura (i candidati di oggi) | 0,87 (3,2) | +12,8% | 15,2% | −30% |
+| ... più TLT | 0,87 (3,2) | +11,2% | 13,2% | −27% |
+| ... più SPY | 0,91 (3,4) | +11,8% | 13,1% | −25% |
+| ... più TLT e SPY | **0,92 (3,4)** | +10,5% | 11,6% | −23% |
+| Prudente e dinamico più i cinque satelliti | **1,03 (3,8)** | +6,5% | 6,3% | −12% |
+| TLT e SPY da soli | 0,77 (2,9) | +3,3% | 4,3% | −10% |
+
+Gli anni cattivi, con tutti e otto i libri: 2023 −6,1%, 2024 −2,2%, 2025 −5,8% (i tre libri sul greggio da
+soli: −16,7, −19,1, −26,6%); i buoni dimezzati un'altra volta (2014 +23%, 2026 +31%). Il prior era giusto
+nella direzione e nell'ordine di grandezza (+0,05 di Sharpe), con SPY che vale più di TLT.
+
+**Il rendimento della liquidità.** SGOV, rendimento totale per anno: 2020 0,05%, 2021 0,04%, 2022 1,6%, 2023
+5,1%, 2024 5,3%, 2025 4,2%, 2026 2,9% fino al 13 ottobre (3,7% annualizzato). La leva mediana dei libri nel
+replay: prudente 0,09x, dinamico 0,57x, spinto 1,07x (margine: la liquidità resta quasi tutta), oro 0,01x,
+rame 0,28x, agricoltura 0,00x. Nessun replay e nessun libro in linea accredita questo interesse: sul 2023-2025
+mancano circa 4 punti l'anno al prudente e ai satelliti, 2 al dinamico, e nulla fra il 2009 e il 2016, quando
+i buoni rendevano zero. È l'unico rendimento senza rischio di mercato del sistema ed è il tasso del momento,
+non una proprietà della strategia.
+
+**Lettura, per la domanda da cui è partita.** Il miglior portafoglio onesto che questo progetto sa costruire
+vale uno Sharpe di 0,9-1,0 nel campione (meno fuori campione: una parte è selezione dei segnali della fase
+11). Un rendimento atteso del 10-15% l'anno con quello Sharpe richiede il 10-15% di volatilità, che negli
+ultimi tredici anni ha voluto dire perdite massime del 20-30% e un anno su tre in perdita; a un terzo di quel
+rischio (6% di volatilità) si resta sul 6-7% più l'interesse sulla liquidità. «Guadagnare anche se il mercato
+scende» è vero nei crolli, dove il lato short e il trend hanno fatto il 2014, il 2015 e il 2020, e falso nei
+mercati laterali, dove si perde (2023-2025, tre anni su tre). «Senza rischiare» vale solo il tasso dei buoni
+del Tesoro. Che cosa seguirebbe, se il proprietario lo vuole: TLT e SPY come quarto e quinto libro candidato
+(un'ora di lavoro, la macchina dei satelliti esiste); l'interesse sulla liquidità nel broker simulato, con la
+serie dei buoni a 3 mesi (FRED DTB3, senza chiave); il lato short di azioni e obbligazioni con i fondi inversi
+SH e TBF (tabelle da scaricare, stesso meccanismo di SCO). Non seguirebbe nessuna leva in più.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
