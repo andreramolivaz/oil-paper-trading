@@ -372,7 +372,7 @@ def test_a_satellite_fund_is_read_on_its_own_price_and_forecast_on_the_price_sou
     nothing else; the series of the two oil vehicles do not change by its presence."""
     from engine.desk.data import SATELLITE_TABLES, fund_bars, price_only_series
 
-    assert set(SATELLITE_TABLES) == {"GLD", "CPER", "DBA"}
+    assert {"GLD", "CPER", "DBA"} <= set(SATELLITE_TABLES)
     history = make_desk_raw_frames(n=1100)
     rng = np.random.default_rng(7)
     idx = history["bno_daily"].index

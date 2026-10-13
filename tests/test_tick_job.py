@@ -109,7 +109,7 @@ def test_a_vehicle_is_blocked_only_when_what_it_needs_is_red(tmp_path):
     # does not trade is not in the answer
     sat = [_source("gld_daily", "green"), _source("cper_daily", "red")]
     assert set(jobs._blocked_vehicles(_runner(tmp_path, sat), ("GLD", "CPER", "DBA"))) == {"CPER", "DBA"}
-    assert set(jobs._blocked_vehicles(_runner(tmp_path, []))) == {"BNO", "MCL", "GLD", "CPER", "DBA"}
+    assert set(jobs._blocked_vehicles(_runner(tmp_path, []))) == set(jobs.DESK_REQUIRES)
 
 
 def test_the_weekly_table_is_retried_by_a_tick_at_most_once_a_day(tmp_path):
@@ -333,9 +333,11 @@ def test_the_satellite_books_tables_are_planned_like_the_funds_and_only_while_a_
     from engine.desk.live import build_desk
 
     desk = build_desk(tmp_path / "state", RiskConfig.load())
-    assert {"GLD", "CPER", "DBA"} <= set(desk.vehicles())
-    sat = {"gld_daily", "cper_daily", "dba_daily"}
-    assert {jobs.DESK_VEHICLE_ENTRIES[v][0] for v in ("GLD", "CPER", "DBA")} == sat
+    from engine.desk.data import SATELLITE_TABLES
+
+    assert set(SATELLITE_TABLES) <= set(desk.vehicles())
+    sat = {daily for daily, _ in SATELLITE_TABLES.values()}
+    assert {jobs.DESK_VEHICLE_ENTRIES[v][0] for v in SATELLITE_TABLES} == sat
     others = {n for v, names in jobs.DESK_VEHICLE_ENTRIES.items() if v in ("BNO", "MCL") for n in names}
     last_night = datetime(2026, 10, 7, 20, 20, tzinfo=UTC)
     wednesday_decision = datetime(2026, 10, 7, 18, 48, tzinfo=UTC)
@@ -401,7 +403,7 @@ def test_a_decision_time_that_passes_during_the_downloads_waits_for_the_next_tic
     assert set(jobs._overtaken_by_the_clock(desk, before - timedelta(hours=1), after)) == {"BNO", "MCL"}
     # the satellite books decide with the fund's books: the same race, the same wait
     full = build_desk(tmp_path / "full", RiskConfig.load())
-    assert set(jobs._overtaken_by_the_clock(full, before, after)) == {"BNO", "GLD", "CPER", "DBA"}
+    assert set(jobs._overtaken_by_the_clock(full, before, after)) == set(full.vehicles()) - {"MCL"}
 
     # the whole tick: tables read at 10:18 with today's running row in them, yesterday's decisions taken
     settings = _settings(tmp_path)
@@ -470,6 +472,13 @@ def test_the_fetcher_downloads_single_tables_by_name_without_the_rest_of_their_g
         ("desk_intraday", "gld_intraday"),
         ("desk_intraday", "cper_intraday"),
         ("desk_intraday", "dba_intraday"),
+        ("desk_intraday", "tlt_intraday"),
+        ("desk_intraday", "spy_intraday"),
+        ("desk_intraday", "ura_intraday"),
+        ("desk_intraday", "xlu_intraday"),
+        ("desk_intraday", "lit_intraday"),
+        ("desk_intraday", "smh_intraday"),
+        ("desk_intraday", "icln_intraday"),
         ("prices", "wti_front"),
         ("desk", "bno_daily"),
     ]

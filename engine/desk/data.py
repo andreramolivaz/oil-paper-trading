@@ -60,6 +60,14 @@ SATELLITE_TABLES: dict[str, tuple[str, str]] = {
     "GLD": ("gld_daily", "gld_intraday"),
     "CPER": ("cper_daily", "cper_intraday"),
     "DBA": ("dba_daily", "dba_intraday"),
+    # phase 13: bonds, equities and the themes (docs/RESEARCH.md, chapter 9)
+    "TLT": ("tlt_daily", "tlt_intraday"),
+    "SPY": ("spy_daily", "spy_intraday"),
+    "URA": ("ura_daily", "ura_intraday"),
+    "XLU": ("xlu_daily", "xlu_intraday"),
+    "LIT": ("lit_daily", "lit_intraday"),
+    "SMH": ("smh_daily", "smh_intraday"),
+    "ICLN": ("icln_daily", "icln_intraday"),
 }
 SATELLITE_MIN_DAYS = 300  # a fund with less history than the slowest trend filter has no forecast yet
 FAR_MIN_DAYS = 300  # the far contract of the slope is the nearest December at least this far past the front

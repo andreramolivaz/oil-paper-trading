@@ -166,6 +166,13 @@ FRESHNESS: dict[str, timedelta] = {
     "gld_daily": timedelta(days=4),
     "cper_daily": timedelta(days=4),
     "dba_daily": timedelta(days=4),
+    "tlt_daily": timedelta(days=4),
+    "spy_daily": timedelta(days=4),
+    "ura_daily": timedelta(days=4),
+    "xlu_daily": timedelta(days=4),
+    "lit_daily": timedelta(days=4),
+    "smh_daily": timedelta(days=4),
+    "icln_daily": timedelta(days=4),
     "copper_daily": timedelta(days=4),
     "dxy_daily": timedelta(days=4),
     "hormuz": timedelta(days=12),  # published weekly, a week at a time
@@ -183,8 +190,11 @@ NO_PRICE_CHECK = frozenset({"insider_form4"})
 # Intraday tables: the gap between two sessions is not an outlier and a weekend is not a missing business day,
 # so the checks written for daily series (return outliers, calendar gaps) do not apply to them.
 INTRADAY_ENTRIES = frozenset(
-    {"bno_intraday", "sco_intraday", "cl_intraday", "bz_intraday", "gld_intraday", "cper_intraday", "dba_intraday"}
-)
+    {
+        "bno_intraday", "sco_intraday", "cl_intraday", "bz_intraday", "gld_intraday", "cper_intraday", "dba_intraday",
+        "tlt_intraday", "spy_intraday", "ura_intraday", "xlu_intraday", "lit_intraday", "smh_intraday", "icln_intraday",
+    }
+)  # fmt: skip
 # Per-contract tables are CUMULATIVE: Yahoo forgets a contract the day it expires, so each new download is merged
 # with what was already archived. Without this the history of every contract the book ever held would vanish.
 CUMULATIVE_CONTRACTS = frozenset({"cl_contracts", "bz_contracts"})

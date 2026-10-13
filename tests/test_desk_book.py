@@ -45,14 +45,19 @@ def _book(vehicle: str = "BNO", **over) -> Book:
 # ----------------------------------------------------------------------------------------------- config
 def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap():
     books = {b.id: b for b in load_books()}
-    assert list(books) == ["prudente", "dinamico", "spinto", "gold", "copper", "agri"]
+    satellites = {
+        "gold": "GLD", "copper": "CPER", "agri": "DBA",  # phase 12
+        "bonds": "TLT", "equities": "SPY", "uranium": "URA", "utilities": "XLU",  # phase 13
+        "lithium": "LIT", "semis": "SMH", "clean": "ICLN",
+    }  # fmt: skip
+    assert list(books) == ["prudente", "dinamico", "spinto", *satellites]
     assert [b.id for b in books.values() if b.role == "core"] == ["prudente", "dinamico", "spinto"]
     assert books["prudente"].max_leverage == 1.0 and books["prudente"].long_only
     assert books["dinamico"].max_leverage == 2.0 and books["dinamico"].weekend_max_leverage == 1.5
     assert books["spinto"].vehicle == "MCL" and books["spinto"].max_leverage == 10.0 and not books["spinto"].long_only
     assert books["spinto"].weekend_max_leverage == 3.0
-    # the satellite books (phase 12): the prudente rules on another fund, the price source alone, candidates
-    for book_id, vehicle in (("gold", "GLD"), ("copper", "CPER"), ("agri", "DBA")):
+    # the satellite books (phases 12 and 13): the prudente rules on another fund, the price source alone, candidates
+    for book_id, vehicle in satellites.items():
         b = books[book_id]
         assert b.role == "candidate" and b.vehicle == vehicle and b.long_only and b.short_via is None
         assert (b.vol_target, b.max_leverage, b.daily_loss_breaker) == (0.12, 1.0, 0.05)
