@@ -486,6 +486,85 @@ volatilità) e le tre fonti sono d'accordo.
 5. Replica di Ewald e altri (2025) sulla stagionalità infragiornaliera del Brent, l'unico lavoro che dichiara
    un margine dopo i costi: richiede dati al minuto.
 
+## 8. Fase 12 (13 ottobre 2026): altri mercati e nuove fonti, dichiarati prima del test
+
+**Il contesto in cui si decide.** Brent a 106 $ il 13 ottobre 2026 (+70% sull'anno); guerra con l'Iran dal
+28 febbraio, cessate il fuoco dall'8 aprile ma transiti a Hormuz a una frazione della norma; il prezzo è
+passato da 118 (fine marzo) a 70 (1° luglio) a 109 (inizio settembre); volatilità realizzata intorno al 40%,
+curva in backwardation del 25% l'anno fra dicembre 2026 e dicembre 2027; nel fine settimana attacchi a
+petroliere vicino a Hormuz e all'aeroporto di Riad, OPEC+ che produce di più, un «cessate il fuoco energetico»
+Russia-Ucraina incerto. Un mercato di questo tipo premia chi non prevede l'evento e diversifica le scommesse.
+
+**La domanda.** Che cosa si può aggiungere ACCANTO ai quattro libri, che restano come sono, con una prova sui
+dati veri? Il capitolo 7 lo aveva già detto: non più parametri sullo stesso mercato, ma mercati indipendenti
+e fonti di rendimento indipendenti. Tutto ciò che segue è scritto PRIMA di guardare un risultato, con la regola
+di sempre: una regola pubblicata, i parametri del suo autore, una prova sola, tutti i candidati riportati.
+
+### A. Libri satellite: la stessa previsione, su altri mercati
+
+I quattro mercati sono scelti per la forza che li muove, non per il loro storico: il **tempo meteorologico**
+muove il gas naturale e l'agricoltura, la **geopolitica** l'oro (e il greggio, che c'è già), la **domanda di
+elettricità dell'intelligenza artificiale** il rame e il gas. Ognuno diventa un libro di 10 000 $ identico
+nelle regole a uno dei libri esistenti, con la sola fonte di previsione che il suo prezzo contiene (trend,
+accelerazione, asimmetria calcolati sulla serie del fondo stesso: le regole e i parametri di
+`engine/desk/signals.py`, nessuno nuovo). Niente carry (non ne archiviamo la curva) e niente rame/dollaro.
+
+| Libro | Fondo | Lato short | Regole | Costi dichiarati (mezzo spread) |
+|---|---|---|---|---|
+| Oro | GLD | nessuno | prudente: vol 12%, tetto 1x, soglia 5% | 1 pb |
+| Rame | CPER | nessuno | prudente | 8 pb |
+| Gas | UNG | compra KOLD (−2x al giorno) | dinamico: vol 25%, tetto 2x (1,5x nel fine settimana), soglia 8% | 3 pb; KOLD 8 pb |
+| Agricoltura | DBA | nessuno | prudente | 5 pb |
+
+Commissioni zero (Robinhood), modello di slippage del desk, ordine deciso alla chiusura ed eseguito
+all'apertura della seduta dopo, come per BNO. Serie: i prezzi rettificati dei fondi su Yahoo (GLD dal 2004,
+UNG dal 2007, DBA dal 2007, CPER e KOLD dal 2011), le stesse tabelle che il motore scaricherà ogni giorno.
+
+**Che cosa decide la prova.** Niente viene scelto sul risultato: i quattro libri partono in paper trading
+come «candidati», separati dai quattro libri attivi, e si giudicheranno sugli eseguiti veri. L'unico filtro
+dichiarato: un mercato il cui libro ha uno Sharpe dopo i costi NEGATIVO su tutto il suo storico non parte (una
+regola che ha perso soldi per quindici anni su un mercato non ha titolo per riprovarci). Si riportano, per
+ciascuno: Sharpe e t, rendimento annuo, perdita massima, anni positivi, costi, correlazione giornaliera con il
+libro dinamico; e per l'insieme: lo Sharpe del portafoglio dei quattro libri attivi, da solo e con i satelliti
+(capitale uguale), che è il numero che conta.
+
+### B. Nuove fonti sul greggio (solo ricerca: oggi non entrano in nessun libro)
+
+Provate con lo stesso banco della fase 11 (obiettivo di volatilità 15%, 3 punti base sul nozionale, fascia di
+inerzia, posizione presa sul dato del giorno e applicata al rendimento del giorno dopo, WTI dai contratti EIA
+1983-2024 e dal 2024 dal contratto tenuto), così i numeri si confrontano con la tabella dei sedici.
+
+1. **Basis-momentum** (Boons e Prado, *Journal of Finance* 2019): il rendimento composto a 12 mesi del primo
+   contratto meno quello del secondo, entrambi rollati ogni mese; segnale +10 se positivo, −10 se negativo (la
+   versione a indicatore dell'articolo, che riporta coefficienti positivi nelle serie storiche dei singoli
+   mercati, greggio compreso, fino al 2014). Dal vivo non è calcolabile oggi: dal 5 aprile 2024 l'EIA non
+   pubblica più i contratti NYMEX e il secondo contratto non ha una storia gratuita; servono dodici mesi di
+   archivio per contratto (ottobre 2027) o una fonte a pagamento.
+2. **Premio di termine, spread di calendario** (Szymanowska, de Roon, Nijman, van den Goorbergh, *JF* 2014;
+   Boons e Prado sugli «spreading returns»): lungo il primo contratto e corto il terzo quando la curva è in
+   backwardation, il contrario in contango, segno della base del giorno prima; rendimento dai contratti EIA
+   1-4, obiettivo di volatilità 25%, costi di due gambe /MCL (1,27 $ per lotto per lato, 1,5 pb). Un libro
+   su spread non esiste nel motore: si misura prima di costruirlo.
+3. **Indice di rischio geopolitico giornaliero** (Caldara e Iacoviello, *AER* 2022): esplorativo, senza regola
+   pubblicata di negoziazione. La media a 30 giorni dell'indice contro la sua media a un anno, in unità di
+   deviazione standard; segno positivo = lungo greggio. Dichiarato in anticipo: qualunque sia il risultato NON
+   entra in un libro, serve solo a dire se valga la pena disegnare una fonte geopolitica.
+
+Non provati, e perché: il **tempo meteorologico sul Brent** non ha una regola (gli uragani muovono i margini
+della benzina, l'inverno i distillati: i mercati del tempo sono il gas e l'agricoltura della parte A); i
+**transiti a Hormuz** sono un solo evento (n = 1: si mostrano, non si misurano); i segnali da **notizie letti
+da un modello linguistico** non si possono misurare sul passato (il modello lo conosce già) e solo un paper
+trading in avanti li può giudicare.
+
+### C. Un conto, non otto
+
+Lo Sharpe che interessa è quello del portafoglio: i libri attivi insieme, poi con i satelliti, a capitale
+uguale. La correlazione fra i rendimenti giornalieri dei libri è riportata per intero.
+
+### Risultati
+
+*(scritti dopo la prova, sotto questa riga; la parte sopra non viene toccata)*
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
