@@ -1,9 +1,9 @@
-/** Reset: stato dell'epoca corrente, token opzionale nel browser, dispatch del workflow e storico delle epoche.
+/** Reset: the state of the current epoch, an optional token kept in the browser, the workflow dispatch and the
+ * history of the epochs.
  *
- * Questa pagina ARCHIVIA il conto, quindi la parte interattiva non è stata toccata nel merito: il reset resta un
- * workflow GitHub (mai un'azione del browser), il pulsante resta disattivato finché il campo non contiene
- * esattamente RESET, e senza token si apre la pagina del workflow invece di inventare una scorciatoia. Qui sono
- * cambiate solo la geometria del form (campi e pulsanti del nuovo sistema) e la provenienza dei numeri.
+ * This page ARCHIVES an account, so the interactive part is deliberately plain: the reset stays a GitHub
+ * workflow (never a browser action), the button stays disabled until the field holds exactly RESET, and
+ * without a token it opens the workflow page instead of inventing a shortcut.
  */
 import { config, dispatchUrl, workflowUrl } from "../config";
 import { load } from "../data";
@@ -26,7 +26,7 @@ import type { DeskDoc } from "../desk";
 import type { EpochRow, EpochsDoc, SummaryDoc } from "../types";
 
 const TOKEN_KEY = "opt_gh_token";
-/** Il testo di conferma è una costante del workflow, non un parametro dell'interfaccia. */
+/** The confirmation text is a constant of the workflow, not a parameter of the interface. */
 const CONFIRM = "RESET";
 
 export async function renderReset(el: HTMLElement): Promise<void> {
@@ -41,82 +41,80 @@ export async function renderReset(el: HTMLElement): Promise<void> {
   const dead = Boolean(acct.dead);
   const token = readToken();
 
-  // Lo storico arriva in ordine cronologico: l'epoca più recente va in cima.
+  // The history arrives in chronological order: the most recent epoch goes on top.
   const epochRows = (epochs.data?.epochs ?? []).slice().reverse();
   const current = epochRows.find((e) => e.current);
 
-  // Senza summary.json non si può dichiarare il conto operativo: l'assenza va detta, non riempita.
+  // Without summary.json the account cannot be declared operational: absence is said, not filled.
   const status =
     summary.data === null
-      ? `<div class="banner warn">Stato del conto non disponibile: <code>summary.json</code> non risponde${
+      ? `<div class="banner warn">Account state unavailable: <code>summary.json</code> does not answer${
           summary.error ? ` (${escapeHtml(summary.error)})` : ""
-        }. Il reset resta comunque possibile: è un workflow su GitHub e non dipende da questa pagina.</div>`
+        }. The reset is still possible: it is a GitHub workflow and does not depend on this page.</div>`
       : dead
-        ? `<div class="banner bad">Il conto è azzerato: il trading è fermo e riparte solo dopo il reset.</div>`
-        : `<div class="banner info">Il conto è operativo (equity ${money(acct.equity)}). Il reset è disponibile in qualsiasi
-           momento, con conferma.</div>`;
+        ? `<div class="banner bad">The account is wiped out: trading is stopped and resumes only after a reset.</div>`
+        : `<div class="banner info">The account is operational (equity ${money(acct.equity)}). The reset is available at any
+           time, with confirmation.</div>`;
 
   const stateStrip = `<div class="strip">
-    ${stat("Epoca", contracts(acct.epoch))}
+    ${stat("Epoch", contracts(acct.epoch))}
     ${stat("Equity", withUnit(money(acct.equity)))}
-    ${stat("P&L epoca", withUnit(signedUsd(acct.pnl_total)), tone(acct.pnl_total))}
-    ${stat("Capitale iniziale", withUnit(notional(initial)))}
-    ${stat("Operazioni", contracts(current?.n_trades))}
-    ${stat("Aperta il", stamp(current?.started_ts))}
+    ${stat("P&L this epoch", withUnit(signedUsd(acct.pnl_total)), tone(acct.pnl_total))}
+    ${stat("Initial capital", withUnit(notional(initial)))}
+    ${stat("Trades", contracts(current?.n_trades))}
+    ${stat("Opened", stamp(current?.started_ts))}
   </div>`;
 
-  const tokenState = `<span class="chip ${token ? "good" : ""}" id="token-state">${
-    token ? "token salvato" : "nessun token"
-  }</span>`;
+  const tokenState = `<span class="chip ${token ? "good" : ""}" id="token-state">${token ? "token saved" : "no token"}</span>`;
 
-  const form = `<p style="margin-top:0">Con un token fine-grained salvato in questo browser (permesso <em>Actions: write</em> solo su questo
-     repository) il pulsante avvia il workflow direttamente. Senza token, il pulsante apre la pagina del workflow
-     su GitHub, dove parte con un clic.</p>
+  const form = `<p style="margin-top:0">With a fine-grained token saved in this browser (permission <em>Actions: write</em> on this
+     repository only) the button starts the workflow directly. Without a token, the button opens the workflow page on
+     GitHub, where it starts with one click.</p>
     <div style="display:grid;gap:8px;margin-top:14px">
-      <label class="label" for="token">Token fine-grained</label>
-      <p class="muted" style="margin:0">Resta solo nel tuo browser, non viene mai inviato altrove.</p>
+      <label class="label" for="token">Fine-grained token</label>
+      <p class="muted" style="margin:0">It stays in your browser only and is never sent anywhere else.</p>
       <input id="token" type="password" placeholder="github_pat_…" value="${escapeHtml(token)}" autocomplete="off"
         spellcheck="false" />
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn secondary sm" id="btn-save-token">Salva token</button>
-        <button class="btn secondary sm" id="btn-clear-token">Rimuovi token</button>
+        <button class="btn secondary sm" id="btn-save-token">Save token</button>
+        <button class="btn secondary sm" id="btn-clear-token">Remove token</button>
       </div>
     </div>
     <div style="display:grid;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-      <label class="label" for="book">Che cosa riportare a ${notional(initial)}</label>
+      <label class="label" for="book">What to bring back to ${notional(initial)}</label>
       <select id="book">
-        <option value="all">Tutto: i quattro libri e il conto del sistema precedente</option>
-        ${books.map((b) => `<option value="${escapeHtml(b.id)}">Solo il libro ${escapeHtml(b.name)} (${escapeHtml(b.vehicle)})</option>`).join("")}
+        <option value="all">Everything: every book and the first system's account</option>
+        ${books.map((b) => `<option value="${escapeHtml(b.id)}">Only the ${escapeHtml(b.name)} book (${escapeHtml(b.vehicle)})</option>`).join("")}
       </select>
-      <label class="label" for="confirm" style="margin-top:8px">Scrivi ${CONFIRM} per confermare</label>
-      <p class="muted" style="margin:0">Il pulsante resta disattivato finché il campo non contiene esattamente
-        <code>${CONFIRM}</code>.</p>
+      <label class="label" for="confirm" style="margin-top:8px">Type ${CONFIRM} to confirm</label>
+      <p class="muted" style="margin:0">The button stays disabled until the field holds exactly <code>${CONFIRM}</code>.</p>
       <input id="confirm" type="text" placeholder="${CONFIRM}" autocomplete="off" spellcheck="false" />
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">
-        <button class="btn danger" id="btn-reset" disabled>Riporta a ${notional(initial)}</button>
-        <a class="btn secondary" href="${escapeHtml(workflowUrl())}" target="_blank" rel="noopener">Apri il workflow su GitHub</a>
+        <button class="btn danger" id="btn-reset" disabled>Bring back to ${notional(initial)}</button>
+        <a class="btn secondary" href="${escapeHtml(workflowUrl())}" target="_blank" rel="noopener">Open the workflow on GitHub</a>
       </div>
     </div>
     <div id="reset-result" style="margin-top:12px" aria-live="polite"></div>`;
 
   el.innerHTML =
-    pageTitle("Reset", `Riporta un libro, o tutto, a ${notional(initial)} archiviando la sua vita corrente`) +
+    pageTitle("Reset", `Bring a book, or everything, back to ${notional(initial)}, archiving its current life`) +
     originBanner(epochs, epochs.data?.generated_at) +
-    card("I quattro libri", bookTable(books), src("engine/desk", desk.data?.generated_at)) +
+    card("The books", bookTable(books), src("engine/desk", desk.data?.generated_at)) +
     status +
-    card("Conto del sistema precedente", stateStrip, src("engine/broker", acct.asof)) +
+    card("The first system's account", stateStrip, src("engine/broker", acct.asof)) +
     card(
-      "Come funziona",
-      `<p style="margin-top:0">Il reset è un workflow GitHub (<code>reset.yml</code>), non un'azione del browser: così lo stato
-       ufficiale resta uno solo ed è tracciato. Il workflow archivia la vita corrente del libro scelto (o di tutti),
-       chiude le posizioni all'ultimo prezzo e riparte da ${notional(initial)}. Il motore lo vede al giro successivo.</p>
-       <p class="muted" style="margin:8px 0 0">Lo storico non viene riscritto: ogni epoca archiviata conserva equity iniziale,
-       massima, minima e finale e il numero di operazioni, e resta nella tabella qui sotto.</p>
-       <p class="muted" style="margin:8px 0 0">Servono i permessi di scrittura dei workflow nel repository
-       ${escapeHtml(config.owner)}/${escapeHtml(config.repo)}.</p>`,
+      "How it works",
+      `<p style="margin-top:0">The reset is a GitHub workflow (<code>reset.yml</code>), not a browser action: that way the
+       official state stays one and is tracked. The workflow archives the current life of the chosen book (or of all of
+       them), closes the positions at the last price and starts again from ${notional(initial)}. The engine sees it on the
+       next tick.</p>
+       <p class="muted" style="margin:8px 0 0">The history is not rewritten: every archived epoch keeps its initial, highest,
+       lowest and final equity and its number of trades, and stays in the table below.</p>
+       <p class="muted" style="margin:8px 0 0">Write permission on the workflows of
+       ${escapeHtml(config.owner)}/${escapeHtml(config.repo)} is required.</p>`,
     ) +
-    card("Avvia il reset", form, tokenState) +
-    card("Storico delle vite del conto", epochTable(epochRows), src("engine/live", epochs.data?.generated_at));
+    card("Start the reset", form, tokenState) +
+    card("History of the account's lives", epochTable(epochRows), src("engine/live", epochs.data?.generated_at));
 
   const confirmInput = document.getElementById("confirm") as HTMLInputElement | null;
   const bookSelect = document.getElementById("book") as HTMLSelectElement | null;
@@ -132,14 +130,14 @@ export async function renderReset(el: HTMLElement): Promise<void> {
     if (tokenInput && tokenInput.value.trim()) {
       writeToken(tokenInput.value.trim());
       paintTokenChip(tokenChip, true);
-      if (result) result.innerHTML = note("Token salvato in questo browser.");
+      if (result) result.innerHTML = note("Token saved in this browser.");
     }
   });
   document.getElementById("btn-clear-token")?.addEventListener("click", () => {
     writeToken(null);
     if (tokenInput) tokenInput.value = "";
     paintTokenChip(tokenChip, false);
-    if (result) result.innerHTML = note("Token rimosso.");
+    if (result) result.innerHTML = note("Token removed.");
   });
   resetBtn?.addEventListener("click", async () => {
     const stored = readToken() || (tokenInput?.value.trim() ?? "");
@@ -147,14 +145,14 @@ export async function renderReset(el: HTMLElement): Promise<void> {
       window.open(workflowUrl(), "_blank", "noopener");
       if (result)
         result.innerHTML = note(
-          `Nessun token: ho aperto la pagina del workflow su GitHub, dove puoi avviarlo con un clic
-           (conferma: ${CONFIRM}; libro: ${escapeHtml(bookSelect?.value ?? "all")}).`,
+          `No token: the workflow page on GitHub is open, where you can start it with one click
+           (confirmation: ${CONFIRM}; book: ${escapeHtml(bookSelect?.value ?? "all")}).`,
           "warn",
         );
       return;
     }
     resetBtn.disabled = true;
-    if (result) result.innerHTML = note("Invio della richiesta…");
+    if (result) result.innerHTML = note("Sending the request…");
     try {
       const res = await fetch(dispatchUrl(), {
         method: "POST",
@@ -169,35 +167,31 @@ export async function renderReset(el: HTMLElement): Promise<void> {
       if (res.status === 204) {
         if (result)
           result.innerHTML = note(
-            `Reset avviato. Il workflow archivia l'epoca e riparte da ${notional(initial)}; la dashboard si
-             aggiorna al prossimo ciclo.`,
+            `Reset started. The workflow archives the epoch and starts again from ${notional(initial)}; the page updates
+             on the next tick.`,
             "",
             "var(--good)",
           );
       } else {
         const text = await res.text();
-        if (result)
-          result.innerHTML = note(`GitHub ha risposto ${res.status}: ${escapeHtml(text.slice(0, 300))}`, "bad");
+        if (result) result.innerHTML = note(`GitHub answered ${res.status}: ${escapeHtml(text.slice(0, 300))}`, "bad");
       }
     } catch (err) {
       if (result)
-        result.innerHTML = note(
-          `Richiesta non riuscita: ${escapeHtml(err instanceof Error ? err.message : String(err))}`,
-          "bad",
-        );
+        result.innerHTML = note(`The request failed: ${escapeHtml(err instanceof Error ? err.message : String(err))}`, "bad");
     } finally {
       resetBtn.disabled = false;
     }
   });
 }
 
-/** I libri del desk: quanto valgono adesso e da quando. È ciò che il reset azzera. */
+/** The desk's books: what they are worth now and since when. It is what the reset wipes. */
 function bookTable(books: DeskDoc["books"]): string {
-  if (!books.length) return empty("Stato dei libri non disponibile.", "desk.json non risponde: il reset resta possibile.");
+  if (!books.length) return empty("Book state unavailable.", "desk.json does not answer: the reset is still possible.");
   const body = books
     .map(
       (b) => `<tr>
-        <td>${escapeHtml(b.name)}</td>
+        <td>${escapeHtml(b.name)}${b.role === "candidate" ? ' <span class="muted">candidate</span>' : ""}</td>
         <td>${escapeHtml(b.vehicle)}</td>
         <td class="num">${cell(num(b.equity))}</td>
         <td class="num ${tone(b.pnl_total)}">${cell(signedUsd(b.pnl_total))}</td>
@@ -207,18 +201,18 @@ function bookTable(books: DeskDoc["books"]): string {
     )
     .join("");
   return `<div class="table-wrap"><table class="data">
-    <thead><tr><th>Libro</th><th>Strumento</th><th class="num">Equity <span class="unit">$</span></th>
-      <th class="num">P&amp;L</th><th class="num">Vita n.</th><th>Iniziata <span class="unit">Europa/Roma</span></th></tr></thead>
+    <thead><tr><th>Book</th><th>Instrument</th><th class="num">Equity <span class="unit">$</span></th>
+      <th class="num">P&amp;L</th><th class="num">Life</th><th>Started <span class="unit">New York</span></th></tr></thead>
     <tbody>${body}</tbody></table></div>`;
 }
 
-/** Lo storico delle epoche. Le unità stanno nelle intestazioni: le celle portano la cifra nuda, così la
- *  colonna resta allineata. L'equity è denaro, quindi due decimali anche quando finiscono in ",00". */
+/** The history of the epochs. Units sit in the headers: the cells carry the bare figure, so the column stays
+ *  aligned. Equity is money, hence two decimals even when they end in ".00". */
 function epochTable(rows: EpochRow[]): string {
   if (!rows.length)
     return empty(
-      "Nessuna epoca archiviata: il conto è alla sua prima vita.",
-      "La tabella si apre al primo reset: ogni epoca conserva inizio, fine, equity iniziale, massima, minima e finale, le operazioni e la causa della chiusura.",
+      "No archived epoch: the account is in its first life.",
+      "The table opens at the first reset: every epoch keeps its start, end, initial, highest, lowest and final equity, its trades and the reason it ended.",
     );
   const body = rows
     .map(
@@ -231,27 +225,27 @@ function epochTable(rows: EpochRow[]): string {
         <td class="num">${cell(num(e.min_equity))}</td>
         <td class="num">${cell(num(e.end_equity))}</td>
         <td class="num">${cell(contracts(e.n_trades))}</td>
-        <td>${e.current ? '<span class="chip info">in corso</span>' : escapeHtml(endReason(e.end_reason))}</td>
+        <td>${e.current ? '<span class="chip info">current</span>' : escapeHtml(endReason(e.end_reason))}</td>
       </tr>`,
     )
     .join("");
   return `<div class="table-wrap tall"><table class="data">
     <thead><tr>
-      <th class="num">Epoca</th>
-      <th>Inizio <span class="unit">Europa/Roma</span></th>
-      <th>Fine <span class="unit">Europa/Roma</span></th>
-      <th class="num">Equity iniziale <span class="unit">$</span></th>
-      <th class="num">Equity massima <span class="unit">$</span></th>
-      <th class="num">Equity minima <span class="unit">$</span></th>
-      <th class="num">Equity finale <span class="unit">$</span></th>
-      <th class="num">Operazioni</th>
-      <th>Esito</th>
+      <th class="num">Epoch</th>
+      <th>Start <span class="unit">New York</span></th>
+      <th>End <span class="unit">New York</span></th>
+      <th class="num">Initial equity <span class="unit">$</span></th>
+      <th class="num">Highest equity <span class="unit">$</span></th>
+      <th class="num">Lowest equity <span class="unit">$</span></th>
+      <th class="num">Final equity <span class="unit">$</span></th>
+      <th class="num">Trades</th>
+      <th>Outcome</th>
     </tr></thead>
     <tbody>${body}</tbody>
   </table></div>`;
 }
 
-/** I messaggi del form vivono dentro la card: non portano il margine inferiore del banner di pagina. */
+/** The form's messages live inside the card: they do not carry the page banner's bottom margin. */
 function note(html: string, cls = "", accent = ""): string {
   const style = `margin-bottom:0${accent ? `;border-left-color:${accent}` : ""}`;
   return `<div class="banner ${cls}" style="${style}">${html}</div>`;
@@ -260,11 +254,11 @@ function note(html: string, cls = "", accent = ""): string {
 function paintTokenChip(chip: HTMLElement | null, saved: boolean): void {
   if (!chip) return;
   chip.className = `chip ${saved ? "good" : ""}`;
-  chip.textContent = saved ? "token salvato" : "nessun token";
+  chip.textContent = saved ? "token saved" : "no token";
 }
 
-/** localStorage può lanciare (Safari in navigazione privata): un token irraggiungibile vale come assente,
- *  e in quel caso il pulsante apre GitHub invece di fallire in silenzio. */
+/** localStorage can throw (Safari in private browsing): an unreachable token counts as absent, and in that
+ *  case the button opens GitHub instead of failing silently. */
 function readToken(): string {
   try {
     return localStorage.getItem(TOKEN_KEY) ?? "";
@@ -278,17 +272,17 @@ function writeToken(value: string | null): void {
     if (value === null) localStorage.removeItem(TOKEN_KEY);
     else localStorage.setItem(TOKEN_KEY, value);
   } catch {
-    /* niente da salvare: il flusso senza token resta valido */
+    /* nothing to save: the flow without a token still works */
   }
 }
 
-/** In tabella una cifra assente è un trattino, non la "n/d" delle tile. */
+/** In a table a missing figure is a dash, not the "n/a" of the tiles. */
 function cell(formatted: string): string {
   return formatted === EMPTY ? DASH : formatted;
 }
 
 function endReason(value: string | null | undefined): string {
-  if (value === "reset_manual") return "Reset manuale";
-  if (value === "dead") return "Conto azzerato";
+  if (value === "reset_manual") return "Manual reset";
+  if (value === "dead") return "Account wiped out";
   return value ?? DASH;
 }

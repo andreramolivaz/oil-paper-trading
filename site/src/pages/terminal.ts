@@ -1,25 +1,25 @@
-/** The terminal: one screen of text for the desk's four paper books.
+/** The terminal: one screen of text for the desk's paper books.
  *
- * It answers, top to bottom, the questions somebody opening the page actually has: what is oil doing, what
- * does the model think, what does each book hold and why, what happened lately, is the machine alive. No
- * number is computed here: the page formats what `desk.json` carries and says "n/d" for what it does not.
+ * Top to bottom it answers the questions somebody opening the page has: what is oil doing, what does the model
+ * think, what does each book hold and what would a gap do to it, what happened lately, is the machine alive.
+ * No number is computed here: the page formats what `desk.json` carries and says "n/a" for what it does not.
  */
 import { lineChart, lineLegend, type LineSeries } from "../charts/lines";
 import { repoUrl } from "../config";
 import { load } from "../data";
-import { bookColor, type Book, type DeskDoc, type ForecastBlock, type OptionUnderlying, type Quote } from "../desk";
+import { bookColor, portfolios, type Book, type DeskDoc, type ForecastBlock, type OptionUnderlying, type Quote } from "../desk";
 import { EMPTY, escapeHtml, leverage, num, percent, relative, signedPercent, signedUsd, tone, usd } from "../format";
 
 const MINUS = "−";
 
-/** dd/MM HH:mm in the reader's own time zone (the header says which). */
+/** dd MMM HH:mm in the reader's own time zone (the header says which). */
 function clock(iso: string | null | undefined): string {
   if (!iso) return EMPTY;
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return EMPTY;
-  return new Intl.DateTimeFormat("it-IT", {
+  return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
-    month: "2-digit",
+    month: "short",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
@@ -28,12 +28,12 @@ function clock(iso: string | null | undefined): string {
 
 function zoneName(): string {
   try {
-    const part = new Intl.DateTimeFormat("it-IT", { timeZoneName: "short" })
+    const part = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" })
       .formatToParts(new Date())
       .find((p) => p.type === "timeZoneName");
-    return part?.value ?? "ora locale";
+    return part?.value ?? "local time";
   } catch {
-    return "ora locale";
+    return "local time";
   }
 }
 
@@ -41,7 +41,7 @@ function day(iso: string | null | undefined): string {
   if (!iso) return EMPTY;
   const t = Date.parse(iso.length <= 10 ? `${iso}T12:00:00Z` : iso);
   if (Number.isNaN(t)) return EMPTY;
-  return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short", timeZone: "UTC" }).format(t);
+  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" }).format(t);
 }
 
 function signed(value: number | null | undefined, digits = 1): string {
@@ -63,33 +63,31 @@ function section(title: string, body: string, note = ""): string {
 // ---------------------------------------------------------------------------------------------- header
 function engineState(doc: DeskDoc): { cls: string; text: string } {
   const ageMin = (Date.now() - Date.parse(doc.generated_at)) / 60000;
-  if (!Number.isFinite(ageMin)) return { cls: "warn", text: "stato del motore n/d" };
+  if (!Number.isFinite(ageMin)) return { cls: "warn", text: "engine state n/a" };
   const ny = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
   const dow = ny.getDay();
   const hm = ny.getHours() * 60 + ny.getMinutes();
   const weekend = dow === 6 || (dow === 5 && hm >= 18 * 60 + 30) || (dow === 0 && hm < 17 * 60 + 30);
-  if (ageMin <= 50) return { cls: "ok", text: "motore attivo" };
-  if (weekend) return { cls: "dim", text: "mercati chiusi: riparte domenica 17:30 New York" };
-  if (ageMin <= 180) return { cls: "warn", text: `motore in ritardo (ultimo giro ${relative(doc.generated_at)})` };
-  return { cls: "bad", text: `motore fermo da ${relative(doc.generated_at).replace(" fa", "")}` };
+  if (ageMin <= 50) return { cls: "ok", text: "engine running" };
+  if (weekend) return { cls: "dim", text: "markets closed: back Sunday 17:30 New York" };
+  if (ageMin <= 180) return { cls: "warn", text: `engine late (last tick ${relative(doc.generated_at)})` };
+  return { cls: "bad", text: `engine stopped ${relative(doc.generated_at)}` };
 }
 
 function dataState(doc: DeskDoc): { cls: string; text: string } {
   const h = doc.health;
-  if (h.overall === "green") return { cls: "ok", text: `dati ok (${h.n_green}/${h.n_sources})` };
-  if (h.overall === "yellow") return { cls: "ok", text: `dati ok, ${h.n_sources - h.n_green} fonti secondarie parziali` };
-  if (h.overall === "red") return { cls: "bad", text: "una fonte critica non risponde: nessuna nuova decisione" };
-  return { cls: "dim", text: "stato dei dati n/d" };
+  if (h.overall === "green") return { cls: "ok", text: `data ok (${h.n_green}/${h.n_sources})` };
+  if (h.overall === "yellow") return { cls: "ok", text: `data ok, ${h.n_sources - h.n_green} secondary sources partial` };
+  if (h.overall === "red") return { cls: "bad", text: "a critical source is down: no new decisions" };
+  return { cls: "dim", text: "data state n/a" };
 }
 
 function header(doc: DeskDoc, origin: string | null): string {
   const eng = engineState(doc);
   const dat = dataState(doc);
-  const from = origin === "live" ? "" : origin === "bundled" ? " · copia inclusa nel sito" : origin === "sample" ? " · DATI DI ESEMPIO" : "";
+  const from = origin === "live" ? "" : origin === "bundled" ? " · copy bundled with the site" : origin === "sample" ? " · SAMPLE DATA" : "";
   return `<div class="t-status">
-    <span>aggiornato ${escapeHtml(clock(doc.generated_at))} ${escapeHtml(zoneName())} · ${escapeHtml(
-      relative(doc.generated_at),
-    )}${escapeHtml(from)}</span>
+    <span>updated ${escapeHtml(clock(doc.generated_at))} ${escapeHtml(zoneName())} · ${escapeHtml(relative(doc.generated_at))}${escapeHtml(from)}</span>
     <span class="t-dot ${eng.cls}">${escapeHtml(eng.text)}</span>
     <span class="t-dot ${dat.cls}">${escapeHtml(dat.text)}</span>
   </div>`;
@@ -102,7 +100,7 @@ function quoteCell(q: Quote | undefined): string {
   return `<div class="t-quote">
     <div class="k">${escapeHtml(q.name)} <span class="t-dim">${escapeHtml(q.symbol)}</span></div>
     <div class="v">${q.price === null ? EMPTY : num(q.price, 2)} ${toneSpan(q.change, signedPercent(q.change, 1))}</div>
-    <div class="s${stale ? " warn" : ""}">${q.asof ? escapeHtml(clock(q.asof)) : "nessun prezzo"}</div>
+    <div class="s${stale ? " warn" : ""}">${q.asof ? escapeHtml(clock(q.asof)) : "no price"}</div>
   </div>`;
 }
 
@@ -112,7 +110,7 @@ function market(doc: DeskDoc): string {
   const cells = [quoteCell(m.brent), quoteCell(m.wti), quoteCell(m.bno)];
   if (m.ovx) {
     cells.push(`<div class="t-quote">
-      <div class="k">OVX <span class="t-dim">vol. implicita</span></div>
+      <div class="k">OVX <span class="t-dim">implied vol</span></div>
       <div class="v">${num(m.ovx.value, 1)}</div>
       <div class="s">${escapeHtml(day(m.ovx.asof))}</div>
     </div>`);
@@ -122,29 +120,28 @@ function market(doc: DeskDoc): string {
     cells.push(`<div class="t-quote">
       <div class="k">${escapeHtml(q.name)}</div>
       <div class="v">${num(q.value, 2)}</div>
-      <div class="s">chiusura del ${escapeHtml(day(q.asof))}</div>
+      <div class="s">close of ${escapeHtml(day(q.asof))}</div>
     </div>`);
   }
   if (fc && fc.slope !== null) {
-    const back = fc.slope > 0;
     cells.push(`<div class="t-quote">
-      <div class="k">Curva Brent <span class="t-dim">${escapeHtml(fc.slope_pair)}${fc.slope_approx ? " ≈" : ""}</span></div>
-      <div class="v">${signedPercent(fc.slope, 1)}<span class="t-dim">/anno</span></div>
-      <div class="s">${back ? "backwardation: il vicino vale più del lontano" : "contango: il lontano vale più del vicino"}</div>
+      <div class="k">Brent curve <span class="t-dim">${escapeHtml(fc.slope_pair)}${fc.slope_approx ? " ≈" : ""}</span></div>
+      <div class="v">${signedPercent(fc.slope, 1)}<span class="t-dim">/year</span></div>
+      <div class="s">${fc.slope > 0 ? "backwardation: the near month is worth more" : "contango: the far month is worth more"}</div>
     </div>`);
   }
   if (m.hormuz) {
     const h = m.hormuz;
     cells.push(`<div class="t-quote">
-      <div class="k">Hormuz <span class="t-dim">petroliere/giorno</span></div>
-      <div class="v">${num(h.tankers_7d, 1)} ${span(h.closed ? "down" : "", `${percent(h.ratio, 0)} del normale`)}</div>
-      <div class="s">media 7 giorni al ${escapeHtml(day(h.asof))} · norma ${num(h.baseline, 0)}</div>
+      <div class="k">Hormuz <span class="t-dim">tankers/day</span></div>
+      <div class="v">${num(h.tankers_7d, 1)} ${span(h.closed ? "down" : "", `${percent(h.ratio, 0)} of normal`)}</div>
+      <div class="s">7-day mean to ${escapeHtml(day(h.asof))} · normal ${num(h.baseline, 0)}</div>
     </div>`);
   }
   return section(
-    "Mercato",
+    "Market",
     `<div class="t-quotes">${cells.join("")}</div>`,
-    "prezzi Yahoo in ritardo di 10-15 minuti · rame e dollaro: chiusure giornaliere Yahoo · Hormuz: IMF PortWatch (AIS), settimanale",
+    "Yahoo prices, 10-15 minutes late · copper and dollar: daily closes · Hormuz: IMF PortWatch (AIS), weekly",
   );
 }
 
@@ -153,13 +150,12 @@ function forecastTable(doc: DeskDoc): string {
   const cols: { key: string; title: string; f: ForecastBlock }[] = [];
   if (doc.forecast.BNO) cols.push({ key: "BNO", title: "Brent · BNO", f: doc.forecast.BNO });
   if (doc.forecast.MCL) cols.push({ key: "MCL", title: "WTI · /MCL", f: doc.forecast.MCL });
-  if (!cols.length) return section("Previsione", `<div class="t-empty">Nessuna previsione: mancano le serie giornaliere.</div>`);
+  if (!cols.length) return section("Forecast", `<div class="t-empty">No forecast: the daily series are missing.</div>`);
   const row = (label: string, hint: string, pick: (f: ForecastBlock) => string, cls = ""): string =>
     `<tr${cls ? ` class="${cls}"` : ""}><th scope="row">${escapeHtml(label)}<small>${escapeHtml(hint)}</small></th>${cols
       .map((c) => `<td class="n">${pick(c.f)}</td>`)
       .join("")}</tr>`;
   const fc = (v: number | null | undefined): string => toneSpan(v ?? null, signed(v ?? null, 1));
-  // a source is the average of its sleeves and a third of the forecast; the sleeves are listed under it
   const source = (label: string, hint: string, pick: (f: ForecastBlock) => number | null | undefined): string =>
     row(label, hint, (f) => `<b>${fc(pick(f))}</b>`, "t-group");
   const sleeve = (label: string, hint: string, pick: (f: ForecastBlock) => number | null): string =>
@@ -171,115 +167,138 @@ function forecastTable(doc: DeskDoc): string {
   const body = `<div class="t-scroll"><table class="t-table t-forecast">
     <thead><tr><th></th>${cols.map((c) => `<th class="n">${escapeHtml(c.title)}</th>`).join("")}</tr></thead>
     <tbody>
-      ${source("Il prezzo del greggio", "media delle tre righe sotto · un terzo della previsione", (f) => f.sources?.prezzo)}
-      ${sleeve("Trend", "quattro medie mobili, 8-32 fino a 64-256 giorni", (f) => f.trend)}
-      ${sleeve("Accelerazione", "il trend di oggi meno quello di 16, 32 e 64 giorni fa", (f) => f.accel)}
-      ${sleeve("Asimmetria (skew)", "cadute rare e grandi più del solito: chi resta è pagato · misurata sul WTI", (f) => f.skew)}
-      ${source("La curva dei future", "media delle due righe sotto · un terzo", (f) => f.sources?.curva)}
-      ${sleeve("Carry", "pendenza della curva: +10 in backwardation", (f) => f.carry)}
-      ${sleeve("Carry-momentum", "pendenza sopra o sotto la sua media a 20 giorni", (f) => f.carry_momentum)}
-      ${source("Gli altri mercati", "media delle due righe sotto · un terzo", (f) => f.sources?.macro)}
-      ${sleeve("Rame", "trend del rame: sale quando il ciclo globale tira", (f) => f.copper)}
-      ${sleeve("Dollaro", "trend del dollaro a segno invertito: un dollaro che scende aiuta il greggio", (f) => f.dollar)}
-      <tr class="t-total"><th scope="row">Previsione<small>media delle tre fonti × 1,75 · scala da ${MINUS}20 a +20; +10 è una convinzione normale</small></th>${cols
+      ${source("Price of crude", "one third of the forecast", (f) => f.sources?.prezzo)}
+      ${sleeve("Trend", "four moving-average pairs, 8/32 to 64/256 days", (f) => f.trend)}
+      ${sleeve("Acceleration", "today's trend minus 16, 32 and 64 days ago", (f) => f.accel)}
+      ${sleeve("Skew", "rare large falls more than usual: holders get paid · read on WTI", (f) => f.skew)}
+      ${source("Futures curve", "one third", (f) => f.sources?.curva)}
+      ${sleeve("Carry", "+10 in backwardation, −10 in contango", (f) => f.carry)}
+      ${sleeve("Carry momentum", "slope above or below its 20-day mean", (f) => f.carry_momentum)}
+      ${source("Other markets", "one third · read at the previous close", (f) => f.sources?.macro)}
+      ${sleeve("Copper", "copper trend: the global cycle", (f) => f.copper)}
+      ${sleeve("Dollar", "dollar trend, sign inverted", (f) => f.dollar)}
+      <tr class="t-total"><th scope="row">Forecast<small>sources averaged × 1.75 · ${MINUS}20 to +20; +10 is a normal conviction</small></th>${cols
         .map(
           (c) =>
-            `<td class="n"><b>${fc(c.f.combined)}</b> <span class="t-dim">ieri ${signed(c.f.combined_prev, 1)}</span></td>`,
+            `<td class="n"><b>${fc(c.f.combined)}</b> <span class="t-dim">yesterday ${signed(c.f.combined_prev, 1)}</span></td>`,
         )
         .join("")}</tr>
-      ${row("Volatilità", "annua, ultimi due mesi circa", (f) => percent(f.vol, 0))}
-      ${row("Dato del", "ultima seduta nel calcolo", (f) => `${escapeHtml(day(f.day))}${f.approx ? " ≈" : ""}`)}
-      ${row("Rame e dollaro al", "l'ultima chiusura letta: sempre quella della seduta prima", macroDay)}
+      ${row("Volatility", "annualised, last two months", (f) => percent(f.vol, 0))}
+      ${row("Data as of", "last session in the calculation", (f) => `${escapeHtml(day(f.day))}${f.approx ? " ≈" : ""}`)}
+      ${row("Copper and dollar as of", "the previous session's close", macroDay)}
     </tbody></table></div>`;
-  return section("Previsione", body, "la stessa per tutti i libri su quello strumento: cambia solo quanta ne comprano");
+  return section("Forecast", body, "the same for every book on that instrument: only the size differs");
 }
 
 // ---------------------------------------------------------------------------------------------- books
 const STATUS: Record<string, { cls: string; text: string }> = {
-  active: { cls: "ok", text: "attivo" },
-  halted_breaker: { cls: "warn", text: "fermo fino a domani (perdita giornaliera)" },
-  halted_stale: { cls: "warn", text: "fermo: dati non aggiornati" },
-  dead: { cls: "bad", text: "azzerato: serve un reset" },
+  active: { cls: "ok", text: "active" },
+  halted_breaker: { cls: "warn", text: "halted until tomorrow (daily loss)" },
+  halted_stale: { cls: "warn", text: "halted: stale data" },
+  dead: { cls: "bad", text: "wiped out: needs a reset" },
 };
 
 function positionText(b: Book): string {
   if (b.kind === "options") {
     const n = b.structures?.length ?? 0;
-    if (!n) return span("t-dim", "nessuna struttura aperta");
-    return `${n} spread di put · rischio massimo ${usd(b.max_loss_open ?? null, 0)} (${percent(b.max_loss_open_pct ?? null, 1)})`;
+    if (!n) return span("t-dim", "no open structure");
+    return `${n} put spread${n > 1 ? "s" : ""} · max risk ${usd(b.max_loss_open ?? null, 0)} (${percent(b.max_loss_open_pct ?? null, 1)})`;
   }
   const parts: string[] = [];
   for (const p of b.positions ?? []) {
     parts.push(
-      `${p.side} ${num(Math.abs(p.units), 0)} ${escapeHtml(p.unit)} ${escapeHtml(p.symbol)} a ${num(p.avg_price, 2)} ${toneSpan(
+      `${p.side} ${num(Math.abs(p.units), 0)} ${escapeHtml(p.unit)} ${escapeHtml(p.symbol)} at ${num(p.avg_price, 2)} ${toneSpan(
         p.unrealized,
         signedUsd(p.unrealized, 0),
       )}`,
     );
   }
   for (const o of b.pending ?? []) {
-    parts.push(span("warn", `ordine in coda: ${signed(o.units, 0)} ${escapeHtml(o.symbol)}`));
+    parts.push(span("warn", `order queued: ${signed(o.units, 0)} ${escapeHtml(o.symbol)}`));
   }
-  return parts.length ? parts.join(" · ") : span("t-dim", "in contanti");
+  return parts.length ? parts.join(" · ") : span("t-dim", "in cash");
 }
 
 function capText(b: Book): string {
-  if (b.kind === "options") return "rischio definito";
+  if (b.kind === "options") return "defined risk";
   const cap = b.cap_today ?? (b.rules.max_leverage as number | undefined) ?? null;
-  return `${leverage(cap)}${b.cap_reduced_today ? " <span class='warn'>prima della chiusura</span>" : ""}`;
+  return `${leverage(cap)}${b.cap_reduced_today ? " <span class='warn'>pre-closure</span>" : ""}`;
+}
+
+function stressText(b: Book): string {
+  if (b.kind === "options") return span("t-dim", "by structure");
+  const v = b.stress?.["-20%"];
+  if (v === null || v === undefined) return EMPTY;
+  return toneSpan(v, signedPercent(v, 1));
+}
+
+function bookRow(b: Book): string {
+  const st = STATUS[b.status] ?? { cls: "dim", text: b.status };
+  return `<tr>
+    <th scope="row"><span class="t-key" style="--sw:${bookColor(b.id)}"></span>${escapeHtml(b.name)}${
+      b.experimental ? ' <span class="t-dim">experimental</span>' : ""
+    }<small>${escapeHtml(b.vehicle)}</small></th>
+    <td class="n" data-l="Equity $"><b>${num(b.equity, 2)}</b></td>
+    <td class="n" data-l="Today">${toneSpan(b.pnl_day, signedPercent(b.pnl_day_pct, 2))}</td>
+    <td class="n" data-l="Since start">${toneSpan(b.pnl_total, signedPercent(b.pnl_total_pct, 2))}</td>
+    <td class="n" data-l="From peak">${b.drawdown ? `${MINUS}${percent(b.drawdown, 1)}` : "0%"}</td>
+    <td class="n" data-l="Leverage">${leverage(b.leverage)}</td>
+    <td class="n" data-l="Cap">${capText(b)}</td>
+    <td class="n" data-l="If −20% gap">${stressText(b)}</td>
+    <td class="w" data-l="Position">${positionText(b)}</td>
+    <td class="s"><span class="t-dot ${st.cls}">${escapeHtml(st.text)}</span></td>
+  </tr>`;
+}
+
+function totalRow(label: string, t: DeskDoc["total"] | undefined, note: string): string {
+  if (!t) return "";
+  return `<tr class="t-total"><th scope="row">${escapeHtml(label)}</th><td class="n" data-l="Equity $"><b>${num(t.equity, 2)}</b></td><td class="x"></td>
+    <td class="n" data-l="Since start">${toneSpan(t.pnl, signedPercent(t.pnl_pct, 2))}</td><td colspan="6" class="t-dim w">${escapeHtml(note)}</td></tr>`;
 }
 
 function booksTable(doc: DeskDoc): string {
-  const rows = doc.books
-    .map((b) => {
-      const st = STATUS[b.status] ?? { cls: "dim", text: b.status };
-      return `<tr>
-        <th scope="row"><span class="t-key" style="--sw:${bookColor(b.id)}"></span>${escapeHtml(b.name)}${
-          b.experimental ? ' <span class="t-dim">sperimentale</span>' : ""
-        }<small>${escapeHtml(b.vehicle)}</small></th>
-        <td class="n" data-l="Equity $"><b>${num(b.equity, 2)}</b></td>
-        <td class="n" data-l="Oggi">${toneSpan(b.pnl_day, signedPercent(b.pnl_day_pct, 2))}</td>
-        <td class="n" data-l="Da inizio">${toneSpan(b.pnl_total, signedPercent(b.pnl_total_pct, 2))}</td>
-        <td class="n" data-l="Dal massimo">${b.drawdown ? `${MINUS}${percent(b.drawdown, 1)}` : "0%"}</td>
-        <td class="n" data-l="Leva">${leverage(b.leverage)}</td>
-        <td class="n" data-l="Tetto">${capText(b)}</td>
-        <td class="w" data-l="Posizione">${positionText(b)}</td>
-        <td class="s"><span class="t-dot ${st.cls}">${escapeHtml(st.text)}</span></td>
-      </tr>`;
-    })
-    .join("");
-  const t = doc.total;
+  const core = doc.books.filter((b) => (b.role ?? "core") === "core");
+  const candidates = doc.books.filter((b) => b.role === "candidate");
+  const capital = num(doc.books[0]?.initial_capital ?? 10000, 0);
+  const candidateRows = candidates.length
+    ? `<tr class="t-break"><th scope="row" colspan="10" class="t-dim w">Candidates · paper books beside the four, same rules as the prudent book on their own price, judged on real fills before anybody trusts them</th></tr>
+      ${candidates.map(bookRow).join("")}
+      ${totalRow("Candidates", doc.total_candidates, `${candidates.length} separate accounts of ${capital} $ each`)}`
+    : "";
   const body = `<div class="t-scroll"><table class="t-table t-books">
     <thead><tr>
-      <th>Libro</th><th class="n">Equity $</th><th class="n">Oggi</th><th class="n">Da inizio</th>
-      <th class="n">Dal massimo</th><th class="n">Leva</th><th class="n">Tetto</th><th>Posizione</th><th>Stato</th>
+      <th>Book</th><th class="n">Equity $</th><th class="n">Today</th><th class="n">Since start</th>
+      <th class="n">From peak</th><th class="n">Leverage</th><th class="n">Cap</th><th class="n">If ${MINUS}20% gap</th><th>Position</th><th>State</th>
     </tr></thead>
-    <tbody>${rows}</tbody>
-    <tfoot><tr><th scope="row">Totale</th><td class="n" data-l="Equity $"><b>${num(t.equity, 2)}</b></td><td class="x"></td>
-      <td class="n" data-l="Da inizio">${toneSpan(t.pnl, signedPercent(t.pnl_pct, 2))}</td><td colspan="5" class="t-dim w">quattro
-      conti separati da ${num(doc.books[0]?.initial_capital ?? 10000, 0)} $ ciascuno: il totale è solo una somma</td></tr></tfoot>
+    <tbody>${core.map(bookRow).join("")}
+    ${totalRow("Total", doc.total, `${core.length} separate accounts of ${capital} $ each: the total is only a sum`)}
+    ${candidateRows}</tbody>
   </table></div>
   <div class="t-chart" id="t-equity"></div><div id="t-equity-legend"></div>`;
-  return section("Libri", body, "paper trading: nessun ordine reale, nessun broker collegato");
+  return section(
+    "Books",
+    body,
+    `paper trading: no real orders, no broker · "if ${MINUS}20% gap": the book's loss on a 20% gap of its instrument at today's position, before any stop`,
+  );
 }
 
 function ruleLine(b: Book): string {
   const r = b.rules;
   if (b.kind === "options") {
     const dte = (r.dte as number[] | undefined) ?? [];
-    return `Vende uno spread di put solo con previsione ≥ +${num(r.forecast_threshold as number, 0)}; put venduta a delta ${num(
+    return `Sells one put spread only with a forecast ≥ +${num(r.forecast_threshold as number, 0)}; put sold at delta ${num(
       r.short_delta as number,
       2,
-    )}, scadenza a ${dte[1] ?? "30"} giorni circa; perdita massima ${percent(r.risk_per_structure as number, 0)} del conto per
-    struttura, ${r.max_open ?? 2} strutture al massimo; gambe quotate entro il ${percent(r.max_leg_spread as number, 0)} del prezzo,
-    eseguite a un quarto dello spread dal lato peggiore.`;
+    )}, about ${dte[1] ?? "30"} days to expiry; maximum loss ${percent(r.risk_per_structure as number, 0)} of the account per structure,
+    at most ${r.max_open ?? 2} structures; legs quoted within ${percent(r.max_leg_spread as number, 0)} of their price, filled a quarter
+    of the spread from the bad side.`;
   }
   const weekend = r.weekend_max_leverage as number | null | undefined;
-  return `Obiettivo di volatilità ${percent(r.vol_target as number, 0)} · tetto di leva ${leverage(r.max_leverage as number)}${
-    weekend !== null && weekend !== undefined ? ` (${leverage(weekend)} prima di un fine settimana o di una festa)` : ""
-  } · ${r.long_only ? "solo long" : r.short_via ? `long e short (short comprando ${escapeHtml(String(r.short_via))})` : "long e short"} · margine ${percent(r.margin_rate as number, 0)} · decisione alle ${escapeHtml(
+  return `Volatility target ${percent(r.vol_target as number, 0)} · leverage cap ${leverage(r.max_leverage as number)}${
+    weekend !== null && weekend !== undefined ? ` (${leverage(weekend)} before a weekend or a holiday)` : ""
+  } · ${r.long_only ? "long only" : r.short_via ? `long and short (short by buying ${escapeHtml(String(r.short_via))})` : "long and short"} · margin ${percent(r.margin_rate as number, 0)} · decision at ${escapeHtml(
     String(r.decision_time_ny ?? ""),
-  )} di New York · stop giornaliero a ${MINUS}${percent(r.daily_loss_breaker as number, 0)}.`;
+  )} New York · daily stop at ${MINUS}${percent(r.daily_loss_breaker as number, 0)}.`;
 }
 
 function bookDetails(doc: DeskDoc): string {
@@ -287,36 +306,42 @@ function bookDetails(doc: DeskDoc): string {
     .map((b) => {
       const d = b.last_decision;
       const costs = b.costs
-        ? `spread e slippage ${usd(b.costs.spread_and_slippage, 2)} · commissioni ${usd(b.costs.commission, 2)} · interessi ${usd(
+        ? `spread and slippage ${usd(b.costs.spread_and_slippage, 2)} · commissions ${usd(b.costs.commission, 2)} · interest ${usd(
             b.costs.financing,
             2,
           )}`
         : "";
       const liq =
         b.liquidation_price !== null && b.liquidation_price !== undefined
-          ? `<p>Prezzo di liquidazione forzata: <b>${num(b.liquidation_price, 2)}</b> (il broker chiude quando il margine non basta più).</p>`
+          ? `<p>Forced liquidation price: <b>${num(b.liquidation_price, 2)}</b> (the broker closes the position when the margin is no longer enough).</p>`
           : "";
+      const stress = b.stress
+        ? `<p class="t-dim">On a gap of the instrument, at today's position and before any stop: ${Object.entries(b.stress)
+            .map(([move, v]) => `${escapeHtml(move)} → ${signedPercent(v, 1)}`)
+            .join(" · ")}.</p>`
+        : "";
       const structures = (b.structures ?? [])
         .map(
           (s) =>
-            `<p>${escapeHtml(s.underlying)} put ${num(s.short.strike, 0)}/${num(s.long.strike, 0)} scadenza ${escapeHtml(
+            `<p>${escapeHtml(s.underlying)} put ${num(s.short.strike, 0)}/${num(s.long.strike, 0)} expiring ${escapeHtml(
               day(s.expiry),
-            )} × ${s.contracts}: incassati ${num(s.credit, 2)}, ora vale ${num(s.mark, 2)}${s.mark_stale ? " (prezzo fermo)" : ""};
-            guadagno massimo ${usd(s.max_gain, 0)}, perdita massima ${usd(s.max_loss, 0)}, pareggio a ${num(s.breakeven, 2)}${
-              s.awaiting_close ? " · scaduta, in attesa del prezzo di chiusura ufficiale" : ""
+            )} × ${s.contracts}: credit ${num(s.credit, 2)}, now worth ${num(s.mark, 2)}${s.mark_stale ? " (stale mark)" : ""};
+            max gain ${usd(s.max_gain, 0)}, max loss ${usd(s.max_loss, 0)}, breakeven ${num(s.breakeven, 2)}${
+              s.awaiting_close ? " · expired, waiting for the official close" : ""
             }.</p>`,
         )
         .join("");
       return `<details class="t-details">
         <summary><span class="t-key" style="--sw:${bookColor(b.id)}"></span><b>${escapeHtml(b.name)}</b>
-          <span class="t-dim">${escapeHtml(b.robinhood ?? b.vehicle)}</span></summary>
+          <span class="t-dim">${escapeHtml(b.robinhood ?? b.vehicle)}${b.role === "candidate" ? " · candidate" : ""}</span></summary>
         <p>${escapeHtml(b.description)}</p>
         <p class="t-dim">${ruleLine(b)}</p>
         ${structures}
-        ${d ? `<p><span class="t-dim">Ultima decisione, ${escapeHtml(clock(d.ts))}:</span> ${escapeHtml(d.rationale ?? "")}</p>` : ""}
+        ${d ? `<p><span class="t-dim">Last decision, ${escapeHtml(clock(d.ts))}:</span> ${escapeHtml(d.rationale ?? "")}</p>` : ""}
+        ${stress}
         ${liq}
-        ${b.last_roll ? `<p class="t-dim">Ultimo roll: ${escapeHtml(b.last_roll)}</p>` : ""}
-        ${costs ? `<p class="t-dim">Costi pagati finora: ${costs}. Eseguiti: ${b.n_fills ?? 0}.</p>` : ""}
+        ${b.last_roll ? `<p class="t-dim">Last roll: ${escapeHtml(b.last_roll)}</p>` : ""}
+        ${costs ? `<p class="t-dim">Costs paid so far: ${costs}. Fills: ${b.n_fills ?? 0}.</p>` : ""}
         ${b.note ? `<p class="t-dim">${escapeHtml(b.note)}</p>` : ""}
         ${b.rules.short_note ? `<p class="t-dim">${escapeHtml(String(b.rules.short_note))}</p>` : ""}
       </details>`;
@@ -327,45 +352,47 @@ function bookDetails(doc: DeskDoc): string {
 // ---------------------------------------------------------------------------------------------- activity
 function decisions(doc: DeskDoc): string {
   if (!doc.decisions.length) {
-    return section("Decisioni", `<div class="t-empty">Nessuna decisione ancora: la prima arriva al primo giro dopo le 15:00 di New York.</div>`);
+    return section("Decisions", `<div class="t-empty">No decision yet: the first comes on the first tick after 15:00 New York.</div>`);
   }
   const names = new Map(doc.books.map((b) => [b.id, b.name]));
   const rows = doc.decisions
-    .slice(0, 16)
+    .slice(0, 14)
     .map((d) => {
       const acted = Boolean(d.order_units);
       return `<tr>
         <td class="t-nowrap">${escapeHtml(clock(d.ts))}</td>
         <td class="t-nowrap"><span class="t-key" style="--sw:${bookColor(d.book)}"></span>${escapeHtml(names.get(d.book) ?? d.book)}</td>
-        <td class="w">${acted ? "" : '<span class="t-dim">nessun ordine · </span>'}${escapeHtml(d.text ?? "")}</td>
+        <td class="w">${acted ? "" : '<span class="t-dim">no order · </span>'}${escapeHtml(d.text ?? "")}</td>
       </tr>`;
     })
     .join("");
   return section(
-    "Decisioni",
+    "Decisions",
     `<div class="t-scroll"><table class="t-table t-log t-stack"><tbody>${rows}</tbody></table></div>`,
-    "una al giorno per libro, scritta anche quando non segue nessun ordine",
+    "one a day per book, written even when no order follows",
   );
 }
 
 function fills(doc: DeskDoc): string {
   if (!doc.fills.length) {
-    return section("Eseguiti", `<div class="t-empty">Nessun eseguito ancora. Un ordine si esegue sulla prima barra da 30 minuti che inizia dopo la decisione.</div>`);
+    return section("Fills", `<div class="t-empty">No fill yet. An order fills on the first 30-minute bar that starts after the decision.</div>`);
   }
   const names = new Map(doc.books.map((b) => [b.id, b.name]));
   const REASON: Record<string, string> = {
-    signal: "ingresso",
-    rebalance: "ribilanciamento",
+    signal: "entry",
+    rebalance: "rebalance",
     roll: "roll",
-    margin_call: "margine",
-    liquidation: "liquidazione",
-    circuit_breaker: "stop giornaliero",
+    margin_call: "margin",
+    liquidation: "liquidation",
+    circuit_breaker: "daily stop",
     reset: "reset",
-    apertura: "apertura",
-    scadenza: "scadenza",
+    open: "open",
+    expiry: "expiry",
+    apertura: "open",
+    scadenza: "expiry",
   };
   const rows = doc.fills
-    .slice(0, 20)
+    .slice(0, 16)
     .map(
       (f) => `<tr>
         <td class="t-nowrap">${escapeHtml(clock(f.ts))}</td>
@@ -380,12 +407,12 @@ function fills(doc: DeskDoc): string {
     )
     .join("");
   return section(
-    "Eseguiti",
+    "Fills",
     `<div class="t-scroll"><table class="t-table t-log">
-      <thead><tr><th>Quando</th><th>Libro</th><th class="n">Quantità</th><th>Strumento</th><th class="n">Prezzo</th>
-      <th class="n">Costo</th><th>Motivo</th><th class="n">P&amp;L chiuso</th></tr></thead>
+      <thead><tr><th>When</th><th>Book</th><th class="n">Quantity</th><th>Instrument</th><th class="n">Price</th>
+      <th class="n">Cost</th><th>Reason</th><th class="n">Closed P&amp;L</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`,
-    "prezzo dopo spread e slippage; il costo è la distanza dal prezzo di riferimento",
+    "price after spread and slippage; the cost is the distance from the reference price",
   );
 }
 
@@ -394,44 +421,41 @@ function optionRow(u: OptionUnderlying): string {
   const noChain = u.price === undefined || u.price === null;
   if (noChain) {
     return `<tr><th scope="row">${escapeHtml(u.symbol)}<small>${escapeHtml(u.label)}</small></th>
-      <td colspan="7" class="t-dim">nessuna catena di opzioni archiviata</td></tr>`;
+      <td colspan="7" class="t-dim">no option chain archived</td></tr>`;
   }
   return `<tr>
     <th scope="row">${escapeHtml(u.symbol)}<small>${escapeHtml(u.label)}</small></th>
     <td class="n">${num(u.price, 2)}</td>
     <td class="n">${percent(u.atm_iv ?? u.iv30 ?? null, 0)}</td>
     <td class="n">${percent(u.realized_vol, 0)}</td>
-    <td class="n">${u.straddle_pct === null || u.straddle_pct === undefined ? EMPTY : `±${percent(u.straddle_pct, 1)}`}<small>entro il ${escapeHtml(
+    <td class="n">${u.straddle_pct === null || u.straddle_pct === undefined ? EMPTY : `±${percent(u.straddle_pct, 1)}`}<small>by ${escapeHtml(
       day(u.expiry),
     )}</small></td>
     <td class="n">${span(u.tradeable ? "" : "down", percent(u.median_rel_spread ?? null, 0))}<small>${
-      u.tradeable ? "negoziabile" : "troppo largo"
+      u.tradeable ? "tradeable" : "too wide"
     }</small></td>
-    <td class="n">${toneSpan(u.forecast, signed(u.forecast, 1))}<small>soglia +${num(u.threshold, 0)}</small></td>
-    <td class="w">${u.gate.open ? span("up", "condizioni soddisfatte") : escapeHtml(u.gate.reason)}</td>
+    <td class="n">${toneSpan(u.forecast, signed(u.forecast, 1))}<small>threshold +${num(u.threshold, 0)}</small></td>
+    <td class="w">${u.gate.open ? span("up", "all conditions met") : escapeHtml(u.gate.reason)}</td>
   </tr>`;
 }
 
 function candidateLine(u: OptionUnderlying, open: boolean): string {
   const c = u.candidate;
-  if (u.price === undefined || u.price === null) return ""; // no chain: the table row already says so
+  if (u.price === undefined || u.price === null) return "";
   if (!c) {
     return u.no_candidate_reason
-      ? `<p class="t-dim">${escapeHtml(u.symbol)}: nessuna struttura negoziabile ${
-          open ? "adesso" : "sulle ultime quotazioni della seduta"
-        }. ${escapeHtml(u.no_candidate_reason)}.</p>`
+      ? `<p class="t-dim">${escapeHtml(u.symbol)}: no tradeable structure ${open ? "right now" : "on the session's last quotes"}. ${escapeHtml(
+          u.no_candidate_reason,
+        )}.</p>`
       : "";
   }
-  // after the close the chain holds the session's last quotes: nothing can be sold "now"
-  const lead = open
-    ? "la struttura che il libro venderebbe ora:"
-    : "a mercato chiuso, sulle ultime quotazioni della seduta la struttura sarebbe:";
-  return `<p><span class="t-dim">${escapeHtml(u.symbol)}, ${lead}</span> put ${num(
-    c.short.strike,
+  const lead = open ? "what the book would sell now:" : "market closed; on the session's last quotes the structure would be:";
+  return `<p><span class="t-dim">${escapeHtml(u.symbol)}, ${lead}</span> put ${num(c.short.strike, 0)}/${num(c.long.strike, 0)} expiring ${escapeHtml(
+    day(c.expiry),
+  )} (${c.dte} days) · credit ${num(c.credit, 2)} $ per share (${num(c.credit_mid, 2)} at the mid) · max loss ${usd(
+    c.max_loss_per_contract,
     0,
-  )}/${num(c.long.strike, 0)} scadenza ${escapeHtml(day(c.expiry))} (${c.dte} giorni) · incasso ${num(c.credit, 2)} $ per azione
-    (${num(c.credit_mid, 2)} a metà prezzo) · perdita massima ${usd(c.max_loss_per_contract, 0)} · pareggio a ${num(c.breakeven, 2)},
-    il ${percent(c.breakeven / c.underlying_price - 1, 1)} dal prezzo.</p>`;
+  )} · breakeven ${num(c.breakeven, 2)}, ${percent(c.breakeven / c.underlying_price - 1, 1)} from the price.</p>`;
 }
 
 function options(doc: DeskDoc): string {
@@ -439,43 +463,59 @@ function options(doc: DeskDoc): string {
   const mon = book?.monitor;
   if (!book || !mon || !mon.underlyings.some((u) => u.price !== undefined && u.price !== null)) {
     return section(
-      "Opzioni",
-      `<div class="t-empty">Il libro delle opzioni non ha ancora letto una catena: le quotazioni si scaricano nelle ore di
-      mercato di New York, e la decisione si prende una volta al giorno dopo le 15:00.</div>`,
+      "Options",
+      `<div class="t-empty">The options book has not read a chain yet: quotes are downloaded in New York market hours and the
+      decision is taken once a day after 15:00.</div>`,
     );
   }
   const body = `<div class="t-scroll"><table class="t-table t-options">
-    <thead><tr><th>Sottostante</th><th class="n">Prezzo</th><th class="n">Vol. implicita</th><th class="n">Vol. realizzata</th>
-      <th class="n">Mossa prezzata</th><th class="n">Denaro-lettera</th><th class="n">Previsione</th><th>Oggi</th></tr></thead>
+    <thead><tr><th>Underlying</th><th class="n">Price</th><th class="n">Implied vol</th><th class="n">Realised vol</th>
+      <th class="n">Priced move</th><th class="n">Bid-ask</th><th class="n">Forecast</th><th>Today</th></tr></thead>
     <tbody>${mon.underlyings.map(optionRow).join("")}</tbody></table></div>
     ${mon.underlyings.map((u) => candidateLine(u, mon.session_open !== false)).join("")}
-    <p class="t-dim">«Mossa prezzata» è il costo di call più put alla pari: quanto deve muoversi il fondo, in su o in giù, perché
-    comprare entrambe vada in pari. Dal 2007 quel prezzo è stato in media più alto della mossa che è seguita: comprare tutte e due
-    le direzioni ha perso, e il libro non lo fa.</p>`;
-  return section("Opzioni", body, "quotazioni Cboe in ritardo di 15 minuti · letto " + escapeHtml(clock(mon.generated_at)));
+    <p class="t-dim">"Priced move" is the cost of a call plus a put at the money: how far the fund must move, up or down, for
+    buying both to break even. Since 2007 that price has on average exceeded the move that followed: buying both ways
+    lost, and the book does not do it.</p>`;
+  return section("Options", body, `Cboe quotes, 15 minutes late · read ${escapeHtml(clock(mon.generated_at))}`);
 }
 
 // ---------------------------------------------------------------------------------------------- backtest
 function backtest(doc: DeskDoc): string {
   const bt = doc.backtest;
   if (!bt) {
-    return section("Backtest", `<div class="t-empty">Il backtest viene calcolato al primo giro che ha i dati e poi ogni settimana: non è ancora stato pubblicato.</div>`);
+    return section("Backtest", `<div class="t-empty">The backtest is computed on the first tick that has the data, then weekly: not published yet.</div>`);
   }
   const names = new Map(doc.books.map((b) => [b.id, b.name]));
-  const rows = Object.entries(bt.books)
-    .map(([id, b]) => {
-      const s = b.stats;
-      return `<tr>
-        <th scope="row"><span class="t-key" style="--sw:${bookColor(id)}"></span>${escapeHtml(names.get(id) ?? id)}<small>${escapeHtml(
-          b.vehicle,
-        )} · ${num(s.years ?? null, 0)} anni</small></th>
-        <td class="n">${signedPercent(s.cagr ?? null, 1)}</td>
-        <td class="n">${percent(s.vol ?? null, 0)}</td>
-        <td class="n">${num(s.sharpe ?? null, 2)}<small>t ${num(s.t_stat ?? null, 1)}</small></td>
-        <td class="n down">${percent(s.max_drawdown ?? null, 0)}</td>
-        <td class="n">${leverage(s.leverage_p95 ?? null)}<small>max ${leverage(s.leverage_max ?? null)}</small></td>
-        <td class="n">${percent(b.ruin?.p_lose_half ?? null, 1)}</td>
-        <td class="n">${num(b.double_cost_sharpe, 2)}</td>
+  const roles = new Map(doc.books.map((b) => [b.id, b.role ?? "core"]));
+  const order = new Map(doc.books.map((b, i) => [b.id, i]));
+  const entries = Object.entries(bt.books).sort(([a], [b]) => (order.get(a) ?? 99) - (order.get(b) ?? 99));
+  const rowOf = ([id, b]: (typeof entries)[number]): string => {
+    const s = b.stats;
+    return `<tr>
+      <th scope="row"><span class="t-key" style="--sw:${bookColor(id)}"></span>${escapeHtml(names.get(id) ?? id)}<small>${escapeHtml(
+        b.vehicle,
+      )} · ${num(s.years ?? null, 0)} years</small></th>
+      <td class="n">${signedPercent(s.cagr ?? null, 1)}</td>
+      <td class="n">${percent(s.vol ?? null, 0)}</td>
+      <td class="n">${num(s.sharpe ?? null, 2)}<small>t ${num(s.t_stat ?? null, 1)}</small></td>
+      <td class="n down">${percent(s.max_drawdown ?? null, 0)}</td>
+      <td class="n">${leverage(s.leverage_p95 ?? null)}<small>max ${leverage(s.leverage_max ?? null)}</small></td>
+      <td class="n">${percent(b.ruin?.p_lose_half ?? null, 1)}</td>
+      <td class="n">${num(b.double_cost_sharpe, 2)}</td>
+    </tr>`;
+  };
+  const coreRows = entries.filter(([id]) => roles.get(id) !== "candidate").map(rowOf).join("");
+  const candRows = entries.filter(([id]) => roles.get(id) === "candidate").map(rowOf).join("");
+  const together = portfolios(bt.portfolio)
+    .map(([, label, p]) => {
+      const s = p.stats;
+      return `<tr class="t-total">
+        <th scope="row">${escapeHtml(label)}<small>equal capital, ${escapeHtml(p.start.slice(0, 4))}–${escapeHtml(
+          p.end.slice(0, 4),
+        )}</small></th>
+        <td class="n">${signedPercent(s.cagr ?? null, 1)}</td><td class="n">${percent(s.vol ?? null, 0)}</td>
+        <td class="n"><b>${num(s.sharpe ?? null, 2)}</b><small>t ${num(s.t_stat ?? null, 1)}</small></td>
+        <td class="n down">${percent(s.max_drawdown ?? null, 0)}</td><td></td><td></td><td></td>
       </tr>`;
     })
     .join("");
@@ -483,33 +523,32 @@ function backtest(doc: DeskDoc): string {
     .map(([id, b]) => {
       const s = b.stats;
       return `<tr class="t-bench">
-        <th scope="row">${escapeHtml(id)} comprato e tenuto<small>${num(s.years ?? null, 0)} anni, senza leva</small></th>
+        <th scope="row">${escapeHtml(id)} bought and held<small>${num(s.years ?? null, 0)} years, no leverage</small></th>
         <td class="n">${signedPercent(s.cagr ?? null, 1)}</td><td class="n">${percent(s.vol ?? null, 0)}</td>
         <td class="n">${num(s.sharpe ?? null, 2)}<small>t ${num(s.t_stat ?? null, 1)}</small></td>
-        <td class="n down">${percent(s.max_drawdown ?? null, 0)}</td><td class="n">1,00x</td><td></td><td></td>
+        <td class="n down">${percent(s.max_drawdown ?? null, 0)}</td><td class="n">1.00x</td><td></td><td></td>
       </tr>`;
     })
     .join("");
   const opt = bt.options
     ? `<tr class="t-bench">
-        <th scope="row">≈ Opzioni<small>modello, non storico di quotazioni</small></th>
+        <th scope="row">≈ Options<small>a model, not a history of quotes</small></th>
         <td class="n">${signedPercent(bt.options.stats.cagr ?? null, 1)}</td><td class="n">${percent(bt.options.stats.vol ?? null, 0)}</td>
         <td class="n">${
           bt.options.sharpe_range ? `${num(bt.options.sharpe_range[0], 1)}–${num(bt.options.sharpe_range[1], 1)}` : EMPTY
-        }<small>secondo smile e costi</small></td>
+        }<small>by smile and costs</small></td>
         <td class="n down">${percent(bt.options.stats.max_drawdown ?? null, 0)}</td><td></td><td></td><td></td>
       </tr>`
     : "";
   const body = `<div class="t-scroll"><table class="t-table t-backtest t-summary">
-    <thead><tr><th>Libro</th><th class="n">Rend. annuo</th><th class="n">Volatilità</th><th class="n">Sharpe</th>
-      <th class="n">Perdita max</th><th class="n">Leva 95°</th><th class="n">P(${MINUS}50% in 1 anno)</th>
-      <th class="n">Sharpe a costi doppi</th></tr></thead>
-    <tbody>${rows}${opt}${bench}</tbody></table></div>
-    <p class="t-dim">Costi reali, ${escapeHtml(bt.fill_rule ?? "")}. Il «t» sotto ogni Sharpe dice quanti errori standard lo
-    separano da zero: sopra 2 è un indizio serio, non una certezza. Una parte del risultato è selezione fra i segnali
-    provati, e il 2023, il 2024 e il 2025 sono stati tutti e tre negativi.
-    <a href="#/backtest">Anno per anno, componenti e sensibilità →</a></p>`;
-  return section("Backtest", body, `calcolato ${escapeHtml(relative(bt.generated_at))}`);
+    <thead><tr><th>Book</th><th class="n">Yearly return</th><th class="n">Volatility</th><th class="n">Sharpe</th>
+      <th class="n">Max drawdown</th><th class="n">Leverage 95th</th><th class="n">P(${MINUS}50% in a year)</th>
+      <th class="n">Sharpe at 2× costs</th></tr></thead>
+    <tbody>${coreRows}${opt}${candRows ? `<tr class="t-break"><th colspan="8" class="t-dim w">Candidates</th></tr>${candRows}` : ""}${together}${bench}</tbody></table></div>
+    <p class="t-dim">Real costs, ${escapeHtml(bt.fill_rule ?? "")}. The "t" under each Sharpe is how many standard errors it sits
+    from zero: above 2 is serious evidence, not certainty. Part of the result is selection among the signals tried, and
+    2023, 2024 and 2025 were all negative for the oil books. <a href="#/backtest">Year by year, components and sensitivity →</a></p>`;
+  return section("Backtest", body, `computed ${escapeHtml(relative(bt.generated_at))}`);
 }
 
 // ---------------------------------------------------------------------------------------------- health
@@ -522,42 +561,45 @@ function health(doc: DeskDoc): string {
     )
     .join("");
   const tick = h.last_tick
-    ? `Ultimo giro ${escapeHtml(clock(h.last_tick.finished))}: ${escapeHtml(h.last_tick.message)}. `
-    : "Nessun giro registrato. ";
-  const notes = [...doc.data_notes, ...doc.data_missing.map((m) => `tabella mancante: ${m}`)];
-  const body = `<p>${tick}${h.ticks_24h === 1 ? "Un giro" : `${h.ticks_24h} giri`} nelle ultime 24 ore${
-    h.failed_24h ? `, ${h.failed_24h} falliti` : ""
-  }. Il motore gira ogni 30 minuti da domenica sera a venerdì sera (ora di New York).</p>
+    ? `Last tick ${escapeHtml(clock(h.last_tick.finished))}: ${escapeHtml(h.last_tick.message)}. `
+    : "No tick recorded. ";
+  const notes = [...doc.data_notes, ...doc.data_missing.map((m) => `missing table: ${m}`)];
+  const body = `<p>${tick}${h.ticks_24h === 1 ? "One tick" : `${h.ticks_24h} ticks`} in the last 24 hours${
+    h.failed_24h ? `, ${h.failed_24h} failed` : ""
+  }. The engine runs every 30 minutes from Sunday evening to Friday evening (New York time).</p>
     ${bad ? `<div class="t-scroll"><table class="t-table t-log t-stack"><tbody>${bad}</tbody></table></div>` : ""}
     ${notes.length ? `<p class="warn">${escapeHtml(notes.join(" · "))}</p>` : ""}
-    <p class="t-dim">Solo i prezzi giornalieri di BNO e del WTI possono fermare le nuove decisioni dei libri. Le altre
-    fonti, se mancano, spengono ciò che le legge e nient'altro.</p>`;
-  return section("Stato", body, `${h.n_green} fonti su ${h.n_sources} a posto`);
+    <p class="t-dim">Only a book's own daily prices can stop its new decisions. Any other source, when missing, silences
+    what reads it and nothing else.</p>`;
+  return section("Status", body, `${h.n_green} of ${h.n_sources} sources fine`);
 }
 
 function howTo(): string {
   return `<details class="t-details">
-    <summary><b>Come si legge</b> <span class="t-dim">regole, costi, limiti</span></summary>
-    <p><b>Una previsione, quattro libri.</b> Sette segnali da tre fonti che pesano un terzo ciascuna - il prezzo del
-    greggio (trend, accelerazione, asimmetria), la curva dei future (carry, carry-momentum) e gli altri mercati (rame e
-    dollaro, letti alla chiusura del giorno prima) - danno un numero fra ${MINUS}20 e +20. Ogni libro
-    lineare compra <code>previsione / 10 × obiettivo di volatilità / volatilità di oggi</code> volte il proprio capitale, fino al
-    suo tetto. La leva non è scelta: esce da quel rapporto. Quando il greggio è molto volatile anche il libro da 10x resta
-    intorno a 1x; la leva sale solo quando il mercato si calma e la previsione è forte. Per non pagare costi a ogni
-    ritocco c'è una <b>fascia di inerzia</b>: finché la misura voluta resta entro il 10% di una posizione normale non si
-    tocca nulla, e quando ne esce si va al bordo della fascia, non al centro.</p>
-    <p><b>Strumenti che esistono su Robinhood.</b> Il Brent si compra con il fondo BNO, senza leva o fino a 2x a margine. La
-    leva vera passa dal future micro sul WTI (/MCL, 100 barili), perché lì un future sul Brent non c'è: il libro «spinto»
-    porta quindi anche il rischio che Brent e WTI si muovano diversamente. Un fondo non si vende allo scoperto: il libro
-    «dinamico», quando la previsione è negativa, compra SCO, un fondo che ogni giorno rende ${MINUS}2 volte il WTI. Lo paga
-    in contanti, ne tiene al massimo quanto vale il conto, e la leva che vedi nella tabella è l'esposizione al greggio
-    (il doppio dei dollari investiti). Nel backtest il lato short ha guadagnato quasi tutto in tre anni di crollo
-    (2014, 2015, 2020) e ha perso un po' in dieci degli altri tredici.</p>
-    <p><b>Esecuzione.</b> Un ordine si esegue all'apertura della prima barra da 30 minuti che inizia dopo la decisione, con lo
-    spread e le commissioni reali dello strumento. Mai al prezzo che ha generato il segnale.</p>
-    <p><b>Che cosa non c'è.</b> Nessuna strategia intraday: sulle barre orarie di BNO, USO e dei contratti il momentum
-    infragiornaliero non ha mostrato margine dopo i costi, e qui si tiene solo ciò che ha retto alla prova.
-    <a href="${repoUrl()}/blob/main/docs/RESEARCH.md" target="_blank" rel="noopener">La ricerca, con i numeri e le fonti →</a></p>
+    <summary><b>How to read this</b> <span class="t-dim">rules, costs, limits</span></summary>
+    <p><b>One forecast, four books.</b> Seven signals from three sources that weigh a third each - the price of crude
+    (trend, acceleration, skew), the futures curve (carry, carry momentum) and other markets (copper and the dollar,
+    read at the previous close) - give a number between ${MINUS}20 and +20. Each linear book buys
+    <code>forecast / 10 × volatility target / today's volatility</code> times its capital, up to its cap. Leverage is
+    not chosen: it falls out of that ratio. When crude is very volatile even the 10x book stays around 1x; leverage rises
+    only when the market calms down and the forecast is strong. An <b>inertia band</b> keeps costs down: while the size
+    wanted stays within 10% of a normal position nothing is traded, and when it leaves the band the position moves to
+    the edge of the band, not to the middle.</p>
+    <p><b>Instruments that exist on Robinhood.</b> Brent is bought through the BNO fund, unlevered or up to 2x on margin.
+    Real leverage goes through the micro WTI future (/MCL, 100 barrels), because there is no Brent future there: the
+    "Aggressive" book therefore also carries the risk that Brent and WTI move apart. A fund cannot be sold short: when
+    its forecast is negative the "Dynamic" book buys SCO, a fund that returns ${MINUS}2 times WTI each day, pays for it
+    in cash, holds at most the account's worth of it, and the leverage shown is the oil exposure (twice the dollars).</p>
+    <p><b>Candidates.</b> The same rules on gold, copper and agriculture funds (the forces named: geopolitics, electricity
+    demand, weather), each a separate paper account, forecast on its own price only. Nearly uncorrelated with the oil
+    books; tested once each before they started (gold 0.50, copper 0.26, agriculture 0.29; natural gas through its funds
+    failed and was left out). They are judged on real fills from here on.</p>
+    <p><b>Execution.</b> An order fills at the open of the first 30-minute bar that starts after the decision, with the
+    instrument's real spread and commissions. Never at the price that produced the signal.</p>
+    <p><b>What is not here.</b> No intraday strategy: on the hourly bars of BNO, USO and the contracts, intraday momentum
+    showed no edge after costs, and only what survived the test is kept. No Sharpe above 1 on one market: the honest
+    ceiling for daily rules on a single oil market is about 0.7-0.8, and the lever above it is independent markets.
+    <a href="${repoUrl()}/blob/main/docs/RESEARCH.md" target="_blank" rel="noopener">The research, with numbers and sources →</a></p>
   </details>`;
 }
 
@@ -575,13 +617,13 @@ export async function renderTerminal(el: HTMLElement): Promise<void> {
   const loaded = await load<DeskDoc>("desk.json");
   const doc = loaded.data;
   if (!doc) {
-    el.innerHTML = `<div class="term"><div class="t-empty">Dati non disponibili: <code>desk.json</code> non risponde${
+    el.innerHTML = `<div class="term"><div class="t-empty">Data unavailable: <code>desk.json</code> does not answer${
       loaded.error ? ` (${escapeHtml(loaded.error)})` : ""
-    }. Il motore lo pubblica a ogni giro; se è il primo avvio, riprova fra mezz'ora.</div></div>`;
+    }. The engine publishes it on every tick; on a first start, try again in half an hour.</div></div>`;
     return;
   }
   el.innerHTML = `<div class="term">
-    ${doc.sample ? '<div class="banner sample">DATI DI ESEMPIO: questa non è la situazione reale dei libri.</div>' : ""}
+    ${doc.sample ? '<div class="banner sample">SAMPLE DATA: this is not the real state of the books.</div>' : ""}
     ${header(doc, loaded.origin)}
     ${market(doc)}
     ${forecastTable(doc)}
@@ -600,7 +642,7 @@ export async function renderTerminal(el: HTMLElement): Promise<void> {
     const series = equitySeries(doc);
     const dateFmt = (t: number): string => clock(new Date(t).toISOString());
     lineChart(chart, series, {
-      ariaLabel: "Equity dei quattro libri dall'avvio",
+      ariaLabel: "Equity of the books since the start",
       height: 170,
       baseline: doc.books[0]?.initial_capital ?? 10000,
       fmt: (v) => num(v, 0),

@@ -1,10 +1,9 @@
-/** Italian formatting helpers. Every number the user sees goes through here.
+/** Formatting helpers (English, en-US). Every number the user sees goes through here.
  *
  * Three rules keep a column of figures aligned, which is the whole point of a terminal readout:
- *   - `useGrouping: true`. The it-IT default is "min2", so 1 000 loses its separator while 10 000 keeps
- *     it: a figure would gain and lose a glyph as it crossed 10 000.
+ *   - `useGrouping: true`, so 1,000 and 10,000 are spelt the same way.
  *   - one minus sign, U+2212, never the hyphen Intl emits. They have different widths.
- *   - a narrow no-break space (U+202F) between a figure and its unit, so "113,96 $" can never wrap in two.
+ *   - a narrow no-break space (U+202F) between a figure and its unit, so "113.96 $" can never wrap in two.
  */
 
 const MINUS = "\u2212";
@@ -13,16 +12,16 @@ const NBSP = "\u202f"; // narrow no-break space: joins the figure to its unit
 const fix = (s: string) => s.replace("-", MINUS);
 
 const nf = (min: number, max: number) =>
-  new Intl.NumberFormat("it-IT", { minimumFractionDigits: min, maximumFractionDigits: max, useGrouping: true });
+  new Intl.NumberFormat("en-US", { minimumFractionDigits: min, maximumFractionDigits: max, useGrouping: true });
 const pct = (digits: number) =>
-  new Intl.NumberFormat("it-IT", {
+  new Intl.NumberFormat("en-US", {
     style: "percent",
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
     useGrouping: true,
   });
 
-export const EMPTY = "n/d";
+export const EMPTY = "n/a";
 /** What a tile shows in place of a figure that does not exist. Absence should not shout. */
 export const DASH = "\u2014";
 
@@ -87,18 +86,18 @@ export function dateTime(iso: string | null | undefined): string {
   if (!iso) return EMPTY;
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return EMPTY;
-  return new Intl.DateTimeFormat("it-IT", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Rome" }).format(t);
+  return new Intl.DateTimeFormat("en-GB", { dateStyle: "short", timeStyle: "short", timeZone: "America/New_York" }).format(t);
 }
 
 export function dateOnly(iso: string | null | undefined): string {
   if (!iso) return EMPTY;
   const t = Date.parse(iso.length <= 10 ? `${iso}T00:00:00Z` : iso);
   if (Number.isNaN(t)) return EMPTY;
-  return new Intl.DateTimeFormat("it-IT", { dateStyle: "medium", timeZone: "UTC" }).format(t);
+  return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "UTC" }).format(t);
 }
 
 /** Provenance stamp: a date-only or midnight-UTC datum keeps its date; an instant keeps its UTC clock.
- *  Forcing a daily figure through Europe/Rome used to render 2026-10-05T22:00:00Z as "06/10/26, 00:00". */
+ *  Forcing a daily figure through a local zone used to render 2026-10-05T22:00:00Z as the next day. */
 export function stamp(iso: string | null | undefined): string {
   if (!iso) return EMPTY;
   const t = Date.parse(iso.length <= 10 ? `${iso}T00:00:00Z` : iso);
@@ -106,9 +105,9 @@ export function stamp(iso: string | null | undefined): string {
   const d = new Date(t);
   const dateOnlyInput = iso.length <= 10;
   const atUtcMidnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
-  const day = new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short", timeZone: "UTC" }).format(t);
+  const day = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" }).format(t);
   if (dateOnlyInput || atUtcMidnight) return day;
-  const time = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" }).format(t);
+  const time = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" }).format(t);
   return `${day} ${time} UTC`;
 }
 
@@ -117,11 +116,11 @@ export function relative(iso: string | null | undefined): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return EMPTY;
   const minutes = Math.round((Date.now() - t) / 60000);
-  if (minutes < 1) return "adesso";
-  if (minutes < 60) return `${minutes} min fa`;
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h fa`;
-  return `${Math.round(hours / 24)} g fa`;
+  if (hours < 24) return `${hours} h ago`;
+  return `${Math.round(hours / 24)} d ago`;
 }
 
 export function direction(value: string | null | undefined): string {
@@ -140,13 +139,13 @@ export function direction(value: string | null | undefined): string {
 export function lifecycle(value: string | null | undefined): string {
   switch (value) {
     case "active":
-      return "Attiva";
+      return "Active";
     case "incubation":
-      return "Incubazione";
+      return "Incubation";
     case "research":
-      return "Ricerca";
+      return "Research";
     case "retired":
-      return "Ritirata";
+      return "Retired";
     default:
       return EMPTY;
   }
@@ -157,15 +156,15 @@ export function family(value: string | null | undefined): string {
     case "trend":
       return "Trend";
     case "carry":
-      return "Carry e curva";
+      return "Carry and curve";
     case "relative_value":
       return "Relative value";
     case "fundamental":
-      return "Fondamentali";
+      return "Fundamentals";
     case "event":
-      return "Eventi";
+      return "Events";
     case "volatility":
-      return "Volatilità";
+      return "Volatility";
     case "ml":
       return "Machine learning";
     default:
@@ -175,18 +174,18 @@ export function family(value: string | null | undefined): string {
 
 export function reason(value: string | null | undefined): string {
   const map: Record<string, string> = {
-    signal: "Segnale",
-    rebalance: "Ribilanciamento",
+    signal: "Signal",
+    rebalance: "Rebalance",
     stop_loss: "Stop loss",
     take_profit: "Take profit",
     trailing_stop: "Trailing stop",
     roll: "Roll",
     circuit_breaker: "Circuit breaker",
     margin_call: "Margin call",
-    liquidation: "Liquidazione",
+    liquidation: "Liquidation",
     reset: "Reset",
-    stale_data_delever: "Dati stantii: riduzione leva",
-    expiry: "Scadenza",
+    stale_data_delever: "Stale data: leverage cut",
+    expiry: "Expiry",
   };
   return value ? (map[value] ?? value) : EMPTY;
 }

@@ -1,8 +1,8 @@
 /** Small HTML builders shared by the pages. Everything is a string: the pages render into innerHTML. */
 import { EMPTY, dateTime, escapeHtml, relative, stamp } from "../format";
-import type { DataOrigin, Loaded, SourceHealth } from "../types";
+import type { DataOrigin, Loaded } from "../types";
 
-/** The provenance chip the brief demands next to every number: source plus timestamp.
+/** The provenance chip next to a number: source plus timestamp.
  *
  * The asof is SHOWN, not parked in a title= that a phone can never surface. The source name stays in the
  * tooltip because it is the less urgent half, and the date is rendered with stamp(), which never converts a
@@ -10,9 +10,7 @@ import type { DataOrigin, Loaded, SourceHealth } from "../types";
  */
 export function src(source?: string | null, asof?: string | null, approx = false): string {
   if (!source && !asof) return "";
-  const title = [source ? `Fonte: ${source}` : null, asof ? `Dato del ${dateTime(asof)}` : null]
-    .filter(Boolean)
-    .join(" · ");
+  const title = [source ? `Source: ${source}` : null, asof ? `As of ${dateTime(asof)}` : null].filter(Boolean).join(" · ");
   const shown = asof ? stamp(asof) : (source ?? "");
   return `<span class="src${approx ? " approx" : ""}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${
     approx ? "≈" : "ⓘ"
@@ -32,43 +30,17 @@ export function tile(label: string, value: string, sub?: string, cls = "", why?:
   </div>`;
 }
 
-/** A label/figure pair for the hero delta row and the market strip. */
+/** A label/figure pair for a strip of figures. */
 export function stat(label: string, value: string, cls = ""): string {
   return `<div class="stat"><span class="k">${escapeHtml(label)}</span><span class="v ${cls}">${value}</span></div>`;
 }
 
-/**
- * A chart and everything that explains it, as ONE unit: readout strip, canvas, legend, provenance — or,
- * when there is nothing to draw, the empty state ALONE. Building them separately is how the pages ended up
- * showing a colour legend for series that were never drawn.
- */
-export function chartBlock(opts: {
-  id: string;
-  hasData: boolean;
-  emptyMessage: string;
-  emptyHint?: string;
-  legendItems?: { label: string; color: string; dashed?: boolean; block?: boolean }[];
-  source?: string | null;
-  asof?: string | null;
-  approx?: boolean;
-  size?: "" | "short" | "tall";
-  readout?: boolean;
-}): string {
-  const provenance = opts.source || opts.asof ? `<div style="margin-top:8px">${src(opts.source, opts.asof, opts.approx)}</div>` : "";
-  if (!opts.hasData) {
-    return `${empty(opts.emptyMessage, opts.emptyHint)}${provenance}`;
-  }
-  const strip = opts.readout === false ? "" : `<div class="readout" id="${escapeHtml(opts.id)}-readout"></div>`;
-  const keys = opts.legendItems?.length ? legend(opts.legendItems) : "";
-  return `${strip}<div id="${escapeHtml(opts.id)}" class="chart ${opts.size ?? ""}"></div>${keys}${provenance}`;
-}
-
 /** One vocabulary for source health, used by the chip AND the table. A colour name is not a state:
- *  "dati gialli" forces the reader to know a legend, "Dati parziali" says it outright. */
+ *  "yellow data" forces the reader to know a legend, "partial data" says it outright. */
 const STATUS: Record<string, { cls: string; text: string }> = {
-  green: { cls: "good", text: "dati ok" },
-  yellow: { cls: "warn", text: "dati parziali" },
-  red: { cls: "bad", text: "dati non affidabili" },
+  green: { cls: "good", text: "data ok" },
+  yellow: { cls: "warn", text: "partial data" },
+  red: { cls: "bad", text: "unreliable data" },
 };
 
 export function statusClass(status: string | null | undefined): string {
@@ -76,7 +48,7 @@ export function statusClass(status: string | null | undefined): string {
 }
 
 export function statusLabel(status: string | null | undefined): string {
-  return STATUS[String(status ?? "")]?.text ?? "stato n/d";
+  return STATUS[String(status ?? "")]?.text ?? "state n/a";
 }
 
 export function statusChip(status: string | null | undefined, extra?: string): string {
@@ -85,12 +57,12 @@ export function statusChip(status: string | null | undefined, extra?: string): s
 
 export function originBanner(loaded: Loaded<unknown>, generatedAt?: string | null): string {
   if (loaded.data === null) {
-    return `<div class="banner bad">⚠ Dati non disponibili. ${escapeHtml(loaded.error ?? "")}</div>`;
+    return `<div class="banner bad">⚠ Data unavailable. ${escapeHtml(loaded.error ?? "")}</div>`;
   }
   const parts: string[] = [];
-  if (loaded.origin === "bundled") parts.push("copia inclusa nel sito (il branch dati non risponde)");
-  if (loaded.origin === "sample") parts.push("DATI DI ESEMPIO");
-  if (generatedAt) parts.push(`aggiornato ${relative(generatedAt)}`);
+  if (loaded.origin === "bundled") parts.push("copy bundled with the site (the data branch does not answer)");
+  if (loaded.origin === "sample") parts.push("SAMPLE DATA");
+  if (generatedAt) parts.push(`updated ${relative(generatedAt)}`);
   if (!parts.length) return "";
   const cls = loaded.origin === "sample" ? "sample" : loaded.origin === "bundled" ? "warn" : "";
   return `<div class="banner ${cls}">${escapeHtml(parts.join(" · "))}</div>`;
@@ -98,15 +70,13 @@ export function originBanner(loaded: Loaded<unknown>, generatedAt?: string | nul
 
 export function originChip(origin: DataOrigin | null): string {
   if (origin === "live") return `<span class="chip good">live</span>`;
-  if (origin === "bundled") return `<span class="chip warn">copia locale</span>`;
-  if (origin === "sample") return `<span class="chip bad">esempio</span>`;
-  return `<span class="chip bad">non disponibile</span>`;
+  if (origin === "bundled") return `<span class="chip warn">local copy</span>`;
+  if (origin === "sample") return `<span class="chip bad">sample</span>`;
+  return `<span class="chip bad">unavailable</span>`;
 }
 
-export function empty(message = "Nessun dato disponibile.", hint?: string): string {
-  return `<div class="empty"><span>${escapeHtml(message)}</span>${
-    hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ""
-  }</div>`;
+export function empty(message = "No data available.", hint?: string): string {
+  return `<div class="empty"><span>${escapeHtml(message)}</span>${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ""}</div>`;
 }
 
 export function card(title: string, body: string, headerExtra = ""): string {
@@ -127,28 +97,6 @@ export function legend(items: { label: string; color: string; dashed?: boolean; 
         }"></span>${escapeHtml(i.label)}</span>`,
     )
     .join("")}</div>`;
-}
-
-export function healthTable(sources: SourceHealth[] | undefined): string {
-  if (!sources || !sources.length) return empty("Nessuno stato fonte disponibile.");
-  const rows = sources
-    .map((s) => {
-      const key = s.key ?? s.source ?? "n/d";
-      // The engine already puts "| fallback: x" inside the message, so prepending it printed it twice.
-      const message = (s.message ?? "").replace(/\s*\|\s*fallback:.*$/i, "").trim();
-      const note = [s.fallback_used ? `fallback: ${s.fallback_used}` : "", message].filter(Boolean).join(" · ");
-      return `<tr>
-        <td>${escapeHtml(key)}</td>
-        <td><span class="chip ${statusClass(s.status)}">${escapeHtml(statusLabel(s.status))}</span></td>
-        <td class="num">${s.rows ?? "—"}</td>
-        <td class="num">${s.data_asof ? stamp(s.data_asof) : "—"}</td>
-        <td class="wrap-text">${escapeHtml(note || "—")}</td>
-      </tr>`;
-    })
-    .join("");
-  return `<div class="table-wrap tall"><table class="data">
-    <thead><tr><th>Fonte</th><th>Stato</th><th class="num">Righe</th><th class="num">Dato del</th><th class="wrap-text">Note</th></tr></thead>
-    <tbody>${rows}</tbody></table></div>`;
 }
 
 export function pageTitle(title: string, subtitle?: string): string {
