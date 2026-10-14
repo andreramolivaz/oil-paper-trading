@@ -174,6 +174,17 @@ del WTI), non sul contratto che il desk quota: lo scarto fra la mediana del pubb
 una base, e il terminale lo scrive. Un mercato oltre la sua chiusura (una lettura presa tardi, o vecchia di
 giorni) non è una probabilità e il terminale lo mette da parte.
 
+**L'allerta di attività anomala** (`engine/desk/watch.py`, su richiesta del proprietario: «su Kalshi c'è molto
+insider trading»). Il giro legge i mercati ogni ora e a ogni lettura giudica i mercati a eventi (non le scale
+di prezzo, che seguono il greggio): una mossa di almeno 10 punti in 24 ore (o 5 con le odds triplicate) su un
+volume delle 24 ore di almeno 3 volte la mediana giornaliera del mercato e sopra il suo 90° percentile - prima
+di dieci letture, almeno un quarto dell'open interest di un mercato aperto da due giorni -, mai sotto 500
+contratti. Una allerta per evento e giorno, con l'impronta delle operazioni del mercato più scambiato (quante,
+la quota delle cinque più grosse, il lato del taker, la più grossa e la prima) e se il resto della scala si è
+mosso; sul terminale per una settimana, su GitHub come issue per due giorni. È un'impronta, non un verdetto:
+una notizia arrivata prima al mercato, chi copre un rischio e un insider la lasciano uguale (`docs/RESEARCH.md`,
+capitolo 9 F, con i casi pubblici e le soglie dichiarate prima di accenderla).
+
 ### Il libro delle opzioni (`engine/desk/options.py`) — sperimentale
 
 Vende uno **spread di put a credito** sotto il mercato quando la previsione (la stessa dei libri lineari, con i

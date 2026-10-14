@@ -436,7 +436,7 @@ def test_the_tick_archives_the_reading_and_the_export_shows_it_against_the_desk_
     # the same tick again: nothing new to write
     again = jobs.tick(runner, "t-kalshi-2", legacy=False)
     assert again.detail["prediction_markets"]["events_written"] == 0
-    assert "kalshi" in jobs.DESK_CONTEXT_ENTRIES  # asked once a day with the other slow tables
+    assert "kalshi" in jobs.DESK_HOURLY_ENTRIES  # read every hour, judged by the alert at every reading
 
     payload = ex.build_desk_payload(settings, runner.raw, runner.risk, runner.store, now)
     block = payload["prediction_markets"]
