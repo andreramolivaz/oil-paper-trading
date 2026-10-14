@@ -1,0 +1,69 @@
+name: kalshi weekend (the prediction markets while the runner sleeps)
+
+# The runner stops on Friday evening and restarts on Sunday evening with the oil market; an event market on
+# Kalshi (the strait, the talks) moves on a Saturday too, and the unusual-activity alert judges 24-hour moves.
+# This job reads the markets on the weekend: it is on a schedule, which GitHub runs best effort (three to seven
+# hours apart on past weekends), and that is enough, because every reading carries the API's own "a day ago"
+# fields: a move is caught by any reading taken within 24 hours of it. During the market week the runner reads
+# the markets every hour and this job exits at once; it also exits when a runner is alive, so the two never
+# push the data branch together.
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  actions: read
+
+concurrency:
+  group: kalshi-weekend
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPT_STATE_DIR: ${{ github.workspace }}/state-repo/state
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Only on the weekend, and only when no runner is alive
+        id: gate
+        run: |
+          dow=$(TZ=America/New_York date +%u); hm=$(TZ=America/New_York date +%H%M)
+          if [ "$dow" = "6" ] || { [ "$dow" = "5" ] && [ "$hm" -ge 1830 ]; } || { [ "$dow" = "7" ] && [ "$hm" -lt 1730 ]; }; then
+            alive=$(gh run list --repo "${{ github.repository }}" --workflow runner.yml --limit 20 --json status \
+                    --jq '[.[] | select(.status == "in_progress" or .status == "queued" or .status == "pending" or .status == "waiting" or .status == "requested")] | length')
+            if [ "$alive" != "0" ]; then echo "a runner is alive: it reads the markets"; echo "run=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+            echo "weekend, no runner: reading the markets"; echo "run=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "market week: the runner reads the markets every hour"; echo "run=no" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'yes'
+      - uses: astral-sh/setup-uv@v5
+        if: steps.gate.outputs.run == 'yes'
+        with:
+          enable-cache: true
+          cache-dependency-glob: requirements.lock
+      - name: Install
+        if: steps.gate.outputs.run == 'yes'
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.lock
+      - name: Checkout data branch
+        if: steps.gate.outputs.run == 'yes'
+        run: scripts/data_branch.sh checkout state-repo
+      - name: Read, archive and judge the markets
+        if: steps.gate.outputs.run == 'yes'
+        run: .venv/bin/python -m engine.cli watch --job-id "${{ github.run_id }}-$(date -u +%Y%m%dT%H%M)"
+      - name: Export the site data and push the data branch
+        if: steps.gate.outputs.run == 'yes'
+        run: |
+          .venv/bin/python -m engine.cli export-site --out state-repo/site-data
+          scripts/data_branch.sh push state-repo "watch $(date -u +%Y%m%dT%H%M) run ${{ github.run_id }}"
+      - name: Open or close the alerts' issues
+        if: steps.gate.outputs.run == 'yes'
+        run: .venv/bin/python -m engine.cli alerts --repo "${{ github.repository }}" || true

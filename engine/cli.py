@@ -232,6 +232,13 @@ def cmd_tick(args: argparse.Namespace) -> int:
     return _report(jobs.tick(_runner(), _job_id(args, "tick"), legacy=not bool(getattr(args, "no_legacy", False))))
 
 
+def cmd_watch(args: argparse.Namespace) -> int:
+    """The prediction markets alone (the weekend job): read, archive, judge."""
+    from engine.live import jobs
+
+    return _report(jobs.watch(_runner(), _job_id(args, "watch")))
+
+
 def cmd_desk_backtest(args: argparse.Namespace) -> int:
     """Replay the desk books over the archived history and write the result where the dashboard reads it."""
     from datetime import date as _date
@@ -386,6 +393,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_tick.add_argument("--job-id", default=None)
     p_tick.add_argument("--no-legacy", action="store_true", help="salta la fine giornata del motore storico")
     p_tick.set_defaults(func=cmd_tick)
+    p_watch = sub.add_parser(
+        "watch", help="solo i mercati a eventi (il weekend): scarica se è passata un'ora, archivia, giudica"
+    )
+    p_watch.add_argument("--job-id", default=None)
+    p_watch.set_defaults(func=cmd_watch)
     p_desk = sub.add_parser("desk-backtest", help="backtest dei libri del desk sullo storico archiviato")
     p_desk.add_argument("--start", default=None)
     p_desk.add_argument("--end", default=None)

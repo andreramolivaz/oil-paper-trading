@@ -181,7 +181,10 @@ volume delle 24 ore di almeno 3 volte la mediana giornaliera del mercato e sopra
 di dieci letture, almeno un quarto dell'open interest di un mercato aperto da due giorni -, mai sotto 500
 contratti. Una allerta per evento e giorno, con l'impronta delle operazioni del mercato più scambiato (quante,
 la quota delle cinque più grosse, il lato del taker, la più grossa e la prima) e se il resto della scala si è
-mosso; sul terminale per una settimana, su GitHub come issue per due giorni. È un'impronta, non un verdetto:
+mosso; sul terminale per una settimana, su GitHub come issue per due giorni. Nel weekend, quando il runner
+dorme, un job a orario (`kalshi-weekend.yml`, `engine.cli watch`) legge solo i mercati e li giudica: GitHub lo
+fa partire ogni poche ore, e basta, perché ogni lettura porta i campi «di un giorno fa» dell'API. È
+un'impronta, non un verdetto:
 una notizia arrivata prima al mercato, chi copre un rischio e un insider la lasciano uguale (`docs/RESEARCH.md`,
 capitolo 9 F, con i casi pubblici e le soglie dichiarate prima di accenderla).
 

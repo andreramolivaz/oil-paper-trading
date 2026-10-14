@@ -373,3 +373,67 @@ def test_the_tick_reads_the_markets_every_hour_judges_them_and_the_export_shows_
     strait = next(e for g in block["groups"] for e in g["events"] if e["series"] == "KXHORMUZNORM")
     jan = next(m for m in strait["markets"] if m["ticker"] == "KXHORMUZNORM-26MAR17-B270101")
     assert jan["mid_24h_ago"] == 0.0995 and jan["change_24h"] == -0.037 and jan["volume_24h"] == 54181.34
+
+
+def test_the_weekend_job_reads_the_markets_when_an_hour_has_passed_and_judges_them(tmp_path, monkeypatch):
+    """``engine.cli watch`` (kalshi-weekend.yml): the prediction markets alone - downloaded when the last attempt
+    is an hour old, archived, judged - and nothing else of the tick."""
+    from engine.core.config import Settings
+    from engine.live import jobs
+    from engine.live.runner import LiveRunner
+
+    repo = Path(__file__).resolve().parents[1]
+    settings = Settings(
+        state_dir=tmp_path / "state",
+        config_dir=repo / "config",
+        eia_api_key=None,
+        fred_api_key=None,
+        github_repo="t/t",
+        offline=True,
+    )
+    runner = LiveRunner(settings)
+    now = datetime(2026, 10, 17, 14, 7, tzinfo=UTC)  # a Saturday
+    at = pd.Timestamp("2026-10-17T14:05:00Z")
+    patch = {MEETING: {"yes_bid_dollars": "0.3000", "yes_ask_dollars": "0.3200", "volume_24h_fp": "1200.00"}}
+    r = reading(["KXUSIRANMEETING", "KXHORMUZNORM"], patch, at)
+    frame = r.frame.set_index(pd.DatetimeIndex([at] * len(r.frame), name="ts"))
+    runner.raw.save("kalshi", "kalshi", FetchResult("kalshi", frame, at.to_pydatetime()))
+    asked: list[tuple[list[str], set[str]]] = []
+    monkeypatch.setattr(
+        jobs,
+        "_fetch",
+        lambda r, g, e=None: (
+            asked.append((list(g), set(e or ()))) or {"ok": 1, "failed": 0, "overall": "green", "sources": []}
+        ),
+    )
+    monkeypatch.setattr(jobs, "now_utc", lambda: now)
+
+    out = jobs.watch(runner, "w-1")
+    assert out.status == "ok" and out.message == "23 markets, 1 flagged, 1 alerts"
+    assert asked == [([], {"kalshi"})]  # the markets alone, no group
+    assert out.detail["refresh"] == "kalshi: to download"
+    assert out.detail["prediction_watch"]["events"] == ["KXUSIRANMEETING-27"]
+    assert out.detail["prediction_markets"]["events_written"] == 2
+    assert "desk" not in out.detail and "options" not in out.detail  # nothing of the tick
+    assert jobs.watch(runner, "w-1").status == "skipped"  # the same job id: idempotent
+    # read half an hour ago: not downloaded again, the reading judged once
+    stamp = (now - timedelta(minutes=30)).isoformat()
+    runner.store.write_json(
+        "health.json",
+        {"overall": "green", "sources": [{"source": "kalshi", "status": "green", "checked_at": stamp}]},
+    )
+    again = jobs.watch(runner, "w-2")
+    assert asked == [([], {"kalshi"})] and again.detail["sources"]["skipped"] == "read less than an hour ago"
+    assert again.detail["prediction_watch"]["status"] == "already judged"
+    # an hour ago: downloaded again
+    stamp = (now - timedelta(minutes=60)).isoformat()
+    runner.store.write_json(
+        "health.json",
+        {"overall": "green", "sources": [{"source": "kalshi", "status": "green", "checked_at": stamp}]},
+    )
+    assert jobs.watch(runner, "w-3").detail["refresh"] == "kalshi: hourly"
+    assert len(asked) == 2
+    # the CLI knows the command
+    from engine.cli import build_parser
+
+    assert build_parser().parse_args(["watch", "--job-id", "x"]).func.__name__ == "cmd_watch"
