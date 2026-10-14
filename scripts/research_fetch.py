@@ -110,15 +110,68 @@ def _kalshi_catalogue(out: Path) -> int:
     return 0
 
 
+def _kalshi_trades(out: Path) -> int:
+    """The trades of the last week on the markets the desk reads (config/data_sources.yaml, group desk, entry
+    kalshi): the busiest twelve by 24-hour volume plus every market of the strait and the US-Iran series, so
+    that a fixture of real trade objects exists for the unusual-activity alert (phase 13). One call a second."""
+    import time
+
+    import requests
+    import yaml
+
+    out.mkdir(parents=True, exist_ok=True)
+    session = requests.Session()
+    session.headers["Accept"] = "application/json"
+    doc = yaml.safe_load(Path("config/data_sources.yaml").read_text(encoding="utf-8")) or {}
+    series = [str(x) for entry in doc.get("desk", {}).get("kalshi", []) for x in (entry.get("series") or [])]
+    markets: list[dict[str, Any]] = []
+    for ticker in series:
+        r = session.get(
+            f"{KALSHI_BASE}/markets", params={"series_ticker": ticker, "status": "open", "limit": 200}, timeout=30
+        )
+        r.raise_for_status()
+        for m in r.json().get("markets") or []:
+            m["series_ticker"] = ticker
+            markets.append(m)
+        time.sleep(1.0)
+    (out / "markets_watch.json").write_text(json.dumps(markets, indent=0))
+    print(f"ok   kalshi/markets_watch {len(markets)} rows", flush=True)
+    busy = sorted(markets, key=lambda m: -float(m.get("volume_24h_fp") or 0.0))[:12]
+    events = [m for m in markets if m["series_ticker"] in ("KXHORMUZNORM", "KXUSAIRANAGREEMENT", "KXUSIRANMEETING")]
+    wanted: dict[str, dict[str, Any]] = {m["ticker"]: m for m in busy + events}
+    since = int(time.time()) - 7 * 86400
+    trades: dict[str, list[dict[str, Any]]] = {}
+    for ticker in wanted:
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = None
+        for _ in range(5):
+            q: dict[str, Any] = {"ticker": ticker, "limit": 1000, "min_ts": since}
+            if cursor:
+                q["cursor"] = cursor
+            r = session.get(f"{KALSHI_BASE}/markets/trades", params=q, timeout=30)
+            r.raise_for_status()
+            body = r.json()
+            rows.extend(body.get("trades") or [])
+            cursor = body.get("cursor") or None
+            time.sleep(1.0)
+            if not cursor:
+                break
+        trades[ticker] = rows
+        print(f"ok   kalshi/trades {ticker} {len(rows)} rows", flush=True)
+    (out / "trades_watch.json").write_text(json.dumps(trades, indent=0))
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="out/research")
     parser.add_argument(
         "--only",
-        choices=["all", "satellites", "kalshi"],
+        choices=["all", "satellites", "kalshi", "kalshi-trades"],
         default="all",
         help="'satellites': only the daily tables of DAILY_SATELLITES (phase 12 research), a few dozen requests; "
-        "'kalshi': the prediction market's catalogue (series, open markets) as JSON",
+        "'kalshi': the prediction market's catalogue (series, open markets) as JSON; 'kalshi-trades': the open "
+        "markets the desk reads and a week of their trades (the busiest and the event markets), for the alert",
     )
     args = parser.parse_args()
     out = Path(args.out)
@@ -138,6 +191,8 @@ def main() -> int:
     safe = lambda s: s.replace("=", "_").replace("^", "_").replace(".", "_")  # noqa: E731
     if args.only == "kalshi":
         return _kalshi_catalogue(out / "kalshi")
+    if args.only == "kalshi-trades":
+        return _kalshi_trades(out / "kalshi")
     if args.only == "satellites":
         for symbol in DAILY_SATELLITES:
             run(
