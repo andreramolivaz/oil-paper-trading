@@ -14,6 +14,7 @@ import {
   type DeskDoc,
   type ForecastBlock,
   type OptionUnderlying,
+  type PredictionAlert,
   type PredictionEvent,
   type Quote,
 } from "../desk";
@@ -467,17 +468,25 @@ function predictionLadder(e: PredictionEvent): string {
     return rows ? `<div class="t-scroll"><table class="t-table t-log"><tbody>${rows}</tbody></table></div>` : "";
   }
   const withOptions = e.markets.some((m) => m.options_p_above !== undefined && m.options_p_above !== null);
+  const change = (m: PredictionEvent["markets"][number]): string => {
+    const c = m.change_24h;
+    if (c === null || c === undefined) return "";
+    const pts = Math.round(100 * c);
+    return pts === 0 ? span("t-dim", "0") : toneSpan(c, `${pts > 0 ? "+" : MINUS}${Math.abs(pts)}`);
+  };
   const rows = e.markets
     .filter((m) => m.mid !== null && m.mid !== undefined)
     .map(
       (m) => `<tr><td>${escapeHtml(m.label)}</td>
         <td class="n"><b>${pct(m.mid)}</b><small>${num(m.yes_bid, 2)}–${num(m.yes_ask, 2)}</small></td>
+        <td class="n">${change(m)}</td>
         ${withOptions ? `<td class="n">${m.options_p_above === undefined ? "" : `≈ ${pct(m.options_p_above)}`}</td>` : ""}
+        <td class="n t-dim">${m.volume_24h === null || m.volume_24h === undefined ? "" : num(m.volume_24h, 0)}</td>
         <td class="n t-dim">${m.volume === null || m.volume === undefined ? "" : num(m.volume, 0)}</td></tr>`,
     )
     .join("");
   return `<div class="t-scroll"><table class="t-table t-log">
-    <thead><tr><th>Market</th><th class="n">Crowd</th>${withOptions ? '<th class="n">Options ≈</th>' : ""}<th class="n">Volume</th></tr></thead>
+    <thead><tr><th>Market</th><th class="n">Crowd</th><th class="n">24h</th>${withOptions ? '<th class="n">Options ≈</th>' : ""}<th class="n">Vol 24h</th><th class="n">Volume</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 
@@ -533,13 +542,64 @@ function measuredLine(e: PredictionEvent): string {
   return "";
 }
 
+function alertLine(a: PredictionAlert): string {
+  const strikes = a.markets
+    .slice(0, 4)
+    .map(
+      (m) =>
+        `${escapeHtml(m.label)} ${pct(m.mid_24h_ago)} → <b>${pct(m.mid)}</b> ${toneSpan(
+          m.change_24h,
+          `(${m.change_24h !== null && m.change_24h !== undefined && m.change_24h > 0 ? "+" : MINUS}${Math.abs(Math.round(100 * (m.change_24h ?? 0)))})`,
+        )}`,
+    )
+    .join(" · ");
+  const more = a.markets.length > 4 ? ` · and ${a.markets.length - 4} more` : "";
+  const busiest = a.markets[0];
+  const fp = a.footprint;
+  const trades = fp && fp.trades
+    ? `Trades on ${escapeHtml(a.footprint_ticker ?? busiest.ticker)}: ${fp.trades} trades, ${num(fp.contracts ?? null, 0)} contracts; the ${fp.top_trades ?? 5} largest carry ${pct(fp.top_share)}; ${pct(fp.side_share)} with the taker on ${escapeHtml((fp.side ?? "").toUpperCase())}${
+        fp.largest ? `; the largest ${num(fp.largest.contracts, 0)} at ${num(fp.largest.yes_price, 2)}, ${escapeHtml(clock(fp.largest.at))}` : ""
+      }${fp.block_trades ? `; ${fp.block_trades} block trades` : ""}.`
+    : a.footprint_note
+      ? `<span class="t-dim">${escapeHtml(a.footprint_note)}.</span>`
+      : "";
+  const scope = a.rest_flat
+    ? span("warn", "the rest of the ladder is flat")
+    : a.rest_of_ladder_move !== null && a.rest_of_ladder_move !== undefined
+      ? "the whole ladder moved too"
+      : "no other market to compare with";
+  return `<div class="t-alert">
+    <div><span class="t-dot warn">unusual activity</span> <b>${escapeHtml(a.group)}</b> · ${escapeHtml(a.title)} <span class="t-dim">${escapeHtml(a.event)} · read ${escapeHtml(clock(a.ts))}</span></div>
+    <div>${a.markets.length} of ${a.n_markets} markets: ${strikes}${more} — on ${escapeHtml(busiest.volume)}; ${scope}.</div>
+    ${trades ? `<div class="t-dim">${trades}</div>` : ""}
+  </div>`;
+}
+
+function predictionAlerts(doc: DeskDoc): string {
+  const pm = doc.prediction_markets;
+  if (!pm || !pm.watch || !Object.keys(pm.watch).length) return "";
+  const alerts = pm.alerts ?? [];
+  const body = alerts.length
+    ? alerts.map(alertLine).join("")
+    : `<p class="t-dim">Nothing unusual in the last seven days of readings: no event market moved ${escapeHtml(
+        pm.watch.move ?? "10% in 24 hours",
+      )} on a day's volume far above its own usual.</p>`;
+  return `<div class="t-watch">
+    <h3 class="t-sub">Unusual activity <span class="t-dim">${alerts.length ? `${alerts.length} in the last week` : "none in the last week"}</span></h3>
+    ${body}
+    <p class="t-dim">The rule, declared before it went live: ${escapeHtml(pm.watch.move ?? "")}; ${escapeHtml(
+      pm.watch.volume ?? "",
+    )}; ${escapeHtml(pm.watch.scope ?? "")}. ${escapeHtml(pm.watch.meaning ?? "")}. The alert also opens a GitHub issue for two days.</p>
+  </div>`;
+}
+
 function predictionMarkets(doc: DeskDoc): string {
   const pm = doc.prediction_markets;
   if (!pm) return "";
   if (!pm.asof) {
     return section(
       "Prediction markets",
-      `<div class="t-empty">No reading from Kalshi yet: the tick asks for it once a day with the other slow tables.</div>`,
+      `<div class="t-empty">No reading from Kalshi yet: the tick asks for it every hour.</div>`,
     );
   }
   const events = pm.groups.flatMap((g) => g.events);
@@ -569,8 +629,9 @@ function predictionMarkets(doc: DeskDoc): string {
     );
   }
   if (pm.empty_series.length) foot.push(`No open market in ${pm.empty_series.map(escapeHtml).join(", ")}`);
-  const body = `${events.length ? blocks : `<div class="t-empty">The reading holds no open market in the series asked for.</div>`}
-    <p class="t-dim">${escapeHtml(pm.note)} A price ladder's "crowd median" is where the ladder crosses one half; "≈" marks the
+  const body = `${predictionAlerts(doc)}
+    ${events.length ? blocks : `<div class="t-empty">The reading holds no open market in the series asked for.</div>`}
+    <p class="t-dim">${escapeHtml(pm.note)} "24h" is the move since the quote a day ago, in points. A price ladder's "crowd median" is where the ladder crosses one half; "≈" marks the
     options' twin, a driftless lognormal at the ATM implied volatility of the fund's options with no smile and no basis
     between the fund and the future.${foot.length ? ` ${foot.join(". ")}.` : ""}</p>`;
   return section(

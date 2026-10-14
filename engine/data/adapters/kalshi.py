@@ -14,9 +14,17 @@ probabilities next to what the options imply.
 
 Frame contract: index ``ts`` (one UTC timestamp, the download time, for every row), one row per open market:
 ``series_ticker``, ``event_ticker``, ``ticker``, ``title``, ``subtitle`` (the market's own label inside its event:
-"Above $103.99", "Before Jan 1, 2027"), ``strike_type``, ``floor_strike``, ``cap_strike``, ``close_time``,
-``expiration_time``, ``yes_bid``, ``yes_ask``, ``last_price``, ``volume``, ``open_interest``, ``status``, ``rules``
-and ``published_at`` (= ``ts``). Prices are in dollars per contract that pays one dollar: a probability.
+"Above $103.99", "Before Jan 1, 2027"), ``strike_type``, ``floor_strike``, ``cap_strike``, ``open_time``,
+``close_time``, ``expiration_time``, ``yes_bid``, ``yes_ask``, ``last_price``, ``volume`` (contracts since listing),
+``volume_24h`` (the last 24 hours), ``open_interest``, ``prev_yes_bid``, ``prev_yes_ask``, ``prev_price`` (the
+quote and the last trade "a day ago", as the API states them), ``yes_bid_size``, ``yes_ask_size`` (contracts
+resting at the touch), ``status``, ``rules`` and ``published_at`` (= ``ts``). Prices are in dollars per contract
+that pays one dollar: a probability.
+
+The trades (``fetch_trades``): ``/markets/trades?ticker=`` paged, newest first, each ``created_time``, ``count``
+(contracts), ``yes_price``, ``taker_side`` ("yes" when the taker bought YES or sold NO, "no" otherwise:
+``taker_outcome_side``) and ``block``. Read only for the markets the unusual-activity alert flags
+(``engine/desk/watch.py``), a handful a day.
 
 Seen on the real API (the runner's first reading, 2026-10-14 01:22 UTC) and handled downstream
 (``engine/desk/prediction.py``): a market object has no ``series_ticker`` of its own (the series is the part of
@@ -53,9 +61,16 @@ DEFAULT_SERIES = (
 )  # fmt: skip
 COLUMNS = [
     "series_ticker", "event_ticker", "ticker", "title", "subtitle", "strike_type", "floor_strike", "cap_strike",
-    "close_time", "expiration_time", "yes_bid", "yes_ask", "last_price", "volume", "open_interest", "status", "rules",
+    "open_time", "close_time", "expiration_time", "yes_bid", "yes_ask", "last_price", "volume", "volume_24h",
+    "open_interest", "prev_yes_bid", "prev_yes_ask", "prev_price", "yes_bid_size", "yes_ask_size", "status", "rules",
 ]  # fmt: skip
-_NUMERIC = ("floor_strike", "cap_strike", "yes_bid", "yes_ask", "last_price", "volume", "open_interest")
+_NUMERIC = (
+    "floor_strike", "cap_strike", "yes_bid", "yes_ask", "last_price", "volume", "volume_24h", "open_interest",
+    "prev_yes_bid", "prev_yes_ask", "prev_price", "yes_bid_size", "yes_ask_size",
+)  # fmt: skip
+TRADE_COLUMNS = ["trade_id", "ticker", "created_time", "count", "yes_price", "no_price", "taker_side", "block"]
+TRADES_PAGE = 1000
+TRADES_MAX_PAGES = 5  # 5 000 trades: more than any of these markets does in a week
 
 
 def _num(value: Any) -> float | None:
@@ -83,13 +98,20 @@ def parse_markets(markets: Iterable[dict[str, Any]], series_ticker: str, ts: pd.
                 "strike_type": str(m.get("strike_type") or ""),
                 "floor_strike": _num(m.get("floor_strike")),
                 "cap_strike": _num(m.get("cap_strike")),
+                "open_time": str(m.get("open_time") or ""),
                 "close_time": str(m.get("close_time") or ""),
                 "expiration_time": str(m.get("expected_expiration_time") or m.get("expiration_time") or ""),
                 "yes_bid": _num(m.get("yes_bid_dollars")),
                 "yes_ask": _num(m.get("yes_ask_dollars")),
                 "last_price": _num(m.get("last_price_dollars")),
                 "volume": _num(m.get("volume_fp")),
+                "volume_24h": _num(m.get("volume_24h_fp")),
                 "open_interest": _num(m.get("open_interest_fp")),
+                "prev_yes_bid": _num(m.get("previous_yes_bid_dollars")),
+                "prev_yes_ask": _num(m.get("previous_yes_ask_dollars")),
+                "prev_price": _num(m.get("previous_price_dollars")),
+                "yes_bid_size": _num(m.get("yes_bid_size_fp")),
+                "yes_ask_size": _num(m.get("yes_ask_size_fp")),
                 "status": str(m.get("status") or ""),
                 "rules": str(m.get("rules_primary") or "")[:400],
             }
@@ -112,6 +134,28 @@ def to_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
     return out
 
 
+def parse_trades(trades: Iterable[dict[str, Any]], ticker: str) -> list[dict[str, Any]]:
+    """The API's trade objects -> rows (``TRADE_COLUMNS``), the price in dollars, the side as the taker's outcome."""
+    rows: list[dict[str, Any]] = []
+    for t in trades:
+        if not isinstance(t, dict) or not t.get("created_time"):
+            continue
+        side = str(t.get("taker_outcome_side") or t.get("taker_side") or "")
+        rows.append(
+            {
+                "trade_id": str(t.get("trade_id") or ""),
+                "ticker": str(t.get("ticker") or ticker),
+                "created_time": str(t["created_time"]),
+                "count": _num(t.get("count_fp") if t.get("count_fp") is not None else t.get("count")),
+                "yes_price": _num(t.get("yes_price_dollars")),
+                "no_price": _num(t.get("no_price_dollars")),
+                "taker_side": side,
+                "block": bool(t.get("is_block_trade", False)),
+            }
+        )
+    return rows
+
+
 class KalshiAdapter(HttpClient):
     name = "kalshi"
 
@@ -132,6 +176,25 @@ class KalshiAdapter(HttpClient):
             if not isinstance(body, dict):
                 raise DataUnavailable(f"kalshi {series_ticker}: unexpected answer {str(body)[:120]}")
             rows += parse_markets(body.get("markets") or [], series_ticker, ts)
+            cursor = body.get("cursor") or None
+            if not cursor:
+                break
+        return rows
+
+    def fetch_trades(self, ticker: str, min_ts: int | None = None) -> list[dict[str, Any]]:
+        """The trades of one market since ``min_ts`` (a Unix time; None: the newest pages), newest first."""
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = None
+        for _ in range(TRADES_MAX_PAGES):
+            params: dict[str, Any] = {"ticker": ticker, "limit": TRADES_PAGE}
+            if min_ts is not None:
+                params["min_ts"] = int(min_ts)
+            if cursor:
+                params["cursor"] = cursor
+            body = self.get_json(f"{BASE_URL}/markets/trades", params=params)
+            if not isinstance(body, dict):
+                raise DataUnavailable(f"kalshi trades {ticker}: unexpected answer {str(body)[:120]}")
+            rows += parse_trades(body.get("trades") or [], ticker)
             cursor = body.get("cursor") or None
             if not cursor:
                 break

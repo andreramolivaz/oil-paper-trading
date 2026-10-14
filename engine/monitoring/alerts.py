@@ -123,9 +123,36 @@ class Alerter:
 # Alert detection from state
 
 
+def prediction_market_alerts(store: StateStore, now: datetime) -> list[Alert]:
+    """The unusual-activity alerts of the prediction markets (engine/desk/watch.py) of the last two days: one
+    issue per market, closed by the alerter when the alert ages out."""
+    from engine.desk.watch import ISSUE_WINDOW_HOURS, recent_alerts
+
+    desk = StateStore(store.root / "desk")
+    out: list[Alert] = []
+    seen: set[str] = set()
+    for a in recent_alerts(desk, now, days=ISSUE_WINDOW_HOURS / 24.0):
+        event = str(a.get("event") or "")
+        if not event or event in seen:
+            continue
+        seen.add(event)
+        body = (
+            f"{a.get('text', '')}\n\nEvent: {a.get('title', '')}\nReading: {a.get('ts', '')}\n\n"
+            "Unusual activity on a Kalshi event market, by the declared rule (docs/RESEARCH.md, chapter 9 F): "
+            "a large 24-hour move on a volume far above the market's own usual. Not a verdict: news that reached "
+            "the market first, a large hedger and an informed trader leave the same footprint. No book trades on it."
+        )
+        out.append(Alert(key=f"kalshi-{event.lower()}", title=f"Prediction market: {event}", body=body))
+    return out
+
+
 def detect_alerts(store: StateStore, now: datetime | None = None, stale_hours: float = 36.0) -> list[Alert]:
     now = now or datetime.now(tz=UTC)
     alerts: list[Alert] = []
+    try:
+        alerts += prediction_market_alerts(store, now)
+    except Exception as exc:  # pragma: no cover - a broken log must not silence the other alerts
+        log.warning("prediction market alerts skipped: %s", exc)
     health = store.read_json("health.json", {}) or {}
     red = [s for s in health.get("sources", []) if s.get("status") == "red"]
     checked = health.get("checked_at")

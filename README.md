@@ -73,7 +73,11 @@ ventiquattro mesi con uno Sharpe sotto −0,5. Il controllo del drawdown è stat
 (toglie Sharpe). Il backtest mostra sempre i libri con e senza allocatore. I **mercati a eventi di Kalshi**
 (il Brent di venerdì, lo stretto normale entro quando, l'accordo USA-Iran) sono letti ogni giorno e mostrati sul
 terminale accanto a ciò che le opzioni implicano; nessun libro li negozia, perché non c'è una storia su cui
-provare una regola: l'archivio si costruisce da oggi (`docs/RESEARCH.md`, capitolo 9).
+provare una regola: l'archivio si costruisce da oggi (`docs/RESEARCH.md`, capitolo 9). Su quei mercati gira
+anche un'**allerta di attività anomala**: una mossa di dieci punti in un giorno su un volume molto sopra il
+solito del mercato, con l'impronta delle operazioni (poche e grosse, da un lato solo?) - la firma dei casi di
+insider trading finiti sui giornali - apre una issue su GitHub e compare sul terminale. È un'impronta, non un
+verdetto: una notizia arrivata prima al mercato lascia la stessa.
 
 Il primo sistema (21 strategie su conti ombra, regimi, previsioni di prezzo) continua a girare ogni giorno e
 resta consultabile dalla pagina **Archive** del sito, una pagina sola: nessuna sua strategia ha superato la

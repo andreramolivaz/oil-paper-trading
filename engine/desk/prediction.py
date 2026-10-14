@@ -54,7 +54,10 @@ log = logging.getLogger(__name__)
 
 SOURCE = "kalshi"  # the raw table (config/data_sources.yaml, group desk)
 KALSHI_LOG = "kalshi"  # state/desk/kalshi-YYYY-MM.jsonl
-LOG_COLUMNS = ("ticker", "label", "floor", "cap", "yes_bid", "yes_ask", "last", "volume", "oi", "close_time")
+LOG_COLUMNS = (
+    "ticker", "label", "floor", "cap", "yes_bid", "yes_ask", "last", "volume", "oi", "close_time",
+    "volume_24h", "prev_mid",  # added with the alert (phase 13): older records have ten columns
+)  # fmt: skip
 MAX_READING_AGE_HOURS = 36.0  # a reading older than this is shown as stale (the tick downloads once a day)
 OPTIONS_MAX_QUOTE_AGE_HOURS = 24.0  # the options' implied probability needs a chain read within the day
 TRADING_YEAR_SECONDS = 365.25 * 86400.0
@@ -216,6 +219,8 @@ def _event_records(reading: Reading) -> list[dict[str, Any]]:
                         _num(m.get("volume")),
                         _num(m.get("open_interest")),
                         _text(m.get("close_time")),
+                        _num(m.get("volume_24h")),
+                        _r(previous_mid(m), 4),
                     ]
                     for m in markets
                 ],
@@ -351,9 +356,17 @@ def _r(x: Any, digits: int = 4) -> float | None:
     return None if v is None else round(v, digits)
 
 
+def previous_mid(row: dict[str, Any]) -> float | None:
+    """The probability the market quoted a day ago, from the API's own "previous" fields (the quote, else the
+    last trade, a day before the reading)."""
+    return _mid(_num(row.get("prev_yes_bid")), _num(row.get("prev_yes_ask")), _num(row.get("prev_price")))
+
+
 def _market_view(row: dict[str, Any]) -> dict[str, Any]:
     bid, ask, last = _num(row.get("yes_bid")), _num(row.get("yes_ask")), _num(row.get("last_price"))
     label = _text(row.get("subtitle")) or _text(row.get("title"))
+    mid = _mid(bid, ask, last)
+    prev = previous_mid(row)
     return {
         "ticker": _text(row.get("ticker")),
         "label": label,
@@ -365,9 +378,13 @@ def _market_view(row: dict[str, Any]) -> dict[str, Any]:
         "yes_bid": bid,
         "yes_ask": ask,
         "last": last,
-        "mid": _r(_mid(bid, ask, last), 4),
+        "mid": _r(mid, 4),
+        "mid_24h_ago": _r(prev, 4),
+        "change_24h": _r(mid - prev, 4) if mid is not None and prev is not None else None,
         "volume": _num(row.get("volume")),
+        "volume_24h": _num(row.get("volume_24h")),
         "open_interest": _num(row.get("open_interest")),
+        "open_time": _text(row.get("open_time")) or None,
         "close_time": _text(row.get("close_time")) or None,
     }
 
@@ -526,12 +543,15 @@ def prediction_block(
     hormuz: dict[str, Any] | None = None,
     inventories: dict[str, Any] | None = None,
     asked: Iterable[str] = (),
+    alerts: list[dict[str, Any]] | None = None,
+    watch_rules: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """``desk.json["prediction_markets"]``: the newest reading as event ladders, grouped for the page.
 
     ``references`` are the desk's own quotes by key ("brent", "wti": the dicts of ``market_block``); ``options``
     the options monitor's entries by underlying symbol ("BNO", "USO"); ``hormuz`` the desk's transit summary
-    and ``inventories`` the last EIA weekly figure - shown beside the markets that ask about them.
+    and ``inventories`` the last EIA weekly figure - shown beside the markets that ask about them; ``alerts``
+    the unusual-activity alerts of the last days (``engine/desk/watch.py``) and ``watch_rules`` their rule.
     """
     now = ensure_utc(now)
     asked_list = list(asked)
@@ -539,10 +559,12 @@ def prediction_block(
         "source": "Kalshi (public trade API, read-only)",
         "unit": "price of a contract paying 1 $ = the crowd's probability",
         "note": (
-            "No book trades on these markets: there is no history to test a rule on. The tick archives one "
-            "reading a day (state/desk/kalshi-*.jsonl); the first test is possible in a year."
+            "No book trades on these markets: there is no history to test a rule on. The tick reads them every "
+            "hour and archives one reading a day (state/desk/kalshi-*.jsonl); the first test is possible in a year."
         ),
         "asked": asked_list,
+        "alerts": list(alerts or []),
+        "watch": watch_rules or {},
     }
     if reading is None:
         return {**base, "asof": None, "stale": True, "groups": [], "past_close": [], "empty_series": asked_list}

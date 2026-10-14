@@ -131,6 +131,15 @@
 
 .t-empty { color: var(--text-muted); border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
 
+/* the unusual-activity alerts of the prediction markets: one framed line per event, the rule under them */
+.t-watch { margin: 4px 0 14px; }
+.t-watch .t-sub { margin-top: 4px; }
+.t-alert {
+  font-family: var(--mono); border-left: 3px solid var(--warning); padding: 6px 0 6px 12px; margin: 8px 0;
+  display: grid; gap: 3px;
+}
+.t-alert .t-dot { margin-right: 6px; }
+
 select {
   width: 100%; padding: 10px 12px; font-size: var(--t-base); font-family: var(--mono);
   background: var(--surface-0); color: var(--text-primary);

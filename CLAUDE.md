@@ -78,6 +78,10 @@ engine/desk/
   prediction.py Kalshi's markets: the daily archive (desk/kalshi-YYYY-MM.jsonl, one record per event and day)
                 and the terminal block (price ladders against the desk's quote and the options' lognormal twin,
                 deadline and threshold ladders beside what the desk measures). No book reads it.
+  watch.py      the unusual-activity alert on the event markets: a 24-hour move of 10 points (or 5 with the
+                odds tripled) on a day's volume far above the market's own (3x its median day, else a quarter
+                of its open interest), one alert per event and day (desk/kalshi_alerts-*.jsonl) with the
+                footprint of the day's trades; a GitHub issue for two days; a footprint, never a verdict
   backtest.py   daily replay (allocate before decide, run-up and transit ratios computed once per vehicle),
                 performance, yearly returns, block-bootstrap ruin
   live.py       the tick: feed completed 30-minute bars, charge financing, credit distributions, roll, review
@@ -103,9 +107,10 @@ selection.
 How a tick works (`engine/live/jobs.py::tick`, driven by `scripts/runner_loop.sh`):
 1. Fetch `desk_intraday` every tick. The daily tables are asked for BY NAME and only when needed
    (`_desk_daily_entries`): a vehicle's own tables on the tick that owes its decision, everything once after
-   the US close, the context tables once a day, copper and the dollar on the tick that owes the FIRST decision
-   of a day (never the evening before), and a table that was added to a list and never downloaded at once (it
-   alone). Option chains hourly in US hours and on the tick that owes the options decision.
+   the US close, the context tables once a day, the prediction markets every hour at any hour
+   (`DESK_HOURLY_ENTRIES`), copper and the dollar on the tick that owes the FIRST decision of a day (never the
+   evening before), and a table that was added to a list and never downloaded at once (it alone). Option
+   chains hourly in US hours and on the tick that owes the options decision.
 2. `live_tick`: each broker gets the 30-minute bars that COMPLETED since its last one (that is what fills the
    order queued by the previous decision and enforces margin, breaker and floor), financing, roll, then at
    most one decision per book per US session, taken at the first tick after the vehicle's decision time. A
@@ -292,7 +297,8 @@ First system: `state/account.json`, `state/positions.json`, `state/trades.jsonl`
 `state/regime.json`, `state/strategies.json`, `state/raw/...`.
 Desk: `state/desk/desk_state.json` (books' last decision days, roles changed by the lifecycle, the allocator's
 scales of the day), `state/desk/decisions-*.jsonl`, `state/desk/kalshi-*.jsonl` (the prediction markets, one
-record per event and day), `state/desk/backtest.json`, and one folder per book (the linear books, core and
+record per event and day), `state/desk/kalshi_alerts-*.jsonl` and `kalshi_watch.json` (the unusual-activity
+alerts and the last reading judged), `state/desk/backtest.json`, and one folder per book (the linear books, core and
 candidate: the paper broker's `account.json`, `positions.json`, `trades`, `orders`, `equity` logs; `opzioni`:
 `book.json`, `monitor.json`, `trades`, `decisions`, `equity`, `smile`).
 Rotation: monthly rollover of jsonl files. Raw snapshots are trimmed by every tick (intraday tables keep one
@@ -313,7 +319,8 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   switched on only after it was measured on the replay (`docs/RESEARCH.md` ch. 9 B), and the backtest always
   reports the books with and without it (`without_allocator`).
 - The prediction markets (Kalshi) are archived and shown, never traded: no book reads them until there is a
-  year of archive to test a rule on. A market past its close time is not a probability.
+  year of archive to test a rule on. A market past its close time is not a probability. The unusual-activity
+  alert flags a footprint by a declared rule and says so; it never calls anyone an insider and never trades.
 - A fund book is short only through an inverse fund it BUYS with cash: that fund's notional never exceeds the
   equity, and the book's ceilings (weekend included) bind the oil exposure on both sides - at the decision,
   at the fill price and after every mark. A fund is never sold short: its sale is reduce-only.
@@ -591,6 +598,24 @@ recomputed nothing (same fingerprint) and archived nothing new (same day). The p
 Allocator and Prediction markets sections on the live JSON with no console error. Still NOT seen: a decision
 taken under the allocator (the first due at 14:48 New York on the 14th for /MCL, expected "risk x 0.5" in its
 rationale), the first fills of the seven new books, a lifecycle change, a Kalshi reading older than a day.
+
+The unusual-activity alert (14 October, on the owner's "there is a lot of insider trading on Kalshi: add that
+as an alert"; `docs/RESEARCH.md` chapter 9 F, declared before it went live). The adapter now carries the API's
+24-hour fields (`volume_24h`, the quote "a day ago", the sizes at the touch, `open_time`) and reads a market's
+trades (`fetch_trades`); the tick reads the markets every hour and `engine/desk/watch.py` judges each reading:
+an event market (never a price ladder) that moved 10 points in 24 hours (or 5 with the odds tripled) on a
+day's volume of 3x its median day (after ten daily readings; before that a quarter of its open interest, for a
+market open two days) makes one alert per event and day with the footprint of the day's trades on its
+busiest market (number, the share of the five largest, the taker's dominant side, the largest and the first
+large one) and whether the rest of the ladder moved; the alerts job opens a GitHub issue for two days
+(`prediction_market_alerts`), the terminal shows a week. On the runner's reading of 03:03 UTC with a week of
+real trades (fixtures `kalshi_markets_2026-10-14T03.json`, `kalshi_trades_2026-10-14.json`): the 181 506-contract
+day on "strait normal before Nov 1" (one 100 000-contract trade at a cent, no move: a yield trade) is not
+flagged, the WTI ladders that jumped with oil are out of scope, and two alerts stand - the EIA inventories
+ladder down 10-24 points the evening the API's report came out (the whole ladder moved) and one weekly transit
+strike down 12 points on twice its open interest with the rest flat. A footprint, never a verdict: the text
+says so. The false-alarm rate is to be measured over the coming weeks; above one a day the thresholds are to
+be revisited and written down.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

@@ -167,14 +167,20 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
     assert macro == {"copper_daily", "dxy_daily"}
     wednesday_decision = datetime(2026, 10, 7, 18, 48, tzinfo=UTC)  # 14:48 New York: Wednesday's first decision
 
+    hourly = set(jobs.DESK_HOURLY_ENTRIES)
+    assert hourly == {"kalshi"}
+
     def health(
         bno_at: datetime | None,
         mcl_at: datetime | None,
         context_at: datetime | None,
         macro_at: datetime | None = wednesday_decision,
+        # the hourly table (the prediction markets) is not what this test is about: "read a moment ago" by
+        # default, whatever the tick's time, so it never joins the sets asserted below unless a call says so
+        hourly_at: datetime | None = datetime(2027, 1, 1, tzinfo=UTC),
     ) -> list[dict]:
         rows = []
-        groups = ((bno, bno_at), (mcl, mcl_at), (context, context_at), (macro, macro_at))
+        groups = ((bno, bno_at), (mcl, mcl_at), (context, context_at), (macro, macro_at), (hourly, hourly_at))
         for names, when in groups:  # every table of a group is downloaded together, so they share a time
             if when is not None:
                 rows += [{"source": n, "status": "green", "last_success_at": when.isoformat()} for n in sorted(names)]
@@ -185,7 +191,7 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
 
     morning = datetime(2026, 10, 8, 14, 18, tzinfo=UTC)  # 10:18 New York, Thursday
     # a first run downloads everything once
-    assert entries(morning, None, None, None, None) == bno | mcl | context | macro
+    assert entries(morning, None, None, None, None, None) == bno | mcl | context | macro | hourly
     # A new desk owes the previous session's decision. Tables read after last night's close can serve it, and
     # so can the copper and dollar tables read at that session's own first decision.
     last_night = datetime(2026, 10, 7, 20, 20, tzinfo=UTC)
@@ -215,12 +221,23 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
     assert entries(at_1618 + timedelta(minutes=30), at_1618, at_1618, at_1618, at_1448) == set()
     # the slow context tables are attempted once a day, and a red probe is asked again on the next tick
     assert entries(at_1618 + timedelta(minutes=30), at_1618, at_1618, last_night, at_1448) == context
-    # a context table added to the list since the last daily pass (the prediction markets, phase 13) is asked
-    # for at once, alone: the others wait for their own clock
+    # a context table added to the list since the last daily pass is asked for at once, alone: the others wait
+    # for their own clock
     fresh = health(at_1618, at_1618, at_1618, at_1448)
-    without_kalshi = [r for r in fresh if r["source"] != "kalshi"]
-    got, why = jobs._desk_daily_entries(_runner(tmp_path, without_kalshi), desk, at_1618 + timedelta(minutes=30))
-    assert got == {"kalshi"} and "context: never downloaded: kalshi" in why
+    without_one = [r for r in fresh if r["source"] != "bab_el_mandeb"]
+    got, why = jobs._desk_daily_entries(_runner(tmp_path, without_one), desk, at_1618 + timedelta(minutes=30))
+    assert got == {"bab_el_mandeb"} and "context: never downloaded: bab_el_mandeb" in why
+    # the prediction markets are read every hour, at any hour: never attempted, at once; half an hour after
+    # an attempt, no; an hour after, again
+    assert entries(at_1618, at_1518, at_1448, last_night, at_1448, None) == bno | mcl | {"kalshi"}
+    assert entries(at_1618 + timedelta(minutes=30), at_1618, at_1618, at_1618, at_1448, at_1618) == set()
+    assert entries(at_1618 + timedelta(minutes=60), at_1618, at_1618, at_1618, at_1448, at_1618) == {"kalshi"}
+    got, why = jobs._desk_daily_entries(
+        _runner(tmp_path, health(at_1618, at_1618, at_1618, at_1448, at_1618 - timedelta(minutes=60))),
+        desk,
+        at_1618 + timedelta(minutes=30),
+    )
+    assert got == {"kalshi"} and "kalshi: hourly" in why
     red = [
         *[{"source": n, "status": "red", "checked_at": at_1618.isoformat()} for n in sorted(bno)],
         *health(None, at_1618, at_1618, at_1448),
@@ -364,7 +381,9 @@ def test_the_satellite_books_tables_are_planned_like_the_funds_and_only_while_a_
         return rows
 
     def entries(now: datetime, when: datetime | None, sat_when: datetime | None) -> set[str]:
-        return jobs._desk_daily_entries(_runner(tmp_path, health(when, sat_when)), desk, now)[0]
+        rows = health(when, sat_when)
+        rows += [{"source": n, "status": "green", "last_success_at": now.isoformat()} for n in jobs.DESK_HOURLY_ENTRIES]
+        return jobs._desk_daily_entries(_runner(tmp_path, rows), desk, now)[0]
 
     for book in desk.books.values():
         desk.state.last_decision_day[book.id] = "2026-10-07"
@@ -644,8 +663,9 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
     # no option chain in this archive: the options book has nothing to decide on and its decision stays owed
     assert first.detail["options"]["decisions"] == [] and first.detail["options"]["open"] == 0
     # the daily tables were fresh, so only the per-tick bars are downloaded - plus the option chains, because
-    # the options book owes its decision on this tick and trades only on quotes it has just read
-    assert fetched == [["desk_intraday", "options"]]
+    # the options book owes its decision on this tick and trades only on quotes it has just read, and the
+    # prediction markets, never attempted in this archive
+    assert fetched == [["desk_intraday", "options", "kalshi"]]
     assert (settings.state_dir / "desk" / "prudente" / "account.json").exists()
     assert (settings.state_dir / "desk" / "opzioni" / "book.json").exists()
     # a desk that never had a backtest computes it on its first tick, so the terminal is whole from day one;

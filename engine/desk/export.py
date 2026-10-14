@@ -48,6 +48,8 @@ from engine.desk.options import MONITOR_FILE, STATE_FILE, load_options_config, o
 from engine.desk.prediction import configured_series, latest_reading, prediction_block
 from engine.desk.report import BACKTEST_FILE
 from engine.desk.vehicles import get_vehicle
+from engine.desk.watch import describe as describe_watch
+from engine.desk.watch import recent_alerts
 
 log = logging.getLogger(__name__)
 
@@ -630,6 +632,8 @@ def build_desk_payload(
             hormuz=market.get("hormuz"),
             inventories=_inventories(raw),
             asked=configured_series(settings.config_dir),
+            alerts=recent_alerts(desk_store(settings.state_dir), now),
+            watch_rules=describe_watch(),
         ),
     }
     cleaned: dict[str, Any] = _clean(payload)

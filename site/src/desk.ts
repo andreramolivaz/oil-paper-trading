@@ -402,8 +402,13 @@ export interface PredictionMarket {
   last: Num;
   /** The probability read: the mid of bid and ask (the last trade when there is no real quote). */
   mid: Num;
+  /** The same a day ago (the API's own "previous" quote) and the change since. */
+  mid_24h_ago?: Num;
+  change_24h?: Num;
   volume: Num;
+  volume_24h?: Num;
   open_interest: Num;
+  open_time?: string | null;
   close_time?: string | null;
   /** ≈ P(above the strike) under a lognormal at the fund's ATM implied volatility (price ladders only). */
   options_p_above?: Num;
@@ -447,11 +452,61 @@ export interface PredictionEvent {
   summary: string;
 }
 
+/** What the day's trades on a flagged market looked like (engine/desk/watch.py::footprint). */
+export interface TradeFootprint {
+  trades: number;
+  note?: string;
+  contracts?: number;
+  top_share?: Num;
+  top_trades?: number;
+  side?: "yes" | "no";
+  side_share?: Num;
+  largest?: { contracts: number; yes_price: Num; at: string; side: string };
+  first_large?: { contracts: number; yes_price: Num; at: string };
+  block_trades?: number;
+  price_path?: [Num, Num] | null;
+  window_start?: string;
+}
+
+/** One unusual-activity alert: an event whose markets moved a lot on unusual volume in 24 hours. */
+export interface PredictionAlert {
+  key: string;
+  day: string;
+  ts: string;
+  series: string;
+  event: string;
+  group: string;
+  title: string;
+  markets: {
+    ticker: string;
+    label: string;
+    mid: Num;
+    mid_24h_ago: Num;
+    change_24h: Num;
+    volume_24h: Num;
+    open_interest: Num;
+    move: string;
+    volume: string;
+    baseline_days: number;
+  }[];
+  n_markets: number;
+  rest_of_ladder_move: Num;
+  rest_flat: boolean;
+  close_time?: string | null;
+  footprint: TradeFootprint | null;
+  footprint_note?: string | null;
+  footprint_ticker?: string;
+  text: string;
+}
+
 export interface PredictionBlock {
   source: string;
   unit: string;
   note: string;
   asked: string[];
+  /** The unusual-activity alerts of the last week, newest first, and the rule they come from. */
+  alerts?: PredictionAlert[];
+  watch?: Record<string, string>;
   asof: string | null;
   age_hours?: Num;
   stale: boolean;

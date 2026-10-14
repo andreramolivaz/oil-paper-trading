@@ -1015,6 +1015,57 @@ m / volatilità», dove m è il moltiplicatore dell'allocatore (D1 e D4), uguale
 giorno nello stato e sul terminale. Le decisioni dei libri non cambiano in nessun altro modo. Il backtest
 riporta i numeri con e senza allocatore, sempre.
 
+### F. L'allerta di attività anomala sui mercati a eventi (14 ottobre, scritta prima di accenderla)
+
+Il proprietario: «su Kalshi c'è molto insider trading: inseriscilo come allerta». Che cosa si sa. Sulle azioni,
+Meulbroek (1992) misura che nei giorni in cui un insider negozia il prezzo si muove e il volume è anomalo: le
+due cose insieme sono la firma, nessuna delle due da sola. Sui mercati a eventi la firma è la stessa, più
+visibile perché il mercato è sottile: Rothschild e Sethi (2016) ricostruiscono su Intrade 2012 un singolo
+operatore che compra da una parte sola, grosso, a lungo; nei casi pubblici recenti (sei portafogli nuovi che
+comprano «attacco USA all'Iran entro il 28 febbraio» a 10-20 centesimi poche ore prima dei raid del 28 febbraio
+2026 e incassano circa un milione, segnalati da Bubblemaps e ricostruiti da The Block; il riservista israeliano
+incriminato per le scommesse su Polymarket sull'apertura della guerra dei dodici giorni del giugno 2025, basate
+su informazioni classificate) il quadro è: una mossa grande, in una direzione, su un volume molto sopra il
+solito del mercato, attraverso poche operazioni grosse dallo stesso lato, prima della notizia. Nessuno
+distingue da fuori un insider da chi copre un rischio con informazione lecita o da una notizia che è arrivata
+prima al mercato che ai giornali: l'allerta segnala l'impronta e dice che cos'è.
+
+La regola (`engine/desk/watch.py`), per mercato, a ogni lettura (il giro legge i mercati ogni ora):
+1. il mercato è un mercato a eventi (lo stretto, i colloqui, l'OPEC, le scorte EIA, ...), non una scala di
+   prezzo su Brent o WTI: una scala si muove con il prezzo del greggio, e questo non è informazione su un
+   evento;
+2. la mossa in 24 ore (la quotazione «di un giorno fa» che l'API stessa riporta, contro quella di adesso) è di
+   almeno 10 punti di probabilità, oppure di almeno 5 punti con le odds moltiplicate o divise per 3 (dal 3%
+   al 9% le odds triplicano; dal 45% al 51% no);
+3. il volume delle 24 ore è insolito: almeno 3 volte la mediana dei volumi giornalieri del mercato e sopra il
+   suo 90° percentile, quando ci sono almeno 10 letture giornaliere nell'archivio (`state/desk/kalshi-*.jsonl`,
+   che da oggi registra `volume_24h`); prima di allora almeno il 25% dell'open interest, per un mercato aperto
+   da almeno 48 ore (il primo giorno di un mercato è tutto il suo volume) - e mai sotto 500 contratti.
+I mercati segnalati di uno stesso evento (le soglie di una scala) fanno UNA allerta, scritta una volta per
+evento e giorno UTC (`state/desk/kalshi_alerts-AAAA-MM.jsonl`), che dice se il resto della scala si è mosso
+(una notizia muove tutta la scala; una soglia sola che si muove è la vista più strana) e porta l'impronta delle
+operazioni del giorno sul mercato segnalato più scambiato, quando si sono potute leggere (`/markets/trades`,
+poche chiamate al giorno): quante, la quota delle cinque più grosse, la quota dal lato dominante del taker, la
+più grossa e la prima delle grosse. Il job delle allerte apre una issue su GitHub per le allerte degli ultimi
+due giorni; il terminale mostra quelle dell'ultima settimana. Nessun libro legge nulla di tutto questo. Le
+soglie sono numeri tondi dichiarati, non stimati: non c'è una storia su cui stimarli, e un'allerta non è una
+regola di negoziazione.
+
+Provata sulla prima lettura con i campi delle 24 ore (il runner, 14 ottobre, 03:03 UTC) e su una settimana
+di operazioni vere scaricate dallo stesso runner (`tests/fixtures/kalshi_markets_2026-10-14T03.json`,
+`kalshi_trades_2026-10-14.json`): il mercato più scambiato del giorno, «stretto normale entro il 1°
+novembre», 181 506 contratti in 24 ore di cui 100 000 in una sola operazione a un centesimo, non si è mosso
+(un rendimento del 2% in due settimane comprando il NO: non è informazione) e non è segnalato; le scale del
+WTI del 14 salite di 30-50 punti con il greggio sono fuori dal campo; due allerte vere: la scala delle scorte
+EIA della settimana al 9 ottobre, tre soglie scese di 10-24 punti su tutto il loro open interest la sera in
+cui esce il rapporto dell'API (una notizia pubblica: tutta la scala si è mossa, e l'allerta lo scrive), e la
+soglia «più di 25 transiti» della settimana, scesa di 12 punti su due volte il suo open interest con il resto
+della scala fermo (25 operazioni, le cinque più grosse il 54%, l'82% con il taker sul NO). Sull'archivio della
+settimana si vede anche l'impronta tipica senza mossa: il 13 ottobre alle 15:54-15:56 UTC un solo taker ha
+venduto SÌ su tutte le date 2027 della scala dello stretto (140-850 contratti ciascuna). Il tasso di falsi
+allarmi è da misurare sulle settimane a venire; se supera un'allerta al giorno le soglie vanno riviste, e
+scritte qui.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
@@ -1040,6 +1091,10 @@ Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
 Dati:
 
 - [IMF PortWatch](https://portwatch.imf.org) (transiti negli stretti)
+- [Kalshi, API pubblica: il mercato](https://docs.kalshi.com/api-reference/market/get-market) (`volume_24h_fp`,
+  `previous_yes_bid_dollars` «un giorno fa», `yes_bid_size_fp`) ·
+  [le operazioni](https://docs.kalshi.com/api-reference/market/get-trades) (`count_fp`, `taker_outcome_side`,
+  `is_block_trade`)
 - Cboe, quotazioni ritardate delle opzioni: `https://cdn.cboe.com/api/global/delayed_quotes/options/{SIMBOLO}.json`
 - [Alpha Vantage, chiave gratuita](https://www.alphavantage.co/support/#api-key) (Form 4)
 - EIA, FRED, Yahoo, CFTC, ICE: vedi `docs/DATA_SOURCES.md`
@@ -1089,3 +1144,8 @@ Letteratura (letta per intero salvo dove indicato):
   Ewald e altri, [Intra-day seasonality and abnormal returns in the Brent crude oil futures market](https://eprints.gla.ac.uk/363707) (solo riassunto)
 - Lim, Zohren, Roberts, [Enhancing time series momentum strategies using deep neural networks](https://arxiv.org/abs/1904.04912);
   Wood, Roberts, Zohren, [Slow momentum with fast reversion](https://arxiv.org/abs/2105.13727)
+- Sull'allerta di attività anomala (9 F): Meulbroek, *An empirical analysis of illegal insider trading*, Journal
+  of Finance 1992 (ricordato, non riletto); Rothschild e Sethi, *Trading strategies and market microstructure:
+  evidence from a prediction market*, Journal of Prediction Markets 2016 (ricordato); i casi pubblici:
+  [The Block, 28 febbraio 2026: sei portafogli nuovi guadagnano un milione su Polymarket poche ore prima dei raid sull'Iran (Bubblemaps)](https://www.theblock.co/post/391650/fresh-accounts-netted-1-million-on-polymarket-hours-before-us-airstrikes-on-iran-bubblemaps) ·
+  [Israele incrimina due persone per le scommesse su Polymarket sulle operazioni militari del giugno 2025](https://www.yahoo.com/news/articles/israel-indicts-two-over-secret-222721126.html)

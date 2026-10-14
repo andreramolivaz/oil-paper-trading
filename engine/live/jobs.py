@@ -189,7 +189,11 @@ DESK_VEHICLE_ENTRIES: dict[str, tuple[str, ...]] = {
     "SMH": ("smh_daily",),
     "ICLN": ("icln_daily",),
 }
-DESK_CONTEXT_ENTRIES = ("hormuz", "bab_el_mandeb", "wti_curve_hist", "kalshi")  # slow tables: one attempt a day
+DESK_CONTEXT_ENTRIES = ("hormuz", "bab_el_mandeb", "wti_curve_hist")  # slow tables: one attempt a day
+# The prediction markets: read every hour (sixteen requests, a second apart), at any hour - an event market
+# moves at any hour, and the unusual-activity alert (engine/desk/watch.py) judges every reading.
+DESK_HOURLY_ENTRIES = ("kalshi",)
+HOURLY_REFRESH_HOURS = 0.9
 # Copper and the dollar index, read by the macro sleeves as of the close BEFORE the decision day: downloaded once
 # per decision day, on the tick that owes the day's first decision. Not the evening before: the row of the day
 # a table is read on is not that day's close (engine/desk/data.py::final_rows), so the previous close is only
@@ -303,12 +307,17 @@ def _desk_daily_entries(runner: LiveRunner, desk: Any, now: Any) -> tuple[set[st
         entries |= set(DESK_CONTEXT_ENTRIES)
         reasons.append("context: once a day")
     else:
-        # a context table added to the list since the last daily pass (the prediction markets, phase 13) is
-        # asked for now, alone, not when the pass next happens to be due
+        # a context table added to the list since the last daily pass is asked for now, alone, not when the
+        # pass next happens to be due
         never = [name for name in DESK_CONTEXT_ENTRIES if _source_attempted_at(runner, name) is None]
         if never:
             entries |= set(never)
             reasons.append(f"context: never downloaded: {', '.join(never)}")
+    for name in DESK_HOURLY_ENTRIES:
+        tried = _source_attempted_at(runner, name)
+        if tried is None or hours_since(tried) >= HOURLY_REFRESH_HOURS:
+            entries.add(name)
+            reasons.append(f"{name}: {'to download' if tried is None else 'hourly'}")
 
     # Copper and the dollar. A decision of day D reads their closes of the days before D, and those are on file
     # in their final form only in a table downloaded on D itself: so the tables are downloaded on the tick that
@@ -367,8 +376,9 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         detail["sources"] = _fetch_summary(fetched, groups, entries)
         detail["raw_snapshots_deleted"] = _compact_raw(runner, fetched)
 
-        # The prediction markets' daily archive: the newest download, appended once per day and event. On the
-        # side, like everything that is not a book: a failure here costs nothing else.
+        # The prediction markets: the newest download archived (once per day and event) and judged by the
+        # unusual-activity alert (once per reading; the trades of a flagged market are read on the spot). On
+        # the side, like everything that is not a book: a failure here costs nothing else.
         try:
             from engine.desk.live import desk_store
             from engine.desk.prediction import archive_reading
@@ -377,6 +387,15 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         except Exception as exc:
             log.warning("prediction markets archive skipped: %s", exc)
             detail["prediction_markets"] = {"status": f"failed: {str(exc)[:160]}"}
+        try:
+            from engine.desk.watch import watch
+
+            detail["prediction_watch"] = watch(
+                runner.raw, desk_store(runner.settings.state_dir), now_utc(), fetch_trades=_trades_reader(runner)
+            )
+        except Exception as exc:
+            log.warning("prediction markets watch skipped: %s", exc)
+            detail["prediction_watch"] = {"status": f"failed: {str(exc)[:160]}"}
 
         data = build_desk_data(runner.raw, runner.settings)
         blocked = _blocked_vehicles(runner, desk.vehicles())
@@ -718,6 +737,17 @@ def alerts(runner: LiveRunner, repo: str) -> JobOutcome:
 
 
 # ---------------------------------------------------------------------------------------------- helpers
+def _trades_reader(runner: LiveRunner) -> Any:
+    """The reader of a market's trades for the alert's footprint: the Kalshi adapter, one call a second; None
+    when the settings say offline (tests, the CI unit stage)."""
+    if getattr(runner.settings, "offline", False):
+        return None
+    from engine.data.adapters.kalshi import KalshiAdapter
+
+    adapter = KalshiAdapter()
+    return adapter.fetch_trades
+
+
 def _fetch(runner: LiveRunner, groups: list[str] | None, entries: set[str] | None = None) -> dict[str, Any]:
     """Refresh the sources (whole groups, plus single tables by name); a failure degrades the health, it never
     fails the job."""
