@@ -215,6 +215,12 @@ def test_a_tick_downloads_only_the_daily_tables_its_decisions_need(tmp_path):
     assert entries(at_1618 + timedelta(minutes=30), at_1618, at_1618, at_1618, at_1448) == set()
     # the slow context tables are attempted once a day, and a red probe is asked again on the next tick
     assert entries(at_1618 + timedelta(minutes=30), at_1618, at_1618, last_night, at_1448) == context
+    # a context table added to the list since the last daily pass (the prediction markets, phase 13) is asked
+    # for at once, alone: the others wait for their own clock
+    fresh = health(at_1618, at_1618, at_1618, at_1448)
+    without_kalshi = [r for r in fresh if r["source"] != "kalshi"]
+    got, why = jobs._desk_daily_entries(_runner(tmp_path, without_kalshi), desk, at_1618 + timedelta(minutes=30))
+    assert got == {"kalshi"} and "context: never downloaded: kalshi" in why
     red = [
         *[{"source": n, "status": "red", "checked_at": at_1618.isoformat()} for n in sorted(bno)],
         *health(None, at_1618, at_1618, at_1448),
