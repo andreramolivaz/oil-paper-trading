@@ -169,8 +169,10 @@ probabilità «sopra il prezzo di adesso» accanto a quella implicita nelle opzi
 volatilità implicita ATM, segnata ≈); per le scadenze, la probabilità entro ogni data; per le soglie, la
 mediana accanto al dato che il desk misura da sé (i transiti di PortWatch, le scorte EIA). **Nessun libro li
 negozia**: non esiste una storia su cui provare una regola, e l'archivio serve a costruirla (primo test
-possibile fra un anno). Un mercato ancora «attivo» dopo la sua chiusura (visto il 13 ottobre su `KXBRENTMON` e
-`KXWTIW`) non è una probabilità e il terminale lo dice.
+possibile fra un anno). Una scala di prezzo regola sul feed del mercato (il Brent di Pyth, il regolamento ICE
+del WTI), non sul contratto che il desk quota: lo scarto fra la mediana del pubblico e il riferimento è in parte
+una base, e il terminale lo scrive. Un mercato oltre la sua chiusura (una lettura presa tardi, o vecchia di
+giorni) non è una probabilità e il terminale lo mette da parte.
 
 ### Il libro delle opzioni (`engine/desk/options.py`) — sperimentale
 

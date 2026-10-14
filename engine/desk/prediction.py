@@ -18,10 +18,15 @@ first" (docs/RESEARCH.md, chapter 9 C). What this module does with them, exactly
    (``approx``: a model, no smile, no basis between fund and future).
 3. NOT TRADE. No book reads these numbers. Nothing here changes a decision.
 
-Seen on the real API (13 October 2026) and handled here: a market can stay "active" months after its close time
-(``KXBRENTMON`` on July 31, ``KXWTIW`` on August 21): such a market is listed under ``past_close`` and is never
-turned into a probability; a series can have no open market at all; the deadline of a market is in its
-subtitle ("Before Jan 1, 2027"), not in a strike.
+Seen on the first live reading (the runner, 2026-10-14 01:22 UTC, 296 markets in 13 events) and handled here:
+a series can have no open market at all (five of the sixteen asked for); the deadline of a market is in its
+subtitle ("Before Jan 1, 2027"), not in a strike; a weekly WTI ladder is one "below", twenty-five bins and one
+"above"; a price ladder settles on the market's own feed (Pyth's Brent, ICE's WBS settlement), not on the
+contract the desk quotes, so the gap between the crowd's median and the reference is partly a basis. A market
+whose close time has passed (a reading taken late, or days old) is listed under ``past_close`` and is never
+turned into a probability. The probes made from the workspace before the deploy, through a fetch proxy,
+returned months-old copies of some series (July's monthly ladder still "active"): only the runner's own
+download counts, and the fixture of the tests is that download.
 """
 
 from __future__ import annotations
@@ -80,6 +85,17 @@ PRICE_SERIES: dict[str, tuple[str, str]] = {
     "KXWTI": ("wti", "USO"),
     "KXWTIW": ("wti", "USO"),
     "KXWTIMONTHLY": ("wti", "USO"),
+}
+# what each price ladder settles on, from the markets' own rules (read on 2026-10-14): not the contract the desk
+# quotes, so a gap between the crowd's median and the reference is partly a basis, not only an expectation
+SETTLEMENT_NOTES: dict[str, str] = {
+    "KXBRENTD": "Kalshi's own Brent price feed (Pyth) at 17:00 New York, not the ICE contract quoted here",
+    "KXBRENTW": "Kalshi's own Brent price feed (Pyth) at 17:00 New York, not the ICE contract quoted here",
+    "KXBRENTMON": "Kalshi's own Brent price feed (Pyth) at 17:00 New York, not the ICE contract quoted here",
+    "KXBRENTWEX": "Kalshi's own Brent price feed (Pyth), not the ICE contract quoted here",
+    "KXWTI": "the ICE WTI (WBS) front-month daily settlement",
+    "KXWTIW": "the ICE WTI (WBS) front-month daily settlement",
+    "KXWTIMONTHLY": "the ICE WTI (WBS) front-month daily settlement",
 }
 HORMUZ_SERIES = frozenset({"KXHORMUZNORM", "KXHORMUZRETURN", "KXCLOSEHORMUZ", "KXMAXSHIPSHORMUZ", "KXHORMUZWEEKLY"})
 INVENTORY_SERIES = frozenset({"KXEIACRUDEW"})
@@ -266,7 +282,8 @@ def _mid(bid: float | None, ask: float | None, last: float | None) -> float | No
 
 def above_curve(markets: Iterable[dict[str, Any]]) -> list[tuple[float, float]]:
     """P(X > x) at the strikes of a ladder, from its markets: "greater" markets as they are, "less" markets
-    turned around, "between" bins summed from the top. Sorted by x; the crowd is not forced to be monotone."""
+    turned around, "between" bins summed from the top on the "greater" tail above them (a weekly WTI ladder is
+    one "below", twenty-five bins and one "above"). Sorted by x; the crowd is not forced to be monotone."""
     greater: list[tuple[float, float]] = []
     less: list[tuple[float, float]] = []
     bins: list[tuple[float, float, float]] = []
@@ -281,13 +298,17 @@ def above_curve(markets: Iterable[dict[str, Any]]) -> list[tuple[float, float]]:
             less.append((float(cap), 1.0 - float(p)))
         elif kind == "between" and floor is not None and cap is not None:
             bins.append((float(floor), float(cap), float(p)))
-    points = greater + less
-    if bins and not greater:
-        tail = 0.0
+    points: dict[float, float] = {}
+    for x, p in greater + less:
+        points[x] = p
+    if bins:
+        top = max(b[1] for b in bins)
+        above = [p for x, p in greater if x >= top - 0.01]  # the "above" market that caps the bins
+        tail = min(above) if above else 0.0
         for floor, _cap, p in sorted(bins, key=lambda b: b[0], reverse=True):
             tail = min(1.0, tail + p)
-            points.append((floor, tail))
-    return sorted(points)
+            points[floor] = tail
+    return sorted(points.items())
 
 
 def interpolate_above(curve: list[tuple[float, float]], x: float) -> float | None:
@@ -423,11 +444,21 @@ def _price_event(
         if reference is None
         else {"symbol": reference.get("symbol"), "price": _r(ref_price, 3), "asof": reference.get("asof")}
     )
+    p_ref = interpolate_above(curve, ref_price) if ref_price is not None else None
+    bound: str | None = None
+    if ref_price is not None and p_ref is None and len(curve) >= 2:
+        # outside the ladder: the crowd's probability at the reference is bounded by the nearest strike
+        if ref_price > curve[-1][0]:
+            bound = f"under {_pct(curve[-1][1])} (the reference is above the ladder's top strike, {curve[-1][0]:.2f})"
+        elif ref_price < curve[0][0]:
+            bound = f"over {_pct(curve[0][1])} (the reference is below the ladder's bottom strike, {curve[0][0]:.2f})"
     event["implied"] = {
         "median": _r(median, 2),
-        "p_above_reference": _r(interpolate_above(curve, ref_price), 4) if ref_price is not None else None,
+        "p_above_reference": _r(p_ref, 4),
+        "p_above_reference_bound": bound,
         "note": "from the mid of bid and ask of each strike, linearly between strikes",
     }
+    event["settles_on"] = SETTLEMENT_NOTES.get(event["series"])
     event["title"] = _nearest_title(markets, median, event["title"])
     opt: dict[str, Any] | None = None
     iv = _num((options or {}).get("atm_iv"))
@@ -460,8 +491,7 @@ def _price_event(
     when = _text(event.get("close_time"))[:10]
     parts = [f"the crowd's median {_money(median)}" if median is not None else "no median on the ladder"]
     if ref_price is not None:
-        p_ref = event["implied"]["p_above_reference"]
-        parts.append(f"P(above {ref_price:.2f} {unit} now) {_pct(p_ref)}")
+        parts.append(f"P(above {ref_price:.2f} {unit} now) {bound or _pct(p_ref)}")
     if opt and opt.get("median") is not None:
         parts.append(f"the {opt['symbol']} options' median {_money(opt['median'])} (approx)")
     event["summary"] = f"{event['label']} on {when}: " + ", ".join(parts)

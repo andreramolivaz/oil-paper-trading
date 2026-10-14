@@ -972,25 +972,41 @@ giornaliero regola sul contratto ICE WBS). Limite di richieste: un 429 dopo una 
 l'adattatore ne fa una al secondo. Dall'archivio di oggi in poi il desk salva ogni giorno i prezzi di quei
 mercati; il primo test possibile fra un anno.
 
-Lettura dei mercati aperti, la sera del 13 ottobre, serie per serie (`tests/fixtures/kalshi_markets_2026-10-13.json`
-ne conserva i record veri): `KXBRENTW` (il Brent di venerdì 16, venti soglie da 82 a 120 $: sopra 102 al 63%,
-sopra 104 al 45%, sopra 106 al 25%, mediana del pubblico 103,5 $ contro un dicembre a 105,9), `KXWTI` (il WTI
-di giovedì 15, trenta soglie, quasi senza volume), `KXHORMUZNORM` (media a 7 giorni dei transiti sopra 60,
-PortWatch: entro il 1° novembre 26%, dicembre 38%, gennaio 2027 48%, aprile 52%, luglio 59%; 3,7 milioni di
-contratti), `KXMAXSHIPSHORMUZ` (massimo giornaliero di ottobre: almeno 8 al 52%, almeno 10 al 27%),
-`KXUSAIRANAGREEMENT` (accordo nucleare entro il 1° gennaio 2027 al 12%, entro il 2028 al 35%),
-`KXUSIRANMEETING` (incontro di alto livello entro dicembre 23%, entro gennaio 42%), `KXEIACRUDEW` (le scorte
-della settimana al 9 ottobre: mediana 422,6 milioni di barili contro 424,1 della settimana prima). Sei serie non
-avevano alcun mercato aperto (`KXBRENTD`, `KXWTIMONTHLY`, `KXCLOSEHORMUZ`, `KXHORMUZRETURN`, `KXOPECCUTS`,
-`KXSAUDICRUDE`) e due erano ancora «attive» mesi dopo la chiusura, mai regolate (`KXBRENTMON` del 31 luglio,
-`KXWTIW` del 21 agosto, `KXHORMUZWEEKLY` di luglio-agosto): un mercato oltre la sua chiusura non è una
-probabilità, e il motore lo mette da parte. Il mercato porta anche il sottotitolo che distingue le soglie
-(«Above $103.99», «Before Jan 1, 2027»), che l'adattatore archivia, e non porta il codice della serie: lo si
-ricava dalla domanda. Che cosa ne fa il motore (`engine/desk/prediction.py`): un record per evento e giorno in
+Prima lettura dal vivo, dal runner, il 14 ottobre alle 01:22 UTC (296 mercati in 13 eventi;
+`tests/fixtures/kalshi_markets_2026-10-14.json` ne conserva i record veri, nella forma dell'API). Serie per
+serie: `KXBRENTD` (il Brent del 14 alle 17:00 di New York, venti soglie da 97 a 106,5 $: mediana del pubblico
+104,2 $), `KXBRENTW` (il Brent di venerdì 16, da 82 a 120 $: sopra 102 al 70%, sopra 104 al 53%, sopra 106 al
+35%, mediana 104,4 $), `KXBRENTMON` (il 30 ottobre, mediana 104,1 $), `KXWTI` (il WTI del 14 e del 15 per
+soglia, mediane 95,3 e 94,4 $, più una scala a 75 soglie sul regolamento del 3 novembre, mediana 94,3 $),
+`KXWTIW` (il 16 ottobre: un «sotto 80», venticinque intervalli di un dollaro e un «sopra 104,99»: sommati
+dall'alto danno una mediana di 94,7 $), `KXHORMUZNORM` (media a 7 giorni dei transiti sopra 60, PortWatch:
+entro il 1° novembre 2%, dicembre 4%, gennaio 2027 5%, aprile 25%, luglio 2027 38%, gennaio 2028 54%, gennaio
+2029 67%; 1-3 milioni di contratti per data), `KXHORMUZWEEKLY` (transiti dal 12 al 18 ottobre: mediana 22, cioè
+tre al giorno, contro i 0,9 al giorno di petroliere che PortWatch dava al desk al 4 ottobre), `KXMAXSHIPSHORMUZ`
+(massimo giornaliero di ottobre: almeno 8 al 52%, almeno 10 al 27%), `KXUSAIRANAGREEMENT` (accordo nucleare
+entro il 1° gennaio 2027 al 12%, entro il 2028 al 35%, entro il 20 gennaio 2029 al 39%), `KXUSIRANMEETING`
+(incontro di alto livello entro dicembre 23%, gennaio 42%, febbraio 56%, aprile 2027 80%), `KXEIACRUDEW` (le
+scorte della settimana al 9 ottobre: mediana 421,4 milioni di barili contro 424,1 della settimana prima).
+Cinque serie non avevano alcun mercato aperto (`KXCLOSEHORMUZ`, `KXHORMUZRETURN`, `KXOPECCUTS`, `KXSAUDICRUDE`,
+`KXWTIMONTHLY`) e nessun mercato era oltre la sua chiusura.
+
+Due cose imparate. La prima: le sonde fatte dal workspace prima della messa in linea, attraverso il proxy di
+lettura, avevano restituito per alcune serie copie vecchie di mesi (la scala mensile del Brent del 31 luglio
+ancora «attiva», lo stretto «normale entro dicembre» al 38% invece del 4%): quelle cifre erano sbagliate ed
+erano finite in una prima versione di questi appunti; conta solo lo scaricamento del runner, e la guardia del
+motore contro un mercato oltre la chiusura resta come guardia, non come descrizione di Kalshi. La seconda: la
+mediana del pubblico per il Brent di venerdì (104,4 $) stava 2,5% sotto il contratto di dicembre che il desk
+quotava quella sera (BZZ26, 107,0 $), e lo stesso scarto si vede sul giornaliero e sul mensile: il mercato
+regola sul proprio feed del Brent (Pyth), non sul contratto ICE, e in una backwardation del 25% l'anno un feed
+che segua un mese più avanti vale circa il 2% in meno. Lo scarto è in parte una base, non un'aspettativa, e il
+terminale lo scrive accanto al numero. Il mercato porta anche il sottotitolo che distingue le soglie («Above
+$103.99», «Before Jan 1, 2027»), che l'adattatore archivia, e non porta il codice della serie: lo si ricava
+dalla domanda. Che cosa ne fa il motore (`engine/desk/prediction.py`): un record per evento e giorno in
 `state/desk/kalshi-AAAA-MM.jsonl`; sul terminale la mediana del pubblico, la probabilità «sopra il prezzo di
-adesso» e, accanto, quella delle opzioni del fondo sotto una lognormale alla volatilità implicita ATM (segnata ≈:
-senza smile e senza base fra fondo e future); per le scadenze la scala delle date; per le soglie la mediana
-accanto al dato che il desk misura da sé. Nessun libro legge quei numeri.
+adesso» (o il suo limite, quando il prezzo è fuori dalla scala) e, accanto, quella delle opzioni del fondo
+sotto una lognormale alla volatilità implicita ATM (segnata ≈: senza smile e senza base fra fondo e future);
+per le scadenze la scala delle date; per le soglie la mediana accanto al dato che il desk misura da sé.
+Nessun libro legge quei numeri.
 
 ### D. Che cosa questo cambia nelle regole dure
 

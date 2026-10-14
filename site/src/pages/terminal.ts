@@ -486,9 +486,11 @@ function predictionHeadline(e: PredictionEvent): string {
     const parts: string[] = [];
     if (im?.median !== null && im?.median !== undefined) parts.push(`the crowd's median <b>${num(im.median, 2)} $</b>`);
     if (ref && ref.price !== null && ref.price !== undefined) {
+      const p = im?.p_above_reference;
+      const bound = im?.p_above_reference_bound;
       parts.push(
         `${escapeHtml(ref.symbol ?? "")} now ${num(ref.price, 2)} $${
-          im?.p_above_reference === null || im?.p_above_reference === undefined ? "" : ` → P(above it) <b>${pct(im.p_above_reference)}</b>`
+          p !== null && p !== undefined ? ` → P(above it) <b>${pct(p)}</b>` : bound ? ` → P(above it) ${escapeHtml(bound)}` : ""
         }`,
       );
     }
@@ -546,6 +548,7 @@ function predictionMarkets(doc: DeskDoc): string {
         )} ${escapeHtml(e.close_time?.slice(0, 4) ?? "")}</span><br><span class="t-dim">${escapeHtml(e.title)}</span><br>${predictionHeadline(e)}</summary>
         ${predictionLadder(e)}
         ${measuredLine(e)}
+        ${e.settles_on ? `<p class="t-dim">Settles on ${escapeHtml(e.settles_on)}: part of the gap between the crowd's median and the reference is a basis, not an expectation.</p>` : ""}
         ${
           e.kind === "price" && e.options_implied?.approx
             ? `<p class="t-dim">≈ ${escapeHtml(e.options_implied.note ?? "")}.</p>`
