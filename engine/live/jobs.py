@@ -313,11 +313,9 @@ def _desk_daily_entries(runner: LiveRunner, desk: Any, now: Any) -> tuple[set[st
         if never:
             entries |= set(never)
             reasons.append(f"context: never downloaded: {', '.join(never)}")
-    for name in DESK_HOURLY_ENTRIES:
-        tried = _source_attempted_at(runner, name)
-        if tried is None or hours_since(tried) >= HOURLY_REFRESH_HOURS:
-            entries.add(name)
-            reasons.append(f"{name}: {'to download' if tried is None else 'hourly'}")
+    hourly, hourly_why = _hourly_entries(runner, now)
+    entries |= hourly
+    reasons += hourly_why
 
     # Copper and the dollar. A decision of day D reads their closes of the days before D, and those are on file
     # in their final form only in a table downloaded on D itself: so the tables are downloaded on the tick that
@@ -341,6 +339,81 @@ def _desk_daily_entries(runner: LiveRunner, desk: Any, now: Any) -> tuple[set[st
         entries |= set(DESK_MACRO_ENTRIES)
         reasons.append(f"macro: {macro_reason}")
     return entries, "; ".join(reasons)
+
+
+def _hourly_entries(runner: LiveRunner, now: Any) -> tuple[set[str], list[str]]:
+    """The tables read every hour at any hour (the prediction markets): due when never attempted or when the
+    last attempt is an hour old. Shared by the tick and by the weekend's ``watch`` job."""
+    now = ensure_utc(now)
+    entries: set[str] = set()
+    reasons: list[str] = []
+    for name in DESK_HOURLY_ENTRIES:
+        tried = _source_attempted_at(runner, name)
+        hours = None if tried is None else float((now - ensure_utc(tried)).total_seconds()) / 3600.0
+        if hours is None or hours >= HOURLY_REFRESH_HOURS:
+            entries.add(name)
+            reasons.append(f"{name}: {'to download' if tried is None else 'hourly'}")
+    return entries, reasons
+
+
+def _prediction_markets_step(runner: LiveRunner) -> dict[str, Any]:
+    """The prediction markets after a download: the newest reading archived (once per day and event) and
+    judged by the unusual-activity alert (once per reading; the trades of a flagged market are read on the
+    spot). On the side, like everything that is not a book: a failure here costs nothing else."""
+    from engine.desk.live import desk_store
+
+    detail: dict[str, Any] = {}
+    try:
+        from engine.desk.prediction import archive_reading
+
+        detail["prediction_markets"] = archive_reading(runner.raw, desk_store(runner.settings.state_dir))
+    except Exception as exc:
+        log.warning("prediction markets archive skipped: %s", exc)
+        detail["prediction_markets"] = {"status": f"failed: {str(exc)[:160]}"}
+    try:
+        from engine.desk.watch import watch as judge
+
+        detail["prediction_watch"] = judge(
+            runner.raw, desk_store(runner.settings.state_dir), now_utc(), fetch_trades=_trades_reader(runner)
+        )
+    except Exception as exc:
+        log.warning("prediction markets watch skipped: %s", exc)
+        detail["prediction_watch"] = {"status": f"failed: {str(exc)[:160]}"}
+    return detail
+
+
+def watch(runner: LiveRunner, job_id: str) -> JobOutcome:
+    """The prediction markets alone: read them when an hour has passed, archive the reading, judge it. The
+    market week's ticks do the same inside ``tick``; this job exists for the weekend, when the runner stops on
+    Friday evening and an event market still moves (``.github/workflows/kalshi-weekend.yml``)."""
+    now = now_utc()
+    rec = runner.start_run("watch", job_id, london_date(now))
+    if rec is None:
+        return JobOutcome("skipped", "run già completata con questo job id", {"job_id": job_id})
+    detail: dict[str, Any] = {}
+    try:
+        entries, why = _hourly_entries(runner, now)
+        if entries:
+            fetched = _fetch(runner, [], entries)
+            detail["sources"] = _fetch_summary(fetched, [], entries)
+            detail["raw_snapshots_deleted"] = _compact_raw(runner, fetched)
+            detail["refresh"] = "; ".join(why)
+        else:
+            detail["sources"] = {"groups": [], "skipped": "read less than an hour ago"}
+        detail.update(_prediction_markets_step(runner))
+        judged = detail.get("prediction_watch") or {}
+        msg = (
+            f"{judged.get('markets', 0)} markets, {judged.get('flagged', 0)} flagged, "
+            f"{judged.get('alerts_written', 0)} alerts"
+            if judged.get("status") == "ok"
+            else str(judged.get("status", "no reading"))
+        )
+        runner.finish_run(rec, "ok", msg, detail)
+        return JobOutcome("ok", msg, detail)
+    except Exception as exc:
+        log.exception("watch failed")
+        runner.finish_run(rec, "failed", str(exc), detail)
+        return JobOutcome("failed", str(exc), detail)
 
 
 def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
@@ -376,26 +449,7 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         detail["sources"] = _fetch_summary(fetched, groups, entries)
         detail["raw_snapshots_deleted"] = _compact_raw(runner, fetched)
 
-        # The prediction markets: the newest download archived (once per day and event) and judged by the
-        # unusual-activity alert (once per reading; the trades of a flagged market are read on the spot). On
-        # the side, like everything that is not a book: a failure here costs nothing else.
-        try:
-            from engine.desk.live import desk_store
-            from engine.desk.prediction import archive_reading
-
-            detail["prediction_markets"] = archive_reading(runner.raw, desk_store(runner.settings.state_dir))
-        except Exception as exc:
-            log.warning("prediction markets archive skipped: %s", exc)
-            detail["prediction_markets"] = {"status": f"failed: {str(exc)[:160]}"}
-        try:
-            from engine.desk.watch import watch
-
-            detail["prediction_watch"] = watch(
-                runner.raw, desk_store(runner.settings.state_dir), now_utc(), fetch_trades=_trades_reader(runner)
-            )
-        except Exception as exc:
-            log.warning("prediction markets watch skipped: %s", exc)
-            detail["prediction_watch"] = {"status": f"failed: {str(exc)[:160]}"}
+        detail.update(_prediction_markets_step(runner))
 
         data = build_desk_data(runner.raw, runner.settings)
         blocked = _blocked_vehicles(runner, desk.vehicles())

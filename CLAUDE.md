@@ -51,6 +51,8 @@ python -m engine.cli backtest --start 1990-01-01 --end 2026-10-01 --report out/b
 python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|copper|agri|all]
 python -m engine.cli export-site               # site-data/: desk.json for the terminal + the first system's files
 
+python -m engine.cli watch                     # the prediction markets alone (the weekend job): read, archive, judge
+
 # dashboard
 cd site && npm ci && npm run dev               # Vite dev server
 cd site && npm run build                       # static build to site/dist
@@ -261,7 +263,8 @@ site/          Vite + TypeScript (vanilla), SVG charts drawn by hand, no chart l
                backtest, reset, archive (one English page on the first system)
 tests/         pytest; `network` marker for tests hitting real sources
 .github/workflows/  ci, runner (the tick loop), watchdog (restarts it), weekly, reset, deploy, keepalive,
-                    eod (manual re-run of one date), research-data (manual download for research)
+                    eod (manual re-run of one date), research-data (manual download for research),
+                    kalshi-weekend (the prediction markets while the runner sleeps: `engine.cli watch`)
 ```
 
 ### Data flow
@@ -621,7 +624,12 @@ the reading (296 markets, 2 flagged, 2 alerts written), read the trades of both 
 trades, footprints on file), and the alerts job that follows the runner's first tick opened issues #16 and
 #17 (`kalshi-kxeiacrudew-26oct14`, `kalshi-kxhormuzweekly-26oct18`); the public page shows the block with no
 console error. Still NOT seen: an issue closed by the alerter when its alert ages out (due around the 16th), a
-baseline (ten daily readings: the 24th), a day with no alert.
+baseline (ten daily readings: the 24th), a day with no alert. The weekend: the runner stops on Friday evening,
+so `kalshi-weekend.yml` (hourly cron, best effort: past weekends saw a scheduled run every three to seven
+hours) runs `engine.cli watch` - the markets alone, downloaded when the last attempt is an hour old, archived,
+judged, exported, the issues opened - only on the weekend and only when no runner is alive; a reading every
+few hours is enough because each carries the API's "a day ago" fields, so a move is caught by any reading
+within 24 hours of it. Not seen yet: its first scheduled weekend run (the 17th-18th).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

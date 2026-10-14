@@ -149,7 +149,8 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   Aggiunta il 14 ottobre, su richiesta del proprietario («su Kalshi c'è molto insider trading»): l'allerta di
   attività anomala sui mercati a eventi (`engine/desk/watch.py`, capitolo 9 F), letture ogni ora, una allerta
   per evento e giorno con l'impronta delle operazioni, issue su GitHub; soglie dichiarate, tasso di falsi
-  allarmi da misurare nelle settimane a venire.
+  allarmi da misurare nelle settimane a venire; nel weekend un job a orario (`kalshi-weekend.yml`) legge solo
+  i mercati mentre il runner dorme.
   Rimandato, con il motivo: il gas naturale con il future /MNG e tabelle per contratto (i fondi UNG/KOLD non
   reggono, capitolo 8); il lato short dei satelliti con SH e TBF (tabelle scaricate, non usate: da misurare); il
   gruppo intraday scaricato intero; una tabella rossa di un candidato ritentata a ogni giro; una regola che
