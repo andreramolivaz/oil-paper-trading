@@ -340,7 +340,11 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         return JobOutcome("skipped", "run già completata con questo job id", {"job_id": job_id})
     detail: dict[str, Any] = {}
     try:
-        desk = build_desk(runner.settings.state_dir, runner.risk)
+        from engine.desk.allocator import AllocatorConfig
+
+        desk = build_desk(
+            runner.settings.state_dir, runner.risk, allocator=AllocatorConfig.load(runner.settings.config_dir)
+        )
         groups = list(TICK_GROUPS)
         entries, why = _desk_daily_entries(runner, desk, now)
         if entries:
@@ -361,7 +365,7 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         blocked.update(
             {v: why for v, why in _overtaken_by_the_clock(desk, planned_at, now).items() if v not in blocked}
         )
-        report = live_tick(desk, data, now, blocked=blocked)
+        report = live_tick(desk, data, now, blocked=blocked, backtest_drawdowns=_backtest_drawdowns(runner))
         detail["desk"] = report.to_dict()
         try:
             from engine.desk.options import options_tick
@@ -435,6 +439,24 @@ def _overtaken_by_the_clock(desk: Any, planned_at: Any, now: Any) -> dict[str, s
     return late
 
 
+def _backtest_drawdowns(runner: LiveRunner) -> dict[str, float]:
+    """Each book's maximum drawdown in the backtest on file (the lifecycle's yardstick), {} without one."""
+    from engine.desk.live import desk_store
+    from engine.desk.report import BACKTEST_FILE
+
+    try:
+        on_file = desk_store(runner.settings.state_dir).read_json(BACKTEST_FILE)
+    except ValueError:
+        return {}
+    books = (on_file or {}).get("books") if isinstance(on_file, dict) else None
+    out: dict[str, float] = {}
+    for book_id, block in (books or {}).items():
+        dd = (block.get("stats") or {}).get("max_drawdown")
+        if isinstance(dd, int | float):
+            out[str(book_id)] = float(dd)
+    return out
+
+
 def _desk_backtest_stale(runner: LiveRunner, missing_now: set[str] | None = None) -> str:
     """Why the desk backtest on file must be recomputed ("" when it is the current one).
 
@@ -442,6 +464,7 @@ def _desk_backtest_stale(runner: LiveRunner, missing_now: set[str] | None = None
     that was missing when it was computed has arrived since (``missing_now`` is what the data builder could
     not find on this tick) - a replay that ran without the inverse fund's history has no short side in it.
     """
+    from engine.desk.allocator import AllocatorConfig
     from engine.desk.book import load_books
     from engine.desk.live import desk_store
     from engine.desk.options import load_options_config
@@ -455,7 +478,10 @@ def _desk_backtest_stale(runner: LiveRunner, missing_now: set[str] | None = None
         return "was missing"
     meta = on_file.get("meta") or {}
     config_dir = runner.settings.config_dir
-    if meta.get("model") != model_signature(load_books(config_dir), load_options_config(config_dir), runner.risk):
+    current = model_signature(
+        load_books(config_dir), load_options_config(config_dir), runner.risk, AllocatorConfig.load(config_dir)
+    )
+    if meta.get("model") != current:
         return "the rules changed"
     arrived = sorted(set(meta.get("missing") or []) - missing_now) if missing_now is not None else []
     return f"tables that were missing have arrived ({', '.join(arrived)})" if arrived else ""

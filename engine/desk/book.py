@@ -208,6 +208,10 @@ class Decision:
     # the inverse fund of a book that has one: symbol, price, target_units, current_units, order_units, multiplier
     legs: list[dict[str, Any]] = field(default_factory=list)
     n_orders: int = 0  # orders this decision queued (0, 1, or 2 when a book with a short leg changes side)
+    # the allocator's scales in force for this decision (engine/desk/allocator.py): 1 means the book's own rules
+    risk_scale: float = 1.0
+    weekend_scale: float = 1.0
+    scale_reasons: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         d = dataclasses.asdict(self)
@@ -277,6 +281,12 @@ class Book:
         # a book that changes side sells one leg and buys the other in the same decision: the purchase is
         # accepted against what the queued sale is about to free (and checked again at its own fill price)
         self.broker.net_queued_sales = True
+        # The allocator's scales (engine/desk/allocator.py), set by the desk before each decision: the risk
+        # scale multiplies the volatility target, the weekend scale the ceiling before a closure. They only
+        # ever lower a position; 1 is the book's own rules. Nothing else raises or lowers a position.
+        self.risk_scale: float = 1.0
+        self.weekend_scale: float = 1.0
+        self.scale_reasons: list[str] = []
 
     # ------------------------------------------------------------------ views
     @property
@@ -343,18 +353,31 @@ class Book:
         return total / equity
 
     # ------------------------------------------------------------------ sizing
+    def set_scale(self, risk: float = 1.0, weekend: float = 1.0, reasons: list[str] | None = None) -> None:
+        """What the allocator hands the book for today's decision (clipped to [0, 1]: it never adds risk)."""
+        self.risk_scale = min(1.0, max(0.0, float(risk)))
+        self.weekend_scale = min(1.0, max(0.0, float(weekend)))
+        self.scale_reasons = list(reasons or [])
+
+    @property
+    def vol_target(self) -> float:
+        """The volatility target in force today: the book's own, times the allocator's risk scale."""
+        return self.cfg.vol_target * self.risk_scale
+
     def _cap(self, day: date) -> float:
         """The leverage ceiling in force for a decision taken on ``day``."""
         cfg = self.cfg
         cap = min(HARD_CAP, cfg.max_leverage, self.vehicle.max_leverage)
         if cfg.weekend_max_leverage is not None and is_pre_closure(day):
-            cap = min(cap, cfg.weekend_max_leverage)
+            cap = min(cap, cfg.weekend_max_leverage * self.weekend_scale)
         return cap
 
     def exposure(self, forecast: float, vol: float, day: date) -> tuple[float, float, str]:
         """(uncapped exposure, exposure after the ceilings, what limited it)."""
         cfg = self.cfg
-        raw = sg.exposure_fraction(forecast, vol, cfg.vol_target, max_leverage=math.inf, long_only=cfg.long_only)
+        if self.risk_scale <= 0.0:
+            return 0.0, 0.0, "retired by the allocator"
+        raw = sg.exposure_fraction(forecast, vol, self.vol_target, max_leverage=math.inf, long_only=cfg.long_only)
         if not self.vehicle.allow_short and self.short is None:
             raw = max(0.0, raw)
         full_cap = min(HARD_CAP, cfg.max_leverage, self.vehicle.max_leverage)
@@ -437,7 +460,7 @@ class Book:
         ceiling = limited  # what cut the exposure wanted, if anything did: the words for "would be ... x"
         lot = self.vehicle.lot
         per_lot = equity / price / lot  # lots that one times the equity buys
-        band = cfg.buffer * cfg.vol_target / float(vol)  # the buffer, as a multiple of equity
+        band = cfg.buffer * max(self.vol_target, 1e-9) / float(vol)  # the buffer, as a multiple of equity
         target_lots = buffered_target(
             exact=exposure * per_lot, buffer=band * per_lot, current=current / lot, cap=self._cap(day) * per_lot
         )
@@ -482,12 +505,23 @@ class Book:
         dec = Decision(ts, cfg.id, cfg.vehicle, symbol, price, equity, forecast, float(vol), raw, exposure, limited,
                        target, current, delta, rationale, str(snap.status), actual)  # fmt: skip
         dec.legs = self._leg_rows(leg, leg_ref, leg_target, leg_current, leg_delta)
+        dec.risk_scale, dec.weekend_scale, dec.scale_reasons = (
+            self.risk_scale,
+            self.weekend_scale,
+            list(self.scale_reasons),
+        )
         orders: list[Order] = []
         levered = {
             "value": round(abs(actual), 4),
             "wanted": round(abs(exposure), 4),
             "limited_by": limited,
-            "components": {"vol_target": cfg.vol_target, "vol": float(vol), "cap": cfg.max_leverage},
+            "components": {
+                "vol_target": self.vol_target,
+                "vol": float(vol),
+                "cap": cfg.max_leverage,
+                "risk_scale": self.risk_scale,
+                "weekend_scale": self.weekend_scale,
+            },
         }
         # (symbol, units to trade, units held, oil exposure of one unit bought, can it be sold short)
         wanted = [(symbol, delta, current, 1.0, self.vehicle.allow_short)]
@@ -575,12 +609,19 @@ class Book:
         sources = sg.source_values(forecast, self.cfg.sleeves)
         parts = ", ".join(f"{SOURCE_LABELS.get(name, name)} {_signed(value)}" for name, value in sources.items())
         text = f"{parts[:1].upper()}{parts[1:]}: forecast {_signed(forecast.get('combined'))} out of 20. "
-        if exposure == 0 and limited == "long only":
+        if exposure == 0 and limited == "retired by the allocator":
+            text += "This book is retired: no new risk, the position is closed"
+        elif exposure == 0 and limited == "long only":
             # a negative forecast in a book that cannot be short: there is no size to explain, only the reason
             text += "Negative, and this book does not go short: it stays in cash"
         else:
+            scaled = (
+                f" (the book's {_pct(self.cfg.vol_target)} times {self.risk_scale:g}: {'; '.join(self.scale_reasons)})"
+                if self.risk_scale < 1.0 and self.scale_reasons
+                else ""
+            )
             text += (
-                f"Volatility {_pct(vol)} against a target of {_pct(self.cfg.vol_target)}: "
+                f"Volatility {_pct(vol)} against a target of {_pct(self.vol_target)}{scaled}: "
                 f"exposure {_plain(abs(exposure))}x"
             )
         if abs(raw) > abs(exposure) + 1e-9:

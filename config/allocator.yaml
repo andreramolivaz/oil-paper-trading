@@ -1,0 +1,44 @@
+# The allocator (engine/desk/allocator.py, phase 13): how the desk recalibrates itself "depending on how it
+# goes". Every rule here multiplies a book's volatility target or its weekend ceiling by a scale between 0 and
+# 1; nothing here ever raises a position above what the book's own rules allow. Each rule was measured before it
+# was switched on (docs/RESEARCH.md, chapter 9), and the numbers are published values, never fitted.
+
+# D4(i). The bubble switch (Greenwood, Shleifer & You 2019): after the vehicle's investable price has doubled
+# over two years, the book runs at half its volatility target for twelve months. Measured on the desk's own
+# replay: Sharpe up and drawdown down for every portfolio, in both halves of the sample.
+runup:
+  enabled: true
+  lookback_days: 504     # two trading years
+  threshold: 1.0         # +100 %
+  horizon_days: 252      # one trading year after the last day the run-up held
+  scale: 0.5
+
+# D1. Drawdown control (Grossman & Zhou 1993): the volatility target scales with the cushion, per book,
+# m = max(floor, 1 - drawdown / max_drawdown), measured and NOT adopted: it cut the maximum loss by a third and
+# the Sharpe ratio by 0.05-0.14, a trade a lower risk target makes without losing Sharpe. Left here, off, as
+# the owner's lever.
+drawdown_control:
+  enabled: false
+  max_drawdown: 0.20
+  floor: 0.25
+
+# D4(ii). A closed Strait of Hormuz: with the tanker transits below this share of their normal, the ceilings
+# before a weekend or a holiday are halved for the books that have one. A policy, not a measurement (seven
+# months of data): the weekend gaps of 2026 reached +16 %.
+hormuz:
+  enabled: true
+  closed_share: 0.10
+  weekend_scale: 0.5
+  publication_lag_days: 5   # PortWatch publishes about a week in arrears: a reading counts from this many days after its date
+
+# D3. Promotion and retirement, on the live record of a book (its own equity log, daily closes), declared
+# round numbers. A candidate becomes core after `promote_after_months` of live fills with a realised Sharpe
+# above `promote_min_sharpe` and a maximum drawdown no deeper than its backtest's; any book is retired (flat,
+# no new risk) after `retire_after_months` with a realised Sharpe below `retire_sharpe`. A retired book is
+# reopened only by the owner (config/books.yaml, or a reset).
+lifecycle:
+  enabled: true
+  promote_after_months: 12
+  promote_min_sharpe: 0.0
+  retire_after_months: 24
+  retire_sharpe: -0.5

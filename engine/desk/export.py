@@ -24,6 +24,14 @@ from engine.core.store import StateStore, dumps
 from engine.core.timeutil import ensure_utc, iso, parse_iso
 from engine.data.raw_store import RawStore
 from engine.desk import signals as sg
+from engine.desk.allocator import (
+    AllocatorConfig,
+    describe,
+    hormuz_weekend_scale,
+    ratio_known_on,
+    runup_state,
+    transit_ratios,
+)
 from engine.desk.book import Book, is_pre_closure
 from engine.desk.data import MACRO_MAX_AGE_DAYS, DeskData, build_desk_data, held_contract, hormuz_summary
 from engine.desk.engine import DECISIONS_LOG, Desk, _clean
@@ -270,7 +278,14 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
     return {
         "id": cfg.id,
         "kind": "linear",
-        "role": cfg.role,  # "core": one of the books the desk is judged on; "candidate": a paper book beside them
+        # "core": one of the books the desk is judged on; "candidate": a paper book beside them; "retired": the
+        # lifecycle rule stopped it. The configured role unless the allocator changed it.
+        "role": desk.role_of(book),
+        "configured_role": cfg.role,
+        "role_change": desk.state.roles.get(cfg.id),
+        # the allocator's scales in force at the last decision (engine/desk/allocator.py), 1 = the book's own rules
+        "allocator": desk.state.allocator.get(cfg.id),
+        "lifecycle": (desk.state.allocator.get("_lifecycle") or {}).get(cfg.id),
         "name": cfg.name,
         "description": cfg.description,
         "vehicle": vehicle.id,
@@ -561,7 +576,8 @@ def build_desk_payload(
 ) -> dict[str, Any]:
     now = ensure_utc(now or datetime.now(tz=UTC))
     data = build_desk_data(raw, settings)
-    desk = build_desk(settings.state_dir, risk)
+    allocator_cfg = AllocatorConfig.load(settings.config_dir)
+    desk = build_desk(settings.state_dir, risk, allocator=allocator_cfg)
     options_cfg = load_options_config(settings.config_dir)
     linear = [book_block(b, desk, settings.state_dir, now) for b in desk.books.values()]
     # the core books first (the options book among them), then the candidates: the page reads them in order
@@ -603,9 +619,35 @@ def build_desk_payload(
         },
         "data_notes": list(data.meta.get("notes", [])),
         "data_missing": list(data.meta.get("missing", [])),
+        "allocator": allocator_block(desk, data, allocator_cfg, today),
     }
     cleaned: dict[str, Any] = _clean(payload)
     return cleaned
+
+
+def allocator_block(desk: Desk, data: DeskData, cfg: AllocatorConfig, today: date) -> dict[str, Any]:
+    """The allocator's rules and what they say today: the bubble switch per vehicle, the strait's reading, the
+    scales of the last decision per book, the lifecycle's record."""
+    runup: dict[str, Any] = {}
+    for vehicle_id in desk.vehicles():
+        series = data.series.get(vehicle_id)
+        if series is None or series.returns.empty:
+            continue
+        active, since = runup_state(sg.total_return_index(series.returns), cfg, today)
+        runup[vehicle_id] = {"active": active, "last_run_up": since.isoformat() if since else None}
+    ratio = ratio_known_on(transit_ratios(data.hormuz, cfg), today)
+    return {
+        "rules": describe(cfg),
+        "runup": runup,
+        "hormuz": {
+            "transit_ratio": None if ratio is None else _r(ratio, 4),
+            "closed": bool(ratio is not None and ratio < cfg.hormuz_closed_share),
+            "weekend_scale": hormuz_weekend_scale(ratio, cfg),
+        },
+        "books": {k: v for k, v in desk.state.allocator.items() if not k.startswith("_")},
+        "lifecycle": desk.state.allocator.get("_lifecycle"),
+        "role_changes": dict(desk.state.roles),
+    }
 
 
 def export_desk(
