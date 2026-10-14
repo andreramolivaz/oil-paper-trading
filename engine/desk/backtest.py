@@ -32,6 +32,8 @@ import pandas as pd
 from engine.core.calendar import add_business_days
 from engine.core.config import RiskConfig
 from engine.core.events import AccountStatus, Bar
+from engine.desk import signals as sg
+from engine.desk.allocator import AllocatorConfig, ratio_known_on, runup_table, transit_ratios
 from engine.desk.book import Book, BookConfig
 from engine.desk.data import DeskData, VehicleSeries, held_contract
 from engine.desk.engine import Desk
@@ -255,6 +257,7 @@ def run_vehicle(
     fill: str = FILL_NEXT_OPEN,
     legs: dict[str, pd.DataFrame] | None = None,
     distributions: dict[str, pd.Series] | None = None,
+    hormuz: pd.DataFrame | None = None,
 ) -> dict[str, dict[str, list[Any]]]:
     """Drive every book on one vehicle through its daily bars. Returns per-book daily records.
 
@@ -276,6 +279,11 @@ def run_vehicle(
     bars = series.bars
     funds = {fund_id: _bars_by_day((legs or {}).get(fund_id)) for fund_id in desk.short_legs(series.vehicle)}
     first_usable = max(WARMUP_DAYS, 0)
+    # the allocator's inputs, once per vehicle: the bubble switch on the investable index, the strait's transits
+    runup = runup_table(sg.total_return_index(series.returns), desk.allocator) if desk.allocator else None
+    ratios = (
+        transit_ratios(hormuz, desk.allocator) if desk.allocator and hormuz is not None else pd.Series(dtype="float64")
+    )
     for i in range(len(bars)):
         ts_day = pd.Timestamp(bars.index[i])
         if i < first_usable or (start is not None and ts_day < start):
@@ -329,6 +337,13 @@ def run_vehicle(
             desk.roll(series.vehicle, nxt, {symbol: close, nxt: close}, ts)
         frow = series.forecasts.loc[ts_day]
         forecast = {k: (None if pd.isna(frow[k]) else float(frow[k])) for k in frow.index}
+        if desk.allocator is not None:
+            state: tuple[bool, date | None] = (False, None)
+            if runup is not None and ts_day in runup.index:
+                row_ru = runup.loc[ts_day]
+                since = row_ru["since"]
+                state = (bool(row_ru["active"]), None if pd.isna(since) else pd.Timestamp(since).date())
+            desk.allocate(series.vehicle, day, runup=state, hormuz_ratio=ratio_known_on(ratios, day))
         if fill == FILL_SAME_CLOSE:
             # decide a second before the close and execute on a one-minute bar that opens AT the close: the
             # broker's "first price strictly after the decision" rule is kept, the price is the close itself
@@ -360,9 +375,11 @@ def run_backtest(
     cost_multiplier: float = 1.0,
     ruin: bool = True,
     fill: str = FILL_NEXT_OPEN,
+    allocator: AllocatorConfig | None = None,
 ) -> BacktestResult:
+    """``allocator`` None replays the books' own rules alone (what the desk did before phase 13)."""
     books = [Book(cfg, base_risk, store=None, cost_multiplier=cost_multiplier) for cfg in configs]
-    desk = Desk(books, store=None)
+    desk = Desk(books, store=None, allocator=allocator)
     start_ts = None if start is None else pd.Timestamp(start)
     end_ts = None if end is None else pd.Timestamp(end)
     results: dict[str, BookResult] = {}
@@ -372,8 +389,9 @@ def run_backtest(
             log.warning("backtest: no data for vehicle %s, its books are skipped", vehicle_id)
             continue
         records = run_vehicle(
-            desk, series, start_ts, end_ts, fill=fill, legs=data.legs, distributions=data.distributions
-        )
+            desk, series, start_ts, end_ts, fill=fill, legs=data.legs, distributions=data.distributions,
+            hormuz=data.hormuz if allocator is not None else None,
+        )  # fmt: skip
         for book in desk.books_on(vehicle_id):
             rec = records[book.id]
             if not rec["t"]:

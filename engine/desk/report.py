@@ -21,6 +21,7 @@ from engine.core.config import RiskConfig, Settings
 from engine.core.store import StateStore
 from engine.data.raw_store import RawStore
 from engine.desk import signals as sg
+from engine.desk.allocator import AllocatorConfig, describe
 from engine.desk.backtest import FILL_SAME_CLOSE, BacktestResult, performance, run_backtest, yearly_returns
 from engine.desk.book import BookConfig, load_books
 from engine.desk.data import DeskData, build_desk_data
@@ -111,15 +112,22 @@ def canonical(value: Any) -> str:
     return repr(value)
 
 
-def model_signature(books: list[BookConfig], options_cfg: Any | None = None, risk: RiskConfig | None = None) -> str:
+def model_signature(
+    books: list[BookConfig],
+    options_cfg: Any | None = None,
+    risk: RiskConfig | None = None,
+    allocator: AllocatorConfig | None = None,
+) -> str:
     """A short fingerprint of what the backtest numbers depend on besides the data: every constant of the
-    modules that compute them (signals, series, replay, books, options), the books, the vehicles, the options
-    book and the account rules (capital, costs, margin) the replay is run with.
+    modules that compute them (signals, series, replay, books, options, the allocator), the books, the
+    vehicles, the options book, the account rules (capital, costs, margin) and the allocator's rules the
+    replay is run with.
 
     The backtest on file carries the fingerprint it was computed with (``meta.model``). The tick recomputes one
     whose fingerprint is not the current one, so a change of rules shows on the page at the next tick instead
     of waiting for the weekly job with the old numbers under the new rules.
     """
+    from engine.desk import allocator as allocation
     from engine.desk import backtest as replay
     from engine.desk import book as sizing
     from engine.desk import data as series
@@ -149,11 +157,13 @@ def model_signature(books: list[BookConfig], options_cfg: Any | None = None, ris
         constants(replay),  # warm-up, fill rules
         constants(sizing),  # the hard cap
         constants(option_book),  # the smiles and the costs of the options replay
+        constants(allocation),  # the allocator's own constants (trading days, the lifecycle's month)
         [fields(b) for b in books],
         rows(VEHICLES),
         rows(INVERSE_FUNDS),
         None if options_cfg is None else fields(options_cfg),
         None if risk is None else fields(risk),
+        None if allocator is None else fields(allocator),
     ]
     return hashlib.sha1(canonical(spec).encode("utf-8")).hexdigest()[:12]
 
@@ -259,14 +269,26 @@ def desk_backtest_payload(
     risk: RiskConfig,
     start: date | None = None,
     end: date | None = None,
+    allocator: AllocatorConfig | None = None,
 ) -> dict[str, Any]:
-    base = run_backtest(data, books, risk, start=start, end=end)
-    doubled = run_backtest(data, books, risk, start=start, end=end, cost_multiplier=2.0, ruin=False)
-    same_close = run_backtest(data, books, risk, start=start, end=end, ruin=False, fill=FILL_SAME_CLOSE)
+    """The replay under the rules in force: the books with the allocator (``allocator``) - and, when there is
+    one, the same books without it under ``without_allocator``, so that what the allocator did is always on
+    the page next to what the books did alone."""
+    base = run_backtest(data, books, risk, start=start, end=end, allocator=allocator)
+    doubled = run_backtest(
+        data, books, risk, start=start, end=end, cost_multiplier=2.0, ruin=False, allocator=allocator
+    )
+    same_close = run_backtest(
+        data, books, risk, start=start, end=end, ruin=False, fill=FILL_SAME_CLOSE, allocator=allocator
+    )
     payload = base.to_dict()
     payload["double_cost"] = _stats_only(doubled)
     payload["same_close"] = _stats_only(same_close)
     payload["portfolio"] = portfolio_block(base, books)
+    payload["allocator"] = None if allocator is None else {**describe(allocator), "config": allocator.to_dict()}
+    if allocator is not None:
+        alone = run_backtest(data, books, risk, start=start, end=end, ruin=False)
+        payload["without_allocator"] = {"books": _stats_only(alone), "portfolio": portfolio_block(alone, books)}
     sleeves: dict[str, Any] = {}
     for label, vehicle, long_only, short_via, used in attribution_variants(books):
         # Attribution is run on a large account so that one lot is a rounding error: with ten thousand dollars
@@ -343,7 +365,8 @@ def run_desk_backtest(
     del store  # the live account store is deliberately unused: a backtest must never write into live state
     data = build_desk_data(raw, settings)
     books = load_books(settings.config_dir)
-    payload = desk_backtest_payload(data, books, risk, start=start, end=end)
+    allocator = AllocatorConfig.load(settings.config_dir)
+    payload = desk_backtest_payload(data, books, risk, start=start, end=end, allocator=allocator)
     options_cfg = load_options_config(settings.config_dir)
     if options_cfg is not None:
         try:
@@ -351,7 +374,7 @@ def run_desk_backtest(
         except Exception as exc:  # the replay is a model on the side: it must never cost the real backtest
             log.warning("options replay skipped: %s", exc)
             payload["options"] = {"approx": True, "available": False, "reason": str(exc)[:200]}
-    payload.setdefault("meta", {})["model"] = model_signature(books, options_cfg, risk)
+    payload.setdefault("meta", {})["model"] = model_signature(books, options_cfg, risk, allocator)
     target = desk_store(settings.state_dir)
     target.write_json(BACKTEST_FILE, payload, indent=None)
     lines = summary_lines(payload)

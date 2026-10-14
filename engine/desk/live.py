@@ -27,12 +27,23 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from engine.broker.paper import EQUITY_LOG
 from engine.core.calendar import add_business_days, is_business_day
 from engine.core.config import RiskConfig
 from engine.core.events import Bar
 from engine.core.store import StateStore
 from engine.core.timeutil import ensure_utc, iso
 from engine.data.raw_store import OBSERVED_AT_COLUMN
+from engine.desk import signals as sg
+from engine.desk.allocator import (
+    AllocatorConfig,
+    daily_closes,
+    lifecycle_verdict,
+    live_record,
+    ratio_known_on,
+    runup_state,
+    transit_ratios,
+)
 from engine.desk.book import Book, BookConfig, load_books
 from engine.desk.data import DeskData, VehicleSeries, held_contract
 from engine.desk.engine import Desk
@@ -63,10 +74,17 @@ def book_store(state_dir: Path, book_id: str) -> StateStore:
     return StateStore(Path(state_dir) / DESK_DIR / book_id)
 
 
-def build_desk(state_dir: Path, risk: RiskConfig, configs: list[BookConfig] | None = None) -> Desk:
+def build_desk(
+    state_dir: Path,
+    risk: RiskConfig,
+    configs: list[BookConfig] | None = None,
+    allocator: AllocatorConfig | None = None,
+) -> Desk:
+    """``allocator`` None leaves the books to their own rules (the tests of the books themselves); the tick
+    passes the configuration on file."""
     configs = configs if configs is not None else load_books()
     books = [Book(cfg, risk, store=book_store(state_dir, cfg.id)) for cfg in configs]
-    return Desk(books, store=desk_store(state_dir))
+    return Desk(books, store=desk_store(state_dir), allocator=allocator)
 
 
 # ----------------------------------------------------------------------------------------------- calendar
@@ -285,11 +303,49 @@ def _forecast_row(series: VehicleSeries, day: date) -> tuple[dict[str, float | N
     return forecast, (None if vol is None or pd.isna(vol) else float(vol))
 
 
+def review_lifecycle(desk: Desk, today: date, backtest_drawdowns: dict[str, float] | None = None) -> list[str]:
+    """The allocator's promotion and retirement rule, on each book's own live record (its equity log, one
+    close per day, this epoch). Runs once a day; returns the notes of the roles it changed."""
+    cfg = desk.allocator
+    notes: list[str] = []
+    if cfg is None or not cfg.lifecycle_enabled:
+        return notes
+    marker = desk.state.allocator.get("_lifecycle") or {}
+    if marker.get("day") == today.isoformat():
+        return notes
+    summary: dict[str, Any] = {"day": today.isoformat()}
+    for book in desk.books.values():
+        rows = book.broker.store.read_jsonl(EQUITY_LOG) if book.broker.store is not None else []
+        record = live_record(daily_closes(rows, epoch=book.broker.state.epoch))
+        role = desk.role_of(book)
+        verdict = lifecycle_verdict(role, record, (backtest_drawdowns or {}).get(book.id), cfg)
+        summary[book.id] = {
+            "role": role,
+            "months_live": round(record.months, 1),
+            "sharpe_live": None if record.sharpe is None else round(record.sharpe, 2),
+            "max_drawdown_live": None if record.max_drawdown is None else round(record.max_drawdown, 4),
+            "since": record.start.isoformat() if record.start else None,
+        }
+        if verdict != role:
+            reason = (
+                f"{record.months:.0f} months live, realised Sharpe {record.sharpe:+.2f}"
+                if record.sharpe is not None
+                else f"{record.months:.0f} months live"
+            )
+            desk.state.roles[book.id] = {"role": verdict, "since": today.isoformat(), "reason": reason}
+            summary[book.id]["role"] = verdict
+            notes.append(f"{book.id}: {role} -> {verdict} ({reason})")
+            log.warning("lifecycle: book %s %s -> %s (%s)", book.id, role, verdict, reason)
+    desk.state.allocator["_lifecycle"] = summary
+    return notes
+
+
 def live_tick(
     desk: Desk,
     data: DeskData,
     now: datetime | None = None,
     blocked: dict[str, str] | None = None,
+    backtest_drawdowns: dict[str, float] | None = None,
 ) -> TickReport:
     """One pass over every vehicle that has a book. Never raises for one vehicle's missing data: the others
     still trade, and the reason is in ``report.notes``.
@@ -302,6 +358,11 @@ def live_tick(
     blocked = blocked or {}
     report = TickReport(now=now)
     today_ny = now.astimezone(NEW_YORK).date()
+    try:
+        report.notes.extend(review_lifecycle(desk, today_ny, backtest_drawdowns))
+    except Exception as exc:  # the review is bookkeeping: it must never cost the tick its bars
+        log.exception("lifecycle review failed")
+        report.notes.append(f"lifecycle review failed ({type(exc).__name__}: {exc})")
     for vehicle_id in desk.vehicles():
         # One vehicle's bad table (a frame the archive holds in a shape nobody expected) must not leave the
         # other vehicles' books unfed, unmarked and unstopped: the error is reported and the loop goes on. The
@@ -456,6 +517,20 @@ def _tick_vehicle(
                         leg_prices[fund_id] = leg_price
                     else:
                         report.notes.append(f"{vehicle_id}: no recent price for {fund_id}")
+                # the allocator's scales for today's decision: the bubble switch on the vehicle's own
+                # investable index, the strait's transits, each book's drawdown and lifecycle
+                if desk.allocator is not None:
+                    index = sg.total_return_index(series.returns)
+                    ratios = transit_ratios(data.hormuz, desk.allocator)
+                    scales = desk.allocate(
+                        vehicle_id,
+                        day,
+                        runup=runup_state(index, desk.allocator, day),
+                        hormuz_ratio=ratio_known_on(ratios, day),
+                    )
+                    for book_id, scale in scales.items():
+                        if scale.reasons:
+                            report.notes.append(f"{book_id}: {'; '.join(scale.reasons)}")
                 decided = desk.decide(vehicle_id, now, day, symbol, price, forecast, vol, leg_prices=leg_prices)
                 for decision in decided:
                     report.decisions.append(decision.to_dict())

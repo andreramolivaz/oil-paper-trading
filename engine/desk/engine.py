@@ -30,6 +30,7 @@ import pandas as pd
 from engine.core.events import Bar, Fill
 from engine.core.store import StateStore
 from engine.core.timeutil import ensure_utc, iso, london_date
+from engine.desk.allocator import ROLE_RETIRED, AllocatorConfig, Scale, drawdown_scale, hormuz_weekend_scale
 from engine.desk.book import Book, Decision
 from engine.desk.vehicles import INVERSE_FUNDS
 
@@ -46,12 +47,17 @@ class DeskState:
     last_decision_day: dict[str, str] = field(default_factory=dict)  # book id -> ISO date of the last decision
     last_financing_day: dict[str, str] = field(default_factory=dict)
     last_roll: dict[str, str] = field(default_factory=dict)  # book id -> "OLD->NEW @ date"
+    # the allocator (phase 13): the scales in force per book, and the roles its lifecycle rule has changed
+    allocator: dict[str, Any] = field(default_factory=dict)  # book id -> Scale.to_dict() + "day"
+    roles: dict[str, dict[str, str]] = field(default_factory=dict)  # book id -> {"role", "since", "reason"}
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "last_decision_day": dict(self.last_decision_day),
             "last_financing_day": dict(self.last_financing_day),
             "last_roll": dict(self.last_roll),
+            "allocator": dict(self.allocator),
+            "roles": dict(self.roles),
         }
 
     @staticmethod
@@ -61,14 +67,20 @@ class DeskState:
             last_decision_day={str(k): str(v) for k, v in (d.get("last_decision_day") or {}).items()},
             last_financing_day={str(k): str(v) for k, v in (d.get("last_financing_day") or {}).items()},
             last_roll={str(k): str(v) for k, v in (d.get("last_roll") or {}).items()},
+            allocator={str(k): dict(v) for k, v in (d.get("allocator") or {}).items()},
+            roles={str(k): {str(a): str(b) for a, b in dict(v).items()} for k, v in (d.get("roles") or {}).items()},
         )
 
 
 class Desk:
-    def __init__(self, books: list[Book], store: StateStore | None = None) -> None:
+    def __init__(
+        self, books: list[Book], store: StateStore | None = None, allocator: AllocatorConfig | None = None
+    ) -> None:
         self.books: dict[str, Book] = {b.id: b for b in books}
         self.store = store
         self.state = DeskState.from_dict(store.read_json(DESK_STATE_FILE) if store is not None else None)
+        # None: the books' own rules, nothing scaled (the replay "without the allocator", and the old tests)
+        self.allocator = allocator
 
     # ------------------------------------------------------------------ helpers
     def books_on(self, vehicle: str) -> list[Book]:
@@ -81,6 +93,56 @@ class Desk:
 
     def vehicles(self) -> list[str]:
         return sorted({b.cfg.vehicle for b in self.books.values()})
+
+    def role_of(self, book: Book) -> str:
+        """The book's role today: the configured one unless the lifecycle rule changed it."""
+        override = self.state.roles.get(book.id)
+        return override["role"] if override else book.cfg.role
+
+    # ------------------------------------------------------------------ the allocator
+    def allocate(
+        self,
+        vehicle: str,
+        day: date,
+        runup: tuple[bool, date | None] = (False, None),
+        hormuz_ratio: float | None = None,
+    ) -> dict[str, Scale]:
+        """Set the allocator's scales on every book of ``vehicle`` for a decision taken on ``day``.
+
+        ``runup`` is the bubble switch's state for the vehicle (on, and the last day the run-up held);
+        ``hormuz_ratio`` the latest transit ratio that can be acted on. The drawdown rule reads each book's own
+        account; the lifecycle's retirement reads ``state.roles``. Without an allocator every scale is 1.
+        """
+        out: dict[str, Scale] = {}
+        cfg = self.allocator
+        for book in self.books_on(vehicle):
+            scale = Scale()
+            if cfg is not None:
+                active, since = runup
+                if active:
+                    scale.risk *= cfg.runup_scale
+                    scale.reasons.append(
+                        f"price doubled in two years (last on {since.isoformat() if since else 'n/a'}): "
+                        f"risk x {cfg.runup_scale:g} for a year"
+                    )
+                st = book.broker.state
+                dd_scale = drawdown_scale(st.last_equity, st.peak_equity, cfg)
+                if dd_scale < 1.0:
+                    scale.risk *= dd_scale
+                    scale.reasons.append(f"drawdown control: risk x {dd_scale:.2f}")
+                weekend = hormuz_weekend_scale(hormuz_ratio, cfg)
+                if weekend < 1.0:
+                    scale.weekend = weekend
+                    scale.reasons.append(
+                        f"Hormuz transits at {hormuz_ratio:.0%} of normal: weekend ceiling x {weekend:g}"
+                    )
+                if self.role_of(book) == ROLE_RETIRED:
+                    scale.risk = 0.0
+                    scale.reasons.append("retired by the lifecycle rule: no new risk")
+            book.set_scale(scale.risk, scale.weekend, scale.reasons)
+            self.state.allocator[book.id] = {**scale.to_dict(), "day": day.isoformat()}
+            out[book.id] = scale
+        return out
 
     def save(self) -> None:
         if self.store is not None:
