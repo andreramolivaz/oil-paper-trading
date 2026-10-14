@@ -33,7 +33,7 @@ from engine.desk.allocator import (
     transit_ratios,
 )
 from engine.desk.book import Book, is_pre_closure
-from engine.desk.data import MACRO_MAX_AGE_DAYS, DeskData, build_desk_data, held_contract, hormuz_summary
+from engine.desk.data import MACRO_MAX_AGE_DAYS, DeskData, _latest, build_desk_data, held_contract, hormuz_summary
 from engine.desk.engine import DECISIONS_LOG, Desk, _clean
 from engine.desk.live import (
     NEW_YORK,
@@ -45,6 +45,7 @@ from engine.desk.live import (
     latest_price,
 )
 from engine.desk.options import MONITOR_FILE, STATE_FILE, load_options_config, options_store
+from engine.desk.prediction import configured_series, latest_reading, prediction_block
 from engine.desk.report import BACKTEST_FILE
 from engine.desk.vehicles import get_vehicle
 
@@ -599,10 +600,11 @@ def build_desk_payload(
         }
 
     today = now.astimezone(NEW_YORK).date()
+    market = market_block(data, now)
     payload = {
         "generated_at": iso(now),
         "disclaimer": DISCLAIMER,
-        "market": market_block(data, now),
+        "market": market,
         "forecast": forecast_block(data),
         "books": books,
         # the sum of the core books (the desk as it is judged) and, apart, the sum of the candidate books
@@ -620,9 +622,50 @@ def build_desk_payload(
         "data_notes": list(data.meta.get("notes", [])),
         "data_missing": list(data.meta.get("missing", [])),
         "allocator": allocator_block(desk, data, allocator_cfg, today),
+        "prediction_markets": prediction_block(
+            latest_reading(raw),
+            now,
+            references={k: market[k] for k in ("brent", "wti") if k in market},
+            options=_options_monitor_entries(settings.state_dir, settings.config_dir),
+            hormuz=market.get("hormuz"),
+            inventories=_inventories(raw),
+            asked=configured_series(settings.config_dir),
+        ),
     }
     cleaned: dict[str, Any] = _clean(payload)
     return cleaned
+
+
+def _options_monitor_entries(state_dir: Path, config_dir: Path | None) -> dict[str, dict[str, Any]]:
+    """The options monitor's entries by underlying symbol (ATM implied volatility, quote time): what the
+    prediction-market page compares the crowd with."""
+    cfg = load_options_config(config_dir)
+    if cfg is None:
+        return {}
+    monitor = options_store(state_dir, cfg).read_json(MONITOR_FILE) or {}
+    out: dict[str, dict[str, Any]] = {}
+    for entry in monitor.get("underlyings", []) or []:
+        if isinstance(entry, dict) and entry.get("symbol"):
+            out[str(entry["symbol"])] = {
+                k: entry.get(k) for k in ("symbol", "atm_iv", "iv30", "quote_ts", "price", "expiry")
+            }
+    return out
+
+
+def _inventories(raw: RawStore) -> dict[str, Any] | None:
+    """The last EIA weekly figure of commercial crude stocks (million barrels), beside the market that asks
+    where the next one will land."""
+    table = _latest(raw, "wpsr")
+    if table is None or table.empty or "crude_stocks" not in table.columns:
+        return None
+    stocks = pd.to_numeric(table["crude_stocks"], errors="coerce").dropna()
+    if stocks.empty:
+        return None
+    return {
+        "crude_stocks_mmbbl": _r(float(stocks.iloc[-1]) / 1000.0, 1),
+        "week_ending": pd.Timestamp(stocks.index[-1]).date().isoformat(),
+        "source": "EIA Weekly Petroleum Status Report (commercial stocks, SPR excluded)",
+    }
 
 
 def allocator_block(desk: Desk, data: DeskData, cfg: AllocatorConfig, today: date) -> dict[str, Any]:

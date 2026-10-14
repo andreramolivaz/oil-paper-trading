@@ -124,6 +124,7 @@ ADAPTERS: dict[str, AdapterSpec] = {
         "engine.data.adapters.yahoo", "YahooAdapter", "fetch_intraday_contracts", ctor_kwargs=YAHOO_KWARGS
     ),
     "portwatch": AdapterSpec("engine.data.adapters.portwatch", "PortWatchAdapter", "fetch"),
+    "kalshi": AdapterSpec("engine.data.adapters.kalshi", "KalshiAdapter", "fetch"),
     "cboe_chain": AdapterSpec("engine.data.adapters.cboe", "CboeAdapter", "fetch_chain"),
     # S21 shipped with its adapter never registered here: the entry answered "adapter non registrato", went RED,
     # and one red source was enough to halt the whole account. Registered now, and optional like every key.
@@ -177,12 +178,22 @@ FRESHNESS: dict[str, timedelta] = {
     "dxy_daily": timedelta(days=4),
     "hormuz": timedelta(days=12),  # published weekly, a week at a time
     "bab_el_mandeb": timedelta(days=12),
+    "kalshi": timedelta(days=3),  # read once a day; a snapshot's rows all carry the download time
     "insider_form4": timedelta(days=45),
 }
 # Tables whose index is not unique BY DESIGN (several insider transactions on one day; one row per contract and
 # day): the duplicate-index check would flag every one of them.
 NON_UNIQUE_INDEX = frozenset(
-    {"insider_form4", "cl_contracts", "bz_contracts", "cl_intraday", "bz_intraday", "bno_options", "uso_options"}
+    {
+        "insider_form4",
+        "cl_contracts",
+        "bz_contracts",
+        "cl_intraday",
+        "bz_intraday",
+        "bno_options",
+        "uso_options",
+        "kalshi",
+    }
 )
 # Tables where a "price" of zero is information, not an error: three quarters of the Form 4 rows are grants,
 # vestings and option exercises, which the filing itself prints at a price of 0.
@@ -370,6 +381,9 @@ class Fetcher:
             }
         if name == "portwatch":
             return "fetch", {"chokepoint": str(entry.get("chokepoint", "Strait of Hormuz"))}
+        if name == "kalshi":
+            listed = entry.get("series")
+            return "fetch", {"series": [str(x) for x in listed] if isinstance(listed, list) else None}
         if name == "cboe_chain":
             return "fetch_chain", {"symbol": str(entry.get("symbol", "BNO"))}
         if name == "alphavantage_insider":

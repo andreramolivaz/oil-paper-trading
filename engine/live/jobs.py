@@ -189,7 +189,7 @@ DESK_VEHICLE_ENTRIES: dict[str, tuple[str, ...]] = {
     "SMH": ("smh_daily",),
     "ICLN": ("icln_daily",),
 }
-DESK_CONTEXT_ENTRIES = ("hormuz", "bab_el_mandeb", "wti_curve_hist")  # slow tables: one attempt a day
+DESK_CONTEXT_ENTRIES = ("hormuz", "bab_el_mandeb", "wti_curve_hist", "kalshi")  # slow tables: one attempt a day
 # Copper and the dollar index, read by the macro sleeves as of the close BEFORE the decision day: downloaded once
 # per decision day, on the tick that owes the day's first decision. Not the evening before: the row of the day
 # a table is read on is not that day's close (engine/desk/data.py::final_rows), so the previous close is only
@@ -359,6 +359,17 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         planned_at, now = now, now_utc()
         detail["sources"] = _fetch_summary(fetched, groups, entries)
         detail["raw_snapshots_deleted"] = _compact_raw(runner, fetched)
+
+        # The prediction markets' daily archive: the newest download, appended once per day and event. On the
+        # side, like everything that is not a book: a failure here costs nothing else.
+        try:
+            from engine.desk.live import desk_store
+            from engine.desk.prediction import archive_reading
+
+            detail["prediction_markets"] = archive_reading(runner.raw, desk_store(runner.settings.state_dir))
+        except Exception as exc:
+            log.warning("prediction markets archive skipped: %s", exc)
+            detail["prediction_markets"] = {"status": f"failed: {str(exc)[:160]}"}
 
         data = build_desk_data(runner.raw, runner.settings)
         blocked = _blocked_vehicles(runner, desk.vehicles())
