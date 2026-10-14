@@ -556,17 +556,22 @@ The volatility forecast (HAR-RV, multifractal) and the cleaned correlation weigh
 8 E and rejected: Carver's EWMA and 1/N stay. Hard rule amended (chapter 9 D): size = `forecast/10 × target ×
 m / vol`. Today the bubble switch is on for BNO, MCL and GLD: the three oil books and the gold book run at half
 their volatility target, and the terminal says so on every decision. Kalshi: the public API has the series the
-desk wants (Brent and WTI by day/week/month, the strait, the US-Iran talks, OPEC, EIA stocks); probed on the
-13th, `KXBRENTW`, `KXWTI`, `KXHORMUZNORM` (P(normal before Dec 1) 0.38, before Jul 1 2027 0.59),
-`KXMAXSHIPSHORMUZ`, `KXUSAIRANAGREEMENT`, `KXUSIRANMEETING` and `KXEIACRUDEW` had open markets; six series had
-none and two (`KXBRENTMON`, `KXWTIW`) were still "active" months after their close - handled: such a market is
-never a probability. The tick archives one reading a day; nothing trades on it. Engine side: `allocator.py`,
+desk wants (Brent and WTI by day/week/month, the strait, the US-Iran talks, OPEC, EIA stocks). The runner's
+first reading (14 October, 01:22 UTC): 296 markets in 13 events - Brent for the 14th, the 16th and the 30th
+(the crowd's medians 104.2-104.4 $ against the desk's Dec contract at 107.0: the market settles on its own
+Brent feed, a basis of about a contract month), WTI for the 14th, 15th, 16th (a ladder of bins) and Nov 3,
+the strait back to normal (before Dec 1 4 %, Jul 2027 38 %, Jan 2029 67 %), the week's transits (median 22),
+October's maximum (at least 8: 52 %), a US-Iran meeting (before Jan 1 42 %) and deal (12 %), the EIA stocks
+(median 421.4 against 424.1 the week before); five series had no open market. Lesson written down: the
+probes made from the workspace through the fetch proxy had returned months-old copies of some series - only
+the runner's download counts, and the tests' fixture is that download. The tick archives one reading a day;
+nothing trades on it. Engine side: `allocator.py`,
 `prediction.py`, `adapters/kalshi.py`, seven vehicles and books, `Desk.allocate` between roll and decision in
 the replay and live, `review_lifecycle` once a day, per-vehicle isolation in `live_tick`, `without_allocator`
 in the backtest payload, the fingerprint covering `allocator.yaml`. Site: an Allocator section and a
 Prediction markets section on the terminal, the risk scale in the books' Cap column, "With and without the
-allocator" on the backtest page. Tests: `tests/test_desk_allocator.py`, `tests/test_desk_prediction.py` (on a
-real reading of 13 October, `tests/fixtures/kalshi_markets_2026-10-13.json`), `tests/test_desk_live_isolation.py`,
+allocator" on the backtest page. Tests: `tests/test_desk_allocator.py`, `tests/test_desk_prediction.py` (17, on
+the runner's first reading, `tests/fixtures/kalshi_markets_2026-10-14.json`), `tests/test_desk_live_isolation.py`,
 `tests/test_desk_distributions.py`. Not done, written in `docs/PLAN.md`: natural gas through /MNG, the short
 side of the satellites via SH/TBF (tables downloaded, not used), the intraday group downloaded whole.
 

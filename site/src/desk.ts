@@ -423,9 +423,12 @@ export interface PredictionEvent {
   open_interest: Num;
   /** P(X > x) at the strikes, sorted by x. */
   curve?: [Num, Num][];
-  implied?: { median: Num; p_above_reference?: Num; note?: string };
+  /** `p_above_reference_bound`: when the reference falls outside the ladder, the bound the nearest strike gives. */
+  implied?: { median: Num; p_above_reference?: Num; p_above_reference_bound?: string | null; note?: string };
   /** The desk's own quote the price ladder is read against. */
   reference?: { symbol: string | null; price: Num; asof?: string | null } | null;
+  /** What the market settles on (its own price feed), when it is not the contract the desk quotes. */
+  settles_on?: string | null;
   options_implied?: {
     symbol?: string | null;
     atm_iv?: Num;

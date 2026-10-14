@@ -18,12 +18,13 @@ Frame contract: index ``ts`` (one UTC timestamp, the download time, for every ro
 ``expiration_time``, ``yes_bid``, ``yes_ask``, ``last_price``, ``volume``, ``open_interest``, ``status``, ``rules``
 and ``published_at`` (= ``ts``). Prices are in dollars per contract that pays one dollar: a probability.
 
-Seen on the real API (13 October 2026) and handled downstream (``engine/desk/prediction.py``): a market object
-has no ``series_ticker`` of its own (the series is the part of ``event_ticker`` before the first dash, and the
-query by series is what links them); a series can have no open market at all (``KXBRENTD``, ``KXWTIMONTHLY``,
-``KXCLOSEHORMUZ``, ``KXHORMUZRETURN``, ``KXOPECCUTS``, ``KXSAUDICRUDE`` that evening); and a market can stay
-"active" months after its close time (``KXBRENTMON`` on July 31, ``KXWTIW`` on August 21): a reading is a
-probability only while the market's close time is still ahead.
+Seen on the real API (the runner's first reading, 2026-10-14 01:22 UTC) and handled downstream
+(``engine/desk/prediction.py``): a market object has no ``series_ticker`` of its own (the series is the part of
+``event_ticker`` before the first dash, and the query by series is what links them); a series can have no open
+market at all (``KXCLOSEHORMUZ``, ``KXHORMUZRETURN``, ``KXOPECCUTS``, ``KXSAUDICRUDE``, ``KXWTIMONTHLY`` that
+night); the numbers come as strings ("0.0400"); a reading is a probability only while the market's close time
+is still ahead. Probes made from the workspace through a fetch proxy had returned months-old copies of some
+series: the runner's own download is the only reading that counts.
 """
 
 from __future__ import annotations
