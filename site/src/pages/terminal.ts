@@ -411,7 +411,10 @@ function allocator(doc: DeskDoc): string {
           h.closed ? `weekend ceilings × ${num(h.weekend_scale, 1)}` : "ceilings unchanged"
         }`;
   const live = doc.books
-    .filter((b) => b.lifecycle && b.lifecycle.months_live !== null && b.lifecycle.months_live !== undefined)
+    .filter((b) => {
+      const months = b.lifecycle?.months_live;
+      return months !== null && months !== undefined && months >= 1; // under a month there is nothing to read
+    })
     .map((b) => {
       const l = b.lifecycle!;
       return `${escapeHtml(b.name)} ${num(l.months_live, 1)} months${

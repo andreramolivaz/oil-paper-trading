@@ -575,6 +575,23 @@ the runner's first reading, `tests/fixtures/kalshi_markets_2026-10-14.json`), `t
 `tests/test_desk_distributions.py`. Not done, written in `docs/PLAN.md`: natural gas through /MNG, the short
 side of the satellites via SH/TBF (tables downloaded, not used), the intraday group downloaded whole.
 
+Phase 13 went live on 2026-10-14 at 01:20 UTC (PR #12, rebase-merged as cd316462; CI green on the branch and
+on main; Pages redeployed), with a correction at 01:48 UTC (PR #13, 6d335e21). Checked on GitHub and on the
+data branch, not assumed: the push cancelled the runner in progress and started a new one; its first tick
+(01:22-01:28 UTC, six minutes) asked for exactly the seven new daily tables and `kalshi` beside the half-hour
+group (22 downloads, none failed), archived 296 markets in 13 events, recomputed the backtest once ("computed:
+the rules changed", 13 books, with and without the allocator: `core_matched` 0.80 -> 0.86, `all` 1.18 -> 1.23),
+ran the lifecycle review (no change: the oldest book has 0.3 months), and left the seven new books' decisions
+of the 13th "waiting, data end at 2026-10-12" - Yahoo's daily chart read at 21:22 New York had no row for the
+13th, while GLD's table read at 17:47 had its row: a fund's daily table read late in the evening can lack the
+day's row, so a new book's first decision comes the next session at its decision time (the 14th, 15:18 New
+York). The bubble switch is on for BNO, MCL, GLD, LIT, SMH and URA; the strait is at 2 % of normal (weekend
+ceilings halved). The tick after the correction took 20 s, downloaded only the half-hour group (14 tables),
+recomputed nothing (same fingerprint) and archived nothing new (same day). The public page renders the
+Allocator and Prediction markets sections on the live JSON with no console error. Still NOT seen: a decision
+taken under the allocator (the first due at 14:48 New York on the 14th for /MCL, expected "risk x 0.5" in its
+rationale), the first fills of the seven new books, a lifecycle change, a Kalshi reading older than a day.
+
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
 failure looked like a normal red cross. The giveaway: the run's name was the file path instead of `ci`.
