@@ -615,7 +615,13 @@ flagged, the WTI ladders that jumped with oil are out of scope, and two alerts s
 ladder down 10-24 points the evening the API's report came out (the whole ladder moved) and one weekly transit
 strike down 12 points on twice its open interest with the rest flat. A footprint, never a verdict: the text
 says so. The false-alarm rate is to be measured over the coming weeks; above one a day the thresholds are to
-be revisited and written down.
+be revisited and written down. Live since 2026-10-14 03:34 UTC (PR #15, 97d48fa4); checked on the data branch
+and on GitHub: the first tick (03:35, 36 s) asked for `desk_intraday` and `kalshi` ("kalshi: hourly"), judged
+the reading (296 markets, 2 flagged, 2 alerts written), read the trades of both busiest markets (20 and 24
+trades, footprints on file), and the alerts job that follows the runner's first tick opened issues #16 and
+#17 (`kalshi-kxeiacrudew-26oct14`, `kalshi-kxhormuzweekly-26oct18`); the public page shows the block with no
+console error. Still NOT seen: an issue closed by the alerter when its alert ages out (due around the 16th), a
+baseline (ten daily readings: the 24th), a day with no alert.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
