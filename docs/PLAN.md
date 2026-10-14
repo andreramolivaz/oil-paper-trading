@@ -130,6 +130,26 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   dei satelliti giudicate come tali, l'impronta del backtest cieca ai testi) e due lasciate: il gruppo intraday
   è scaricato intero (tre richieste in più a giro su un desk senza candidati, che non è il caso in linea) e una
   tabella rossa di un candidato con una decisione in sospeso è ritentata a ogni giro.
+- [x] 13. «Dinamico, in base a come va» (13-14 ottobre; `docs/RESEARCH.md`, capitolo 9, scritto prima di ogni
+  prova). Sette libri candidati in più sotto le regole del libro prudente: Treasury (TLT) e azioni (SPY) dal
+  capitolo 8 D, e cinque temi dell'elettrificazione e dei data center (uranio URA, utilities XLU, litio LIT,
+  semiconduttori SMH, energia pulita ICLN); tredici libri insieme Sharpe 1,18 contro 0,93 degli otto, è
+  diversificazione e lo si scrive. Un **allocatore** (`engine/desk/allocator.py`, `config/allocator.yaml`) che
+  scala l'obiettivo di volatilità e il tetto del weekend di ogni libro, anche dei quattro, per regole
+  pubblicate e misurate PRIMA di accenderle: interruttore della bolla (Greenwood-Shleifer-You) acceso, controllo
+  del drawdown (Grossman-Zhou) misurato e spento, momentum di strategia scartato, regola dello stretto e ciclo
+  di vita (promozione e ritiro sul record live) come politiche dichiarate; la regola dura della taglia diventa
+  `previsione/10 × obiettivo × m / volatilità`, il backtest riporta sempre con e senza. Provati e scartati anche
+  una previsione di volatilità migliore (HAR-RV, multifrattale) e i pesi con la matrice di correlazione pulita
+  (capitolo 8 E). I **mercati a eventi** di Kalshi (`engine/data/adapters/kalshi.py`, `engine/desk/prediction.py`):
+  letti una volta al giorno dall'API pubblica, archiviati in `state/desk/kalshi-*.jsonl`, mostrati sul terminale
+  come scale di probabilità accanto a ciò che le opzioni implicano e a ciò che il desk misura; nessun libro li
+  negozia (nessuna storia su cui provare una regola). Sito: sezioni «Allocator» e «Prediction markets» sul
+  terminale, la scala del rischio nella colonna Cap, «With and without the allocator» sulla pagina del backtest.
+  Rimandato, con il motivo: il gas naturale con il future /MNG e tabelle per contratto (i fondi UNG/KOLD non
+  reggono, capitolo 8); il lato short dei satelliti con SH e TBF (tabelle scaricate, non usate: da misurare); il
+  gruppo intraday scaricato intero; una tabella rossa di un candidato ritentata a ogni giro; una regola che
+  legga Kalshi, fra un anno, se l'archivio dirà che vale qualcosa.
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

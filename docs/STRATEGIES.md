@@ -49,10 +49,11 @@ giorno dopo. Una chiusura più vecchia di una settimana non viene letta: il segn
 ### Dalla previsione alla posizione
 
 ```
-esposizione (multipli del capitale) = previsione / 10 × obiettivo di volatilità / volatilità corrente
+esposizione (multipli del capitale) = previsione / 10 × obiettivo di volatilità × m / volatilità corrente
 ```
 
-poi tre tetti, nell'ordine: il tetto del libro, il tetto più basso prima di una chiusura dei mercati più lunga
+dove `m` è il moltiplicatore dell'allocatore (fase 13, sotto: 1 di regola, 0,5 con l'interruttore della bolla
+acceso, 0 per un libro ritirato; mai sopra 1). Poi tre tetti, nell'ordine: il tetto del libro, il tetto più basso prima di una chiusura dei mercati più lunga
 di un giorno, il margine dello strumento. Il broker simulato impone comunque il limite assoluto di 10x. La
 dimensione esatta diventa lotti interi con la fascia di inerzia di Carver: dentro il 10% di una posizione
 normale non si tocca nulla, fuori si va al bordo della fascia. Non c'è nessun «gate» da superare e nessuna
@@ -110,6 +111,66 @@ partono misurano 0,50 (oro, t 2,3 su vent'anni), 0,26 (rame) e 0,34 (agricoltura
 sul greggio a capitale uguale lo Sharpe del portafoglio passa da 0,80 a 0,87 e la perdita massima da −61% a
 −30%: è diversificazione, non alfa, e il sito lo scrive. Il terminale mostra per ogni libro anche che cosa
 perderebbe su un gap del −20% dello strumento alla posizione di oggi (`stress`).
+
+### I sette candidati della fase 13 (13 ottobre 2026)
+
+Stesse regole del libro prudente, stessa sola fonte del prezzo, `role: candidate`, un conto di carta ciascuno.
+Due mercati tradizionali e cinque temi dell'elettrificazione e dei data center, scelti e scritti PRIMA della
+prova (`docs/RESEARCH.md`, capitolo 9 A); il filtro dichiarato (Sharpe dopo i costi negativo sull'intera storia
+= non parte) non ha morso su nessuno dei cinque temi, e lo si dice: è una selezione.
+
+| Libro | Fondo | Che cosa lo muove | Sharpe misurato (t) | Costo dichiarato |
+|---|---|---|---|---|
+| **Bonds** | TLT | tassi lunghi, fuga verso la qualità | 0,37 (1,8) (cap. 8 D) | 1 pb |
+| **Equities** | SPY | il ciclo, il premio azionario | 0,58 (2,9) (cap. 8 D) | 1 pb |
+| **Uranium** | URA | il nucleare per i data center | 0,35 (1,3) | 5 pb |
+| **Utilities** | XLU | la domanda di elettricità | 0,43 (2,2) | 1 pb |
+| **Lithium** | LIT | batterie, accumulo | 0,67 (2,6) | 3 pb |
+| **Semis** | SMH | i chip dell'AI (correlazione 0,65 con SPY) | 0,47 (2,4) | 1 pb |
+| **Clean** | ICLN | energia rinnovabile | 0,75 (3,1) | 3 pb |
+
+Obiettivo di volatilità 12%, tetto 1x, solo long, stop giornaliero al 5%. Tenuti insieme agli altri otto a
+capitale uguale dal 2013: Sharpe 1,18 (t 4,4), +9,1% l'anno, volatilità 7,7%, perdita massima −13% — contro
+0,93 degli otto senza i temi. È diversificazione fra mercati che non si muovono insieme, non alfa su nessuno
+di loro, e il sito lo scrive. Da qui si giudicano sugli eseguiti reali: la regola del ciclo di vita (sotto)
+dice quando uno di loro diventa core o viene ritirato.
+
+### L'allocatore (`engine/desk/allocator.py`, `config/allocator.yaml`, fase 13)
+
+Il proprietario ha chiesto che il desk «cambi in base a come va», anche sui quattro libri. Ogni regola qui
+moltiplica l'obiettivo di volatilità di un libro o il suo tetto prima di una chiusura per un numero fra 0 e 1:
+niente alza mai una posizione sopra quanto le regole del libro permettono. Ciascuna è stata misurata sul
+replay PRIMA di essere accesa (`docs/RESEARCH.md`, capitolo 9 B), i parametri sono valori pubblicati o numeri
+tondi dichiarati, e il backtest riporta sempre i libri con e senza allocatore (pagina backtest, «With and
+without the allocator»).
+
+| Regola | Stato | Che cosa fa | Misura |
+|---|---|---|---|
+| **Interruttore della bolla** (Greenwood, Shleifer & You 2019) | acceso | prezzo del veicolo +100% su 504 sedute → rischio × 0,5 per 252 sedute | Sharpe su per ogni portafoglio (core 0,80 → 0,87; tutti 0,93 → 1,00), perdita massima giù, in entrambe le metà |
+| **Controllo del drawdown** (Grossman & Zhou 1993) | spento | rischio × max(0,25; 1 − drawdown / 20%), per libro | taglia la perdita massima di un terzo e lo Sharpe di 0,05-0,14: lo stesso scambio lo fa un obiettivo di volatilità più basso senza perdere Sharpe |
+| **Stretto di Hormuz** | acceso | transiti sotto il 10% del normale (PortWatch, pubblicato con ~5 giorni di ritardo) → tetti prima del weekend × 0,5 | politica dichiarata, non misurata: sette mesi di dati, gap del weekend del 2026 fino a +16% |
+| **Ciclo di vita** | acceso | candidato → core dopo 12 mesi live con Sharpe realizzato > 0 e drawdown entro quello del backtest; qualunque libro → ritirato (piatto, nessun rischio nuovo) dopo 24 mesi con Sharpe < −0,5 | numeri tondi dichiarati; un ritirato lo riapre solo il proprietario (`books.yaml` o reset) |
+
+Momentum di strategia (D2, pesare i libri sul loro Sharpe recente) è stato misurato e scartato: 0,61 contro
+0,80. Il 13 ottobre 2026 l'interruttore della bolla è acceso su BNO e /MCL (il greggio è raddoppiato in due
+anni) e su GLD: i tre libri sul greggio e il libro dell'oro partono con l'obiettivo di volatilità dimezzato, e
+il terminale lo scrive accanto a ogni decisione («risk x 0.5: price doubled in two years»). Lo stretto è
+chiuso (transiti al 2% del normale): i tetti prima del weekend sono dimezzati.
+
+### I mercati a eventi (`engine/desk/prediction.py`, Kalshi)
+
+Un contratto Kalshi paga un dollaro se l'evento accade: il suo prezzo è la probabilità che il pubblico gli
+dà, in tempo reale, su domande che la previsione non vede (lo stretto torna normale entro dicembre? il Brent
+chiude sopra 104 venerdì?). Il desk li legge una volta al giorno dall'API pubblica, senza chiave
+(`engine/data/adapters/kalshi.py`: Brent e WTI per giorno/settimana/mese, lo stretto, i colloqui USA-Iran,
+l'OPEC, le scorte EIA), archivia la lettura in `state/desk/kalshi-AAAA-MM.jsonl` (un record per evento e
+giorno) e sul terminale mostra ogni evento come una scala: per i prezzi, la mediana del pubblico e la
+probabilità «sopra il prezzo di adesso» accanto a quella implicita nelle opzioni del fondo (lognormale alla
+volatilità implicita ATM, segnata ≈); per le scadenze, la probabilità entro ogni data; per le soglie, la
+mediana accanto al dato che il desk misura da sé (i transiti di PortWatch, le scorte EIA). **Nessun libro li
+negozia**: non esiste una storia su cui provare una regola, e l'archivio serve a costruirla (primo test
+possibile fra un anno). Un mercato ancora «attivo» dopo la sua chiusura (visto il 13 ottobre su `KXBRENTMON` e
+`KXWTIW`) non è una probabilità e il terminale lo dice.
 
 ### Il libro delle opzioni (`engine/desk/options.py`) — sperimentale
 

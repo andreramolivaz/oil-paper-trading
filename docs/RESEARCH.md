@@ -972,6 +972,26 @@ giornaliero regola sul contratto ICE WBS). Limite di richieste: un 429 dopo una 
 l'adattatore ne fa una al secondo. Dall'archivio di oggi in poi il desk salva ogni giorno i prezzi di quei
 mercati; il primo test possibile fra un anno.
 
+Lettura dei mercati aperti, la sera del 13 ottobre, serie per serie (`tests/fixtures/kalshi_markets_2026-10-13.json`
+ne conserva i record veri): `KXBRENTW` (il Brent di venerdì 16, venti soglie da 82 a 120 $: sopra 102 al 63%,
+sopra 104 al 45%, sopra 106 al 25%, mediana del pubblico 103,5 $ contro un dicembre a 105,9), `KXWTI` (il WTI
+di giovedì 15, trenta soglie, quasi senza volume), `KXHORMUZNORM` (media a 7 giorni dei transiti sopra 60,
+PortWatch: entro il 1° novembre 26%, dicembre 38%, gennaio 2027 48%, aprile 52%, luglio 59%; 3,7 milioni di
+contratti), `KXMAXSHIPSHORMUZ` (massimo giornaliero di ottobre: almeno 8 al 52%, almeno 10 al 27%),
+`KXUSAIRANAGREEMENT` (accordo nucleare entro il 1° gennaio 2027 al 12%, entro il 2028 al 35%),
+`KXUSIRANMEETING` (incontro di alto livello entro dicembre 23%, entro gennaio 42%), `KXEIACRUDEW` (le scorte
+della settimana al 9 ottobre: mediana 422,6 milioni di barili contro 424,1 della settimana prima). Sei serie non
+avevano alcun mercato aperto (`KXBRENTD`, `KXWTIMONTHLY`, `KXCLOSEHORMUZ`, `KXHORMUZRETURN`, `KXOPECCUTS`,
+`KXSAUDICRUDE`) e due erano ancora «attive» mesi dopo la chiusura, mai regolate (`KXBRENTMON` del 31 luglio,
+`KXWTIW` del 21 agosto, `KXHORMUZWEEKLY` di luglio-agosto): un mercato oltre la sua chiusura non è una
+probabilità, e il motore lo mette da parte. Il mercato porta anche il sottotitolo che distingue le soglie
+(«Above $103.99», «Before Jan 1, 2027»), che l'adattatore archivia, e non porta il codice della serie: lo si
+ricava dalla domanda. Che cosa ne fa il motore (`engine/desk/prediction.py`): un record per evento e giorno in
+`state/desk/kalshi-AAAA-MM.jsonl`; sul terminale la mediana del pubblico, la probabilità «sopra il prezzo di
+adesso» e, accanto, quella delle opzioni del fondo sotto una lognormale alla volatilità implicita ATM (segnata ≈:
+senza smile e senza base fra fondo e future); per le scadenze la scala delle date; per le soglie la mediana
+accanto al dato che il desk misura da sé. Nessun libro legge quei numeri.
+
 ### D. Che cosa questo cambia nelle regole dure
 
 «La taglia di un libro è previsione / 10 × obiettivo / volatilità, nient'altro» diventa «... × obiettivo ×

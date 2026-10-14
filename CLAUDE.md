@@ -10,9 +10,14 @@ There are two systems in this repository and it matters which one you are touchi
 * **The desk** (`engine/desk`, `config/books.yaml`) is what trades: four paper books of 10 000 $ (`role: core`)
   that buy one forecast (seven sleeves from three sources: the price of crude, the futures curve, copper and the
   dollar) through instruments a Robinhood account can hold - the BNO fund, the inverse fund SCO for the short
-  side of a fund book, the /MCL micro WTI future, put credit spreads on USO/BNO - and, since phase 12, three
-  CANDIDATE books (`role: candidate`: gold GLD, copper CPER, agriculture DBA) that run the prudent book's rules
-  on the price source alone, beside the four and in their own total. The terminal page shows it.
+  side of a fund book, the /MCL micro WTI future, put credit spreads on USO/BNO - and, since phases 12 and 13,
+  ten CANDIDATE books (`role: candidate`: gold GLD, copper CPER, agriculture DBA, Treasuries TLT, equities SPY,
+  uranium URA, utilities XLU, lithium LIT, semiconductors SMH, clean energy ICLN) that run the prudent book's
+  rules on the price source alone, beside the four and in their own total. Since phase 13 an ALLOCATOR
+  (`engine/desk/allocator.py`, `config/allocator.yaml`) scales every book's volatility target and weekend
+  ceiling by published rules (bubble switch, strait rule, lifecycle; drawdown control measured and off), and
+  the tick archives Kalshi's prediction markets (`engine/desk/prediction.py`) that no book trades on. The
+  terminal page shows all of it.
 * **The first system** (`engine/strategies`, `engine/portfolio`, `engine/backtest/session.py`, ...) is 21
   strategies on shadow accounts behind a seven-condition validation gate. Nothing passed, so its master account
   is flat by construction. It still runs daily (the tick runs its end of day) and is reachable from the site's
@@ -61,16 +66,30 @@ engine/desk/
                 the macro closes read a day late (known_before), the inverse fund's bars (DeskData.legs); the
                 satellite funds (SATELLITE_TABLES) on their own adjusted close, price source only
   vehicles.py   BNO and /MCL as Robinhood offers them: lot, margin, fees, financing, decision time; SCO, the
-                inverse fund a fund book BUYS to be short; GLD, CPER, DBA for the candidate books
+                inverse fund a fund book BUYS to be short; GLD, CPER, DBA, TLT, SPY, URA, XLU, LIT, SMH, ICLN
+                for the candidate books (`_fund`)
   book.py       one book: sizing, ceilings, Carver's position buffer, one or two legs, the orders and their
-                Italian rationale
-  engine.py     Desk: bars -> roll -> decision. The SAME three steps in the replay and live
-  backtest.py   daily replay, performance, yearly returns, block-bootstrap ruin
-  live.py       the tick: feed completed 30-minute bars, charge financing, roll, decide once a day, mark
+                English rationale; `set_scale` takes the allocator's multipliers (`vol_target` is cfg x risk)
+  engine.py     Desk: bars -> roll -> allocate -> decision. The SAME steps in the replay and live; roles
+                (`state.roles`) and the scales of the day (`state.allocator`) persisted in desk_state.json
+  allocator.py  the rules that recalibrate the desk: bubble switch (run-up), drawdown control (off), the
+                strait's weekend rule (PortWatch transit ratio, publication lag), the lifecycle (promote /
+                retire on the live record), all measured in docs/RESEARCH.md ch. 9 before being switched on
+  prediction.py Kalshi's markets: the daily archive (desk/kalshi-YYYY-MM.jsonl, one record per event and day)
+                and the terminal block (price ladders against the desk's quote and the options' lognormal twin,
+                deadline and threshold ladders beside what the desk measures). No book reads it.
+  backtest.py   daily replay (allocate before decide, run-up and transit ratios computed once per vehicle),
+                performance, yearly returns, block-bootstrap ruin
+  live.py       the tick: feed completed 30-minute bars, charge financing, credit distributions, roll, review
+                the lifecycle once a day, allocate, decide once a day, mark; one vehicle failing never stops
+                the others (`_tick_vehicle`)
   options.py    the options book on real Cboe quotes + its model replay (always approx)
-  report.py     desk-backtest payload, attribution by sleeve and by source, the rules' fingerprint
-  export.py     site-data/desk.json
-config/books.yaml   the three linear books, the options book and the three candidate books (role: candidate)
+  report.py     desk-backtest payload with and without the allocator, attribution by sleeve and by source,
+                the rules' fingerprint (books, options, risk.yaml, allocator.yaml)
+  export.py     site-data/desk.json (books with role/allocator/lifecycle, `allocator`, `prediction_markets`)
+config/books.yaml      the three linear books, the options book and the ten candidate books (role: candidate)
+config/allocator.yaml  the allocator's four rules with their published parameters and on/off switches
+engine/data/adapters/kalshi.py   the public Kalshi API, one call a second (429 after about thirty in a burst)
 ```
 
 The forecast (`signals.py`): three SOURCES of information weigh a third each, the sleeves inside a source weigh
@@ -271,9 +290,11 @@ tests/         pytest; `network` marker for tests hitting real sources
 First system: `state/account.json`, `state/positions.json`, `state/trades.jsonl`, `state/equity.jsonl`,
 `state/forecasts.jsonl` (append-only), `state/epochs.json` (reset history), `state/health.json`,
 `state/regime.json`, `state/strategies.json`, `state/raw/...`.
-Desk: `state/desk/desk_state.json`, `state/desk/decisions-*.jsonl`, `state/desk/backtest.json`, and one folder
-per book (`prudente`, `dinamico`, `spinto`: the paper broker's `account.json`, `positions.json`, `trades`,
-`orders`, `equity` logs; `opzioni`: `book.json`, `monitor.json`, `trades`, `decisions`, `equity`, `smile`).
+Desk: `state/desk/desk_state.json` (books' last decision days, roles changed by the lifecycle, the allocator's
+scales of the day), `state/desk/decisions-*.jsonl`, `state/desk/kalshi-*.jsonl` (the prediction markets, one
+record per event and day), `state/desk/backtest.json`, and one folder per book (the linear books, core and
+candidate: the paper broker's `account.json`, `positions.json`, `trades`, `orders`, `equity` logs; `opzioni`:
+`book.json`, `monitor.json`, `trades`, `decisions`, `equity`, `smile`).
 Rotation: monthly rollover of jsonl files. Raw snapshots are trimmed by every tick (intraday tables keep one
 copy, option chains one a week, daily tables the last two plus the first of each ISO week). The weekly job
 squashes the branch's git history to one commit (`scripts/data_branch.sh squash`): the audit trail lives
@@ -285,8 +306,14 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
 - Leverage ≤ 10x always, for every account. First system: > 1x only when `AlphaGate.passed` is true (all 7
   conditions). Desk: a book never targets more than its own ceiling (`max_leverage`, the lower
   `weekend_max_leverage` before a closure, the vehicle's margin); there is no gate, the ceiling IS the policy.
-- A linear book's size is `forecast / 10 * vol_target / vol`, nothing else. No vol target above 0.50, and the
-  targets are NOT raised because a backtest measured a higher Sharpe: part of that is selection.
+- A linear book's size is `forecast / 10 * vol_target * m / vol`, nothing else, where `m` is the allocator's
+  multiplier (1 by default; 0.5 under the bubble switch; 0 for a retired book; NEVER above 1), the same rule
+  for every book, written daily to the state and the terminal. No vol target above 0.50, and the targets are
+  NOT raised because a backtest measured a higher Sharpe: part of that is selection. An allocator rule is
+  switched on only after it was measured on the replay (`docs/RESEARCH.md` ch. 9 B), and the backtest always
+  reports the books with and without it (`without_allocator`).
+- The prediction markets (Kalshi) are archived and shown, never traded: no book reads them until there is a
+  year of archive to test a rule on. A market past its close time is not a probability.
 - A fund book is short only through an inverse fund it BUYS with cash: that fund's notional never exceeds the
   equity, and the book's ceilings (weekend included) bind the oil exposure on both sides - at the decision,
   at the fill price and after every mark. A fund is never sold short: its sale is reduce-only.
@@ -325,7 +352,7 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   text, colour only for sign and state.
 
 ## State of play (2026-10-13)
-Phases 1-12 of `docs/PLAN.md` are implemented. Phase 10 (8 October) added the desk after three days of a flat
+Phases 1-13 of `docs/PLAN.md` are implemented. Phase 10 (8 October) added the desk after three days of a flat
 account with zero trades. The four causes, all fixed and pinned by `tests/test_tick_job.py`:
 1. nothing was promoted, so the master's weight was zero by construction (now: the desk books trade);
 2. the end of day ran after midnight London and asked for a date that had not settled (now: latest SETTLED date);
@@ -509,6 +536,39 @@ STEO). The public page renders the four English pages on the live JSON with no c
 words on it are the decision texts the old engine wrote, which age out of the list. Still NOT seen: the first
 fill of a candidate book (due at the 13:30 UTC open of the 14th), a DBA distribution (late December), a tick
 with a failed vehicle.
+
+Phase 13 (13-14 October, on the owner's requests: "signals and insights for the current situation - Hormuz,
+the scenarios, electrification and the data centres' demand, bubbles", "dynamic: it changes depending on how
+it goes", "also the four books", "also the Kalshi markets that know first: take the data, and everything you
+said in a proper algorithm"; `docs/RESEARCH.md` chapter 9, written down before any test). What was measured,
+all on real adjusted closes from the `research-data` workflow: five theme funds under the prudent book's rules
+(uranium URA 0.35, utilities XLU 0.43, lithium LIT 0.67 t 2.6, semiconductors SMH 0.47, clean energy ICLN 0.75
+t 3.1; all pass the declared filter, which therefore did not bite: a selection, said as such), plus Treasuries
+TLT 0.37 and equities SPY 0.58 from chapter 8 D; thirteen books at equal capital since 2013: Sharpe 1.18
+(t 4.4), +9.1 %/year, volatility 7.7 %, max drawdown −13 %, against 0.93 for the eight without the themes -
+diversification, not alpha. The allocator's four rules: the bubble switch (Greenwood-Shleifer-You: +100 % over
+504 days → risk × 0.5 for 252 days) raised the Sharpe of every portfolio in both halves (core 0.80 → 0.87, all
+0.93 → 1.00) and is ON; drawdown control (Grossman-Zhou) cut the drawdown by a third and the Sharpe by
+0.05-0.14 and is OFF; strategy momentum (0.61 against 0.80) rejected; the strait's weekend rule (transits below
+10 % of normal → weekend ceilings × 0.5) and the lifecycle (promote after 12 months live with Sharpe > 0 and
+the drawdown within the backtest's; retire after 24 months with Sharpe < −0.5) enter as declared policies.
+The volatility forecast (HAR-RV, multifractal) and the cleaned correlation weights (RMT) were tried in chapter
+8 E and rejected: Carver's EWMA and 1/N stay. Hard rule amended (chapter 9 D): size = `forecast/10 × target ×
+m / vol`. Today the bubble switch is on for BNO, MCL and GLD: the three oil books and the gold book run at half
+their volatility target, and the terminal says so on every decision. Kalshi: the public API has the series the
+desk wants (Brent and WTI by day/week/month, the strait, the US-Iran talks, OPEC, EIA stocks); probed on the
+13th, `KXBRENTW`, `KXWTI`, `KXHORMUZNORM` (P(normal before Dec 1) 0.38, before Jul 1 2027 0.59),
+`KXMAXSHIPSHORMUZ`, `KXUSAIRANAGREEMENT`, `KXUSIRANMEETING` and `KXEIACRUDEW` had open markets; six series had
+none and two (`KXBRENTMON`, `KXWTIW`) were still "active" months after their close - handled: such a market is
+never a probability. The tick archives one reading a day; nothing trades on it. Engine side: `allocator.py`,
+`prediction.py`, `adapters/kalshi.py`, seven vehicles and books, `Desk.allocate` between roll and decision in
+the replay and live, `review_lifecycle` once a day, per-vehicle isolation in `live_tick`, `without_allocator`
+in the backtest payload, the fingerprint covering `allocator.yaml`. Site: an Allocator section and a
+Prediction markets section on the terminal, the risk scale in the books' Cap column, "With and without the
+allocator" on the backtest page. Tests: `tests/test_desk_allocator.py`, `tests/test_desk_prediction.py` (on a
+real reading of 13 October, `tests/fixtures/kalshi_markets_2026-10-13.json`), `tests/test_desk_live_isolation.py`,
+`tests/test_desk_distributions.py`. Not done, written in `docs/PLAN.md`: natural gas through /MNG, the short
+side of the satellites via SH/TBF (tables downloaded, not used), the intraday group downloaded whole.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

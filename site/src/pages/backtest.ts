@@ -129,6 +129,61 @@ function together(doc: BacktestDoc): string {
   );
 }
 
+function withAndWithout(doc: BacktestDoc, names: Names, roles: Roles): string {
+  const wo = doc.without_allocator;
+  const rules = doc.allocator?.rules;
+  if (!wo || !rules) return "";
+  const order = new Map(doc.books_config.map((b, i) => [b.id, i]));
+  const ids = Object.keys(doc.books)
+    .filter((id) => id in wo.books)
+    .sort((a, b) => (order.get(a) ?? 99) - (order.get(b) ?? 99));
+  const delta = (a: number | null | undefined, b: number | null | undefined, digits: number, pctFmt = false): string => {
+    if (a === null || a === undefined || b === null || b === undefined) return EMPTY;
+    const d = a - b;
+    const text = pctFmt ? signedPercent(d, digits) : `${d > 0 ? "+" : d < 0 ? MINUS : ""}${num(Math.abs(d), digits)}`;
+    return span(tone(d), text);
+  };
+  const rowOf = (label: string, withS: Stats | undefined, without: Stats | undefined, cls = ""): string =>
+    `<tr${cls ? ` class="${cls}"` : ""}><th scope="row">${label}</th>
+      <td class="n">${sharpeCell(without)}</td><td class="n"><b>${sharpeCell(withS)}</b></td>
+      <td class="n">${delta(withS?.sharpe ?? null, without?.sharpe ?? null, 2)}</td>
+      <td class="n down">${percent(without?.max_drawdown ?? null, 0)}</td><td class="n down">${percent(withS?.max_drawdown ?? null, 0)}</td>
+      <td class="n">${signedPercent(without?.cagr ?? null, 1)}</td><td class="n">${signedPercent(withS?.cagr ?? null, 1)}</td>
+      <td class="n">${percent(without?.vol ?? null, 0)}</td><td class="n">${percent(withS?.vol ?? null, 0)}</td></tr>`;
+  const bookRows = ids
+    .map((id) =>
+      rowOf(
+        `<span class="t-key" style="--sw:${bookColor(id)}"></span>${escapeHtml(names.get(id) ?? id)}${
+          roles.get(id) === "candidate" ? '<small>candidate</small>' : ""
+        }`,
+        doc.books[id]?.stats,
+        wo.books[id]?.stats,
+      ),
+    )
+    .join("");
+  const portRows = portfolios(doc.portfolio)
+    .map(([key, label, p]) => rowOf(escapeHtml(label), p.stats, wo.portfolio?.[key]?.stats, "t-total"))
+    .join("");
+  const ruleRows = Object.entries(rules)
+    .map(([, r]) => `<li>${r.enabled ? "<b>on</b>" : '<span class="t-dim">off</span>'} · ${escapeHtml(r.rule)}</li>`)
+    .join("");
+  return section(
+    "With and without the allocator",
+    `<div class="t-scroll"><table class="t-table">
+      <thead><tr><th>Book</th><th class="n">Sharpe without</th><th class="n">with</th><th class="n">Δ</th>
+        <th class="n">Max drawdown without</th><th class="n">with</th><th class="n">Return without</th><th class="n">with</th>
+        <th class="n">Volatility without</th><th class="n">with</th></tr></thead>
+      <tbody>${bookRows}${portRows}</tbody></table></div>
+      <ul class="t-dim">${ruleRows}</ul>
+      <p class="t-dim">The same replay twice: the books under their own rules alone, and under the allocator's rules as they
+      are switched on today (the bubble switch, the strait's weekend rule, the lifecycle). The replay reads the bubble
+      switch; the strait's rule only where the transit data exists (since 2019) and the lifecycle never fires in a replay
+      that starts every book as it is configured. The rules were measured before being switched on, and this table is
+      recomputed with the backtest: if a rule stops paying, it shows here first.</p>`,
+    "every number the main table shows is WITH the allocator",
+  );
+}
+
 function ruin(doc: BacktestDoc, names: Names): string {
   const rows = Object.entries(doc.books)
     .map(([id, b]) => {
@@ -378,6 +433,7 @@ export async function renderBacktest(el: HTMLElement): Promise<void> {
   el.innerHTML = `<div class="term">
     ${summary(doc, names, roles)}
     ${together(doc)}
+    ${withAndWithout(doc, names, roles)}
     ${section("Curves", charts, "each book against its own instrument bought and held")}
     ${ruin(doc, names)}
     ${sensitivity(doc, names)}

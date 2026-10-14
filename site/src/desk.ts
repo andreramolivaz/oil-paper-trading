@@ -178,11 +178,42 @@ export interface DecisionRecord {
   order_units?: Num;
 }
 
+/** What the allocator handed a book on its last decision day (engine/desk/allocator.py). */
+export interface AllocatorScale {
+  /** Multiplies the volatility target: 1 = the book's own rules, 0.5 = the bubble switch, 0 = retired. */
+  risk: Num;
+  /** Multiplies the ceiling before a weekend or a holiday (the strait's rule). */
+  weekend: Num;
+  reasons: string[];
+  day?: string;
+}
+
+/** A book's live record as the lifecycle rule reads it (daily closes of its own equity log). */
+export interface LifecycleRecord {
+  role: string;
+  months_live: Num;
+  sharpe_live: Num;
+  max_drawdown_live: Num;
+  since?: string | null;
+}
+
+export interface RoleChange {
+  role: string;
+  since: string;
+  reason: string;
+}
+
 export interface Book {
   id: string;
   kind: "linear" | "options";
-  /** "core": one of the books the desk is judged on; "candidate": a paper book run beside them (phase 12). */
-  role?: "core" | "candidate";
+  /** "core": one of the books the desk is judged on; "candidate": a paper book run beside them (phase 12);
+   *  "retired": flat by the lifecycle rule, reopened only by the owner. */
+  role?: "core" | "candidate" | "retired";
+  /** The role in config/books.yaml; `role` differs when the lifecycle rule changed it (`role_change` says why). */
+  configured_role?: string;
+  role_change?: RoleChange | null;
+  allocator?: AllocatorScale | null;
+  lifecycle?: LifecycleRecord | null;
   name: string;
   description: string;
   vehicle: string;
@@ -346,6 +377,87 @@ export interface HealthBlock {
   failed_24h: number;
 }
 
+/** The allocator's rules and what they say today (desk.json["allocator"]). */
+export interface AllocatorBlock {
+  rules: Record<string, { enabled: boolean; rule: string }>;
+  /** The bubble switch per vehicle: on, and the last day the two-year run-up held. */
+  runup: Record<string, { active: boolean; last_run_up: string | null }>;
+  hormuz: { transit_ratio: Num; closed: boolean; weekend_scale: Num };
+  /** The scales of the last decision, by book id. */
+  books: Record<string, AllocatorScale>;
+  lifecycle: Record<string, unknown> | null;
+  role_changes: Record<string, RoleChange>;
+}
+
+/** One Kalshi market: a contract paying 1 $ if the event happens, so its price is a probability. */
+export interface PredictionMarket {
+  ticker: string;
+  label: string;
+  strike_type?: string | null;
+  floor: Num;
+  cap: Num;
+  deadline?: string | null;
+  yes_bid: Num;
+  yes_ask: Num;
+  last: Num;
+  /** The probability read: the mid of bid and ask (the last trade when there is no real quote). */
+  mid: Num;
+  volume: Num;
+  open_interest: Num;
+  close_time?: string | null;
+  /** ≈ P(above the strike) under a lognormal at the fund's ATM implied volatility (price ladders only). */
+  options_p_above?: Num;
+}
+
+export interface PredictionEvent {
+  series: string;
+  event: string;
+  title: string;
+  label: string;
+  /** "price": strikes in $/bbl on Brent or WTI; "threshold": other numeric strikes; "deadline": "before a date". */
+  kind: "price" | "threshold" | "deadline" | "list";
+  close_time?: string | null;
+  hours_to_close: Num;
+  markets: PredictionMarket[];
+  volume: Num;
+  open_interest: Num;
+  /** P(X > x) at the strikes, sorted by x. */
+  curve?: [Num, Num][];
+  implied?: { median: Num; p_above_reference?: Num; note?: string };
+  /** The desk's own quote the price ladder is read against. */
+  reference?: { symbol: string | null; price: Num; asof?: string | null } | null;
+  options_implied?: {
+    symbol?: string | null;
+    atm_iv?: Num;
+    quote_ts?: string | null;
+    median?: Num;
+    p_above_reference?: Num;
+    approx?: boolean;
+    note?: string;
+    stale?: boolean;
+    quote_age_hours?: Num;
+  } | null;
+  /** Deadline ladders: the probability of the event before each date, in date order. */
+  ladder?: { before: string; p: Num }[];
+  /** What the desk measures itself about the same question (the strait's transits, the EIA stocks). */
+  measured?: Record<string, unknown> | null;
+  summary: string;
+}
+
+export interface PredictionBlock {
+  source: string;
+  unit: string;
+  note: string;
+  asked: string[];
+  asof: string | null;
+  age_hours?: Num;
+  stale: boolean;
+  markets?: number;
+  groups: { id: string; label: string; events: PredictionEvent[] }[];
+  past_close: { series: string; event: string; title: string; markets: number; close_time: string | null; note: string }[];
+  empty_series: string[];
+}
+
 export interface DeskDoc {
   generated_at: string;
   sample?: boolean;
@@ -363,6 +475,8 @@ export interface DeskDoc {
   calendar: { today_ny: string; pre_closure: boolean; next_roll: Record<string, string> };
   data_notes: string[];
   data_missing: string[];
+  allocator?: AllocatorBlock;
+  prediction_markets?: PredictionBlock;
 }
 
 /** The full backtest payload (`desk_backtest.json`): what the backtest page draws. */
@@ -415,6 +529,12 @@ export interface BacktestDoc {
     headline?: { stats: Stats; yearly: Record<string, number>; curve: CurvePoint[]; start: string; end: string };
     cases?: { smile: string; cost_multiplier: number; stats: Stats }[];
   };
+  /** The allocator the replay ran with (phase 13) and the same replay without it: always both. */
+  allocator?: { rules: Record<string, { enabled: boolean; rule: string }>; config?: Record<string, unknown> } | null;
+  without_allocator?: {
+    books: Record<string, { stats: Stats; yearly?: Record<string, number> }>;
+    portfolio?: Record<string, PortfolioStats>;
+  } | null;
 }
 
 /** The portfolios the payload may carry, in the order they are shown, with the English label of each.
@@ -439,6 +559,14 @@ export const BOOK_COLOR: Record<string, string> = {
   gold: "var(--series-4)",
   copper: "var(--series-5)",
   agri: "var(--series-7)",
+  // phase 13: fourteen books on seven hues, so the candidates repeat the palette (every key sits by its name)
+  bonds: "var(--series-6)",
+  equities: "var(--series-1)",
+  uranium: "var(--series-2)",
+  utilities: "var(--series-3)",
+  lithium: "var(--series-5)",
+  semis: "var(--series-4)",
+  clean: "var(--series-7)",
 };
 
 export const bookColor = (id: string): string => BOOK_COLOR[id] ?? "var(--series-4)";
