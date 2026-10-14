@@ -125,6 +125,13 @@ desk:
     - {adapter: portwatch, chokepoint: "Strait of Hormuz"}
   bab_el_mandeb:
     - {adapter: portwatch, chokepoint: "Bab el-Mandeb Strait"}
+  # Kalshi, the prediction market (phase 13): the open markets of the series below, prices = probabilities.
+  # Once a day; archived in state/desk/kalshi-*.jsonl by the tick; no book trades on it (no history yet).
+  kalshi:
+    - adapter: kalshi
+      series: [KXBRENTD, KXBRENTW, KXBRENTMON, KXWTI, KXWTIW, KXWTIMONTHLY,
+               KXCLOSEHORMUZ, KXHORMUZRETURN, KXHORMUZNORM, KXHORMUZWEEKLY, KXMAXSHIPSHORMUZ,
+               KXUSAIRANAGREEMENT, KXUSIRANMEETING, KXOPECCUTS, KXEIACRUDEW, KXSAUDICRUDE]
 
 # Refreshed on every tick: what the paper brokers fill and mark against.
 desk_intraday:

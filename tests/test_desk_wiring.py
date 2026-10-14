@@ -36,3 +36,17 @@ def test_every_fund_table_the_desk_reads_has_the_funds_freshness():
     for entry in daily:
         assert entry in CONFIG["desk"], entry
         assert FRESHNESS[entry] == FRESHNESS["bno_daily"], entry
+
+
+def test_the_prediction_markets_table_is_asked_once_a_day_and_not_judged_as_a_price_series():
+    """The Kalshi table is a context table (one attempt a day with the strait's), has its own freshness, and its
+    rows share one timestamp by design (the duplicate-index check must not flag it)."""
+    from engine.data.fetch import ADAPTERS, NON_UNIQUE_INDEX
+    from engine.desk.prediction import SOURCE, configured_series
+    from engine.live.jobs import DESK_CONTEXT_ENTRIES
+
+    assert SOURCE in CONFIG["desk"] and SOURCE in DESK_CONTEXT_ENTRIES
+    assert SOURCE in FRESHNESS and SOURCE in NON_UNIQUE_INDEX and "kalshi" in ADAPTERS
+    (entry,) = CONFIG["desk"][SOURCE]
+    assert entry["adapter"] == "kalshi" and configured_series(Path("config")) == entry["series"]
+    assert {"KXBRENTW", "KXWTI", "KXHORMUZNORM", "KXMAXSHIPSHORMUZ", "KXUSAIRANAGREEMENT"} <= set(entry["series"])
