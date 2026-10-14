@@ -7,7 +7,16 @@
 import { lineChart, lineLegend, type LineSeries } from "../charts/lines";
 import { repoUrl } from "../config";
 import { load } from "../data";
-import { bookColor, portfolios, type Book, type DeskDoc, type ForecastBlock, type OptionUnderlying, type Quote } from "../desk";
+import {
+  bookColor,
+  portfolios,
+  type Book,
+  type DeskDoc,
+  type ForecastBlock,
+  type OptionUnderlying,
+  type PredictionEvent,
+  type Quote,
+} from "../desk";
 import { EMPTY, escapeHtml, leverage, num, percent, relative, signedPercent, signedUsd, tone, usd } from "../format";
 
 const MINUS = "−";
@@ -222,7 +231,14 @@ function positionText(b: Book): string {
 function capText(b: Book): string {
   if (b.kind === "options") return "defined risk";
   const cap = b.cap_today ?? (b.rules.max_leverage as number | undefined) ?? null;
-  return `${leverage(cap)}${b.cap_reduced_today ? " <span class='warn'>pre-closure</span>" : ""}`;
+  const risk = b.allocator?.risk;
+  const scaled =
+    risk === null || risk === undefined || risk >= 1
+      ? ""
+      : risk <= 0
+        ? " <span class='warn'>retired</span>"
+        : ` <span class='warn'>risk ×${num(risk, 2).replace(/\.?0+$/, "")}</span>`;
+  return `${leverage(cap)}${b.cap_reduced_today ? " <span class='warn'>pre-closure</span>" : ""}${scaled}`;
 }
 
 function stressText(b: Book): string {
@@ -237,7 +253,9 @@ function bookRow(b: Book): string {
   return `<tr>
     <th scope="row"><span class="t-key" style="--sw:${bookColor(b.id)}"></span>${escapeHtml(b.name)}${
       b.experimental ? ' <span class="t-dim">experimental</span>' : ""
-    }<small>${escapeHtml(b.vehicle)}</small></th>
+    }${b.role_change ? ` <span class="warn">${escapeHtml(b.role_change.role)} since ${escapeHtml(day(b.role_change.since))}</span>` : ""}<small>${escapeHtml(
+      b.vehicle,
+    )}</small></th>
     <td class="n" data-l="Equity $"><b>${num(b.equity, 2)}</b></td>
     <td class="n" data-l="Today">${toneSpan(b.pnl_day, signedPercent(b.pnl_day_pct, 2))}</td>
     <td class="n" data-l="Since start">${toneSpan(b.pnl_total, signedPercent(b.pnl_total_pct, 2))}</td>
@@ -258,10 +276,10 @@ function totalRow(label: string, t: DeskDoc["total"] | undefined, note: string):
 
 function booksTable(doc: DeskDoc): string {
   const core = doc.books.filter((b) => (b.role ?? "core") === "core");
-  const candidates = doc.books.filter((b) => b.role === "candidate");
+  const candidates = doc.books.filter((b) => (b.role ?? "core") !== "core");
   const capital = num(doc.books[0]?.initial_capital ?? 10000, 0);
   const candidateRows = candidates.length
-    ? `<tr class="t-break"><th scope="row" colspan="10" class="t-dim w">Candidates · paper books beside the four, same rules as the prudent book on their own price, judged on real fills before anybody trusts them</th></tr>
+    ? `<tr class="t-break"><th scope="row" colspan="10" class="t-dim w">Candidates · paper books beside the four, the prudent book's rules on their own price (gold, copper, agriculture, Treasuries, equities, uranium, utilities, lithium, semiconductors, clean energy), judged on real fills before anybody trusts them</th></tr>
       ${candidates.map(bookRow).join("")}
       ${totalRow("Candidates", doc.total_candidates, `${candidates.length} separate accounts of ${capital} $ each`)}`
     : "";
@@ -338,6 +356,7 @@ function bookDetails(doc: DeskDoc): string {
         <p class="t-dim">${ruleLine(b)}</p>
         ${structures}
         ${d ? `<p><span class="t-dim">Last decision, ${escapeHtml(clock(d.ts))}:</span> ${escapeHtml(d.rationale ?? "")}</p>` : ""}
+        ${allocatorLine(b)}
         ${stress}
         ${liq}
         ${b.last_roll ? `<p class="t-dim">Last roll: ${escapeHtml(b.last_roll)}</p>` : ""}
@@ -349,6 +368,210 @@ function bookDetails(doc: DeskDoc): string {
       </details>`;
     })
     .join("");
+}
+
+function allocatorLine(b: Book): string {
+  const a = b.allocator;
+  const l = b.lifecycle;
+  const parts: string[] = [];
+  if (a && a.reasons.length) parts.push(`Allocator, ${escapeHtml(day(a.day))}: ${escapeHtml(a.reasons.join("; "))}.`);
+  else if (a) parts.push(`Allocator, ${escapeHtml(day(a.day))}: the book's own rules, nothing scaled.`);
+  if (l && l.months_live !== null && l.months_live !== undefined) {
+    parts.push(
+      `Live record: ${num(l.months_live, 1)} months${
+        l.sharpe_live === null || l.sharpe_live === undefined ? "" : `, realised Sharpe ${signed(l.sharpe_live, 2)}`
+      }${
+        l.max_drawdown_live === null || l.max_drawdown_live === undefined ? "" : `, drawdown ${MINUS}${percent(l.max_drawdown_live, 1)}`
+      }.`,
+    );
+  }
+  if (b.role_change) parts.push(`${escapeHtml(b.role_change.role)} since ${escapeHtml(day(b.role_change.since))}: ${escapeHtml(b.role_change.reason)}.`);
+  return parts.length ? `<p class="t-dim">${parts.join(" ")}</p>` : "";
+}
+
+// ---------------------------------------------------------------------------------------------- allocator
+function allocator(doc: DeskDoc): string {
+  const a = doc.allocator;
+  if (!a) return "";
+  const names = new Map(doc.books.map((b) => [b.id, b.name]));
+  const chip = (on: boolean): string => `<span class="t-dot ${on ? "ok" : "dim"}">${on ? "on" : "off"}</span>`;
+  const runup = Object.entries(a.runup)
+    .sort(([x], [y]) => x.localeCompare(y))
+    .map(([v, r]) =>
+      r.active
+        ? `<b>${escapeHtml(v)}</b> on (last held ${escapeHtml(day(r.last_run_up))})`
+        : `${escapeHtml(v)} off${r.last_run_up ? ` <span class="t-dim">(last ${escapeHtml(day(r.last_run_up))})</span>` : ""}`,
+    )
+    .join(" · ");
+  const h = a.hormuz;
+  const strait =
+    h.transit_ratio === null || h.transit_ratio === undefined
+      ? "no transit reading recent enough: ceilings unchanged"
+      : `transits at ${percent(h.transit_ratio, 0)} of normal → ${
+          h.closed ? `weekend ceilings × ${num(h.weekend_scale, 1)}` : "ceilings unchanged"
+        }`;
+  const live = doc.books
+    .filter((b) => b.lifecycle && b.lifecycle.months_live !== null && b.lifecycle.months_live !== undefined)
+    .map((b) => {
+      const l = b.lifecycle!;
+      return `${escapeHtml(b.name)} ${num(l.months_live, 1)} months${
+        l.sharpe_live === null || l.sharpe_live === undefined ? "" : `, Sharpe ${signed(l.sharpe_live, 2)}`
+      }`;
+    });
+  const changes = Object.entries(a.role_changes).map(
+    ([id, c]) => `<b>${escapeHtml(names.get(id) ?? id)}</b> → ${escapeHtml(c.role)} since ${escapeHtml(day(c.since))} (${escapeHtml(c.reason)})`,
+  );
+  const scaled = doc.books
+    .filter((b) => b.allocator && b.allocator.risk !== null && b.allocator.risk !== undefined && b.allocator.risk < 1)
+    .map((b) => `${escapeHtml(b.name)} ×${num(b.allocator!.risk, 2).replace(/\.?0+$/, "")}`);
+  const row = (name: string, key: string, today: string): string => {
+    const r = a.rules[key];
+    if (!r) return "";
+    return `<tr><th scope="row">${escapeHtml(name)}</th><td>${chip(r.enabled)}</td>
+      <td class="w">${escapeHtml(r.rule)}</td><td class="w">${today}</td></tr>`;
+  };
+  const body = `<div class="t-scroll"><table class="t-table t-log">
+    <thead><tr><th>Rule</th><th></th><th>What it does</th><th>Today</th></tr></thead>
+    <tbody>
+      ${row("Bubble switch", "runup", `${runup || EMPTY}<br><span class="t-dim">a book on a vehicle that is "on" runs at half its volatility target</span>`)}
+      ${row("Strait of Hormuz", "hormuz", strait)}
+      ${row(
+        "Drawdown control",
+        "drawdown_control",
+        `<span class="t-dim">measured and not adopted: it cut the worst loss by a third and the Sharpe by 0.05-0.14; a lower volatility target does the first without the second</span>`,
+      )}
+      ${row("Lifecycle", "lifecycle", `${live.length ? live.join(" · ") : '<span class="t-dim">no book has a month of live record yet</span>'}${
+        changes.length ? `<br>${changes.join("<br>")}` : ""
+      }`)}
+    </tbody></table></div>
+    <p class="t-dim">Scaled today: ${scaled.length ? scaled.join(" · ") : "no book"} · a book's size is
+    <code>forecast / 10 × volatility target × m / volatility</code>, where m is the allocator's multiplier; nothing here ever
+    raises a position above the book's own rules. Every rule was measured on the replay before it was switched on (and
+    the backtest page shows the books with and without it).</p>`;
+  return section("Allocator", body, "how the desk recalibrates itself, by published rules");
+}
+
+// ---------------------------------------------------------------------------------------------- prediction markets
+function pct(p: number | null | undefined): string {
+  return p === null || p === undefined || !Number.isFinite(p) ? EMPTY : `${num(100 * p, 0)}%`;
+}
+
+function predictionLadder(e: PredictionEvent): string {
+  if (e.kind === "deadline") {
+    const rows = (e.ladder ?? [])
+      .map((r) => `<tr><td>before ${escapeHtml(day(r.before))} ${escapeHtml(r.before.slice(0, 4))}</td><td class="n"><b>${pct(r.p)}</b></td></tr>`)
+      .join("");
+    return rows ? `<div class="t-scroll"><table class="t-table t-log"><tbody>${rows}</tbody></table></div>` : "";
+  }
+  const withOptions = e.markets.some((m) => m.options_p_above !== undefined && m.options_p_above !== null);
+  const rows = e.markets
+    .filter((m) => m.mid !== null && m.mid !== undefined)
+    .map(
+      (m) => `<tr><td>${escapeHtml(m.label)}</td>
+        <td class="n"><b>${pct(m.mid)}</b><small>${num(m.yes_bid, 2)}–${num(m.yes_ask, 2)}</small></td>
+        ${withOptions ? `<td class="n">${m.options_p_above === undefined ? "" : `≈ ${pct(m.options_p_above)}`}</td>` : ""}
+        <td class="n t-dim">${m.volume === null || m.volume === undefined ? "" : num(m.volume, 0)}</td></tr>`,
+    )
+    .join("");
+  return `<div class="t-scroll"><table class="t-table t-log">
+    <thead><tr><th>Market</th><th class="n">Crowd</th>${withOptions ? '<th class="n">Options ≈</th>' : ""}<th class="n">Volume</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function predictionHeadline(e: PredictionEvent): string {
+  if (e.kind === "price") {
+    const ref = e.reference;
+    const im = e.implied;
+    const opt = e.options_implied;
+    const parts: string[] = [];
+    if (im?.median !== null && im?.median !== undefined) parts.push(`the crowd's median <b>${num(im.median, 2)} $</b>`);
+    if (ref && ref.price !== null && ref.price !== undefined) {
+      parts.push(
+        `${escapeHtml(ref.symbol ?? "")} now ${num(ref.price, 2)} $${
+          im?.p_above_reference === null || im?.p_above_reference === undefined ? "" : ` → P(above it) <b>${pct(im.p_above_reference)}</b>`
+        }`,
+      );
+    }
+    if (opt?.median !== null && opt?.median !== undefined) {
+      parts.push(`≈ ${escapeHtml(opt.symbol ?? "")} options' median ${num(opt.median, 2)} $ (lognormal at ${percent(opt.atm_iv ?? null, 0)} IV)`);
+    } else if (opt?.stale) {
+      parts.push(`<span class="t-dim">options' twin not shown: the chain is ${num(opt.quote_age_hours ?? null, 0)} hours old</span>`);
+    }
+    return `${escapeHtml(e.label)} on ${escapeHtml(day(e.close_time))} ${escapeHtml(e.close_time?.slice(0, 4) ?? "")}: ${parts.join(" · ")}`;
+  }
+  if (e.kind === "deadline") {
+    const steps = (e.ladder ?? []).map((r) => `${escapeHtml(day(r.before))} ${escapeHtml(r.before.slice(0, 4))} <b>${pct(r.p)}</b>`);
+    return steps.length ? `before ${steps.join(" · ")}` : escapeHtml(e.summary);
+  }
+  if (e.kind === "threshold") {
+    const m = e.implied?.median;
+    return m === null || m === undefined ? escapeHtml(e.summary) : `the crowd's median <b>${num(m, 1)}</b>`;
+  }
+  return escapeHtml(e.summary);
+}
+
+function measuredLine(e: PredictionEvent): string {
+  const m = e.measured;
+  if (!m) return "";
+  if ("tankers_7d" in m) {
+    const ratio = m.ratio as number | null;
+    return `<p class="t-dim">The desk's own reading, IMF PortWatch to ${escapeHtml(day(m.asof as string))}: ${num(
+      m.tankers_7d as number,
+      1,
+    )} tankers a day, ${ratio === null ? EMPTY : percent(ratio, 0)} of normal. The market counts every transit call against its own threshold; the two are not the same number.</p>`;
+  }
+  if ("crude_stocks_mmbbl" in m) {
+    return `<p class="t-dim">Last EIA figure: ${num(m.crude_stocks_mmbbl as number, 1)} million barrels, week ending ${escapeHtml(
+      day(m.week_ending as string),
+    )}.</p>`;
+  }
+  return "";
+}
+
+function predictionMarkets(doc: DeskDoc): string {
+  const pm = doc.prediction_markets;
+  if (!pm) return "";
+  if (!pm.asof) {
+    return section(
+      "Prediction markets",
+      `<div class="t-empty">No reading from Kalshi yet: the tick asks for it once a day with the other slow tables.</div>`,
+    );
+  }
+  const events = pm.groups.flatMap((g) => g.events);
+  const blocks = events
+    .map(
+      (e) => `<details class="t-details">
+        <summary><b>${escapeHtml(e.label)}</b> <span class="t-dim">${escapeHtml(e.series)} · closes ${escapeHtml(
+          day(e.close_time),
+        )} ${escapeHtml(e.close_time?.slice(0, 4) ?? "")}</span><br><span class="t-dim">${escapeHtml(e.title)}</span><br>${predictionHeadline(e)}</summary>
+        ${predictionLadder(e)}
+        ${measuredLine(e)}
+        ${
+          e.kind === "price" && e.options_implied?.approx
+            ? `<p class="t-dim">≈ ${escapeHtml(e.options_implied.note ?? "")}.</p>`
+            : ""
+        }
+      </details>`,
+    )
+    .join("");
+  const foot: string[] = [];
+  if (pm.past_close.length) {
+    foot.push(
+      `Still "active" past their close time, not settled and not counted: ${pm.past_close
+        .map((p) => `${escapeHtml(p.series)} (${p.markets} markets, closed ${escapeHtml(day(p.close_time))})`)
+        .join(", ")}`,
+    );
+  }
+  if (pm.empty_series.length) foot.push(`No open market in ${pm.empty_series.map(escapeHtml).join(", ")}`);
+  const body = `${events.length ? blocks : `<div class="t-empty">The reading holds no open market in the series asked for.</div>`}
+    <p class="t-dim">${escapeHtml(pm.note)} A price ladder's "crowd median" is where the ladder crosses one half; "≈" marks the
+    options' twin, a driftless lognormal at the ATM implied volatility of the fund's options with no smile and no basis
+    between the fund and the future.${foot.length ? ` ${foot.join(". ")}.` : ""}</p>`;
+  return section(
+    "Prediction markets",
+    body,
+    `Kalshi, read ${escapeHtml(clock(pm.asof))}${pm.stale ? ' <span class="warn">stale</span>' : ""} · ${pm.markets ?? 0} open markets · the price of a contract paying 1 $ is the crowd's probability`,
+  );
 }
 
 // ---------------------------------------------------------------------------------------------- activity
@@ -592,10 +815,25 @@ function howTo(): string {
     "Aggressive" book therefore also carries the risk that Brent and WTI move apart. A fund cannot be sold short: when
     its forecast is negative the "Dynamic" book buys SCO, a fund that returns ${MINUS}2 times WTI each day, pays for it
     in cash, holds at most the account's worth of it, and the leverage shown is the oil exposure (twice the dollars).</p>
-    <p><b>Candidates.</b> The same rules on gold, copper and agriculture funds (the forces named: geopolitics, electricity
-    demand, weather), each a separate paper account, forecast on its own price only. Nearly uncorrelated with the oil
-    books; tested once each before they started (gold 0.50, copper 0.26, agriculture 0.34; natural gas through its funds
-    failed and was left out). They are judged on real fills from here on.</p>
+    <p><b>Candidates.</b> The same rules on other funds, each a separate paper account, forecast on its own price only:
+    gold, copper and agriculture (phase 12: geopolitics, electricity demand, weather), then Treasuries and equities and
+    five themes of the electricity and data-centre build-out - uranium, utilities, lithium, semiconductors, clean energy
+    (phase 13). Nearly uncorrelated with the oil books; each tested once before it started (gold 0.50, copper 0.26,
+    agriculture 0.34, Treasuries and equities about 0.3-0.4, uranium 0.35, utilities 0.43, lithium 0.67, semiconductors
+    0.47, clean energy 0.75; natural gas through its funds failed and was left out). Held together they are
+    diversification, not alpha: the thirteen books' Sharpe of about 1.2 comes from markets that do not move together,
+    with 9% a year and a 13% worst loss. They are judged on real fills from here on.</p>
+    <p><b>The allocator.</b> The desk recalibrates itself "depending on how it goes" by published rules, each measured on
+    the replay before it was switched on and shown on this page. The bubble switch (Greenwood, Shleifer and You): after a
+    vehicle's price has doubled in two years, its books run at half their volatility target for a year. The strait rule:
+    with tanker transits below a tenth of normal, the ceilings before a weekend are halved. The lifecycle: a candidate
+    becomes core after twelve months live with a positive realised Sharpe and a drawdown within its backtest's; any book
+    is retired, flat, after twenty-four months with a realised Sharpe below ${MINUS}0.5. Drawdown control was measured and
+    left off. Nothing in it ever raises a position above a book's own rules.</p>
+    <p><b>Prediction markets.</b> Kalshi's contracts on the price of Brent and WTI, the strait and the US-Iran talks are
+    read once a day and archived: their prices are the crowd's probabilities, on questions the forecast cannot see.
+    No book trades on them - there is no history to test a rule on, and the archive is being built so that one day there
+    will be. Where the question is a price, the page puts the options' own probability beside the crowd's.</p>
     <p><b>Execution.</b> An order fills at the open of the first 30-minute bar that starts after the decision, with the
     instrument's real spread and commissions. Never at the price that produced the signal.</p>
     <p><b>What is not here.</b> No intraday strategy: on the hourly bars of BNO, USO and the contracts, intraday momentum
@@ -629,11 +867,13 @@ export async function renderTerminal(el: HTMLElement): Promise<void> {
     ${header(doc, loaded.origin)}
     ${market(doc)}
     ${forecastTable(doc)}
+    ${allocator(doc)}
     ${booksTable(doc)}
     ${bookDetails(doc)}
     ${decisions(doc)}
     ${fills(doc)}
     ${options(doc)}
+    ${predictionMarkets(doc)}
     ${backtest(doc)}
     ${health(doc)}
     ${howTo()}

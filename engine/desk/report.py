@@ -285,7 +285,7 @@ def desk_backtest_payload(
     payload["double_cost"] = _stats_only(doubled)
     payload["same_close"] = _stats_only(same_close)
     payload["portfolio"] = portfolio_block(base, books)
-    payload["allocator"] = None if allocator is None else {**describe(allocator), "config": allocator.to_dict()}
+    payload["allocator"] = None if allocator is None else {"rules": describe(allocator), "config": allocator.to_dict()}
     if allocator is not None:
         alone = run_backtest(data, books, risk, start=start, end=end, ruin=False)
         payload["without_allocator"] = {"books": _stats_only(alone), "portfolio": portfolio_block(alone, books)}

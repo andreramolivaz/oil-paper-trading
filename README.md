@@ -28,8 +28,9 @@ ciascuna:
 - **gli altri mercati**: trend del rame e trend del dollaro a segno invertito, letti alla chiusura del giorno
   prima.
 
-L'esposizione è `previsione / 10 × obiettivo di volatilità / volatilità di oggi`: **la leva non si sceglie, esce
-da quel rapporto**. Con il greggio al 45% di volatilità anche il libro da 10x sta intorno a 1x.
+L'esposizione è `previsione / 10 × obiettivo di volatilità × m / volatilità di oggi`: **la leva non si sceglie,
+esce da quel rapporto**. Con il greggio al 45% di volatilità anche il libro da 10x sta intorno a 1x. `m` è il
+moltiplicatore dell'allocatore (sotto): 1 di regola, mai sopra 1.
 
 Che cosa aspettarsi, dal backtest con costi reali (dettagli e limiti in `docs/VALIDATION.md`):
 
@@ -58,6 +59,21 @@ negativi 2023-2025 si dimezzano. È diversificazione, non alfa. Il gas naturale,
 aveva uno Sharpe negativo e non è partito. Si giudicano sugli eseguiti reali: non entrano nel totale del desk.
 Uno Sharpe sopra 3 con una strategia sola, chiesto lo stesso giorno, non esiste su questi strumenti: un backtest
 che lo mostrasse sarebbe la prova di un errore (`docs/RESEARCH.md`, capitolo 8).
+
+**Altri sette candidati e l'allocatore** (fase 13, 13-14 ottobre 2026). Treasury (TLT), azioni (SPY) e cinque
+temi dell'elettrificazione e dei data center — uranio (URA), utilities (XLU), litio (LIT), semiconduttori (SMH),
+energia pulita (ICLN) — con le stesse regole, dichiarati prima della prova: Sharpe fra 0,35 e 0,75 ciascuno,
+tredici libri insieme 1,18 (contro 0,93 degli otto senza i temi), +9% l'anno con una perdita massima del 13%.
+Ancora diversificazione, non alfa, e una selezione: il filtro dichiarato non ne ha fermato nessuno. Il desk ora
+**si ricalibra da sé** con regole pubblicate e misurate prima di accenderle (`config/allocator.yaml`): dopo che il
+prezzo di uno strumento è raddoppiato in due anni i suoi libri girano a metà dell'obiettivo di volatilità per un
+anno (acceso oggi su Brent, WTI e oro); con lo stretto di Hormuz chiuso i tetti prima del weekend si dimezzano;
+un candidato diventa core dopo dodici mesi live con uno Sharpe positivo e un libro viene ritirato dopo
+ventiquattro mesi con uno Sharpe sotto −0,5. Il controllo del drawdown è stato misurato e lasciato spento
+(toglie Sharpe). Il backtest mostra sempre i libri con e senza allocatore. I **mercati a eventi di Kalshi**
+(il Brent di venerdì, lo stretto normale entro quando, l'accordo USA-Iran) sono letti ogni giorno e mostrati sul
+terminale accanto a ciò che le opzioni implicano; nessun libro li negozia, perché non c'è una storia su cui
+provare una regola: l'archivio si costruisce da oggi (`docs/RESEARCH.md`, capitolo 9).
 
 Il primo sistema (21 strategie su conti ombra, regimi, previsioni di prezzo) continua a girare ogni giorno e
 resta consultabile dalla pagina **Archive** del sito, una pagina sola: nessuna sua strategia ha superato la

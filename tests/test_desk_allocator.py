@@ -246,7 +246,7 @@ def test_the_replay_runs_the_switch_and_reports_with_and_without_the_allocator()
     from engine.desk.report import desk_backtest_payload
 
     payload = desk_backtest_payload(data, [PRUDENTE], RISK, allocator=CFG)
-    assert payload["allocator"]["runup"]["enabled"] and payload["allocator"]["config"]["runup_scale"] == 0.5
+    assert payload["allocator"]["rules"]["runup"]["enabled"] and payload["allocator"]["config"]["runup_scale"] == 0.5
     assert payload["without_allocator"]["books"]["prudente"]["stats"] == alone.books["prudente"].stats
     assert payload["books"]["prudente"]["stats"] == with_.books["prudente"].stats
     assert desk_backtest_payload(data, [PRUDENTE], RISK)["allocator"] is None
