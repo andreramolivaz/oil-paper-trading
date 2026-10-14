@@ -302,6 +302,13 @@ def _desk_daily_entries(runner: LiveRunner, desk: Any, now: Any) -> tuple[set[st
     if attempted is None or hours_since(attempted) > CONTEXT_MAX_AGE_HOURS:
         entries |= set(DESK_CONTEXT_ENTRIES)
         reasons.append("context: once a day")
+    else:
+        # a context table added to the list since the last daily pass (the prediction markets, phase 13) is
+        # asked for now, alone, not when the pass next happens to be due
+        never = [name for name in DESK_CONTEXT_ENTRIES if _source_attempted_at(runner, name) is None]
+        if never:
+            entries |= set(never)
+            reasons.append(f"context: never downloaded: {', '.join(never)}")
 
     # Copper and the dollar. A decision of day D reads their closes of the days before D, and those are on file
     # in their final form only in a table downloaded on D itself: so the tables are downloaded on the tick that
