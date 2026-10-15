@@ -325,7 +325,12 @@ class KalshiAdapter(HttpClient):
         failed: dict[str, str] = {}
         for series_ticker in series:
             try:
+                # the plain listing stops showing a market a few weeks after it settles (the September 2026 FOMC
+                # markets were listed on 15 October, July's were not): the settled ones are asked for by name
+                # and merged, so that a series' past is as long as the API keeps it
                 markets = self.fetch_markets(series_ticker)
+                seen = {str(m.get("ticker")) for m in markets}
+                markets += [m for m in self.fetch_markets(series_ticker, "settled") if str(m.get("ticker")) not in seen]
             except DataUnavailable as exc:
                 failed[series_ticker] = str(exc)[:160]
                 log.warning("kalshi history %s: %s", series_ticker, exc)
