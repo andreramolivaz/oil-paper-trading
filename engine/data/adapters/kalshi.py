@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from collections.abc import Iterable
 from typing import Any
 
@@ -71,6 +72,14 @@ _NUMERIC = (
 TRADE_COLUMNS = ["trade_id", "ticker", "created_time", "count", "yes_price", "no_price", "taker_side", "block"]
 TRADES_PAGE = 1000
 TRADES_MAX_PAGES = 5  # 5 000 trades: more than any of these markets does in a week
+# The candlesticks (``fetch_candlesticks``): one row per period, prices in dollars. ``end_ts`` is the period's
+# inclusive end as a Unix time; ``source`` says which endpoint answered (live, or historical for an archived
+# market: the two spell their fields differently, ``close_dollars`` against ``close``).
+CANDLE_COLUMNS = [
+    "ticker", "end_ts", "yes_bid_close", "yes_ask_close", "yes_bid_open", "yes_ask_open", "price_close",
+    "price_previous", "volume", "open_interest", "source",
+]  # fmt: skip
+CANDLE_DAY = 1440  # period_interval in minutes: a daily candle
 
 
 def _num(value: Any) -> float | None:
@@ -79,6 +88,58 @@ def _num(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return out if math.isfinite(out) else None
+
+
+def _unix(value: Any) -> int | None:
+    """An ISO time ("2026-03-17T14:00:00Z") -> Unix seconds; None when missing or unreadable."""
+    if value is None or value == "":
+        return None
+    try:
+        return int(pd.Timestamp(str(value)).tz_convert("UTC").timestamp())
+    except (TypeError, ValueError):
+        try:
+            return int(pd.Timestamp(str(value)).tz_localize("UTC").timestamp())
+        except (TypeError, ValueError):
+            return None
+
+
+def _candle_field(block: Any, name: str) -> float | None:
+    """A field of a candlestick's bid, ask or price block, in the live spelling (``close_dollars``) or the
+    historical one (``close``)."""
+    if not isinstance(block, dict):
+        return None
+    value = block.get(f"{name}_dollars")
+    return _num(value if value is not None else block.get(name))
+
+
+def parse_candlesticks(candles: Iterable[dict[str, Any]], ticker: str, source: str = "live") -> list[dict[str, Any]]:
+    """The API's candlestick objects -> rows of ``CANDLE_COLUMNS``, oldest first."""
+    rows: list[dict[str, Any]] = []
+    for c in candles:
+        if not isinstance(c, dict) or c.get("end_period_ts") is None:
+            continue
+        end = _num(c.get("end_period_ts"))
+        if end is None:
+            continue
+        volume = c.get("volume_fp") if c.get("volume_fp") is not None else c.get("volume")
+        oi = c.get("open_interest_fp") if c.get("open_interest_fp") is not None else c.get("open_interest")
+        rows.append(
+            {
+                "ticker": ticker,
+                "end_ts": int(end),
+                "yes_bid_close": _candle_field(c.get("yes_bid"), "close"),
+                "yes_ask_close": _candle_field(c.get("yes_ask"), "close"),
+                "yes_bid_open": _candle_field(c.get("yes_bid"), "open"),
+                "yes_ask_open": _candle_field(c.get("yes_ask"), "open"),
+                "price_close": _candle_field(c.get("price"), "close"),
+                "price_previous": _candle_field(c.get("price"), "previous"),
+                "volume": _num(volume),
+                "open_interest": _num(oi),
+                "source": source,
+            }
+        )
+    rows.sort(key=lambda r: r["end_ts"])
+    return rows
 
 
 def parse_markets(markets: Iterable[dict[str, Any]], series_ticker: str, ts: pd.Timestamp) -> list[dict[str, Any]]:
@@ -199,6 +260,93 @@ class KalshiAdapter(HttpClient):
             if not cursor:
                 break
         return rows
+
+    def fetch_markets(self, series_ticker: str, status: str | None = None) -> list[dict[str, Any]]:
+        """Every market of one series with ``status`` ("open", "closed", "settled"; None: any status), paged,
+        as the API's own objects (not the frame contract): the history needs the dates and the labels."""
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = None
+        for _ in range(20):
+            params: dict[str, Any] = {"series_ticker": series_ticker, "limit": PAGE}
+            if status:
+                params["status"] = status
+            if cursor:
+                params["cursor"] = cursor
+            body = self.get_json(f"{BASE_URL}/markets", params=params)
+            if not isinstance(body, dict):
+                raise DataUnavailable(f"kalshi {series_ticker}: unexpected answer {str(body)[:120]}")
+            rows += [m for m in body.get("markets") or [] if isinstance(m, dict) and m.get("ticker")]
+            cursor = body.get("cursor") or None
+            if not cursor:
+                break
+        return rows
+
+    def _get_optional(self, url: str, params: dict[str, Any]) -> Any | None:
+        """One GET at the adapter's pace that answers None on a 404 (a market the live endpoint no longer has)
+        instead of retrying it for a minute; every other failure goes through the usual retries."""
+        wait = self.min_interval - (time.monotonic() - self._last_call)
+        if wait > 0:
+            time.sleep(wait)
+        self._last_call = time.monotonic()
+        r = self.session.get(url, params=params, timeout=self.timeout)
+        if r.status_code == 404:
+            return None
+        if r.status_code == 429 or r.status_code >= 500:
+            return self.get_json(url, params=params)
+        r.raise_for_status()
+        return r.json()
+
+    def fetch_candlesticks(
+        self, series_ticker: str, ticker: str, start_ts: int, end_ts: int, period: int = CANDLE_DAY
+    ) -> list[dict[str, Any]]:
+        """The candlesticks of one market between two Unix times (``period`` minutes: 1, 60 or 1440), from the
+        live endpoint or, for a market archived after its settlement, the historical one. Rows of
+        ``CANDLE_COLUMNS``: the period's end, the bid and ask at its close, the last trade's price (None when
+        none), the contracts traded in the period and the open interest at its end - prices in dollars."""
+        params = {"start_ts": int(start_ts), "end_ts": int(end_ts), "period_interval": int(period)}
+        body = self._get_optional(f"{BASE_URL}/series/{series_ticker}/markets/{ticker}/candlesticks", params)
+        source = "live"
+        if body is None:
+            body = self._get_optional(f"{BASE_URL}/historical/markets/{ticker}/candlesticks", params)
+            source = "historical"
+        if body is None:
+            raise DataUnavailable(f"kalshi candlesticks {ticker}: not found on the live or the historical endpoint")
+        if not isinstance(body, dict):
+            raise DataUnavailable(f"kalshi candlesticks {ticker}: unexpected answer {str(body)[:120]}")
+        return parse_candlesticks(body.get("candlesticks") or [], ticker, source)
+
+    def fetch_history(self, series: Iterable[str], since: int, until: int | None = None) -> dict[str, Any]:
+        """Every market of each series, whatever its status, with its daily candlesticks from ``since`` (a Unix
+        time; a market opened later starts at its open) to ``until`` (now by default): what the archive of the
+        prediction markets would hold had the desk read them every day since ``since`` (``engine/desk/backfill``).
+        One series failing is noted and the others are still returned."""
+        end = int(until if until is not None else utc_now().timestamp())
+        out: dict[str, Any] = {"fetched_at": utc_now().isoformat(), "since": int(since), "until": end, "series": {}}
+        failed: dict[str, str] = {}
+        for series_ticker in series:
+            try:
+                markets = self.fetch_markets(series_ticker)
+            except DataUnavailable as exc:
+                failed[series_ticker] = str(exc)[:160]
+                log.warning("kalshi history %s: %s", series_ticker, exc)
+                continue
+            candles: dict[str, list[dict[str, Any]]] = {}
+            for m in markets:
+                ticker = str(m["ticker"])
+                opened = _unix(m.get("open_time"))
+                closed = _unix(m.get("close_time"))
+                start = max(int(since), opened or int(since))
+                stop = min(end, closed) if closed else end
+                if stop <= start:
+                    continue
+                try:
+                    candles[ticker] = self.fetch_candlesticks(series_ticker, ticker, start, stop + 86_400)
+                except DataUnavailable as exc:
+                    failed[ticker] = str(exc)[:160]
+                    log.warning("kalshi candlesticks %s: %s", ticker, exc)
+            out["series"][series_ticker] = {"markets": markets, "candles": candles}
+        out["failed"] = failed
+        return out
 
     def fetch(self, series: Iterable[str] | None = None) -> FetchResult:
         """The open markets of ``series`` (the default list when None). A series that answers nothing is noted

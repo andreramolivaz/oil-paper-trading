@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: "all (default), satellites (the daily tables of the other markets only), kalshi (the prediction market's catalogue) or kalshi-trades (the markets the desk reads and a week of their trades)"
+        description: "all (default), satellites (the daily tables of the other markets only), kalshi (the prediction market's catalogue), kalshi-trades (the markets the desk reads and a week of their trades) or kalshi-history (the daily candlesticks of the event series since January 2026)"
         required: false
         default: "all"
   push:

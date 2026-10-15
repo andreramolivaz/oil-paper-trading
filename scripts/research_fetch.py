@@ -162,16 +162,39 @@ def _kalshi_trades(out: Path) -> int:
     return 0
 
 
+def _kalshi_history(out: Path) -> int:
+    """The daily candlesticks of every market, open or settled, of the event series the desk reads (the three
+    the speculative book's index is made of first, then the other strait and supply series), from 2026-01-01:
+    what the archive would hold had the desk read those markets every day since (phase 14, the backfill). One
+    call a second; the price ladders are left out (hundreds of daily markets, nothing the index reads)."""
+    from engine.data.adapters.kalshi import KalshiAdapter
+    from engine.desk.oracle import COMPONENTS
+
+    out.mkdir(parents=True, exist_ok=True)
+    others = ["KXCLOSEHORMUZ", "KXHORMUZRETURN", "KXHORMUZWEEKLY", "KXMAXSHIPSHORMUZ", "KXOPECCUTS", "KXSAUDICRUDE"]
+    series = [*COMPONENTS, *others]
+    since = int(datetime(2026, 1, 1, tzinfo=UTC).timestamp())
+    history = KalshiAdapter().fetch_history(series, since)
+    (out / "history.json").write_text(json.dumps(history, indent=0))
+    for ticker, block in history["series"].items():
+        n_candles = sum(len(v) for v in block["candles"].values())
+        print(f"ok   kalshi/history {ticker}: {len(block['markets'])} markets, {n_candles} daily candles", flush=True)
+    if history.get("failed"):
+        print(f"FAIL kalshi/history {len(history['failed'])} failed: {list(history['failed'])[:10]}", flush=True)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="out/research")
     parser.add_argument(
         "--only",
-        choices=["all", "satellites", "kalshi", "kalshi-trades"],
+        choices=["all", "satellites", "kalshi", "kalshi-trades", "kalshi-history"],
         default="all",
         help="'satellites': only the daily tables of DAILY_SATELLITES (phase 12 research), a few dozen requests; "
         "'kalshi': the prediction market's catalogue (series, open markets) as JSON; 'kalshi-trades': the open "
-        "markets the desk reads and a week of their trades (the busiest and the event markets), for the alert",
+        "markets the desk reads and a week of their trades (the busiest and the event markets), for the alert; "
+        "'kalshi-history': the daily candlesticks of every market of the event series since January 2026",
     )
     args = parser.parse_args()
     out = Path(args.out)
@@ -193,6 +216,8 @@ def main() -> int:
         return _kalshi_catalogue(out / "kalshi")
     if args.only == "kalshi-trades":
         return _kalshi_trades(out / "kalshi")
+    if args.only == "kalshi-history":
+        return _kalshi_history(out / "kalshi")
     if args.only == "satellites":
         for symbol in DAILY_SATELLITES:
             run(
