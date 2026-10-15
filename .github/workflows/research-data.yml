@@ -9,6 +9,14 @@ on:
         description: "all (default), satellites (the daily tables of the other markets only), kalshi (the prediction market's catalogue), kalshi-trades (the markets the desk reads and a week of their trades) or kalshi-history (the daily candlesticks of the event series since January 2026)"
         required: false
         default: "all"
+      series:
+        description: "kalshi-history only: a comma-separated list of series tickers instead of the desk's own (phase 15 research)"
+        required: false
+        default: ""
+      since:
+        description: "kalshi-history only: the first day (ISO date)"
+        required: false
+        default: "2026-01-01"
   push:
     branches: ["research-fetch"]
 
@@ -32,7 +40,7 @@ jobs:
           uv venv .venv --python 3.12
           uv pip install --python .venv/bin/python -r requirements.lock
       - name: Fetch
-        run: .venv/bin/python scripts/research_fetch.py --out out/research --only "${{ inputs.only || 'all' }}"
+        run: .venv/bin/python scripts/research_fetch.py --out out/research --only "${{ inputs.only || 'all' }}" --series "${{ inputs.series || '' }}" --since "${{ inputs.since || '2026-01-01' }}"
       - uses: actions/upload-artifact@v4
         with:
           name: research-data
