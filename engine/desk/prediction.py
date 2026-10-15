@@ -239,7 +239,7 @@ def record_reading(store: StateStore, reading: Reading) -> int:
     path = store.jsonl_path(KALSHI_LOG, ts=when)
     known: set[str] = set()
     if path.exists():
-        for rec in store.iter_jsonl(KALSHI_LOG):
+        for rec in store.iter_jsonl(KALSHI_LOG, skip_bad=True):
             if str(rec.get("day", "")) == reading.day:
                 known.add(str(rec.get("key")))
     written = 0

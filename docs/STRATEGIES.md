@@ -188,6 +188,42 @@ un'impronta, non un verdetto:
 una notizia arrivata prima al mercato, chi copre un rischio e un insider la lasciano uguale (`docs/RESEARCH.md`,
 capitolo 9 F, con i casi pubblici e le soglie dichiarate prima di accenderla).
 
+### Il libro «Oracle» (`engine/desk/oracle.py`, fase 14) — speculativo, senza backtest
+
+Il proprietario ha chiesto «una strategia basata su Kalshi a leva, altamente speculativa». Un contratto Kalshi
+paga 1 $ se l'evento accade e costa la sua probabilità: non si compra a margine e il desk non ha un broker di
+carta per i contratti a evento. La leva, quindi, sta sul petrolio - il future micro WTI (/MCL), l'unico
+strumento a leva del desk - e Kalshi dà la **direzione**. Tutto è scritto in `docs/RESEARCH.md`, capitolo 10,
+prima della prima decisione, perché non c'è una storia su cui provarlo: l'archivio giornaliero del desk
+(`state/desk/kalshi-*.jsonl`) È la storia, e il primo test sarà possibile fra un anno.
+
+- **L'indice di de-escalation.** Tre scale a scadenza: lo stretto tornato normale prima di X
+  (`KXHORMUZNORM`), un incontro di alto livello USA-Iran prima di X (`KXUSIRANMEETING`), un accordo nucleare
+  prima di X (`KXUSAIRANAGREEMENT`). Per ciascuna, la probabilità che l'evento accada entro 90 giorni dalla
+  lettura, letta sulla scala interpolando nel tempo fra i mercati quotati a due lati entro 10 centesimi, con
+  (oggi, 0) come primo punto; oltre l'ultima scadenza l'ultima. L'indice è la media delle tre, pesi uguali.
+- **Il segnale.** La decisione del giorno D legge la lettura archiviata del giorno UTC D (la prima della
+  giornata, verso le 00:20 UTC: la sera prima a New York, come i segnali macro leggono la chiusura di ieri) o,
+  se manca, la più recente non più vecchia di tre giorni; il riferimento è la lettura più recente fra 7 e 10
+  giorni prima. La variazione è la media, sulle componenti presenti in entrambe le letture, di oggi meno
+  riferimento: una scala che nasce o si risolve non è una mossa.
+- **La previsione.** −2 per punto percentuale di variazione, limitata a ±20, zero sotto un punto: cinque
+  punti di de-escalation in una settimana valgono −10 (short normale), dieci −20, cinque di escalation +10.
+  Senza una lettura recente il libro non ha una vista e sta piatto; senza riferimento (archivio più giovane di
+  una settimana) non decide e resta dov'è.
+- **La taglia.** La regola di tutti i libri: `previsione/10 × 0,50 × m / volatilità`, obiettivo di volatilità
+  0,50 (Kelly pieno, il massimo delle regole dure), `m` dell'allocatore (oggi 0,5: il WTI è raddoppiato in due
+  anni), tetti 10x e 3x prima di una chiusura (1,5x con lo stretto chiuso), stop giornaliero −15%, lotto
+  intero. Con il greggio al 44% una previsione di −20 vale 2,3x: due o tre micro contratti.
+- **Che cos'è e che cosa non è.** Candidato (`role: candidate`, `forecast: kalshi`), un conto a sé nel totale
+  dei candidati. Nessun backtest, nessuna riga nelle tabelle del replay, fuori dall'impronta delle regole; mai
+  promosso dal ciclo di vita (la promozione confronta il drawdown live con quello del backtest, e qui non c'è);
+  ritirato come ogni libro dopo 24 mesi con Sharpe sotto −0,5. La decisione registra ogni input (indice,
+  componenti, riferimento, variazione, età delle due letture), così fra un anno la regola si riproduce riga per
+  riga sull'archivio.
+- **Il prior.** Nessun vantaggio: il petrolio è mille volte più liquido di quei mercati, ed è più probabile che
+  Kalshi lo segua con un giorno di ritardo che il contrario. Il libro esiste per misurarlo con soldi di carta.
+
 ### Il libro delle opzioni (`engine/desk/options.py`) — sperimentale
 
 Vende uno **spread di put a credito** sotto il mercato quando la previsione (la stessa dei libri lineari, con i

@@ -214,6 +214,11 @@ export interface Book {
   role_change?: RoleChange | null;
   allocator?: AllocatorScale | null;
   lifecycle?: LifecycleRecord | null;
+  /** Which forecast the book reads: "desk" (the seven sleeves, replayed in the backtest) or "kalshi" (the
+   *  prediction markets' de-escalation index, phase 14: no history, no backtest, live fills only). */
+  forecast_family?: "desk" | "kalshi";
+  /** False for a book the replay cannot run: it has no row in the backtest, by construction. */
+  backtested?: boolean;
   name: string;
   description: string;
   vehicle: string;
@@ -363,6 +368,52 @@ export interface BacktestSummary {
   >;
   benchmarks: Record<string, { name: string; stats: Stats }>;
   options: { approx: boolean; stats: Stats; sharpe_range: [number, number] | null; method: string } | null;
+  /** The books on file the replay cannot run (the Kalshi book of phase 14), with the reason: no numbers. */
+  excluded?: ExcludedBook[];
+}
+
+export interface ExcludedBook {
+  id: string;
+  name: string;
+  vehicle: string;
+  role?: string;
+  forecast?: string;
+  reason: string;
+}
+
+/** The prediction markets' de-escalation index the speculative book reads (phase 14, engine/desk/oracle.py):
+ *  today's reading, the reference a week before, the change and the forecast it makes, with the rule. */
+export interface OracleBlock {
+  day: string;
+  forecast: Num;
+  index: Num;
+  /** Today's index over the components both readings have: `index_common - index_reference` is the change. */
+  index_common?: Num;
+  index_reference: Num;
+  components_common?: number;
+  components_read?: number;
+  change: Num;
+  reading_day: string | null;
+  reading_ts?: string | null;
+  reference_day: string | null;
+  components: { series: string; label: string; p: Num; p_reference: Num }[];
+  note: string;
+  rule: {
+    components: { series: string; label: string }[];
+    horizon_days: number;
+    lookback_days: number;
+    reference_window_days: number;
+    stale_days: number;
+    max_spread: number;
+    deadband: number;
+    forecast_per_point: number;
+    text: string;
+  };
+  books: string[];
+  archive_days: number;
+  archive_first_day: string | null;
+  source: string;
+  disclaimer?: string;
 }
 
 export interface HealthBlock {
@@ -535,6 +586,8 @@ export interface DeskDoc {
   data_missing: string[];
   allocator?: AllocatorBlock;
   prediction_markets?: PredictionBlock;
+  /** The index the speculative Kalshi book reads (phase 14); null when no book is on it. */
+  oracle?: OracleBlock | null;
 }
 
 /** The full backtest payload (`desk_backtest.json`): what the backtest page draws. */
@@ -574,6 +627,8 @@ export interface BacktestDoc {
     { vehicle?: string; vol_target: number; long_only: boolean; short_via?: string | null; note: string; rows: SleeveRow[] }
   >;
   books_config: { id: string; name: string; vehicle: string; vol_target: number; max_leverage: number; role?: string }[];
+  /** The books on file the replay cannot run (phase 14), with the reason. */
+  excluded?: ExcludedBook[];
   data: Record<
     string,
     { start: string; end: string; days: number; return_sources: Record<string, number>; slope_approx_share: number }

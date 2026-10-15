@@ -50,7 +50,7 @@ def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap
         "bonds": "TLT", "equities": "SPY", "uranium": "URA", "utilities": "XLU",  # phase 13
         "lithium": "LIT", "semis": "SMH", "clean": "ICLN",
     }  # fmt: skip
-    assert list(books) == ["prudente", "dinamico", "spinto", *satellites]
+    assert list(books) == ["prudente", "dinamico", "spinto", *satellites, "oracle"]
     assert [b.id for b in books.values() if b.role == "core"] == ["prudente", "dinamico", "spinto"]
     assert books["prudente"].max_leverage == 1.0 and books["prudente"].long_only
     assert books["dinamico"].max_leverage == 2.0 and books["dinamico"].weekend_max_leverage == 1.5
@@ -62,6 +62,14 @@ def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap
         assert b.role == "candidate" and b.vehicle == vehicle and b.long_only and b.short_via is None
         assert (b.vol_target, b.max_leverage, b.daily_loss_breaker) == (0.12, 1.0, 0.05)
         assert b.sleeves == {"trend": 1.0, "accel": 1.0, "skew": 1.0}
+        assert b.forecast == "desk"
+    # the speculative Kalshi book (phase 14): the aggressive book's ceilings on the future, the prediction
+    # markets' index as its forecast, a candidate that no replay can run
+    oracle_book = books["oracle"]
+    assert oracle_book.role == "candidate" and oracle_book.forecast == "kalshi" and oracle_book.vehicle == "MCL"
+    assert (oracle_book.vol_target, oracle_book.max_leverage, oracle_book.weekend_max_leverage) == (0.5, 10.0, 3.0)
+    assert not oracle_book.long_only and oracle_book.short_via is None and oracle_book.sleeves == {"deescalation": 1.0}
+    assert [b.id for b in books.values() if b.forecast == "desk"] == ["prudente", "dinamico", "spinto", *satellites]
     for b in books.values():
         assert 0 < b.max_leverage <= HARD_CAP
         assert b.max_leverage <= get_vehicle(b.vehicle).max_leverage + 1e-9  # the broker's margin allows it
@@ -76,6 +84,10 @@ def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap
         {"weekend_max_leverage": 3.0, "max_leverage": 2.0},
         {"vol_target": 0.0},
         {"sleeves": {"trend": 1.0, "astrology": 1.0}},
+        {"forecast": "tarot"},  # not a forecast the desk has
+        {"forecast": "kalshi", "sleeves": {"trend": 1.0}},  # the desk's sleeves do not belong to that forecast
+        {"forecast": "kalshi", "sleeves": {"deescalation": 1.0}, "role": "core"},  # no backtest: never core
+        {"forecast": "desk", "sleeves": {"deescalation": 1.0}},  # and the Kalshi sleeve is not one of the seven
     ],
 )
 def test_a_book_that_breaks_a_rule_cannot_be_configured(bad):
@@ -222,6 +234,8 @@ def test_a_book_uses_its_own_sleeve_weights():
     for cfg in load_books():
         if cfg.role == "core":
             assert cfg.sleeves == pytest.approx(third), cfg.id  # no core book on file overrides the mix
+        elif cfg.forecast == "kalshi":
+            assert cfg.sleeves == {"deescalation": 1.0}, cfg.id  # the Kalshi book reads the index, nothing else
         else:
             assert set(cfg.sleeves) == {"trend", "accel", "skew"}, cfg.id  # a satellite reads its price alone
 

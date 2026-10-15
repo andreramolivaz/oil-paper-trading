@@ -69,9 +69,18 @@ function summary(doc: BacktestDoc, names: Names, roles: Roles): string {
         <td class="n">1.00x</td><td class="n">100%</td><td></td><td class="n">×${num(s.final_multiple ?? null, 2)}</td></tr>`;
     })
     .join("");
-  const candBlock = cand.length
-    ? `<tr class="t-break"><th colspan="10" class="t-dim w">Candidates: the prudent book's rules on another market, forecast on its own price</th></tr>${cand.join("")}`
-    : "";
+  // the books on file the replay cannot run (the speculative Kalshi book, phase 14): a row with the reason, no numbers
+  const excluded = (doc.excluded ?? []).map(
+    (x) => `<tr class="t-bench"><th scope="row">${escapeHtml(x.name)}<small>${escapeHtml(x.vehicle)} · speculative, ${escapeHtml(
+      x.forecast ?? "",
+    )} forecast</small></th><td colspan="9" class="t-dim w">No backtest: ${escapeHtml(x.reason)}.</td></tr>`,
+  );
+  const candBlock =
+    cand.length || excluded.length
+      ? `<tr class="t-break"><th colspan="10" class="t-dim w">Candidates: the prudent book's rules on another market, forecast on its own price${
+          excluded.length ? "; the Oracle takes its direction from Kalshi's prediction markets and has no history to replay" : ""
+        }</th></tr>${cand.join("")}${excluded.join("")}`
+      : "";
   return section(
     "Result",
     `<div class="t-scroll"><table class="t-table t-backtest">

@@ -16,8 +16,10 @@ There are two systems in this repository and it matters which one you are touchi
   rules on the price source alone, beside the four and in their own total. Since phase 13 an ALLOCATOR
   (`engine/desk/allocator.py`, `config/allocator.yaml`) scales every book's volatility target and weekend
   ceiling by published rules (bubble switch, strait rule, lifecycle; drawdown control measured and off), and
-  the tick archives Kalshi's prediction markets (`engine/desk/prediction.py`) that no book trades on. The
-  terminal page shows all of it.
+  the tick archives Kalshi's prediction markets (`engine/desk/prediction.py`) that no core book trades on.
+  Since phase 14 ONE candidate book, `oracle` (`forecast: kalshi`, `engine/desk/oracle.py`), trades the micro
+  WTI future in the direction of a de-escalation index read on that archive: speculative, no backtest, judged
+  on live fills only, never promoted. The terminal page shows all of it.
 * **The first system** (`engine/strategies`, `engine/portfolio`, `engine/backtest/session.py`, ...) is 21
   strategies on shadow accounts behind a seven-condition validation gate. Nothing passed, so its master account
   is flat by construction. It still runs daily (the tick runs its end of day) and is reachable from the site's
@@ -48,7 +50,7 @@ python -m engine.cli fetch --snapshot          # pull all sources, write point-i
 python -m engine.cli eod                       # first system, after ICE settlement (the tick calls it when due)
 python -m engine.cli weekly                    # COT, rig count, retrain, full backtest, validation report
 python -m engine.cli backtest --start 1990-01-01 --end 2026-10-01 --report out/backtest
-python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|copper|agri|all]
+python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|...|clean|oracle|all]
 python -m engine.cli export-site               # site-data/: desk.json for the terminal + the first system's files
 
 python -m engine.cli watch                     # the prediction markets alone (the weekend job): read, archive, judge
@@ -80,6 +82,11 @@ engine/desk/
   prediction.py Kalshi's markets: the daily archive (desk/kalshi-YYYY-MM.jsonl, one record per event and day)
                 and the terminal block (price ladders against the desk's quote and the options' lognormal twin,
                 deadline and threshold ladders beside what the desk measures). No book reads it.
+  oracle.py     the speculative Kalshi book's forecast (phase 14): the de-escalation index (P within 90 days
+                that the strait is normal, the US and Iran meet, a deal is signed; three deadline ladders read
+                off the daily archive at a constant horizon), its change over a week, -2 per point, +-20; the
+                book cannot be replayed (no history), so it is out of the backtest, the tables and the
+                fingerprint (`report.replayed_books`) and the lifecycle never promotes it
   watch.py      the unusual-activity alert on the event markets: a 24-hour move of 10 points (or 5 with the
                 odds tripled) on a day's volume far above the market's own (3x its median day, else a quarter
                 of its open interest), one alert per event and day (desk/kalshi_alerts-*.jsonl) with the
@@ -93,7 +100,8 @@ engine/desk/
   report.py     desk-backtest payload with and without the allocator, attribution by sleeve and by source,
                 the rules' fingerprint (books, options, risk.yaml, allocator.yaml)
   export.py     site-data/desk.json (books with role/allocator/lifecycle, `allocator`, `prediction_markets`)
-config/books.yaml      the three linear books, the options book and the ten candidate books (role: candidate)
+config/books.yaml      the three linear books, the options book, the ten candidate books (role: candidate) and the
+                       speculative `oracle` book (role: candidate, forecast: kalshi)
 config/allocator.yaml  the allocator's four rules with their published parameters and on/off switches
 engine/data/adapters/kalshi.py   the public Kalshi API, one call a second (429 after about thirty in a burst)
 ```
@@ -234,6 +242,13 @@ How a tick works (`engine/live/jobs.py::tick`, driven by `scripts/runner_loop.sh
   `combine_values` (one day, what `Book` uses with its own weights) are tested row by row against each other,
   holes included. The multiplier is a straight line in the number of sleeves present out of SEVEN, so a book
   given a subset (the attribution tables) is not over-scaled.
+- **A book that reads another forecast never reads the desk's.** `BookConfig.forecast` names the family
+  (`desk`: the seven sleeves; `kalshi`: `oracle.SLEEVES`). `Desk.decide` hands a non-desk book ONLY its entry
+  of `book_forecasts` (the live tick builds it from the archive, `live.oracle_forecasts`) and `{}` otherwise,
+  which is "missing data: position unchanged"; the replay skips such books; `report.replayed_books` is what the
+  backtest, the fingerprint (tick and weekly job alike) and the attribution tables see. The reading of UTC day
+  D is the first of the day (about 00:20 UTC, the evening before in New York): the book reads last night's
+  prices, on purpose, so that the rule can be replayed on the archive line by line in a year.
 - **A backtest belongs to the rules it was computed with.** Changing a constant in `signals.py`, `data.py`,
   `backtest.py`, `book.py` or `options.py`, a book, a vehicle, an inverse fund or the account rules in
   `config/risk.yaml` changes `report.model_signature`; the next tick recomputes (and so does a table that was
@@ -321,9 +336,13 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   NOT raised because a backtest measured a higher Sharpe: part of that is selection. An allocator rule is
   switched on only after it was measured on the replay (`docs/RESEARCH.md` ch. 9 B), and the backtest always
   reports the books with and without it (`without_allocator`).
-- The prediction markets (Kalshi) are archived and shown, never traded: no book reads them until there is a
-  year of archive to test a rule on. A market past its close time is not a probability. The unusual-activity
-  alert flags a footprint by a declared rule and says so; it never calls anyone an insider and never trades.
+- The prediction markets (Kalshi) are archived and shown, and no CORE book reads them until there is a year of
+  archive to test a rule on. One CANDIDATE book declared speculative (`oracle`, phase 14, on the owner's
+  explicit request) trades a rule written in `docs/RESEARCH.md` ch. 10 before its first decision, on the daily
+  archive alone: it has no backtest (there is no history), no row in the replay's tables, no part in the
+  fingerprint, and the lifecycle never promotes it (a promotion needs a backtest drawdown to compare with -
+  for every book). A market past its close time is not a probability. The unusual-activity alert flags a
+  footprint by a declared rule and says so; it never calls anyone an insider and never trades.
 - A fund book is short only through an inverse fund it BUYS with cash: that fund's notional never exceeds the
   equity, and the book's ceilings (weekend included) bind the oil exposure on both sides - at the decision,
   at the fill price and after every mark. A fund is never sold short: its sale is reduce-only.
@@ -630,6 +649,38 @@ hours) runs `engine.cli watch` - the markets alone, downloaded when the last att
 judged, exported, the issues opened - only on the weekend and only when no runner is alive; a reading every
 few hours is enough because each carries the API's "a day ago" fields, so a move is caught by any reading
 within 24 hours of it. Not seen yet: its first scheduled weekend run (the 17th-18th).
+
+Phase 14 (15 October, 03:20 UTC, on the owner's "create a highly speculative, leveraged strategy based on
+Kalshi"; `docs/RESEARCH.md` chapter 10, written before the first decision). A Kalshi contract cannot be bought
+on margin and the desk has no paper broker for event contracts, so the leverage is on oil and Kalshi gives the
+direction: `oracle`, a candidate book on /MCL, long and short, vol target 0.50 (the hard rules' maximum),
+ceilings 10x and 3x, breaker 15 %, `forecast: kalshi`. The forecast (`engine/desk/oracle.py`): the mean of
+P(within 90 days) read off three deadline ladders - the strait back to normal, a US-Iran senior meeting, a
+nuclear deal - each interpolated in time between the markets quoted within 10 cents, with (today, 0) as the
+first point; the change over 7 days (the reference: the newest reading 7-10 days before), component by
+component over the components both readings have; forecast = -2 per percentage point, capped +-20, zero under
+one point; no reading within 3 days: flat; no reference yet: no decision. The decision of day D reads the
+archive's reading of UTC day D (about 00:20 UTC, the evening before in New York) so the rule can be replayed on
+the archive line by line. The prior written with the rule: no edge (oil leads these thin markets, not the
+reverse). The book has no backtest, no row in the replay's tables, no part in the fingerprint
+(`report.replayed_books`), and the lifecycle never promotes it (`lifecycle_verdict` now requires a backtest
+drawdown for any promotion). The scale is to be re-measured after 60 readings (late December) and written in
+chapter 10; the owner reviews the book after six months. Checked before shipping: the replay of the thirteen
+replayable books on a copy of the live archive is byte-identical with main's code (bca25828) and with this
+branch's - every curve, statistic, year, cost, ruin number, attribution row and portfolio - and the payloads
+differ only in `excluded`, the `forecast` field of `books_config`, the lifecycle's rule text, and the
+fingerprint (539b55e08479 -> 62d61be3e097, because `BookConfig` gained a field: the first tick after the deploy
+recomputes the backtest once, "the rules changed", with the same numbers). Reviewed before shipping by an agent
+that had not seen it written (`docs/RESEARCH.md` ch. 10 F): a component-less reading counted as the day's
+reading and flattened the book; a one-sided quote passed for a probability; a line cut short in the archive
+broke the export and the book's forecast on every tick (`StateStore.iter_jsonl(skip_bad=True)` for the Kalshi
+logs, `_oracle_or_error` in the export); each book is now fed its own contracts and a flat book is marked on
+the day's contract (`_symbols_to_feed(book=...)`, `_mark_symbol`); the "missing data" decision carries the
+scales. Its simulators found spinto's decisions, fills and equity identical with and without the oracle. On the archive's two readings (14 and 15 October) the index reads 21.5 %
+and 21.3 %: the first decision with a reference is the 21st's. Site: a "Kalshi index · the Oracle book" block
+under the forecast, the "speculative · no backtest" tag on the book's rows, a row without numbers in the
+backtest tables. Tests: `tests/test_desk_oracle.py` (fixture `tests/fixtures/kalshi_log_2026-10.jsonl`, the
+runner's own archive).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

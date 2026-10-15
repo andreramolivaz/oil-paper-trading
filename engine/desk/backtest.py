@@ -34,7 +34,7 @@ from engine.core.config import RiskConfig
 from engine.core.events import AccountStatus, Bar
 from engine.desk import signals as sg
 from engine.desk.allocator import AllocatorConfig, ratio_known_on, runup_table, transit_ratios
-from engine.desk.book import Book, BookConfig
+from engine.desk.book import FORECAST_DESK, Book, BookConfig
 from engine.desk.data import DeskData, VehicleSeries, held_contract
 from engine.desk.engine import Desk
 from engine.desk.vehicles import INVERSE_FUNDS, get_vehicle
@@ -377,8 +377,16 @@ def run_backtest(
     fill: str = FILL_NEXT_OPEN,
     allocator: AllocatorConfig | None = None,
 ) -> BacktestResult:
-    """``allocator`` None replays the books' own rules alone (what the desk did before phase 13)."""
-    books = [Book(cfg, base_risk, store=None, cost_multiplier=cost_multiplier) for cfg in configs]
+    """``allocator`` None replays the books' own rules alone (what the desk did before phase 13). A book that
+    does not read the desk's forecast (the Kalshi book of phase 14) has no history to replay and is skipped."""
+    skipped = [cfg.id for cfg in configs if cfg.forecast != FORECAST_DESK]
+    if skipped:
+        log.info("backtest: no history for %s (not on the desk's forecast), skipped", ", ".join(skipped))
+    books = [
+        Book(cfg, base_risk, store=None, cost_multiplier=cost_multiplier)
+        for cfg in configs
+        if cfg.forecast == FORECAST_DESK
+    ]
     desk = Desk(books, store=None, allocator=allocator)
     start_ts = None if start is None else pd.Timestamp(start)
     end_ts = None if end is None else pd.Timestamp(end)

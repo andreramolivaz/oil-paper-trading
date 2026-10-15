@@ -23,6 +23,7 @@ from engine.core.config import RiskConfig, Settings
 from engine.core.store import StateStore, dumps
 from engine.core.timeutil import ensure_utc, iso, parse_iso
 from engine.data.raw_store import RawStore
+from engine.desk import oracle
 from engine.desk import signals as sg
 from engine.desk.allocator import (
     AllocatorConfig,
@@ -231,6 +232,29 @@ def forecast_block(data: DeskData) -> dict[str, Any]:
     return out
 
 
+def oracle_block(desk: Desk, state_dir: Path, now: datetime) -> dict[str, Any] | None:
+    """The Kalshi index the speculative book reads (``engine/desk/oracle.py``): today's reading, the reference
+    a week ago, the change and the forecast it makes, with the rule. None when no book is on that forecast."""
+    books = [b for b in desk.books.values() if not b.replayable]
+    if not books:
+        return None
+    day = decision_day(books[0].vehicle, now)
+    readings = oracle.archive_readings(desk_store(state_dir))
+    verdict = oracle.forecast_on(readings, day)
+    return {
+        **verdict.to_dict(),
+        "books": [b.id for b in books],
+        "archive_days": len(readings),
+        "archive_first_day": readings[0].day.isoformat() if readings else None,
+        "source": "Kalshi (public trade API), the desk's own daily archive (state/desk/kalshi-*.jsonl)",
+        # ``note`` (from the verdict) says what the index did today; this says what the book is
+        "disclaimer": (
+            "The reading of a UTC day is the first of that day, about 00:20 UTC - the previous evening in New York: "
+            "the book reads last night's prices, as the macro sleeves read yesterday's close."
+        ),
+    }
+
+
 def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[str, Any]:
     cfg, vehicle, st = book.cfg, book.vehicle, book.broker.state
     snap = book.broker.snapshot(now)
@@ -286,6 +310,11 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         "role": desk.role_of(book),
         "configured_role": cfg.role,
         "role_change": desk.state.roles.get(cfg.id),
+        # which forecast the book reads: "desk" (the seven sleeves, replayed in the backtest) or "kalshi" (the
+        # prediction markets' de-escalation index, phase 14: no history, no backtest, live fills only)
+        "forecast_family": cfg.forecast,
+        "backtested": book.replayable,
+        "experimental": not book.replayable,
         # the allocator's scales in force at the last decision (engine/desk/allocator.py), 1 = the book's own rules
         "allocator": desk.state.allocator.get(cfg.id),
         "lifecycle": (desk.state.allocator.get("_lifecycle") or {}).get(cfg.id),
@@ -558,6 +587,8 @@ def backtest_summary(state_dir: Path) -> dict[str, Any] | None:
         "generated_at": (payload.get("meta") or {}).get("generated_at"),
         "fill_rule": (payload.get("meta") or {}).get("fill_rule"),
         "books": books,
+        # the books on file the replay cannot run (the Kalshi book): listed with the reason, never with numbers
+        "excluded": payload.get("excluded") or [],
         "portfolio": payload.get("portfolio") or {},
         "benchmarks": {
             k: {"name": v.get("name"), "stats": v.get("stats")} for k, v in (payload.get("benchmarks") or {}).items()
@@ -624,6 +655,8 @@ def build_desk_payload(
         "data_notes": list(data.meta.get("notes", [])),
         "data_missing": list(data.meta.get("missing", [])),
         "allocator": allocator_block(desk, data, allocator_cfg, today),
+        # the prediction markets' index the speculative book reads (phase 14), null without such a book
+        "oracle": _oracle_or_error(desk, settings.state_dir, now),
         "prediction_markets": prediction_block(
             latest_reading(raw),
             now,
@@ -638,6 +671,16 @@ def build_desk_payload(
     }
     cleaned: dict[str, Any] = _clean(payload)
     return cleaned
+
+
+def _oracle_or_error(desk: Desk, state_dir: Path, now: datetime) -> dict[str, Any] | None:
+    """``oracle_block``, or a block that says what went wrong: a side block must never cost the page."""
+    try:
+        return oracle_block(desk, state_dir, now)
+    except Exception as exc:  # the archive is read on the side: a bad file is reported, not fatal
+        log.warning("oracle block skipped: %s", exc)
+        books = [b.id for b in desk.books.values() if not b.replayable]
+        return {"error": f"{type(exc).__name__}: {str(exc)[:160]}", "books": books}
 
 
 def _options_monitor_entries(state_dir: Path, config_dir: Path | None) -> dict[str, dict[str, Any]]:

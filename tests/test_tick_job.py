@@ -392,7 +392,8 @@ def test_the_satellite_books_tables_are_planned_like_the_funds_and_only_while_a_
     assert entries(morning, last_night, last_night) == set()
     # at 15:18 the funds' books owe today's decision: the satellites' tables with BNO's, not MCL's
     at_1518 = datetime(2026, 10, 8, 19, 18, tzinfo=UTC)
-    desk.state.last_decision_day["spinto"] = "2026-10-08"
+    for book in desk.books_on("MCL"):  # the aggressive book and the Kalshi book (phase 14) decided at 14:35
+        desk.state.last_decision_day[book.id] = "2026-10-08"
     got = entries(at_1518, last_night, last_night)
     assert (
         sat <= got and set(jobs.DESK_VEHICLE_ENTRIES["BNO"]) <= got and not got & set(jobs.DESK_VEHICLE_ENTRIES["MCL"])
@@ -714,7 +715,7 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
         broken = jobs.tick(runner, "t-2d", legacy=False)
     assert broken.status == "ok" and broken.exit_code == 0
     assert broken.detail["desk_backtest"] == "failed: unreadable configuration"
-    assert set(broken.detail["desk"]["books"]) == {"prudente", "dinamico", "spinto"}
+    assert set(broken.detail["desk"]["books"]) == {"prudente", "dinamico", "spinto", "oracle"}
 
     # a red fund table blocks the fund's books and nothing else
     others = [row for row in green if row["source"] != "bno_daily"]
@@ -723,4 +724,4 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
     blocked = jobs.tick(runner, "t-3", legacy=False)
     assert blocked.status == "ok" and any("bno_daily" in note for note in blocked.detail["desk"]["notes"])
     assert blocked.detail["desk"]["decisions"] == []
-    assert set(blocked.detail["desk"]["books"]) == {"prudente", "dinamico", "spinto"}  # still marked, all of them
+    assert set(blocked.detail["desk"]["books"]) == {"prudente", "dinamico", "spinto", "oracle"}  # still marked, all

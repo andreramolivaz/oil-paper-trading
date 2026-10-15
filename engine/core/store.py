@@ -9,12 +9,15 @@ Layout under root (the `data` branch checkout in production, a temp dir in tests
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 
 def _default(o: Any) -> Any:
@@ -95,13 +98,22 @@ class StateStore:
             f.flush()
             os.fsync(f.fileno())
 
-    def iter_jsonl(self, name: str) -> Iterator[dict[str, Any]]:
+    def iter_jsonl(self, name: str, skip_bad: bool = False) -> Iterator[dict[str, Any]]:
+        """The records of every monthly file of ``name``, oldest first. With ``skip_bad`` a line that is not
+        JSON (a file cut short while the runner was being cancelled) is logged and skipped instead of raised: for
+        the logs a reader must survive, such as the prediction markets' archive, which an appender re-reads."""
         for p in self.jsonl_files(name):
             with p.open(encoding="utf-8") as f:
-                for line in f:
+                for n, line in enumerate(f, 1):
                     line = line.strip()
-                    if line:
+                    if not line:
+                        continue
+                    try:
                         yield json.loads(line)
+                    except ValueError:
+                        if not skip_bad:
+                            raise
+                        log.warning("%s line %d: not JSON, skipped", p.name, n)
 
     def read_jsonl(self, name: str) -> list[dict[str, Any]]:
         return list(self.iter_jsonl(name))

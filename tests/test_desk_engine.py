@@ -878,7 +878,13 @@ def test_the_backtest_fingerprint_changes_with_the_rules_and_only_with_them(monk
     changed = [dataclasses.replace(books[0], vol_target=0.13), *books[1:]]
     assert model_signature(changed, options) != base  # a book's rule
     assert model_signature(books, None) != base  # the options book
-    assert model_signature(books[:-1], options) != base
+    replayed = [b for b in books if b.forecast == "desk"]
+    assert model_signature(replayed[:-1], options) != base  # one replayed book fewer
+    # the Kalshi book (phase 14) is not in the replay: its presence and its rules change no number of the backtest,
+    # so they are not in the fingerprint either - a tick must not recompute the backtest for them
+    kalshi = [b for b in books if b.forecast == "kalshi"]
+    assert kalshi and model_signature(replayed, options) == base
+    assert model_signature([*replayed, dataclasses.replace(kalshi[0], vol_target=0.3)], options) == base
     # the account rules the replay runs with (capital, costs, margin) are part of it too
     with_rules = model_signature(books, options, RISK)
     assert with_rules != base and with_rules == model_signature(books, options, RiskConfig.load())
