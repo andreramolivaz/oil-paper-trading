@@ -676,11 +676,26 @@ reading and flattened the book; a one-sided quote passed for a probability; a li
 broke the export and the book's forecast on every tick (`StateStore.iter_jsonl(skip_bad=True)` for the Kalshi
 logs, `_oracle_or_error` in the export); each book is now fed its own contracts and a flat book is marked on
 the day's contract (`_symbols_to_feed(book=...)`, `_mark_symbol`); the "missing data" decision carries the
-scales. Its simulators found spinto's decisions, fills and equity identical with and without the oracle. On the archive's two readings (14 and 15 October) the index reads 21.5 %
-and 21.3 %: the first decision with a reference is the 21st's. Site: a "Kalshi index · the Oracle book" block
-under the forecast, the "speculative · no backtest" tag on the book's rows, a row without numbers in the
-backtest tables. Tests: `tests/test_desk_oracle.py` (fixture `tests/fixtures/kalshi_log_2026-10.jsonl`, the
-runner's own archive).
+scales. Its simulators found spinto's decisions, fills and equity identical with and without the oracle. On
+the archive's two readings (14 and 15 October) the index reads 21.5 % and 21.3 %: the first decision with a
+reference is the 21st's. Site: a "Kalshi index · the Oracle book" block under the forecast, the "speculative ·
+no backtest" tag on the book's rows, a row without numbers in the backtest tables. Tests:
+`tests/test_desk_oracle.py` (fixture `tests/fixtures/kalshi_log_2026-10.jsonl`, the runner's own archive).
+
+Phase 14 went live on 2026-10-15 at 05:12 UTC (PR #21, rebase-merged as 31e59c8d; CI green on the branch and on
+main; Pages redeployed). Checked on GitHub and on the data branch, not assumed: the push cancelled the runner in
+progress and started a new one; its first tick (05:13-05:17 UTC, 227 s) recomputed the backtest once
+("computed: the rules changed", `meta.model` 539b55e08479 -> 62d61be3e097, 13 books, `excluded: [oracle]`,
+spinto 0.68, `all` 1.23, `core_matched` 0.86 - the same numbers as before), took the oracle's decision of the
+14th ("missing data: position unchanged", `risk_scale` 0.5 on the record, the note "no Kalshi reading 7 to 10
+days ago: the book waits for a week of archive"), and left every other book exactly where the previous runner
+had them (spinto's decision of the 14th had already been taken under the old code; 14 books, the candidates'
+total 109 922.55 over eleven accounts). `desk.json` carries the `oracle` block (index 21.5 % on the reading of
+the 14th, no forecast, archive of two days) and `backtest.excluded`; the public page renders the "Kalshi index
+· the Oracle book" block, the tag on the book's row and the row without numbers in both backtest tables, with no
+console error. Still NOT seen: the oracle's first forecast (the 21st, the first decision with a reference), its
+first order and fill, a day on which its reading is a fallback (a weekend), the scale's re-measurement (late
+December).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
