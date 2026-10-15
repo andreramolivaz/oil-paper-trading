@@ -412,6 +412,8 @@ export interface OracleBlock {
   books: string[];
   archive_days: number;
   archive_first_day: string | null;
+  /** The days filled from Kalshi's daily candlesticks (the archive's past before the desk read these markets). */
+  archive_backfilled_days?: number;
   source: string;
   disclaimer?: string;
 }

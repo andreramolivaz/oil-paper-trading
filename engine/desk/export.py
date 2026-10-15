@@ -33,6 +33,7 @@ from engine.desk.allocator import (
     runup_state,
     transit_ratios,
 )
+from engine.desk.backfill import backfilled_days
 from engine.desk.book import Book, is_pre_closure
 from engine.desk.data import MACRO_MAX_AGE_DAYS, DeskData, _latest, build_desk_data, held_contract, hormuz_summary
 from engine.desk.engine import DECISIONS_LOG, Desk, _clean
@@ -239,13 +240,17 @@ def oracle_block(desk: Desk, state_dir: Path, now: datetime) -> dict[str, Any] |
     if not books:
         return None
     day = decision_day(books[0].vehicle, now)
-    readings = oracle.archive_readings(desk_store(state_dir))
+    store = desk_store(state_dir)
+    readings = oracle.archive_readings(store)
     verdict = oracle.forecast_on(readings, day)
     return {
         **verdict.to_dict(),
         "books": [b.id for b in books],
         "archive_days": len(readings),
         "archive_first_day": readings[0].day.isoformat() if readings else None,
+        # the days filled from Kalshi's daily candlesticks (phase 14, engine/desk/backfill.py): the archive's
+        # past before the desk read these markets itself; the tick's own readings are the rest
+        "archive_backfilled_days": backfilled_days(store),
         "source": "Kalshi (public trade API), the desk's own daily archive (state/desk/kalshi-*.jsonl)",
         # ``note`` (from the verdict) says what the index did today; this says what the book is
         "disclaimer": (

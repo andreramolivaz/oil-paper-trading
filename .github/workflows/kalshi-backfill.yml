@@ -1,0 +1,50 @@
+name: kalshi backfill (the prediction markets' archive from the daily candlesticks)
+
+# Phase 14. The speculative book compares today's reading of the prediction markets with the one a week
+# before, and the desk's own archive only started on 14 October 2026. Kalshi publishes each market's daily
+# candlesticks since it opened: this job writes into the archive, for every day a market of the index's series
+# was open, the record the tick would have written (engine/desk/backfill.py) - and never touches a day the
+# tick has read itself. Idempotent: run it again and it adds only the days still missing. Run by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "First day to fill (YYYY-MM-DD)"
+        required: false
+        default: "2026-01-01"
+
+concurrency:
+  group: trading-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPT_STATE_DIR: ${{ github.workspace }}/state-repo/state
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - name: Install
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.lock
+      - name: Checkout data branch
+        run: scripts/data_branch.sh checkout state-repo
+      - name: Backfill the archive (idempotent per day and event)
+        run: >
+          .venv/bin/python -m engine.cli kalshi-backfill --job-id "${{ github.run_id }}"
+          --since "${{ inputs.since || '2026-01-01' }}"
+      # A failed export must not keep the archive from being pushed: the next tick rebuilds the site data.
+      - name: Export site data
+        run: >
+          .venv/bin/python -m engine.cli export-site --out state-repo/site-data
+          || echo "::warning::site export failed: the state is pushed anyway"
+      - name: Push state
+        run: scripts/data_branch.sh push state-repo "kalshi backfill $(date -u +%Y-%m-%d) run ${{ github.run_id }}"

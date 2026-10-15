@@ -223,6 +223,13 @@ prima della prima decisione, perché non c'è una storia su cui provarlo: l'arch
   riga sull'archivio.
 - **Il prior.** Nessun vantaggio: il petrolio è mille volte più liquido di quei mercati, ed è più probabile che
   Kalshi lo segua con un giorno di ritardo che il contrario. Il libro esiste per misurarlo con soldi di carta.
+- **L'archivio ha un passato** (15 ottobre, `engine/desk/backfill.py`): le candele giornaliere di Kalshi, che
+  esistono dal giorno in cui ogni mercato è stato aperto, riempiono l'archivio per i giorni prima che il desk
+  leggesse quei mercati (lo stretto dal 18 marzo, l'accordo dal 9 gennaio, l'incontro dal 24 settembre); una
+  lettura del giro non viene mai sostituita. Sulla storia così ricostruita la regola, misurata una volta com'è
+  scritta (`scripts/research_oracle.py`, `docs/RESEARCH.md` 10 H): Sharpe 1,19 con un errore standard di 1,7 su
+  143 sedute, +27,7% a lotti interi, un mese su otto che fa il risultato. Non distingue nulla da zero; la scala
+  dichiarata (media di |F| = 9,8) regge; il prior resta.
 
 ### Il libro delle opzioni (`engine/desk/options.py`) — sperimentale
 

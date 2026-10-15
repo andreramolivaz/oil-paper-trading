@@ -54,6 +54,7 @@ python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzi
 python -m engine.cli export-site               # site-data/: desk.json for the terminal + the first system's files
 
 python -m engine.cli watch                     # the prediction markets alone (the weekend job): read, archive, judge
+python -m engine.cli kalshi-backfill [--since 2026-01-01] [--file history.json]   # the archive's past from the candlesticks
 
 # dashboard
 cd site && npm ci && npm run dev               # Vite dev server
@@ -87,6 +88,10 @@ engine/desk/
                 off the daily archive at a constant horizon), its change over a week, -2 per point, +-20; the
                 book cannot be replayed (no history), so it is out of the backtest, the tables and the
                 fingerprint (`report.replayed_books`) and the lifecycle never promotes it
+  backfill.py   the archive's past (phase 14): Kalshi's daily candlesticks (bid, ask, last, volume, open
+                interest at midnight New York, since each market opened) as the records the tick would have
+                written, one per event and UTC day, `backfilled: true`; a day the tick read is never replaced;
+                `engine.cli kalshi-backfill` and the manual workflow `kalshi-backfill.yml`, idempotent
   watch.py      the unusual-activity alert on the event markets: a 24-hour move of 10 points (or 5 with the
                 odds tripled) on a day's volume far above the market's own (3x its median day, else a quarter
                 of its open interest), one alert per event and day (desk/kalshi_alerts-*.jsonl) with the
@@ -103,7 +108,9 @@ engine/desk/
 config/books.yaml      the three linear books, the options book, the ten candidate books (role: candidate) and the
                        speculative `oracle` book (role: candidate, forecast: kalshi)
 config/allocator.yaml  the allocator's four rules with their published parameters and on/off switches
-engine/data/adapters/kalshi.py   the public Kalshi API, one call a second (429 after about thirty in a burst)
+engine/data/adapters/kalshi.py   the public Kalshi API, one call a second (429 after about thirty in a burst);
+                                 `fetch_history`: every market of a series with its daily candlesticks (the
+                                 live endpoint, else `/historical/...` for a market archived after settlement)
 ```
 
 The forecast (`signals.py`): three SOURCES of information weigh a third each, the sleeves inside a source weigh
@@ -248,7 +255,11 @@ How a tick works (`engine/live/jobs.py::tick`, driven by `scripts/runner_loop.sh
   which is "missing data: position unchanged"; the replay skips such books; `report.replayed_books` is what the
   backtest, the fingerprint (tick and weekly job alike) and the attribution tables see. The reading of UTC day
   D is the first of the day (about 00:20 UTC, the evening before in New York): the book reads last night's
-  prices, on purpose, so that the rule can be replayed on the archive line by line in a year.
+  prices, on purpose, so that the rule can be replayed on the archive line by line. The archive's past is
+  Kalshi's daily candlesticks (`backfill.py`: a candle ends at midnight New York, 04:00 UTC in summer -
+  the same "evening before" as the tick's reading, three hours later); a day with a live reading is never
+  overwritten, so `record_reading` and `apply_backfill` agree on the key `day|event`, and the backfilled
+  records sit AFTER the live ones in the month's file: every reader sorts by day, none by line.
 - **A backtest belongs to the rules it was computed with.** Changing a constant in `signals.py`, `data.py`,
   `backtest.py`, `book.py` or `options.py`, a book, a vehicle, an inverse fund or the account rules in
   `config/risk.yaml` changes `report.model_signature`; the next tick recomputes (and so does a table that was
@@ -693,9 +704,22 @@ had them (spinto's decision of the 14th had already been taken under the old cod
 total 109 922.55 over eleven accounts). `desk.json` carries the `oracle` block (index 21.5 % on the reading of
 the 14th, no forecast, archive of two days) and `backtest.excluded`; the public page renders the "Kalshi index
 · the Oracle book" block, the tag on the book's row and the row without numbers in both backtest tables, with no
-console error. Still NOT seen: the oracle's first forecast (the 21st, the first decision with a reference), its
-first order and fill, a day on which its reading is a fallback (a weekend), the scale's re-measurement (late
-December).
+console error.
+
+The archive's past (15 October, afternoon, on the owner's "it does not work: data is missing"; `docs/RESEARCH.md`
+10 H). The statement "no history exists" was wrong: Kalshi serves each market's daily candlesticks since it
+opened. The runner downloaded them (`research-data`, `kalshi-history`, 17:59 UTC: the strait's ladder since
+18 March, the deal's since 9 January, the meeting's since 24 September; 36 markets, 2 921 daily candles; fixture
+`tests/fixtures/kalshi_history_2026-10-15.json`), `engine/desk/backfill.py` turns them into the archive's
+records and `kalshi-backfill.yml` writes the missing days onto the data branch (live readings win). The
+registered rule, measured once on that history against the desk's WTI series (`scripts/research_oracle.py`,
+143 sessions, 18 March - 12 October): Sharpe 1.19 with a standard error of 1.7, +27.7 % on 10 000 $ at whole
+lots, one month (July) making the result; mean |weekly change| 6.3 points, mean |F| 9.84 - the declared scale
+holds and is not touched; the daily index change correlates −0.21 with the NEXT day's oil return (t about
+2.5), the weekly change +0.03 with the next week's: an observation made after looking, written down as a
+candidate to register later, not a change to the book. Still NOT seen: the oracle's first order and fill (the
+15th's forecast, +7.5 on −3.8 points, is under a lot at the halved target), a day on which its reading is a
+fallback (a weekend), the scale's re-measurement on the live record (late December).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

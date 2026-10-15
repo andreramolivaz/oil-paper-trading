@@ -22,10 +22,12 @@ Exit codes used by the CLI: 0 ok or nothing-to-do, 1 error.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, date
+from datetime import UTC, date, datetime
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -412,6 +414,58 @@ def watch(runner: LiveRunner, job_id: str) -> JobOutcome:
         return JobOutcome("ok", msg, detail)
     except Exception as exc:
         log.exception("watch failed")
+        runner.finish_run(rec, "failed", str(exc), detail)
+        return JobOutcome("failed", str(exc), detail)
+
+
+def kalshi_backfill(runner: LiveRunner, job_id: str, since: date, file: Path | None = None) -> JobOutcome:
+    """Fill the prediction markets' archive from Kalshi's daily candlesticks (``engine/desk/backfill.py``): every
+    market of the series the speculative book's index reads (``oracle.COMPONENTS``), from ``since``, one record
+    per event and UTC day the archive does not have. A reading the tick took is never replaced. ``file`` reads a
+    history saved by the research fetch instead of downloading one (tests, a workspace without network). Runs
+    once per job id; running it again adds only the days still missing."""
+    from engine.desk.backfill import apply_backfill, records_from_history
+    from engine.desk.live import desk_store
+    from engine.desk.oracle import COMPONENTS, archive_readings
+
+    now = now_utc()
+    rec = runner.start_run("kalshi_backfill", job_id, london_date(now))
+    if rec is None:
+        return JobOutcome("skipped", "run già completata con questo job id", {"job_id": job_id})
+    detail: dict[str, Any] = {"since": since.isoformat(), "series": list(COMPONENTS)}
+    try:
+        if file is not None:
+            history = json.loads(Path(file).read_text(encoding="utf-8"))
+            detail["source"] = str(file)
+        else:
+            from engine.data.adapters.kalshi import KalshiAdapter
+
+            start = int(datetime(since.year, since.month, since.day, tzinfo=UTC).timestamp())
+            history = KalshiAdapter().fetch_history(list(COMPONENTS), start)
+            detail["source"] = "kalshi candlesticks (downloaded)"
+            detail["failed_downloads"] = history.get("failed") or {}
+        records = [r for r in records_from_history(history) if str(r.get("series")) in COMPONENTS]
+        detail["records"] = len(records)
+        store = desk_store(runner.settings.state_dir)
+        detail["applied"] = apply_backfill(store, records)
+        readings = archive_readings(store)
+        detail["archive"] = {
+            "readings": len(readings),
+            "first_day": readings[0].day.isoformat() if readings else None,
+            "last_day": readings[-1].day.isoformat() if readings else None,
+        }
+        applied = detail["applied"]
+        msg = (
+            f"{applied['written']} records written for {applied['days']} days "
+            f"({applied['first_day']} to {applied['last_day']}), {applied['skipped']} already there; "
+            f"the archive now has {len(readings)} daily readings"
+            if applied["written"]
+            else f"nothing to add: {applied['skipped']} records already in the archive of {len(readings)} readings"
+        )
+        runner.finish_run(rec, "ok", msg, detail)
+        return JobOutcome("ok", msg, detail)
+    except Exception as exc:
+        log.exception("kalshi backfill failed")
         runner.finish_run(rec, "failed", str(exc), detail)
         return JobOutcome("failed", str(exc), detail)
 

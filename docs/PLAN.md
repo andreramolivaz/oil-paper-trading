@@ -167,8 +167,12 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   input per il replay sull'archivio fra un anno. Motore: `BookConfig.forecast` (`desk` | `kalshi`),
   `Desk.decide(book_forecasts=...)`, `live.oracle_forecasts`, `report.replayed_books`; sito: il blocco «Kalshi
   index · the Oracle book», l'etichetta «speculative · no backtest», la riga senza numeri nel backtest. I
-  quattro libri, i dodici candidati e il loro backtest sono identici prima e dopo. La scala della previsione si
-  rimisura dopo 60 letture (fine dicembre) e si scrive nel capitolo 10.
+  quattro libri, i dodici candidati e il loro backtest sono identici prima e dopo. Il pomeriggio del 15, sul
+  «non funziona perché mancano dati» del proprietario: l'archivio ha un passato (`engine/desk/backfill.py`,
+  `kalshi-backfill.yml`): le candele giornaliere di Kalshi dal giorno in cui ogni mercato è stato aperto
+  riempiono i giorni prima che il desk leggesse quei mercati, le letture vive restano; la regola misurata una
+  volta sulla storia (capitolo 10 H: Sharpe 1,19 ± 1,7 su 143 sedute, un mese che fa il risultato, la scala
+  dichiarata regge) e lasciata com'è; il riesame della scala si ripete a dicembre sul record live.
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 
