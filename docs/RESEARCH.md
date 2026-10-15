@@ -1255,6 +1255,151 @@ provare sul record live, non una modifica a questo libro oggi. Il libro resta co
 con un riferimento è quella del 15 ottobre: 21,3% contro 25,1% dell'8, −3,8 punti, previsione +7,5 (long, sotto
 la convinzione normale, meno di un lotto intero con l'obiettivo dimezzato).
 
+## 11. Fase 15 (15 ottobre 2026, 23:30 UTC): Kalshi come riferimento sugli altri mercati, registrato prima di misurare
+
+Il proprietario: «improve su altri mercati e anche speculative kalshi sempre come riferimento». Letto così: portare
+lo schema dell'Oracle (capitolo 10) - un indice letto sull'archivio dei mercati a eventi dà la **direzione**, il
+veicolo dà la leva - sugli altri mercati del desk, con Kalshi come fonte della direzione. Questo capitolo è scritto
+prima di qualunque misura: A dice quali mercati Kalshi esistono con una storia (scaricata il 15 ottobre), B le
+regole, C il prior, D il filtro e che cosa si misura; i numeri stanno in E, scritti dopo e separati.
+
+### A. I mercati che esistono (catalogo e storia scaricati dal runner il 15 ottobre, sera)
+
+Il catalogo di Kalshi (15 011 serie, lette il 13 ottobre) è stato cercato per tema - Fed, inflazione, recessione e
+lavoro, Treasury, oro, S&P, Cina e dazi, chip, politica energetica ed elettricità, Ucraina, raccolti, Taiwan - e
+le serie plausibili sono state scaricate con le loro candele giornaliere dal 1° gennaio 2026 (`research-data`,
+`kalshi-history --series ...`, quattro scarichi). Che cosa c'è:
+
+- **Fed.** `KXFEDDECISION`: per ogni riunione del FOMC cinque esiti (taglio di oltre 25 pb, taglio di 25,
+  invariato, rialzo di 25, rialzo di oltre 25), quotati a uno-due centesimi sulle due riunioni vicine; dodici
+  riunioni elencate, dal 16 settembre 2026 al 26 gennaio 2028. La lista dei mercati non mostra più le riunioni
+  regolate da più di qualche settimana (settembre c'è, luglio no), quindi la storia leggibile con una riunione
+  entro 90 giorni parte dal **18 giugno 2026**; un secondo scarico che chiede i mercati regolati per nome è in
+  corso mentre questo paragrafo viene scritto, e se allunga la storia si usa e si scrive. `KXFED`: la scala «limite
+  superiore sopra x%» dopo ogni riunione (11-25 strike, le code quotate da un lato solo). `KXFEDFUNDSYEAR`: il
+  tasso a fine anno dal 2027 al 2036, spread di 10-40 centesimi. `KXRATECUTCOUNT`: quanti tagli nel 2026, 21
+  strike dal 1° gennaio (con la Fed che alza, 97% su zero). `KXFEDCUT`, `KXFEDHIKE`: il prossimo taglio o rialzo
+  entro una data (pochi giorni di storia, o quasi certi). `KXDOTPLOT`: la mediana del dot plot, dal 18 settembre.
+  Senza mercati elencati: KXRATECUTS, KXTERMINALRATE, KXLOWESTRATE e i ticker senza prefisso (FEDDECISION, FED).
+- **Recessione e lavoro.** `KXRECSSNBER-26` («una recessione nel 2026», 4-5%, candele dal 1° gennaio) e `-27`
+  («nel 2027», 20-21%, dal 24 aprile), spread di un centesimo. `KXNBERRECESSQ` (il trimestre d'inizio: solo
+  trimestri passati), `KXIMFRECESS` (una recessione globale secondo l'FMI prima del 2027: 2-3%), `KXU3EOY` (la
+  disoccupazione a fine anno 2026-2036, dal 3 settembre), `KXGOVTSHUTDOWN` (governo chiuso il 12 dicembre: 33%,
+  dal 22 settembre). Senza mercati: KXQRECESS, KXGDPUSMIN, KXACPI, KXLCPIYOY, KXSHUTLENGTH, KXGOVSHUT.
+- **Cina e dazi.** `KXTARIFFAGREE` (un accordo USA-Cina sui dazi prima di una data: 45 giorni di storia, regolato
+  SÌ il 24 settembre), `KXTRUMPCHINA` (una visita di Trump in Cina prima del 1° dicembre o del 1° gennaio: 20
+  giorni, 85-92%), `KXEFFTARIFF` (il dazio effettivo del terzo trimestre, scala «sopra x%» con spread di 10-60
+  centesimi), `KXNEWTARIFFS` (nuovi dazi nel mese: un mercato al mese), `KXCHINARARE` (15 giorni, regolato).
+  Senza mercati: KXCHINATARIFF, KXTARIFFSPRC, KXTARIFFENDPRC, KXTARIFFSEMI, KXH200CHINA, KXCHIPSREPEAL e gli altri
+  dazi cercati. Taiwan: `KXTAIWANLVL4` e `KXXITAIWAN`, scale a scadenza dal 7 gennaio ma su anni (1,6-7% entro il
+  2026).
+- **Energia ed elettricità.** Un mercato ciascuno con scadenza lontana: `KXDATACENTER` (un data center nucleare su
+  una base militare prima del 2030), `KXREACTOR` (un reattore approvato nel 2026: 5%), `KX48ETAXCREDIT` (il
+  credito solare 48E reintrodotto prima del 2030), `KXUSSAUDINUCLEAR`; le moratorie sui data center dal 14
+  ottobre. Senza mercati: KXEVCREDITS, KXIRACUTS, KXIRAREPEAL, KXLICENSENUCLEAR.
+- **Ucraina e Russia, El Niño, raccolti**: nessun mercato elencato, o tre giorni di storia.
+
+Esclusi per costruzione, come le scale sul Brent (capitolo 9 C): le **scale di prezzo** (oro, S&P 500, Nasdaq, il
+rendimento del decennale, il rame a 15 minuti) sono il prezzo stesso letto da un'altra parte; e le scale sui
+**dati mensili** (CPI, buste paga, disoccupazione del mese) sono previsioni di una stampa, non di una politica o di
+un evento - un candidato possibile per un'altra registrazione, non per questa.
+
+Conclusione di A, prima di misurare: esistono, con una storia leggibile, **due** indici a evento che riguardano gli
+altri mercati del desk - il percorso della Fed e la probabilità di recessione - più l'indice di de-escalation del
+capitolo 10. Per rame, semiconduttori, litio, energia pulita, uranio e agricoltura non esiste oggi un mercato Kalshi
+con la storia e la liquidità per un indice: quei libri restano com'erano, e questo capitolo lo dice invece di
+inventare un segnale.
+
+### B. Le regole (`engine/desk/oracle.py`: un registro di indici, `INDICES`, costanti con lo stesso nome)
+
+Lo schema è quello dell'Oracle, punto per punto: la lettura del giorno UTC D o la più recente entro 3 giorni, il
+riferimento fra 7 e 10 giorni prima, la variazione sulle componenti presenti in **entrambe** le letture, quotazioni
+a due lati entro 10 centesimi, banda morta, tetto ±20. Tre indici:
+
+1. **`deescalation`**: com'è nel capitolo 10, nessuna modifica (la manica vale −2 per punto: positiva quando
+   l'escalation sale).
+2. **`fedpath`**, il percorso della Fed. Componenti: le riunioni del FOMC con decisione entro **90 giorni** dalla
+   lettura (gli eventi `KXFEDDECISION-AAMMM`; la data della riunione è la chiusura dei suoi mercati). Il valore di
+   una componente è la variazione attesa del tasso obiettivo a quella riunione, in punti base:
+   Σ p_i × bp_i / Σ p_i sugli esiti quotati a due lati, con bp = −50 per «taglio di oltre 25», −25, 0, +25, +50 per
+   «rialzo di oltre 25» (l'«oltre 25» vale 50: convenzione dichiarata); una riunione è leggibile con almeno due
+   esiti quotati e Σ p_i ≥ 0,80 (quel che manca sono code da un centesimo). L'indice è la **somma** sulle riunioni
+   nella finestra: la variazione attesa cumulata nei prossimi 90 giorni. La variazione settimanale è la somma,
+   sulle riunioni presenti in entrambe le letture, di e_oggi − e_riferimento: la sorpresa della riunione stessa non
+   c'è (il giorno dopo quella riunione non ha più un mercato), la rilettura delle riunioni successive sì. La manica
+   vale F = **−1,0 × Δ** (`FORECAST_PER_BP = 1.0`): positiva quando le attese si fanno più accomodanti (meno rialzi
+   o più tagli prezzati), tetto ±20 (venti punti base riletti in una settimana lo saturano; una riunione intera,
+   venticinque, lo supera), banda morta **1 punto base**. Scala tonda dichiarata; Carver vuole |F| medio 10, si
+   verifica in E e si tocca solo se fuori di un fattore due.
+3. **`recession`**, la probabilità di recessione. Componenti: i mercati annuali `KXRECSSNBER-AA` («una recessione
+   nel 20AA»), letti come una scala a scadenza: P(entro il 31 dicembre dell'anno Y) = 1 − Π(1 − p_y) sugli anni
+   fino a Y (indipendenza fra gli anni: approssimazione dichiarata, con il 2026 al 4% irrilevante), interpolata
+   all'orizzonte costante di **365 giorni** (la `horizon_probability` del capitolo 10 con l'orizzonte a 365: una
+   recessione è un evento lento e i mercati sono annuali; i 90 giorni dell'Oracle cadrebbero quasi sempre dentro
+   l'anno in corso, che si svuota da solo). L'indice è quella probabilità. La manica vale F = **+2,0 × Δ** (punti
+   percentuali): positiva quando la probabilità di recessione sale, tetto ±20, banda morta 1 punto.
+
+I libri (`config/books.yaml`, `role: candidate`, `forecast: kalshi`, `sleeves` con il **segno** per il veicolo). La
+previsione del libro è la media, con i segni, delle maniche che oggi hanno un valore; se nessuna ha un valore il
+libro non decide e tiene quel che ha; nessun moltiplicatore di diversificazione (due maniche su temi vicini: la
+media, non 1,2).
+
+- `oracle_bonds` su **TLT**: fedpath +1 (attese più accomodanti → long Treasury: Gürkaynak, Sack e Swanson 2005
+  sulle sorprese di politica monetaria e i rendimenti), recession +1 (recessione più probabile → long Treasury: la
+  fuga verso la qualità).
+- `oracle_equities` su **SPY**: fedpath +1 (Bernanke e Kuttner 2005: un taglio a sorpresa di 25 pb vale circa +1%
+  sull'indice in giornata), recession −1 (long solo quando la recessione si allontana).
+- `oracle_gold` su **GLD**: fedpath +1 (tassi reali e oro: Erb e Harvey 2013), deescalation +1 - lo stesso segno
+  del petrolio: la de-escalation che sgonfia il premio geopolitico sgonfia anche il rifugio (Baur e Lucey 2010
+  sull'oro come rifugio), quindi il libro compra oro quando l'escalation sale.
+- `oracle_utilities` su **XLU**: fedpath +1 (le utility come «quasi-obbligazioni»: una regola del pollice, non un
+  parametro pubblicato).
+
+Il lato: **solo long**. Robinhood dà il margine al 50% sui fondi (2x) e il modello del desk non vende un fondo allo
+scoperto; il desk non ha qualificato un fondo inverso per questi mercati (SH, TBF: tabelle che il giro non scarica)
+e in una fase che misura un segnale non si aggiunge un veicolo nuovo. Una previsione negativa è liquidità, come per
+i satelliti; questo lascia metà del segnale sul tavolo, e si scrive. La taglia è la regola di tutti i libri,
+`F/10 × 0,50 × m / vol`, con il tetto **2x** (il margine del fondo), **1x** prima di una chiusura, stop giornaliero
+−15%, banda d'inerzia 10%, lotto una quota, `m` dell'allocatore come per ogni libro (oggi 0,5 su GLD per
+l'interruttore della bolla). Con TLT al 15% di volatilità una previsione di 10 vale 1,7x: la leva è alta per un
+fondo e questi libri staranno spesso al tetto - è la richiesta di «speculativo».
+
+### C. Il prior
+
+**Nessun vantaggio**, e con più forza che nel capitolo 10. I mercati Kalshi sulla Fed sono fra i più liquidi del
+listino, ma i future sui fed funds (CME) e i Treasury prezzano la stessa informazione in secondi: la variazione
+settimanale del percorso letto su Kalshi è, al meglio, il movimento dei Treasury della settimana scorsa letto da
+un'altra parte - e allora il libro sui bond compra dopo un rialzo di una settimana, un momentum a sette giorni che
+su Treasury ed S&P non è un premio documentato (il trend documentato è su uno-dodici mesi: Hurst, Ooi e Pedersen
+2017). La recessione è un mercato sottile che si muove di un punto al mese: la banda morta lo terrà quasi sempre a
+zero. Sull'oro la de-escalation può avere anche il segno opposto a quello dichiarato (meno guerra, meno
+inflazione, tassi più bassi, oro su). Tutto questo è il motivo per cui i libri sono candidati speculativi e non
+toccano una regola del nucleo.
+
+### D. Il filtro e la misura, dichiarati prima
+
+Si misura **una volta**, con `scripts/research_kalshi_books.py` - lo stesso codice del motore
+(`oracle.forecast_on` con la specifica dell'indice, `Book`-style sizing) -, su: le candele scaricate il 15
+ottobre (che diventano l'archivio, come nel capitolo 10 H: una lettura viva vince sulla candela) e le serie dei
+fondi dal branch dati (chiusure aggiustate, le stesse dei libri satellite). Per ogni libro e seduta D: la
+previsione del giorno D con le maniche e i segni del punto B, la taglia della regola con `m` dell'interruttore
+della bolla sul veicolo, posizione presa alla chiusura di D sul rendimento di D+1; costi del veicolo (mezzo spread
+1-2 pb per lato, finanziamento al 5,25% sulla parte a margine). La finestra è quella in cui l'indice esiste:
+fedpath dal 18 giugno 2026 (vedi A), recession dal 9 gennaio (il riferimento è una settimana dopo il primo giorno),
+deescalation dal 18 marzo; un libro con due maniche è misurato da quando almeno una ha un valore.
+
+Il filtro è quello del capitolo 8 A: un libro con Sharpe netto **negativo** sulla storia disponibile non parte;
+con Sharpe ≥ 0 parte come candidato speculativo. Con tre-nove mesi di dati l'errore standard dello Sharpe è 1-2: il
+filtro distingue solo i segni, e si dice. I vicini si mostrano e non si scelgono: orizzonte 60 e 180 giorni per
+fedpath, 180 e 730 per recession, scala ×½ e ×2 per ogni manica. Si scrive la media di |F| per manica. Che cosa li
+ferma: come l'Oracle (capitolo 10 D): mai promossi dal ciclo di vita, ritirati a 24 mesi con Sharpe realizzato
+sotto −0,5, il proprietario li rivede a sei mesi; la scala si rimisura a 60 letture vive per manica e si tocca solo
+se fuori di un fattore due.
+
+### E. Risultati
+
+(scritti dopo la misura: vedi sotto)
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
