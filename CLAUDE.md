@@ -717,9 +717,20 @@ registered rule, measured once on that history against the desk's WTI series (`s
 lots, one month (July) making the result; mean |weekly change| 6.3 points, mean |F| 9.84 - the declared scale
 holds and is not touched; the daily index change correlates −0.21 with the NEXT day's oil return (t about
 2.5), the weekly change +0.03 with the next week's: an observation made after looking, written down as a
-candidate to register later, not a change to the book. Still NOT seen: the oracle's first order and fill (the
-15th's forecast, +7.5 on −3.8 points, is under a lot at the halved target), a day on which its reading is a
-fallback (a weekend), the scale's re-measurement on the live record (late December).
+candidate to register later, not a change to the book. Live since 18:21 UTC (PR #23, 190e9128): the
+backfill job (18:31-18:32 UTC) wrote 508 records for 278 days (9 January - 13 October), skipped the 6 the tick
+had read, and the archive has 280 daily readings. Checked on the data branch and on the page, not assumed: the
+18:48 tick took the day's two MCL decisions - spinto "+4.9, 0.32x, less than a whole lot" and the oracle's
+first with a reference, "the strait 6.6 % (a week ago 13.6 %), the meeting 45.6 % (48.5 %), the deal 11.7 %
+(13.1 %); index 21.3 %, −3.8 points in a week: forecast +7.5 out of 20 ... exposure 0.49x, less than a whole
+lot: no position" -, ran the first system's end of day (8 minutes, as on every day's first tick after the
+London settlement), and the page shows the block with both columns and no console error. One thing seen: the
+runner's first tick (18:32) started while the backfill job was pushing, so its push failed and the loop
+recovered at 18:48 as designed ("push failed: retried on the next tick"; `sync` took the branch's state) - a
+manual job that pushes the data branch costs the runner the tick it overlaps. Still NOT seen: the oracle's
+first order and fill (the forecast must reach about 15 at the halved target and 38 % volatility for one lot),
+a day on which its reading is a fallback (a weekend), the scale's re-measurement on the live record (late
+December).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
