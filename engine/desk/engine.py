@@ -298,14 +298,23 @@ class Desk:
         vol: float | None,
         force: bool = False,
         leg_prices: Mapping[str, float] | None = None,
+        book_forecasts: Mapping[str, Mapping[str, float | None]] | None = None,
     ) -> list[Decision]:
         """One decision per book per trading day (idempotent on ``day`` unless ``force``). ``leg_prices`` are
-        today's prices of the inverse funds, for the books that hold their short side in one."""
+        today's prices of the inverse funds, for the books that hold their short side in one.
+
+        ``forecast`` is the desk's (the seven sleeves of the vehicle's series), read by every book on the desk's
+        forecast. A book on another forecast (``BookConfig.forecast``, the Kalshi index of phase 14) reads its
+        own entry of ``book_forecasts`` and NEVER the desk's: without an entry it has no forecast, and a book
+        without a forecast holds what it has and says so (``Book.orders``).
+        """
         out: list[Decision] = []
         ts = ensure_utc(ts)
         for book in self.books_on(vehicle):
             if not force and self.state.last_decision_day.get(book.id) == day.isoformat():
                 continue
+            own: Mapping[str, float | None] | None = (book_forecasts or {}).get(book.id)
+            reads = forecast if book.replayable else (dict(own) if own is not None else {})
             if book.other_contract_positions(symbol):
                 # The roll did not happen (a price was missing). Sizing on the new contract now would see no
                 # position there and buy the whole target on top of what is still held on the old one. The
@@ -322,7 +331,7 @@ class Desk:
             # apart (a book started just before its decision time, a feed that delivered no bar in between)
             # would otherwise buy the same target twice.
             replaced = book.broker.cancel_pending(reason=f"replaced by the decision of {day.isoformat()}")
-            decision, orders = book.orders(ts, day, symbol, price, forecast, vol, leg_price)
+            decision, orders = book.orders(ts, day, symbol, price, dict(reads), vol, leg_price)
             if replaced:
                 decision.rationale += " The previous decision's order was still queued: cancelled" + (
                     ", this one replaces it." if orders else "."

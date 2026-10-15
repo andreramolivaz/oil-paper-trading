@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -38,11 +39,21 @@ from engine.core.config import RiskConfig, load_config
 from engine.core.events import Order, OrderReason, OrderType
 from engine.core.ids import idempotency_key
 from engine.core.store import StateStore
+from engine.desk import oracle
 from engine.desk import signals as sg
 from engine.desk.vehicles import INVERSE_FUNDS, InverseFund, Vehicle, get_inverse_fund, get_vehicle
 
 HARD_CAP = 10.0
 BOOKS_CONFIG = "books"
+# Which forecast a book reads. "desk": the seven sleeves from three sources (signals.SOURCES), the forecast of
+# the desk, replayed in the backtest. "kalshi": the de-escalation index read on the prediction markets' archive
+# (oracle.py, phase 14): one sleeve, no history, no backtest - a book on it is judged on live fills alone.
+FORECAST_DESK = "desk"
+FORECAST_FAMILIES: dict[str, tuple[str, ...]] = {FORECAST_DESK: sg.SLEEVES, oracle.FAMILY: oracle.SLEEVES}
+DEFAULT_WEIGHTS_OF: dict[str, dict[str, float]] = {
+    FORECAST_DESK: sg.DEFAULT_WEIGHTS,
+    oracle.FAMILY: oracle.DEFAULT_WEIGHTS,
+}
 
 
 @dataclass(frozen=True)
@@ -55,13 +66,16 @@ class BookConfig:
     weekend_max_leverage: float | None = None
     long_only: bool = False
     short_via: str | None = None  # the inverse fund a fund book buys to be short (vehicles.INVERSE_FUNDS)
-    sleeves: dict[str, float] = field(default_factory=lambda: dict(sg.DEFAULT_WEIGHTS))
+    # the weights of the sleeves the book reads; empty means the forecast's own default (a third per source for
+    # the desk's seven sleeves, the one sleeve of the Kalshi index), filled in below
+    sleeves: dict[str, float] = field(default_factory=dict)
     buffer: float = 0.10  # no trade while the target is within this fraction of a normal-size position
     daily_loss_breaker: float = 0.08
     description: str = ""
     # "core": one of the books the desk is judged on; "candidate": a paper book run beside them to be judged on
     # real fills before anybody trusts it (the satellite markets of phase 12). Same engine, same rules.
     role: str = "core"
+    forecast: str = FORECAST_DESK  # FORECAST_FAMILIES
 
     def __post_init__(self) -> None:
         if not (0 < self.max_leverage <= HARD_CAP):
@@ -70,11 +84,22 @@ class BookConfig:
             raise ValueError(f"book {self.id}: weekend_max_leverage must be within [0, max_leverage]")
         if not (0 < self.vol_target <= 2.0):
             raise ValueError(f"book {self.id}: vol_target {self.vol_target} out of range")
-        unknown = set(self.sleeves) - set(sg.SLEEVES)
+        if self.forecast not in FORECAST_FAMILIES:
+            raise ValueError(
+                f"book {self.id}: forecast must be one of {sorted(FORECAST_FAMILIES)}, not {self.forecast!r}"
+            )
+        if not self.sleeves:
+            object.__setattr__(self, "sleeves", dict(DEFAULT_WEIGHTS_OF[self.forecast]))
+        unknown = set(self.sleeves) - set(FORECAST_FAMILIES[self.forecast])
         if unknown:
-            raise ValueError(f"book {self.id}: unknown sleeves {sorted(unknown)}")
+            raise ValueError(f"book {self.id}: unknown sleeves {sorted(unknown)} for the {self.forecast!r} forecast")
         if self.role not in ("core", "candidate"):
             raise ValueError(f"book {self.id}: role must be 'core' or 'candidate', not {self.role!r}")
+        if self.forecast != FORECAST_DESK and self.role == "core":
+            # a book nobody can backtest is never one of the books the desk is judged on
+            raise ValueError(
+                f"book {self.id}: a book on the {self.forecast!r} forecast has no backtest: role must be candidate"
+            )
         if self.short_via is not None:
             get_inverse_fund(self.short_via)
             if self.long_only:
@@ -91,7 +116,9 @@ def load_books(config_dir: Path | None = None) -> list[BookConfig]:
         if not entry.get("enabled", True):
             continue
         get_vehicle(str(entry["vehicle"]))
-        sleeves = {str(k): float(v) for k, v in (entry.get("sleeves") or sg.DEFAULT_WEIGHTS).items()}
+        family = str(entry.get("forecast", FORECAST_DESK))
+        defaults = DEFAULT_WEIGHTS_OF.get(family, sg.DEFAULT_WEIGHTS)
+        sleeves = {str(k): float(v) for k, v in (entry.get("sleeves") or defaults).items()}
         weekend = entry.get("weekend_max_leverage")
         books.append(
             BookConfig(
@@ -108,6 +135,7 @@ def load_books(config_dir: Path | None = None) -> list[BookConfig]:
                 daily_loss_breaker=float(entry.get("daily_loss_breaker", 0.08)),
                 description=str(entry.get("description", "")),
                 role=str(entry.get("role", "core")),
+                forecast=family,
             )
         )
     ids = [b.id for b in books]
@@ -293,6 +321,27 @@ class Book:
     def id(self) -> str:
         return self.cfg.id
 
+    @property
+    def sleeve_names(self) -> tuple[str, ...]:
+        """The sleeves of the forecast this book reads (the seven of the desk, or the Kalshi index's one)."""
+        return FORECAST_FAMILIES[self.cfg.forecast]
+
+    @property
+    def replayable(self) -> bool:
+        """True when the book reads the desk's forecast, which has a history: the backtest can replay it. A book
+        on the prediction markets has none and is judged on its live record alone."""
+        return self.cfg.forecast == FORECAST_DESK
+
+    def combined_forecast(self, forecast: Mapping[str, float | None]) -> float | None:
+        """Today's forecast for this book: the desk's sleeves combined with the book's own weights (the equal-weight
+        column of the data layer is not used), or - for a book on the Kalshi index - that one sleeve as it is."""
+        if self.cfg.forecast == oracle.FAMILY:
+            value = forecast.get(oracle.SLEEVE)
+            if value is None or not math.isfinite(value):
+                return None
+            return float(max(-sg.FORECAST_CAP, min(sg.FORECAST_CAP, value)))
+        return sg.combine_values(forecast, self.cfg.sleeves)
+
     def units(self, symbol: str) -> float:
         pos = self.broker.positions.get(symbol)
         return 0.0 if pos is None else float(pos.qty_bbl)
@@ -438,7 +487,7 @@ class Book:
         fresh = leg_price is not None and math.isfinite(leg_price) and leg_price > 0
         leg_ref = float(leg_price) if fresh and leg_price is not None else self._last_mark(leg, leg_current)
         # the book's own mix of the sleeves (config/books.yaml), not the equal-weight column of the data layer
-        combined = sg.combine_values(forecast, cfg.sleeves)
+        combined = self.combined_forecast(forecast)
         forecast = {**forecast, "combined": combined}
         usable = (
             combined is not None
@@ -454,6 +503,12 @@ class Book:
             dec = Decision(ts, cfg.id, cfg.vehicle, symbol, price, equity, forecast, vol, 0.0, 0.0, "missing data",
                            current, current, 0.0, reason, str(snap.status))  # fmt: skip
             dec.legs = self._leg_rows(leg, leg_ref, leg_current, leg_current, 0.0)
+            # the scales in force are a fact of the day, whether or not the book could size on them
+            dec.risk_scale, dec.weekend_scale, dec.scale_reasons = (
+                self.risk_scale,
+                self.weekend_scale,
+                list(self.scale_reasons),
+            )
             return dec, []
         assert combined is not None and vol is not None
         raw, exposure, limited = self.exposure(float(combined), float(vol), day)
@@ -543,8 +598,8 @@ class Book:
                 order_type=OrderType.MARKET,
                 reason=OrderReason.SIGNAL if held == 0 else OrderReason.REBALANCE,
                 rationale=rationale,
-                strategies_for=[k for k in sg.SLEEVES if (forecast.get(k) or 0.0) * push > 0],
-                strategies_against=[k for k in sg.SLEEVES if (forecast.get(k) or 0.0) * push < 0],
+                strategies_for=[k for k in self.sleeve_names if (forecast.get(k) or 0.0) * push > 0],
+                strategies_against=[k for k in self.sleeve_names if (forecast.get(k) or 0.0) * push < 0],
                 leverage=levered,
                 # a fund cannot be short: its sale closes what is there when it fills, never more
                 reduce_only=units < 0 and not shortable,
@@ -605,10 +660,14 @@ class Book:
         fresh: bool = True,
     ) -> str:
         v = self.vehicle
-        # the three sources of the forecast, each the average of its sleeves (the sleeves are in the table)
-        sources = sg.source_values(forecast, self.cfg.sleeves)
-        parts = ", ".join(f"{SOURCE_LABELS.get(name, name)} {_signed(value)}" for name, value in sources.items())
-        text = f"{parts[:1].upper()}{parts[1:]}: forecast {_signed(forecast.get('combined'))} out of 20. "
+        if self.cfg.forecast == oracle.FAMILY:
+            # the prediction markets' index: what the three ladders say today and a week ago, and the change
+            text = oracle.lead_text(forecast)
+        else:
+            # the three sources of the forecast, each the average of its sleeves (the sleeves are in the table)
+            sources = sg.source_values(forecast, self.cfg.sleeves)
+            parts = ", ".join(f"{SOURCE_LABELS.get(name, name)} {_signed(value)}" for name, value in sources.items())
+            text = f"{parts[:1].upper()}{parts[1:]}: forecast {_signed(forecast.get('combined'))} out of 20. "
         if exposure == 0 and limited == "retired by the allocator":
             text += "This book is retired: no new risk, the position is closed"
         elif exposure == 0 and limited == "long only":

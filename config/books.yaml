@@ -18,6 +18,9 @@
 #                         book without it cannot be short: the account it imitates does not borrow shares.
 #   buffer                no trade while the target is within this fraction of a normal-size position
 #   daily_loss_breaker    loss on the day, as a fraction of the day's opening equity, that flattens the book
+#   forecast              which forecast the book reads: "desk" (default: the seven sleeves, replayed in the
+#                         backtest) or "kalshi" (the de-escalation index read on the prediction markets' archive,
+#                         engine/desk/oracle.py: one sleeve, no history, no backtest, candidate only)
 books:
   - id: prudente
     name: Prudent
@@ -197,6 +200,31 @@ books:
     description: >-
       A quarter of Kelly on the clean energy fund (solar, wind, hydrogen), never levered and never short: the
       energy transition, which boomed in 2020 and bust after; the trend rule earned the boom and sat out the bust.
+
+  # Phase 14 (15 October 2026), on the owner's request for "a highly speculative, leveraged strategy based on
+  # Kalshi" (docs/RESEARCH.md, chapter 10, written before the first decision). A Kalshi contract cannot be
+  # bought on margin, so the leverage is on oil: the micro WTI future, long and short, at the highest
+  # volatility target the hard rules allow, and Kalshi gives the direction - the week's change in the crowd's
+  # probability that the war de-escalates (the strait back to normal, a US-Iran meeting, a nuclear deal, within
+  # 90 days): rising, short oil; falling, long. There is no history of these markets, so there is no backtest:
+  # the book is judged on its live fills only, is never promoted, and the prior written with the rule is that
+  # it has no edge. It can wipe out its account.
+  - id: oracle
+    name: Oracle
+    role: candidate
+    forecast: kalshi
+    vehicle: MCL
+    vol_target: 0.50
+    max_leverage: 10.0
+    weekend_max_leverage: 3.0
+    long_only: false
+    daily_loss_breaker: 0.15
+    description: >-
+      Speculative, paper only, no backtest. Full Kelly on the micro WTI future, long and short, up to 10x, in the
+      direction Kalshi's prediction markets point: when the crowd's probability of de-escalation (the strait
+      back to normal, a US-Iran meeting, a nuclear deal within 90 days) rises over a week the book is short oil,
+      when it falls the book is long. The rule was written down before the first decision and is judged on live
+      fills alone; the prior is that it has no edge. It can wipe out the account.
 
 # The options book (engine/desk/options.py): put credit spreads sold below the market when the forecast is
 # long, priced on the real delayed bid and ask. Its replay is a model and is labelled approx everywhere; the

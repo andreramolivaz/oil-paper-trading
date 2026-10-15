@@ -1066,6 +1066,132 @@ venduto SÌ su tutte le date 2027 della scala dello stretto (140-850 contratti c
 allarmi è da misurare sulle settimane a venire; se supera un'allerta al giorno le soglie vanno riviste, e
 scritte qui.
 
+## 10. Fase 14 (15 ottobre 2026, 03:20 UTC): un libro speculativo su Kalshi, scritto prima di ogni risultato
+
+Il proprietario: «voglio che crei una strategia basata su Kalshi a leva, altamente speculativa». Questo capitolo
+è la registrazione della regola, scritta prima che il libro prenda una decisione e prima che esista un numero
+da guardare: non esiste una storia di questi mercati su cui provarla (l'archivio del desk è nato il 14 ottobre
+e ha due letture), quindi non c'è un backtest, e il libro si giudica solo sugli eseguiti veri. Tutto ciò che
+segue è dichiarato, non stimato; ciò che verrà misurato è scritto in fondo, con quando.
+
+### A. Che cosa si può fare, e che cosa no
+
+Un contratto Kalshi paga 1 $ se l'evento accade e costa la sua probabilità: non si compra a margine, e il
+desk non ha (né avrà qui) un broker di carta per contratti a evento. La leva, quindi, non sta su Kalshi: sta
+sul petrolio. Il libro usa il future micro WTI (/MCL, 100 barili, margine 10%), l'unico strumento a leva che
+il desk negozia, e Kalshi gli dà la **direzione**. È una strategia su una fonte di informazione, non su un
+mercato nuovo.
+
+### B. L'ipotesi, e il prior
+
+L'ipotesi: i mercati a eventi sulla fine della guerra (lo stretto che torna normale, un incontro di alto
+livello fra Stati Uniti e Iran, un accordo nucleare) incorporano la de-escalation prima del prezzo del greggio,
+e quando il pubblico alza quelle probabilità il premio geopolitico nel petrolio si sgonfia dopo. Il prior,
+scritto qui: **nessun vantaggio**. Il petrolio è mille volte più liquido di quei mercati e i partecipanti
+sono gli stessi lettori di notizie; è più probabile che Kalshi segua il petrolio con un giorno di ritardo che
+il contrario, e in quel caso il segnale è un trend del petrolio letto in ritardo e con il segno opposto a quello
+che il libro «spinto» già compra. Snowberg, Wolfers e Zitzewitz (2007) hanno misurato la notte delle elezioni
+del 2004 che le probabilità dei mercati a eventi e i future sull'indice azionario si muovono insieme entro
+minuti: comovimento, non anticipo (ricordato, non riletto). Nessuno studio noto misura se Kalshi anticipi i
+future sul petrolio. Il libro esiste per misurarlo con soldi di carta, e il nome che porta - «Oracle» - è
+ironico quanto basta.
+
+### C. La regola (`engine/desk/oracle.py`, costanti con lo stesso nome)
+
+1. **Le componenti** (`COMPONENTS`): tre scale a scadenza, già archiviate ogni giorno dal desk:
+   `KXHORMUZNORM` («la media a 7 giorni dei transiti nello stretto sopra 60 prima del giorno X»),
+   `KXUSIRANMEETING` («un incontro di alto livello USA-Iran prima di X»), `KXUSAIRANAGREEMENT` («un accordo
+   nucleare prima di X»). Le tre vie per cui la guerra finisce; pesi uguali (1/N), nessun'altra scelta.
+2. **La probabilità a orizzonte costante** (`HORIZON_DAYS = 90`): per ogni scala, P(l'evento accade entro 90
+   giorni dalla lettura), letta sui punti (scadenza, mid) dei mercati della scala con quotazione a due lati
+   - un'offerta sopra zero e una domanda sotto uno: su questa API bid 0 vuol dire nessun bid e ask 1 nessun
+   ask - e spread non oltre 10 centesimi (`MAX_SPREAD = 0.10`: un mercato quotato più largo o da un lato
+   solo non è una probabilità, è un'assenza), più il punto (oggi, 0) - un mercato aperto non è ancora
+   accaduto -, interpolando
+   linearmente nel tempo; oltre l'ultima scadenza vale l'ultima. Una scadenza fissa perde probabilità da sola
+   con il passare dei giorni; l'orizzonte costante toglie quella deriva al primo ordine. Il pubblico non è
+   forzato alla monotonia: la scala dell'accordo, il 14 ottobre, dava più probabilità a gennaio 2027 che a
+   febbraio, e si legge com'è. Se una serie ha più eventi aperti lo stesso giorno conta il più scambiato.
+3. **L'indice di de-escalation** D = la media delle componenti presenti nella lettura.
+4. **La lettura** (`LOOKBACK_DAYS = 7`, `REFERENCE_WINDOW_DAYS = 3`, `STALE_DAYS = 3`): la decisione del giorno
+   D legge la lettura archiviata del giorno UTC D (la prima della giornata, verso le 00:20 UTC, cioè la sera
+   prima a New York: il libro legge i prezzi di ieri sera, come i segnali macro leggono la chiusura di ieri)
+   o, se manca, la più recente non più vecchia di tre giorni; come riferimento la lettura più recente fra 7 e
+   10 giorni prima. La variazione ΔD è la media, sulle componenti presenti in **entrambe** le letture, di
+   p_oggi − p_riferimento: una scala che nasce o si risolve non è una mossa - e questo include l'evento
+   stesso: l'adattatore scarica solo i mercati aperti, quindi quando una scala si regola (l'incontro avviene,
+   ogni suo mercato paga e sparisce) la componente scompare e il libro ne vede la rincorsa, mai l'arrivo. Un
+   giorno i cui record non hanno alcuna componente leggibile (quotazioni da un lato solo o più larghe del
+   limite) non è una lettura: vale la più recente leggibile entro tre giorni, e nella finestra del riferimento
+   la più recente leggibile (trovato in revisione: un giorno vuoto chiudeva una posizione a leva e la riapriva
+   il giorno dopo). Senza una lettura recente il libro non ha una vista e sta piatto (previsione 0); senza
+   riferimento (l'archivio ha meno di una settimana) non decide e resta dov'è, cioè piatto all'inizio: la
+   prima decisione possibile è del 21 ottobre.
+5. **La previsione** (`FORECAST_PER_POINT = 2.0`, `DEADBAND = 0.01`): F = −2 × (ΔD in punti percentuali),
+   limitata a ±20; sotto un punto di variazione F = 0 (un centesimo è lo spread). Cinque punti di
+   de-escalation in una settimana valgono −10, lo short «normale» della scala di Carver; dieci punti −20, il
+   massimo; cinque punti di escalation +10, long. La scala non è misurata (non c'è su che cosa): è il numero
+   tondo per cui una mossa che fa notizia (dieci punti) satura la previsione. Carver stima lo scalare della
+   previsione sui dati perché la media di |F| sia 10: si farà dopo 60 letture (fine dicembre), scrivendo qui
+   la media dei |ΔD| settimanali, e la scala si toccherà solo se è fuori di un fattore due - e si scriverà.
+6. **La taglia**: la regola di tutti i libri, nient'altro: `F/10 × obiettivo × m / volatilità` con l'obiettivo
+   di volatilità **0,50**, il massimo che le regole dure permettono (Kelly pieno su uno Sharpe di 0,5 che il
+   libro non ha: è la richiesta di «altamente speculativo» e il motivo per cui può azzerarsi), `m`
+   dell'allocatore come per ogni altro libro (oggi 0,5: il WTI è raddoppiato in due anni, quindi il libro parte
+   con l'obiettivo dimezzato e lo scrive), tetti 10x e 3x prima di una chiusura (1,5x con lo stretto chiuso),
+   stop giornaliero −15%, banda d'inerzia 10%, lotto intero. Con il greggio al 44% di volatilità una
+   previsione di −20 vale 2,3x di esposizione, cioè due o tre micro contratti su 10 000 $: la leva alta è un
+   tetto, non un programma, come per il libro spinto.
+7. **Il libro**: `oracle`, «Oracle», `role: candidate`, `forecast: kalshi`, veicolo MCL, long e short, 10 000
+   $, un conto a sé, nel totale dei candidati. Non entra nel backtest (non c'è storia da riprodurre), e il sito
+   lo scrive su ogni riga che lo riguarda. La decisione registra tutti gli input (indice, componenti,
+   riferimento, variazione, età delle due letture): fra un anno la regola si riproduce riga per riga
+   sull'archivio, ed è quello il primo test.
+
+### D. Che cosa lo ferma
+
+Le protezioni dei libri (lo stop giornaliero, il margine, il conto morto a 500 $) e la regola del ciclo di
+vita come per ogni libro: ritirato dopo 24 mesi con Sharpe realizzato sotto −0,5. **Mai promosso**: la
+promozione richiede un drawdown del backtest da confrontare, e questo libro non ne ha (la regola del ciclo di
+vita, da oggi, non promuove un libro senza backtest: prima lo avrebbe fatto). Il proprietario lo rivede dopo sei
+mesi, circa 125 decisioni, con lo Sharpe realizzato e il suo errore standard (±0,7 su sei mesi: sei mesi non
+distinguono 0 da 1). Nessun parametro si tocca prima del riesame della scala del punto 5.
+
+### E. Che cosa cambia nelle regole dure
+
+«I mercati a eventi sono archiviati e mostrati, mai negoziati: nessun libro li legge finché non c'è un anno
+di archivio» diventa: nessun libro del **nucleo** li legge; un libro **candidato dichiarato speculativo**, su
+richiesta esplicita del proprietario, può negoziare una regola scritta qui prima della prima decisione, è
+giudicato sul solo record live, non ha backtest e non è promosso dal ciclo di vita. I quattro libri del nucleo,
+i dodici candidati e il loro backtest non cambiano di un byte (verificato rieseguendo il replay prima e dopo).
+
+### F. La revisione prima della messa in linea
+
+Un revisore che non aveva visto scrivere il codice lo ha attaccato con script propri (la matematica contro la
+regola, il calendario, i due libri sullo stesso future per sette giorni e sedici giri al giorno con un roll e un
+weekend, l'archivio corrotto, l'esportazione, la taglia). Corretto: una lettura senza componenti leggibili
+contava come la lettura del giorno e chiudeva la posizione (punto 4); una quotazione da un lato solo passava
+per una probabilità (punto 2); una riga tagliata nell'archivio (il runner viene cancellato a ogni push mentre
+scrive) faceva fallire l'esportazione di `desk.json` e, ogni giro, la previsione del libro, che restava con la
+posizione aperta e mai ridimensionata - ora la riga è saltata con un avviso, e il blocco del terminale dice
+l'errore invece di far cadere la pagina; ogni libro è alimentato con i propri contratti e un libro piatto è
+marcato sul contratto del giorno (prima: il primo in ordine alfabetico dei contratti tenuti da tutti i libri del
+veicolo, che con due libri sullo stesso future faceva dipendere l'età dei prezzi di uno dal roll mancato
+dell'altro); la decisione «dati mancanti» ora porta le scale dell'allocatore. Verificato dal revisore e da me:
+le decisioni, gli eseguiti e l'equity del libro spinto sono identici con e senza l'Oracle; il replay dei
+tredici libri è identico byte per byte (impronta 539b55e08479 → 62d61be3e097 per il campo nuovo di
+`BookConfig`: un ricalcolo al primo giro, stessi numeri). Non corretto, scritto: con «dati mancanti» un ordine
+ancora in coda dal giorno prima viene cancellato e non riemesso (vale per ogni libro quando manca la
+volatilità; la motivazione lo dice).
+
+### G. La lettura di partenza (non un risultato)
+
+Le due letture in archivio, con la regola del punto 2 (orizzonte 90 giorni, cioè il 12-13 gennaio 2027, fra le
+scadenze del 1° gennaio e del 1° febbraio): lo stretto normale 6,6% il 14 e 6,6% il 15; un incontro di alto
+livello 46,8% e 45,6%; un accordo 11,0% e 11,7%; indice 21,5% e 21,3%. Una variazione di −0,2 punti in un
+giorno, dentro la banda morta. Il mercato dell'incontro è il meno liquido dei tre (spread di 8-9 centesimi,
+volume zero sulle date lontane): è lui che farà il rumore, e il filtro sullo spread lo lascia dentro di poco.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
@@ -1144,6 +1270,11 @@ Letteratura (letta per intero salvo dove indicato):
   Ewald e altri, [Intra-day seasonality and abnormal returns in the Brent crude oil futures market](https://eprints.gla.ac.uk/363707) (solo riassunto)
 - Lim, Zohren, Roberts, [Enhancing time series momentum strategies using deep neural networks](https://arxiv.org/abs/1904.04912);
   Wood, Roberts, Zohren, [Slow momentum with fast reversion](https://arxiv.org/abs/2105.13727)
+- Sul libro speculativo su Kalshi (10): Snowberg, Wolfers e Zitzewitz, *Partisan impacts on the economy:
+  evidence from prediction markets and close elections*, Quarterly Journal of Economics 2007 (ricordato, non
+  riletto: il comovimento entro minuti fra le probabilità dei mercati a eventi e i future azionari la notte
+  delle elezioni del 2004); Wolfers e Zitzewitz, *Prediction markets*, Journal of Economic Perspectives 2004
+  (ricordato); Carver, *Systematic Trading* (lo scalare della previsione stimato perché la media di |F| sia 10)
 - Sull'allerta di attività anomala (9 F): Meulbroek, *An empirical analysis of illegal insider trading*, Journal
   of Finance 1992 (ricordato, non riletto); Rothschild e Sethi, *Trading strategies and market microstructure:
   evidence from a prediction market*, Journal of Prediction Markets 2016 (ricordato); i casi pubblici:

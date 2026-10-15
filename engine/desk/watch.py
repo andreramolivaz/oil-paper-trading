@@ -115,7 +115,7 @@ def baselines(store: StateStore) -> dict[str, Baseline]:
     """Per market, the distribution of its daily 24-hour volumes in the daily archive (the records written
     with the alert carry ``volume_24h``; the older ones do not and are skipped)."""
     volumes: dict[str, list[float]] = {}
-    for rec in store.iter_jsonl(KALSHI_LOG):
+    for rec in store.iter_jsonl(KALSHI_LOG, skip_bad=True):
         cols = list(rec.get("columns") or [])
         if "volume_24h" not in cols or "ticker" not in cols:
             continue
@@ -310,7 +310,7 @@ def footprint_text(fp: dict[str, Any] | None) -> str:
 
 # ----------------------------------------------------------------------------------------------- the alerts
 def _already_alerted(store: StateStore, day: str) -> set[str]:
-    return {str(r.get("key")) for r in store.iter_jsonl(ALERTS_LOG) if str(r.get("day", "")) == day}
+    return {str(r.get("key")) for r in store.iter_jsonl(ALERTS_LOG, skip_bad=True) if str(r.get("day", "")) == day}
 
 
 def alert_text(a: dict[str, Any]) -> str:
@@ -419,7 +419,7 @@ def recent_alerts(store: StateStore, now: datetime, days: float = ALERT_WINDOW_D
     now = ensure_utc(now)
     cutoff = now - timedelta(days=days)
     out: list[dict[str, Any]] = []
-    for rec in store.iter_jsonl(ALERTS_LOG):
+    for rec in store.iter_jsonl(ALERTS_LOG, skip_bad=True):
         when = parse_iso(_text(rec.get("ts")) or None)
         if when is None or ensure_utc(when) < cutoff:
             continue

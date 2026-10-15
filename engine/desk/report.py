@@ -23,7 +23,7 @@ from engine.data.raw_store import RawStore
 from engine.desk import signals as sg
 from engine.desk.allocator import AllocatorConfig, describe
 from engine.desk.backtest import FILL_SAME_CLOSE, BacktestResult, performance, run_backtest, yearly_returns
-from engine.desk.book import BookConfig, load_books
+from engine.desk.book import FORECAST_DESK, BookConfig, load_books
 from engine.desk.data import DeskData, build_desk_data
 from engine.desk.engine import _clean
 from engine.desk.live import desk_store
@@ -93,6 +93,14 @@ def sleeve_configs(
     return configs
 
 
+def replayed_books(books: list[BookConfig]) -> list[BookConfig]:
+    """The books the replay can run: those on the desk's forecast, which has a history. A book on the prediction
+    markets' index (phase 14) has none - no backtest, no row in the tables, no part in the fingerprint - and is
+    judged on its live record alone. Every caller that replays or fingerprints the books goes through here, so
+    the tick and the weekly job agree on what the backtest is about."""
+    return [b for b in books if b.forecast == FORECAST_DESK]
+
+
 MODEL_VERSION = 3  # bump when the replay changes in a way that the rules below do not show (3: distributions credited)
 # Fields of a book, a vehicle, an inverse fund or the account rules that are written for the reader and change
 # nothing in the replay: a rename or a translation must not cost a recompute on the next tick.
@@ -125,8 +133,10 @@ def model_signature(
 
     The backtest on file carries the fingerprint it was computed with (``meta.model``). The tick recomputes one
     whose fingerprint is not the current one, so a change of rules shows on the page at the next tick instead
-    of waiting for the weekly job with the old numbers under the new rules.
+    of waiting for the weekly job with the old numbers under the new rules. Only the books the replay runs
+    enter it (``replayed_books``): the Kalshi book's rules change no number of the backtest.
     """
+    books = replayed_books(books)
     from engine.desk import allocator as allocation
     from engine.desk import backtest as replay
     from engine.desk import book as sizing
@@ -273,7 +283,10 @@ def desk_backtest_payload(
 ) -> dict[str, Any]:
     """The replay under the rules in force: the books with the allocator (``allocator``) - and, when there is
     one, the same books without it under ``without_allocator``, so that what the allocator did is always on
-    the page next to what the books did alone."""
+    the page next to what the books did alone. A book the replay cannot run (``replayed_books``) is left out of
+    every table here; ``excluded`` names it, so the page can say why it is missing."""
+    excluded = [b for b in books if b not in replayed_books(books)]
+    books = replayed_books(books)
     base = run_backtest(data, books, risk, start=start, end=end, allocator=allocator)
     doubled = run_backtest(
         data, books, risk, start=start, end=end, cost_multiplier=2.0, ruin=False, allocator=allocator
@@ -317,6 +330,18 @@ def desk_backtest_payload(
         }
     payload["sleeves"] = sleeves
     payload["books_config"] = [dataclasses.asdict(b) for b in books]
+    # the books on file that have no replay: the page lists them with the reason instead of a row of numbers
+    payload["excluded"] = [
+        {
+            "id": b.id,
+            "name": b.name,
+            "vehicle": b.vehicle,
+            "role": b.role,
+            "forecast": b.forecast,
+            "reason": "no history of the prediction markets to replay: judged on live fills only",
+        }
+        for b in excluded
+    ]
     payload["data"] = {
         vehicle: {
             "start": s.bars.index[0].date().isoformat(),

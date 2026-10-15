@@ -34,6 +34,7 @@ from engine.core.events import Bar
 from engine.core.store import StateStore
 from engine.core.timeutil import ensure_utc, iso
 from engine.data.raw_store import OBSERVED_AT_COLUMN
+from engine.desk import oracle
 from engine.desk import signals as sg
 from engine.desk.allocator import (
     AllocatorConfig,
@@ -275,16 +276,26 @@ class TickReport:
         return text + (f"; FAILED for {', '.join(self.failed)}" if self.failed else "")
 
 
-def _symbols_to_feed(desk: Desk, vehicle: Vehicle, today: date) -> list[str]:
-    """The symbols of the vehicle's OWN table to feed (a book's inverse fund is read from another table)."""
+def _symbols_to_feed(desk: Desk, vehicle: Vehicle, today: date, book: Book | None = None) -> list[str]:
+    """The symbols of the vehicle's OWN table to feed (a book's inverse fund is read from another table): the
+    contract held today and tomorrow, plus what is held or queued - by ``book`` when one is given, else by every
+    book on the vehicle. A book is fed ITS contracts: the old contract another book is stuck on after a failed
+    roll is not news to it, and a bar of a contract a book does not hold would still advance the age of its
+    prices (``Desk.feed``), making its own next bar look late."""
     if vehicle.kind != "future":
         return [vehicle.id]
     root = ROOT_OF_VEHICLE[vehicle.id]
     wanted = {held_contract(root, today), held_contract(root, next_business_day(today))}
-    for book in desk.books_on(vehicle.id):
-        wanted |= {s for s, p in book.broker.positions.items() if p.qty_bbl != 0}
-        wanted |= {o.instrument for o in book.broker.pending_orders()}
+    for b in desk.books_on(vehicle.id) if book is None else [book]:
+        wanted |= {s for s, p in b.broker.positions.items() if p.qty_bbl != 0}
+        wanted |= {o.instrument for o in b.broker.pending_orders()}
     return sorted(wanted)
+
+
+def _mark_symbol(vehicle: Vehicle, today: date) -> str:
+    """What a FLAT book is marked on: the contract held today (a fund: the fund). Not the first of the symbols
+    the vehicle's books hold between them - that depended on the other books and, on a roll day, on the sort."""
+    return held_contract(ROOT_OF_VEHICLE[vehicle.id], today) if vehicle.kind == "future" else vehicle.id
 
 
 def _price_table(vehicle_id: str, symbol: str) -> str:
@@ -338,6 +349,31 @@ def review_lifecycle(desk: Desk, today: date, backtest_drawdowns: dict[str, floa
             log.warning("lifecycle: book %s %s -> %s (%s)", book.id, role, verdict, reason)
     desk.state.allocator["_lifecycle"] = summary
     return notes
+
+
+def oracle_forecasts(
+    desk: Desk, books: list[Book], day: date, report: TickReport
+) -> dict[str, dict[str, float | None]]:
+    """The forecast of each book on the Kalshi index (``BookConfig.forecast == "kalshi"``) for the decision of
+    ``day``, read on the desk's own archive of the prediction markets (``engine/desk/oracle.py``). One reading
+    serves every such book. A book left out of the answer has no forecast today and holds what it has."""
+    out: dict[str, dict[str, float | None]] = {}
+    if not books:
+        return out
+    if desk.store is None:
+        report.notes.append(f"{', '.join(b.id for b in books)}: no desk store, the Kalshi archive cannot be read")
+        return out
+    try:
+        verdict = oracle.forecast_for(desk.store, day)
+    except Exception as exc:  # the archive is on the side of the books: a bad line must not cost the tick
+        log.exception("kalshi forecast failed")
+        report.notes.append(f"{', '.join(b.id for b in books)}: Kalshi forecast failed ({type(exc).__name__}: {exc})")
+        return out
+    forecast = verdict.as_forecast()
+    for book in books:
+        out[book.id] = dict(forecast)
+        report.notes.append(f"{book.id}: {verdict.note}")
+    return out
 
 
 def live_tick(
@@ -398,10 +434,10 @@ def _tick_vehicle(
     # 1. bars completed since the last tick, per book: a book that was just reset has seen none of them,
     #    the others must not be shown the same bar twice
     vol_last = float(series.vol.iloc[-1]) if len(series.vol) and pd.notna(series.vol.iloc[-1]) else None
-    own_symbols = _symbols_to_feed(desk, vehicle, today_ny)
     knew: dict[str, datetime | None] = {}  # book -> how recent its prices were when this tick began
     for book in books:
         state = book.broker.state
+        own_symbols = _symbols_to_feed(desk, vehicle, today_ny, book)
         # A purchase of an inverse fund the book is no longer configured for (``short_via`` was removed
         # while the order was queued) must not fill: it would open a side the book may not have, and the
         # next decision would only sell it a day later.
@@ -531,7 +567,14 @@ def _tick_vehicle(
                     for book_id, scale in scales.items():
                         if scale.reasons:
                             report.notes.append(f"{book_id}: {'; '.join(scale.reasons)}")
-                decided = desk.decide(vehicle_id, now, day, symbol, price, forecast, vol, leg_prices=leg_prices)
+                # the books that read the prediction markets' index instead of the desk's forecast (phase 14):
+                # their forecast comes from the desk's own archive, for this decision day, and never from the
+                # vehicle's series. A failure there costs those books their decision and nothing else.
+                deciding = [b for b in pending if not b.replayable and not b.other_contract_positions(symbol)]
+                own = oracle_forecasts(desk, deciding, day, report)
+                decided = desk.decide(
+                    vehicle_id, now, day, symbol, price, forecast, vol, leg_prices=leg_prices, book_forecasts=own
+                )
                 for decision in decided:
                     report.decisions.append(decision.to_dict())
 
@@ -539,9 +582,7 @@ def _tick_vehicle(
     for book in books:
         marks: dict[str, float] = {}
         asof: datetime | None = None
-        symbols = {s for s, p in book.broker.positions.items() if p.qty_bbl != 0} or set(
-            _symbols_to_feed(desk, vehicle, today_ny)[:1]
-        )
+        symbols = {s for s, p in book.broker.positions.items() if p.qty_bbl != 0} or {_mark_symbol(vehicle, today_ny)}
         for symbol in symbols:
             price, price_ts = latest_price(data, _price_table(vehicle_id, symbol), symbol, now)
             if price is not None:

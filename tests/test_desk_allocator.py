@@ -277,6 +277,8 @@ def test_the_lifecycle_promotes_after_twelve_good_months_and_retires_after_twent
     assert bad.sharpe is not None and bad.sharpe < -0.5 and bad.months >= 24
     assert lifecycle_verdict(ROLE_CANDIDATE, good, -0.25, CFG) == ROLE_CORE
     assert lifecycle_verdict(ROLE_CANDIDATE, good, -0.01, CFG) == ROLE_CANDIDATE  # drawdown deeper than the backtest's
+    # no backtest to compare with (the Kalshi book of phase 14, or a replay still missing): never promoted
+    assert lifecycle_verdict(ROLE_CANDIDATE, good, None, CFG) == ROLE_CANDIDATE
     assert lifecycle_verdict(ROLE_CANDIDATE, bad, None, CFG) == ROLE_RETIRED
     assert lifecycle_verdict(ROLE_CORE, bad, None, CFG) == ROLE_RETIRED
     assert lifecycle_verdict(ROLE_RETIRED, good, None, CFG) == ROLE_RETIRED  # only the owner reopens a book

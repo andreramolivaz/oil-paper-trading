@@ -247,14 +247,19 @@ def live_record(daily_equity: pd.Series) -> LiveRecord:
 
 
 def lifecycle_verdict(role: str, record: LiveRecord, backtest_max_drawdown: float | None, cfg: AllocatorConfig) -> str:
-    """``role`` is the book's current role; returns the role it should have given its live record."""
+    """``role`` is the book's current role; returns the role it should have given its live record.
+
+    A promotion compares the live drawdown with the backtest's, so it needs one: a book without a backtest (the
+    speculative Kalshi book of phase 14, or any book while the replay is missing) is never promoted, whatever
+    its live Sharpe. Retirement reads the live record alone.
+    """
     if not cfg.lifecycle_enabled or role == ROLE_RETIRED:
         return role
     months = record.months
     if months >= cfg.retire_after_months and record.sharpe is not None and record.sharpe < cfg.retire_sharpe:
         return ROLE_RETIRED
     if role == ROLE_CANDIDATE and months >= cfg.promote_after_months and record.sharpe is not None:
-        within = backtest_max_drawdown is None or (record.max_drawdown or 0.0) >= backtest_max_drawdown - 1e-9
+        within = backtest_max_drawdown is not None and (record.max_drawdown or 0.0) >= backtest_max_drawdown - 1e-9
         if record.sharpe > cfg.promote_min_sharpe and within:
             return ROLE_CORE
     return role
@@ -288,8 +293,8 @@ def describe(cfg: AllocatorConfig) -> dict[str, Any]:
     hormuz = f"transits below {cfg.hormuz_closed_share:.0%} of normal: weekend ceilings x {cfg.hormuz_weekend_scale:g}"
     lifecycle = (
         f"core after {cfg.promote_after_months} months live with Sharpe > {cfg.promote_min_sharpe:g} and the "
-        f"drawdown within the backtest's; retired after {cfg.retire_after_months} months with Sharpe < "
-        f"{cfg.retire_sharpe:g}"
+        f"drawdown within the backtest's (a book without a backtest is never promoted); retired after "
+        f"{cfg.retire_after_months} months with Sharpe < {cfg.retire_sharpe:g}"
     )
     return {
         "runup": {"enabled": cfg.runup_enabled, "rule": runup},

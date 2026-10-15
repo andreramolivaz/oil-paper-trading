@@ -155,6 +155,20 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   reggono, capitolo 8); il lato short dei satelliti con SH e TBF (tabelle scaricate, non usate: da misurare); il
   gruppo intraday scaricato intero; una tabella rossa di un candidato ritentata a ogni giro; una regola che
   legga Kalshi, fra un anno, se l'archivio dirà che vale qualcosa.
+- [x] 14. Un libro speculativo su Kalshi (15 ottobre 2026, su richiesta del proprietario: «una strategia basata
+  su Kalshi a leva, altamente speculativa»; `docs/RESEARCH.md`, capitolo 10, scritto prima della prima
+  decisione). «Oracle» (`engine/desk/oracle.py`, `config/books.yaml`): un candidato sul future micro WTI, long e
+  short, obiettivo di volatilità 0,50 e tetto 10x, che legge la variazione in una settimana dell'indice di
+  de-escalation dei mercati a eventi (lo stretto normale, un incontro USA-Iran, un accordo nucleare entro 90
+  giorni, letti sull'archivio del desk la sera prima): −2 di previsione per punto. Un contratto Kalshi non si
+  compra a leva: la leva sta sul petrolio, Kalshi dà il verso. Niente backtest (non c'è storia): fuori dal
+  replay, dalle tabelle e dall'impronta, mai promosso (la promozione ora richiede il drawdown del backtest, per
+  ogni libro), giudicato sui soli eseguiti, prior dichiarato di nessun vantaggio; la decisione registra ogni
+  input per il replay sull'archivio fra un anno. Motore: `BookConfig.forecast` (`desk` | `kalshi`),
+  `Desk.decide(book_forecasts=...)`, `live.oracle_forecasts`, `report.replayed_books`; sito: il blocco «Kalshi
+  index · the Oracle book», l'etichetta «speculative · no backtest», la riga senza numeri nel backtest. I
+  quattro libri, i dodici candidati e il loro backtest sono identici prima e dopo. La scala della previsione si
+  rimisura dopo 60 letture (fine dicembre) e si scrive nel capitolo 10.
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

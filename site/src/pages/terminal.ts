@@ -14,6 +14,7 @@ import {
   type DeskDoc,
   type ForecastBlock,
   type OptionUnderlying,
+  type OracleBlock,
   type PredictionAlert,
   type PredictionEvent,
   type Quote,
@@ -200,6 +201,50 @@ function forecastTable(doc: DeskDoc): string {
   return section("Forecast", body, "the same for every book on that instrument: only the size differs");
 }
 
+// ---------------------------------------------------------------------------------------------- oracle
+/** The prediction markets' de-escalation index the speculative book reads (phase 14): a separate forecast,
+ *  never mixed with the seven sleeves above. */
+function oracleTable(doc: DeskDoc): string {
+  const o: OracleBlock | null | undefined = doc.oracle;
+  if (!o) return "";
+  const pr = (v: number | null | undefined): string => (v === null || v === undefined ? EMPTY : percent(v, 1));
+  const rows = o.components
+    .map(
+      (c) => `<tr class="t-sleeve"><th scope="row">${escapeHtml(c.label)}<small>${escapeHtml(c.series)} · within ${
+        o.rule.horizon_days
+      } days</small></th><td class="n">${pr(c.p)}</td><td class="n">${pr(c.p_reference)}</td></tr>`,
+    )
+    .join("");
+  const partial =
+    o.components_common !== undefined && o.components_read !== undefined && o.components_common < o.components_read
+      ? ` (over ${o.components_common} of ${o.components_read} components)`
+      : "";
+  const change = o.change === null || o.change === undefined ? EMPTY : `${signed(o.change * 100, 1)} points${partial}`;
+  const forecast =
+    o.forecast === null || o.forecast === undefined
+      ? span("t-dim", "no forecast yet")
+      : `<b>${toneSpan(o.forecast, signed(o.forecast, 1))}</b> out of 20`;
+  const archive = o.archive_days
+    ? `${o.archive_days} daily reading${o.archive_days === 1 ? "" : "s"} since ${escapeHtml(day(o.archive_first_day))}`
+    : "no reading archived yet";
+  const body = `<div class="t-scroll"><table class="t-table t-forecast">
+    <thead><tr><th></th><th class="n">Now · ${escapeHtml(day(o.reading_day))}</th><th class="n">Week ago · ${escapeHtml(
+      day(o.reference_day),
+    )}</th></tr></thead>
+    <tbody>
+      ${rows}
+      <tr class="t-group"><th scope="row">De-escalation index<small>the mean of the three</small></th><td class="n"><b>${pr(
+        o.index,
+      )}</b></td><td class="n"><b>${pr(o.index_reference)}</b></td></tr>
+      <tr class="t-total"><th scope="row">Forecast<small>${MINUS}${num(o.rule.forecast_per_point, 0)} per point of weekly change · rising de-escalation = short oil · ${MINUS}20 to +20</small></th>
+        <td class="n">${forecast}</td><td class="n">${escapeHtml(change)}</td></tr>
+    </tbody></table></div>
+    <p>${escapeHtml(o.note.charAt(0).toUpperCase() + o.note.slice(1))}.</p>
+    <p class="t-dim">${escapeHtml(o.rule.text)} Books on it: ${o.books.map((b) => escapeHtml(b)).join(", ")}. Archive: ${archive}.
+    ${o.disclaimer ? escapeHtml(o.disclaimer) : ""} <span class="warn">The prior written with the rule is that it has no edge.</span></p>`;
+  return section("Kalshi index · the Oracle book", body, "the crowd's probabilities, read off three deadline ladders at a constant horizon");
+}
+
 // ---------------------------------------------------------------------------------------------- books
 const STATUS: Record<string, { cls: string; text: string }> = {
   active: { cls: "ok", text: "active" },
@@ -253,7 +298,11 @@ function bookRow(b: Book): string {
   const st = STATUS[b.status] ?? { cls: "dim", text: b.status };
   return `<tr>
     <th scope="row"><span class="t-key" style="--sw:${bookColor(b.id)}"></span>${escapeHtml(b.name)}${
-      b.experimental ? ' <span class="t-dim">experimental</span>' : ""
+      b.forecast_family === "kalshi"
+        ? ' <span class="warn">speculative · no backtest</span>'
+        : b.experimental
+          ? ' <span class="t-dim">experimental</span>'
+          : ""
     }${b.role_change ? ` <span class="warn">${escapeHtml(b.role_change.role)} since ${escapeHtml(day(b.role_change.since))}</span>` : ""}<small>${escapeHtml(
       b.vehicle,
     )}</small></th>
@@ -280,7 +329,11 @@ function booksTable(doc: DeskDoc): string {
   const candidates = doc.books.filter((b) => (b.role ?? "core") !== "core");
   const capital = num(doc.books[0]?.initial_capital ?? 10000, 0);
   const candidateRows = candidates.length
-    ? `<tr class="t-break"><th scope="row" colspan="10" class="t-dim w">Candidates · paper books beside the four, the prudent book's rules on their own price (gold, copper, agriculture, Treasuries, equities, uranium, utilities, lithium, semiconductors, clean energy), judged on real fills before anybody trusts them</th></tr>
+    ? `<tr class="t-break"><th scope="row" colspan="10" class="t-dim w">Candidates · paper books beside the four, the prudent book's rules on their own price (gold, copper, agriculture, Treasuries, equities, uranium, utilities, lithium, semiconductors, clean energy), judged on real fills before anybody trusts them${
+        candidates.some((b) => b.forecast_family === "kalshi")
+          ? "; and the Oracle, the speculative book on the micro WTI future that takes its direction from Kalshi's prediction markets - no backtest, live fills only"
+          : ""
+      }</th></tr>
       ${candidates.map(bookRow).join("")}
       ${totalRow("Candidates", doc.total_candidates, `${candidates.length} separate accounts of ${capital} $ each`)}`
     : "";
@@ -313,7 +366,11 @@ function ruleLine(b: Book): string {
     of the spread from the bad side.`;
   }
   const weekend = r.weekend_max_leverage as number | null | undefined;
-  return `Volatility target ${percent(r.vol_target as number, 0)} · leverage cap ${leverage(r.max_leverage as number)}${
+  const source =
+    b.forecast_family === "kalshi"
+      ? `Forecast: the week's change of Kalshi's de-escalation index, ${MINUS}2 per point (rising = short oil), read the evening before on the desk's own archive; no backtest exists for it. `
+      : "";
+  return `${source}Volatility target ${percent(r.vol_target as number, 0)} · leverage cap ${leverage(r.max_leverage as number)}${
     weekend !== null && weekend !== undefined ? ` (${leverage(weekend)} before a weekend or a holiday)` : ""
   } · ${r.long_only ? "long only" : r.short_via ? `long and short (short by buying ${escapeHtml(String(r.short_via))})` : "long and short"} · margin ${percent(r.margin_rate as number, 0)} · decision at ${escapeHtml(
     String(r.decision_time_ny ?? ""),
@@ -352,7 +409,9 @@ function bookDetails(doc: DeskDoc): string {
         .join("");
       return `<details class="t-details">
         <summary><span class="t-key" style="--sw:${bookColor(b.id)}"></span><b>${escapeHtml(b.name)}</b>
-          <span class="t-dim">${escapeHtml(b.robinhood ?? b.vehicle)}${b.role === "candidate" ? " · candidate" : ""}</span></summary>
+          <span class="t-dim">${escapeHtml(b.robinhood ?? b.vehicle)}${b.role === "candidate" ? " · candidate" : ""}${
+            b.forecast_family === "kalshi" ? " · speculative, no backtest" : ""
+          }</span></summary>
         <p>${escapeHtml(b.description)}</p>
         <p class="t-dim">${ruleLine(b)}</p>
         ${structures}
@@ -832,11 +891,21 @@ function backtest(doc: DeskDoc): string {
         <td class="n down">${percent(bt.options.stats.max_drawdown ?? null, 0)}</td><td></td><td></td><td></td>
       </tr>`
     : "";
+  const excluded = (bt.excluded ?? [])
+    .map(
+      (x) => `<tr class="t-bench">
+        <th scope="row"><span class="t-key" style="--sw:${bookColor(x.id)}"></span>${escapeHtml(names.get(x.id) ?? x.name)}<small>${escapeHtml(
+          x.vehicle,
+        )} · speculative</small></th>
+        <td colspan="7" class="t-dim w">No backtest: ${escapeHtml(x.reason)}.</td>
+      </tr>`,
+    )
+    .join("");
   const body = `<div class="t-scroll"><table class="t-table t-backtest t-summary">
     <thead><tr><th>Book</th><th class="n">Yearly return</th><th class="n">Volatility</th><th class="n">Sharpe</th>
       <th class="n">Max drawdown</th><th class="n">Leverage 95th</th><th class="n">P(${MINUS}50% in a year)</th>
       <th class="n">Sharpe at 2× costs</th></tr></thead>
-    <tbody>${coreRows}${opt}${candRows ? `<tr class="t-break"><th colspan="8" class="t-dim w">Candidates</th></tr>${candRows}` : ""}${together}${bench}</tbody></table></div>
+    <tbody>${coreRows}${opt}${candRows || excluded ? `<tr class="t-break"><th colspan="8" class="t-dim w">Candidates</th></tr>${candRows}${excluded}` : ""}${together}${bench}</tbody></table></div>
     <p class="t-dim">Real costs, ${escapeHtml(bt.fill_rule ?? "")}. The "t" under each Sharpe is how many standard errors it sits
     from zero: above 2 is serious evidence, not certainty. Part of the result is selection among the signals tried, and
     2023, 2024 and 2025 were all negative for the oil books. <a href="#/backtest">Year by year, components and sensitivity →</a></p>`;
@@ -898,9 +967,16 @@ function howTo(): string {
     is retired, flat, after twenty-four months with a realised Sharpe below ${MINUS}0.5. Drawdown control was measured and
     left off. Nothing in it ever raises a position above a book's own rules.</p>
     <p><b>Prediction markets.</b> Kalshi's contracts on the price of Brent and WTI, the strait and the US-Iran talks are
-    read once a day and archived: their prices are the crowd's probabilities, on questions the forecast cannot see.
-    No book trades on them - there is no history to test a rule on, and the archive is being built so that one day there
-    will be. Where the question is a price, the page puts the options' own probability beside the crowd's.</p>
+    read every hour and archived once a day: their prices are the crowd's probabilities, on questions the forecast cannot
+    see. No core book trades on them - there is no history to test a rule on, and the archive is being built so that one
+    day there will be. Where the question is a price, the page puts the options' own probability beside the crowd's.</p>
+    <p><b>The Oracle (speculative).</b> On the owner's request, one candidate book takes its direction from Kalshi: the
+    week's change in the crowd's probability that the war de-escalates within 90 days (the strait back to normal, a
+    US-Iran senior meeting, a nuclear deal - three deadline ladders, read the evening before off the desk's own archive).
+    De-escalation rising means short oil, falling means long, ${MINUS}2 forecast points per point of probability, on the
+    micro WTI future at the highest volatility target the rules allow (50%, halved while the bubble switch is on). The
+    rule was written down before the first decision; there is no backtest because there is no history; the prior is that
+    it has no edge; it is judged on live fills only, never promoted, and can wipe out its account.</p>
     <p><b>Execution.</b> An order fills at the open of the first 30-minute bar that starts after the decision, with the
     instrument's real spread and commissions. Never at the price that produced the signal.</p>
     <p><b>What is not here.</b> No intraday strategy: on the hourly bars of BNO, USO and the contracts, intraday momentum
@@ -934,6 +1010,7 @@ export async function renderTerminal(el: HTMLElement): Promise<void> {
     ${header(doc, loaded.origin)}
     ${market(doc)}
     ${forecastTable(doc)}
+    ${oracleTable(doc)}
     ${allocator(doc)}
     ${booksTable(doc)}
     ${bookDetails(doc)}

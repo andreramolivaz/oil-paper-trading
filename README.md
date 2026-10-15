@@ -79,6 +79,18 @@ solito del mercato, con l'impronta delle operazioni (poche e grosse, da un lato 
 insider trading finiti sui giornali - apre una issue su GitHub e compare sul terminale. È un'impronta, non un
 verdetto: una notizia arrivata prima al mercato lascia la stessa.
 
+**Un libro speculativo su Kalshi** (fase 14, 15 ottobre 2026, su richiesta del proprietario: «una strategia
+basata su Kalshi a leva, altamente speculativa»). «Oracle» è un libro candidato di carta da 10.000 $ sul future
+micro WTI, long e short fino a 10x con l'obiettivo di volatilità massimo che le regole permettono (50%), che
+prende la direzione dai mercati a eventi: la variazione in una settimana della probabilità che il pubblico dà
+alla de-escalation entro 90 giorni (lo stretto normale, un incontro USA-Iran, un accordo nucleare: tre scale a
+scadenza, lette la sera prima sull'archivio del desk). Se sale, short petrolio; se scende, long; −2 punti di
+previsione per punto di probabilità. Un contratto Kalshi non si compra a leva: la leva sta sul petrolio, Kalshi
+dà il verso. La regola è scritta in `docs/RESEARCH.md` (capitolo 10) prima della prima decisione; **non ha
+backtest**, perché non esiste una storia di quei mercati; si giudica sui soli eseguiti, non viene mai promosso,
+e il prior dichiarato è che non abbia alcun vantaggio. Può azzerare il conto. I quattro libri, i dodici candidati
+e il loro backtest sono identici prima e dopo.
+
 Il primo sistema (21 strategie su conti ombra, regimi, previsioni di prezzo) continua a girare ogni giorno e
 resta consultabile dalla pagina **Archive** del sito, una pagina sola: nessuna sua strategia ha superato la
 validazione, quindi il suo conto è fermo per costruzione.
