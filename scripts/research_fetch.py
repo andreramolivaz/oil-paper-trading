@@ -162,18 +162,23 @@ def _kalshi_trades(out: Path) -> int:
     return 0
 
 
-def _kalshi_history(out: Path) -> int:
+def _kalshi_history(out: Path, series_arg: str | None = None, since_arg: str = "2026-01-01") -> int:
     """The daily candlesticks of every market, open or settled, of the event series the desk reads (the three
     the speculative book's index is made of first, then the other strait and supply series), from 2026-01-01:
     what the archive would hold had the desk read those markets every day since (phase 14, the backfill). One
-    call a second; the price ladders are left out (hundreds of daily markets, nothing the index reads)."""
+    call a second; the price ladders are left out (hundreds of daily markets, nothing the index reads).
+    ``--series`` (a comma-separated list of series tickers) downloads other series instead - phase 15 looked at
+    the Fed, recession, trade and energy-policy series this way, before registering any rule on them."""
     from engine.data.adapters.kalshi import KalshiAdapter
     from engine.desk.oracle import COMPONENTS
 
     out.mkdir(parents=True, exist_ok=True)
-    others = ["KXCLOSEHORMUZ", "KXHORMUZRETURN", "KXHORMUZWEEKLY", "KXMAXSHIPSHORMUZ", "KXOPECCUTS", "KXSAUDICRUDE"]
-    series = [*COMPONENTS, *others]
-    since = int(datetime(2026, 1, 1, tzinfo=UTC).timestamp())
+    if series_arg:
+        series = [s.strip().upper() for s in series_arg.split(",") if s.strip()]
+    else:
+        others = ["KXCLOSEHORMUZ", "KXHORMUZRETURN", "KXHORMUZWEEKLY", "KXMAXSHIPSHORMUZ", "KXOPECCUTS", "KXSAUDICRUDE"]
+        series = [*COMPONENTS, *others]
+    since = int(datetime.combine(date.fromisoformat(since_arg), datetime.min.time(), tzinfo=UTC).timestamp())
     history = KalshiAdapter().fetch_history(series, since)
     (out / "history.json").write_text(json.dumps(history, indent=0))
     for ticker, block in history["series"].items():
@@ -196,6 +201,8 @@ def main() -> int:
         "markets the desk reads and a week of their trades (the busiest and the event markets), for the alert; "
         "'kalshi-history': the daily candlesticks of every market of the event series since January 2026",
     )
+    parser.add_argument("--series", default=None, help="kalshi-history: a comma-separated list of series tickers")
+    parser.add_argument("--since", default="2026-01-01", help="kalshi-history: the first day (ISO date)")
     args = parser.parse_args()
     out = Path(args.out)
     yahoo = YahooAdapter(min_interval=1.3, retries=2, backoff=4.0)
@@ -217,7 +224,7 @@ def main() -> int:
     if args.only == "kalshi-trades":
         return _kalshi_trades(out / "kalshi")
     if args.only == "kalshi-history":
-        return _kalshi_history(out / "kalshi")
+        return _kalshi_history(out / "kalshi", args.series, args.since)
     if args.only == "satellites":
         for symbol in DAILY_SATELLITES:
             run(
