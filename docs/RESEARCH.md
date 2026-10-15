@@ -1143,8 +1143,9 @@ ironico quanto basta.
    previsione di −20 vale 2,3x di esposizione, cioè due o tre micro contratti su 10 000 $: la leva alta è un
    tetto, non un programma, come per il libro spinto.
 7. **Il libro**: `oracle`, «Oracle», `role: candidate`, `forecast: kalshi`, veicolo MCL, long e short, 10 000
-   $, un conto a sé, nel totale dei candidati. Non entra nel backtest (non c'è storia da riprodurre), e il sito
-   lo scrive su ogni riga che lo riguarda. La decisione registra tutti gli input (indice, componenti,
+   $, un conto a sé, nel totale dei candidati. Non entra nel backtest del desk (nessuna serie da riprodurre nel
+   replay; la storia scaricata il 15 ottobre, sezione H, è stata misurata a parte), e il sito lo scrive su ogni
+   riga che lo riguarda. La decisione registra tutti gli input (indice, componenti,
    riferimento, variazione, età delle due letture): fra un anno la regola si riproduce riga per riga
    sull'archivio, ed è quello il primo test.
 
@@ -1191,6 +1192,68 @@ scadenze del 1° gennaio e del 1° febbraio): lo stretto normale 6,6% il 14 e 6,
 livello 46,8% e 45,6%; un accordo 11,0% e 11,7%; indice 21,5% e 21,3%. Una variazione di −0,2 punti in un
 giorno, dentro la banda morta. Il mercato dell'incontro è il meno liquido dei tre (spread di 8-9 centesimi,
 volume zero sulle date lontane): è lui che farà il rumore, e il filtro sullo spread lo lascia dentro di poco.
+
+### H. L'archivio riempito all'indietro, e il primo test (15 ottobre, pomeriggio)
+
+Il proprietario, la mattina dopo: «non funziona perché mancano dati». Vero: il libro confronta la lettura di
+oggi con quella di una settimana prima e l'archivio aveva due giorni. E la frase «non esiste una storia di
+questi mercati» era sbagliata: l'API pubblica le candele giornaliere di ogni mercato dal giorno in cui è stato
+aperto (`GET /series/{serie}/markets/{mercato}/candlesticks`, intervallo 1440 minuti: offerta e domanda alla
+chiusura del periodo, ultimo scambio, contratti del giorno, open interest; i mercati archiviati dopo il
+regolamento su `/historical/markets/{mercato}/candlesticks`). Scaricate dal runner alle 17:59 UTC (`research-data`,
+`kalshi-history`; `tests/fixtures/kalshi_history_2026-10-15.json` ne conserva le tre serie dell'indice):
+lo stretto dal 18 marzo (la scala è nata il 17; date aggiunte il 14 aprile, l'8 giugno, l'8 luglio, il 24
+agosto e l'8 ottobre; tre regolate NO: 15 agosto, 1° settembre, 1° ottobre), l'accordo dal 9 gennaio (il
+mercato «entro il 1° gennaio 2027»; gli altri dal 14 aprile, 21 maggio, 21 luglio; due regolati NO), l'incontro
+dal 24 settembre (sette mercati, uno regolato NO il 1° ottobre). Una candela giornaliera finisce a mezzanotte
+di New York (04:00 UTC d'estate); la lettura del giro è delle 00:20 UTC, cioè le 20:20 di New York della sera
+prima: sono entrambe «la sera prima del giorno di decisione», e si confrontano (lo stretto entro un centesimo
+fra la candela e la lettura del 15; il mercato dell'incontro, sottile, 42% contro 47% a tre ore di distanza).
+
+Che cosa fa il motore (`engine/desk/backfill.py`, `engine.cli kalshi-backfill`, il workflow manuale
+`kalshi-backfill.yml`): per ogni giorno UTC in cui un mercato era aperto e la sua candela è completa, il record
+che il giro avrebbe scritto (stesso formato, `backfilled: true` e la fonte), aggiunto all'archivio solo per i
+giorni che non hanno una lettura del giro: una lettura viva non viene mai sostituita. Il volume cumulato è la
+somma delle candele dal primo giorno (esatto per i mercati scaricati dall'apertura), `prev_mid` il mid della
+candela prima; l'allerta legge solo le letture vive, l'Oracle non legge né l'uno né l'altro. L'indice sulla
+storia: solo l'accordo fino al 17 marzo (7-15%); dal 18 marzo due componenti: 20% → 46% a metà aprile → il
+massimo 57,5% il 15 giugno → 18% a metà luglio → il minimo 8,1% l'11 settembre → 21-25% in ottobre con
+l'incontro come terza componente dal 24 settembre.
+
+**Il primo test della regola del punto 5, com'è scritta** (`scripts/research_oracle.py`, sulla fixture e su
+una copia del branch dati del 13 ottobre: la serie del WTI investibile del desk fino al 12 ottobre): per ogni seduta D dal 18 marzo al 12 ottobre la lettura del giorno D (la candela) contro il
+riferimento di 7-10 giorni prima, la previsione, la taglia della regola (`F/10 × 0,50 × m / vol`, con m = 0,5
+nei giorni in cui l'interruttore della bolla era acceso sul WTI, cioè quasi tutti), posizione presa alla
+chiusura di D sul rendimento di D+1; costi del veicolo (1,27 $ per lotto e lato più 1,5 pb). 143 sedute,
+previsione diversa da zero in 130 (57 short, 73 long).
+
+| Misura | Valore |
+|---|---|
+| Taglia continua: Sharpe (errore standard) | **1,19 (±1,7)** |
+| rendimento annuo, volatilità | +63%, 53% |
+| Su 10 000 $ a lotti interi: risultato netto | **+2 771 $ (+27,7%)**, 48 operazioni, 162 $ di costi, al massimo 3 lotti |
+| mese per mese (taglia continua) | mar −1,8%, apr +9,6%, mag −0,9%, giu +1,5%, **lug +36,2%**, ago −7,8%, set +7,6%, ott −8,4% |
+| media di \|ΔD settimanale\|, mediana | 6,3 punti, 3,8 |
+| media di \|F\| | **9,84** (la normalizzazione di Carver vale: la scala non si tocca) |
+
+Come leggerlo: lo Sharpe sta entro un errore standard da zero; un mese su otto fa il risultato (luglio: il
+rendimento del 7 e del 10 luglio con tre lotti); e il campione è lo stesso periodo in cui la regola è stata
+pensata. Il prior di nessun vantaggio resta. La scala dichiarata al punto 5 si verifica qui invece che a
+dicembre, con 143 sedute: la media di |F| è 9,84, cioè 10 - esattamente la normalizzazione che Carver chiede;
+nulla da cambiare, e il riesame si ripete a dicembre sul record live.
+
+**Una cosa vista guardando i dati, non registrata prima.** La correlazione fra la variazione GIORNALIERA
+dell'indice (la giornata di New York D−1, dalla mezzanotte alla mezzanotte) e il rendimento del petrolio è
+−0,27 sullo stesso giorno (le due finestre si sovrappongono la sera di D−1, dopo il regolamento), **−0,21 sul
+giorno dopo** (D+1: t ≈ 2,5 su 143 sedute, la finestra che una decisione presa alle 14:35 di D può ancora
+prendere), −0,10 il giorno prima; la variazione settimanale contro il rendimento della settimana dopo: +0,03.
+Cioè: la mossa di un giorno ha il segno che la regola presume e sembra precedere il petrolio di un giorno; la
+variazione di una settimana, quella che la regola registrata usa, non porta nulla all'orizzonte di una
+settimana, e il risultato sopra viene dai giorni subito dopo una mossa. È un'osservazione fatta dopo aver
+guardato, su 143 giorni: una regola sulla variazione giornaliera sarebbe un candidato nuovo da registrare e
+provare sul record live, non una modifica a questo libro oggi. Il libro resta com'è scritto. La prima decisione
+con un riferimento è quella del 15 ottobre: 21,3% contro 25,1% dell'8, −3,8 punti, previsione +7,5 (long, sotto
+la convinzione normale, meno di un lotto intero con l'obiettivo dimezzato).
 
 ## Fonti
 

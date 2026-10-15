@@ -225,7 +225,11 @@ function oracleTable(doc: DeskDoc): string {
       ? span("t-dim", "no forecast yet")
       : `<b>${toneSpan(o.forecast, signed(o.forecast, 1))}</b> out of 20`;
   const archive = o.archive_days
-    ? `${o.archive_days} daily reading${o.archive_days === 1 ? "" : "s"} since ${escapeHtml(day(o.archive_first_day))}`
+    ? `${o.archive_days} daily reading${o.archive_days === 1 ? "" : "s"} since ${escapeHtml(day(o.archive_first_day))}${
+        o.archive_backfilled_days
+          ? `, ${o.archive_backfilled_days} of them filled from Kalshi's daily candlesticks (the close at midnight New York) for the days before the desk read these markets itself`
+          : ""
+      }`
     : "no reading archived yet";
   const body = `<div class="t-scroll"><table class="t-table t-forecast">
     <thead><tr><th></th><th class="n">Now · ${escapeHtml(day(o.reading_day))}</th><th class="n">Week ago · ${escapeHtml(

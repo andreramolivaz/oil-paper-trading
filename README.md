@@ -87,9 +87,13 @@ alla de-escalation entro 90 giorni (lo stretto normale, un incontro USA-Iran, un
 scadenza, lette la sera prima sull'archivio del desk). Se sale, short petrolio; se scende, long; −2 punti di
 previsione per punto di probabilità. Un contratto Kalshi non si compra a leva: la leva sta sul petrolio, Kalshi
 dà il verso. La regola è scritta in `docs/RESEARCH.md` (capitolo 10) prima della prima decisione; **non ha
-backtest**, perché non esiste una storia di quei mercati; si giudica sui soli eseguiti, non viene mai promosso,
-e il prior dichiarato è che non abbia alcun vantaggio. Può azzerare il conto. I quattro libri, i dodici candidati
-e il loro backtest sono identici prima e dopo.
+backtest** nel replay del desk; si giudica sui soli eseguiti, non viene mai promosso, e il prior dichiarato è
+che non abbia alcun vantaggio. Può azzerare il conto. I quattro libri, i dodici candidati e il loro backtest
+sono identici prima e dopo. L'archivio dei mercati ha un passato: le candele giornaliere di Kalshi, dal giorno in
+cui ogni mercato è stato aperto, riempiono i giorni prima che il desk li leggesse (lo stretto dal 18 marzo), e
+sulla storia così ricostruita la regola è stata misurata una volta, com'è scritta: Sharpe 1,19 con un errore
+standard di 1,7 su 143 sedute, un mese su otto che fa il risultato - nulla che si distingua da zero
+(`docs/RESEARCH.md`, capitolo 10 H).
 
 Il primo sistema (21 strategie su conti ombra, regimi, previsioni di prezzo) continua a girare ogni giorno e
 resta consultabile dalla pagina **Archive** del sito, una pagina sola: nessuna sua strategia ha superato la

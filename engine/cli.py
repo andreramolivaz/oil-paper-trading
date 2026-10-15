@@ -239,6 +239,18 @@ def cmd_watch(args: argparse.Namespace) -> int:
     return _report(jobs.watch(_runner(), _job_id(args, "watch")))
 
 
+def cmd_kalshi_backfill(args: argparse.Namespace) -> int:
+    """Fill the prediction markets' archive from Kalshi's daily candlesticks (phase 14)."""
+    from datetime import date as _date
+    from pathlib import Path as _Path
+
+    from engine.live import jobs
+
+    since = _date.fromisoformat(args.since)
+    file = _Path(args.file) if args.file else None
+    return _report(jobs.kalshi_backfill(_runner(), _job_id(args, "kalshi-backfill"), since, file))
+
+
 def cmd_desk_backtest(args: argparse.Namespace) -> int:
     """Replay the desk books over the archived history and write the result where the dashboard reads it."""
     from datetime import date as _date
@@ -398,6 +410,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_watch.add_argument("--job-id", default=None)
     p_watch.set_defaults(func=cmd_watch)
+    p_backfill = sub.add_parser(
+        "kalshi-backfill",
+        help="riempie l'archivio dei mercati a eventi con le candele giornaliere di Kalshi (le letture vive restano)",
+    )
+    p_backfill.add_argument("--since", default="2026-01-01", help="primo giorno da riempire (YYYY-MM-DD)")
+    p_backfill.add_argument("--file", default=None, help="una storia salvata dal research fetch invece di scaricarla")
+    p_backfill.add_argument("--job-id", default=None)
+    p_backfill.set_defaults(func=cmd_kalshi_backfill)
     p_desk = sub.add_parser("desk-backtest", help="backtest dei libri del desk sullo storico archiviato")
     p_desk.add_argument("--start", default=None)
     p_desk.add_argument("--end", default=None)
