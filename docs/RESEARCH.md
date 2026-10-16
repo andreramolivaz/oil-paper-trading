@@ -1499,6 +1499,14 @@ revisore: le decisioni, gli eseguiti e le marcature dei libri del desk sono iden
 sullo stesso desk; ogni libro Kalshi riceve solo le proprie chiavi; un indice che non si legge costa la sola sua
 manica; i numeri di E si riproducono.
 
+**In linea** dalle 01:27 UTC del 16 ottobre (PR #25): il primo giro ha ricalcolato il backtest una volta (stessi
+numeri, i tre libri Kalshi esclusi), il giro delle 01:48 ha letto 331 mercati (le riunioni del FOMC e i due
+mercati sulla recessione in più) e il job di riempimento delle 01:52 ha scritto 3 715 record per 288 giorni
+(l'archivio ha 289 giorni: fedpath 121 letture dal 18 giugno, recession 289); la pagina mostra i tre indici con
+la lettura del 15 contro quella dell'8 (de-escalation +7,5; percorso della Fed −13,4 su una rilettura
+restrittiva di +5,3 pb; recessione 0 dentro la banda morta). La prima decisione dei due libri nuovi con un
+riferimento è quella del 16 alle 15:00 di New York.
+
 
 ## Fonti
 

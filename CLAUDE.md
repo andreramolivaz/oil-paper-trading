@@ -800,6 +800,27 @@ this branch's (spinto 0.68, `all` 1.23; the payload differs only in `excluded` a
 changes once, 62d61be3e097 -> b66ecbb82b75, because the hash of book.py's constants now leaves the Kalshi
 registry out: the first tick after the deploy recomputes the backtest once, same numbers).
 
+Phase 15 went live on 2026-10-16 at 01:27 UTC (PR #25, rebase-merged as 45735dfa; CI green on the branch and on
+main; Pages redeployed). Checked on GitHub and on the data branch, not assumed: the push cancelled the runner in
+progress and started a new one; its first tick (01:28-01:36 UTC) recomputed the backtest once ("computed: the
+rules changed", `meta.model` 62d61be3e097 -> b66ecbb82b75, 13 books, `excluded` the three Kalshi books, spinto
+0.68, `all` 1.23 - the same numbers), took the two new books' decisions of the 15th as "missing data: position
+unchanged" ("no Kalshi reading of the Fed path in the archive: no value": the archive had none yet) and left
+every other book where it was; the 01:48 tick's hourly download read 331 markets (the 274 of before plus the
+FOMC meetings and the two recession markets) and archived 13 new events for the 16th, and the alert judged
+nothing (the FOMC series is out of its scope). The backfill job (01:50-01:52 UTC, dispatched in the quiet
+window after a tick's push) wrote 3 715 records for 288 days (1 January - 15 October), skipped the 514 the tick
+had read, no download failed; the archive has 289 days (fedpath 121 readings from 18 June, recession 289,
+de-escalation 277), and the 02:18 tick synced it without a push failure and recomputed nothing. `desk.json` on
+the data branch carries the three indices (the 15th against the 8th: de-escalation +7.5, Fed path -13.4 on a
++5.3 bp hawkish repricing, recession 0.0 inside the deadband), the books' signed sleeves and the two new
+groups of the prediction-markets block ("fed" 11 events, "economy" 2); the public page renders the block, the
+rows and the backtest's three excluded rows with no console error. Still NOT seen: the first decision of
+`oracle_equities` and `oracle_utilities` with a reference (the 16th at 15:00 New York, the 19:18 UTC tick:
+with the Fed path hawkish both should stay in cash and say so), their first fill, a day on which the Fed path's
+reading comes from a live reading rather than a candle (the 17th), the scales' re-measurement at 60 live
+readings per sleeve.
+
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
 failure looked like a normal red cross. The giveaway: the run's name was the file path instead of `ci`.
