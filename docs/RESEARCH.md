@@ -1598,6 +1598,49 @@ misura chiede mesi, e la lettura di una settimana non dice nulla.
 Una famiglia di previsione in più, `claude`, accanto a `desk` e `kalshi`: candidati speculativi, fuori dal replay,
 dalle tabelle e dall'impronta, giudicati sui soli eseguiti dal vivo, mai nel nucleo.
 
+### F. La revisione prima della messa in linea (16 ottobre, prima di ogni lettura)
+
+Un agente che non aveva visto scrivere il codice lo ha attaccato con simulatori suoi (giri veri con un trasporto
+finto, il ramo dati reale contro un remoto locale, la pagina in un browser con un `desk.json` avvelenato) e con la
+documentazione dell'API alla mano. Le richieste sono quelle che la documentazione chiede (il modello, lo strumento
+di ricerca, `output_config.format`, i prezzi, il campo delle ricerche nell'uso: nessuna darebbe un 400 alla prima
+chiamata), la chiave non compare in nessuno dei file che quattro giri e un'esportazione scrivono, i diciassette libri
+di prima hanno barre, eseguiti, marcature ed equity identici a `main`. Che cosa ha trovato, e che cosa cambia **prima
+della prima lettura** (nessuna lettura esiste, quindi nessun risultato è stato guardato):
+
+- **Un tentativo pagato poteva sparire** (il difetto che contava). Il giro scrive il tentativo nell'albero del ramo
+  dati; un giro che fallisce dopo la chiamata, o un push che non arriva, fa ripartire quell'albero dal ramo e il
+  tentativo va perso: il tetto dei tre tentativi e il budget non lo vedono più, e il giro dopo paga di nuovo (otto
+  giri, sedici richieste pagate, nulla in archivio nel simulatore). Ora ogni tentativo va anche in un **registro
+  fuori dall'albero** (`OPT_ANALYST_LEDGER`, nello spazio di lavoro del runner) e il giro dopo rimette in archivio
+  quello che manca (`restore_from_ledger`). Resta scoperto solo un tentativo non spinto alla fine di un runner, che
+  il successore può pagare una volta in più.
+- **I limiti di token erano da modello che non pensa.** Claude Sonnet 5.5 pensa da sé (il pensiero adattivo è il suo
+  comportamento predefinito, con lo sforzo predefinito `high`) e il pensiero conta in `max_tokens`: 6 000 e 3 000
+  avrebbero troncato. Ora 16 000 per ciascuna chiamata (si pagano solo i token generati); i limiti entrano in
+  `prompt_version`. Lo sforzo resta quello predefinito del modello.
+- **Un riassunto troncato passava per buono**, contro il testo del punto D: ora `max_tokens` (o il contesto
+  esaurito) sul riassunto è un tentativo fallito, come già lo era sulla previsione.
+- **Le ricerche erano 6 per richiesta, non per lettura**: una ripresa dopo una pausa ne avrebbe concesse altre 6.
+  Ora ogni ripresa ha solo quelle rimaste, e senza ricerche rimaste non si riprende.
+- **Il tempo non aveva un tetto vero**: ora la lettura intera ha `timeout_s` = 420 secondi, ogni richiesta solo
+  quelli rimasti e nessuna parte con meno di 20.
+- **Un mercato poteva mancare per sempre**: con la risposta come elenco, un mercato omesso ogni giorno avrebbe
+  lasciato il suo libro fermo sulla posizione senza mai scadere. Lo schema è ora un oggetto con i quattro mercati
+  **tutti obbligatori** (stessi campi: previsione, fiducia, ragioni, rischio); `prompt_version` cambia di
+  conseguenza.
+- **«Le ultime 48 ore» di lunedì cominciavano sabato** e lasciavano fuori la seduta di venerdì. Ora il riassunto
+  cerca le notizie dalla mattina (13:00 UTC) del giorno lavorativo americano precedente, e almeno 48 ore indietro:
+  il lunedì da venerdì mattina, il giorno dopo una festa dal giorno lavorativo prima.
+- Minori, corretti: la chiave tolta da un messaggio **prima** di tagliarlo (tagliato prima, un pezzo sarebbe
+  rimasto) e anche negli errori archiviati; la chiave data al solo passo del giro nel workflow, non alle azioni di
+  terzi che lo precedono; la decisione di un libro senza previsione dice perché con le parole dell'analista; le
+  parole lunghe del modello vanno a capo su un telefono.
+- Lasciato com'è, scritto: una richiesta che scade può essere fatturata senza che il suo uso ci arrivi (il budget
+  non la vede; la console di Anthropic sì); una pausa doppia rimanda il turno intero com'è finora, e la prima che
+  capiterà nell'archivio dirà se è giusto (con 6 ricerche è improbabile); la ricerca web deve essere abilitata per
+  l'organizzazione che ha i crediti, altrimenti ogni lettura fallisce con l'errore dell'API scritto in pagina.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):

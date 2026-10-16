@@ -574,28 +574,26 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
 
 def _analyst_step(runner: LiveRunner, desk: Any, now: Any) -> dict[str, Any]:
     """The Claude analyst's reading of the day when it is due (``engine/desk/analyst.py``): nothing offline, no call
-    without the key or when no book reads it; the tick's own word on it (whether it had a key - never the key) goes
-    to ``desk/claude_status.json`` for the page. Whatever goes wrong is written in the archive and the tick's log
-    and never costs the tick."""
+    without the key or when no book reads it; an attempt a failed tick lost is put back from the ledger first. The
+    tick's own word on it (whether it had a key - never the key) goes to ``desk/claude_status.json`` for the page.
+    Whatever goes wrong is written in the archive and the tick's log and never costs the tick."""
     if runner.settings.offline:
         return {}
+    key = runner.settings.anthropic_api_key
     try:
         from engine.desk import analyst
         from engine.desk.live import desk_store
 
         cfg = analyst.AnalystConfig.load(runner.settings.config_dir)
-        key = runner.settings.anthropic_api_key
         send = analyst.http_transport(key, cfg.timeout_s) if key else None
         readers = any(b.cfg.forecast == analyst.FAMILY for b in desk.books.values())
         store = desk_store(runner.settings.state_dir)
-        out = analyst.maybe_read(store, cfg, now, send, readers)
+        out = analyst.maybe_read(store, cfg, now, send, readers, ledger=runner.settings.analyst_ledger, secret=key)
         analyst.write_status(store, now, key_set=send is not None, readers=readers, outcome=out)
         return {"analyst": out} if out else {}
     except Exception as exc:  # the reading is on the side: the books, bars and marks never wait for it
-        text = str(exc)[:160]
-        key = runner.settings.anthropic_api_key
-        if key:  # belt and braces: no message of this step may carry the key
-            text = text.replace(key, "***")
+        # the key replaced before the message is cut: cut first, a split key would survive (found in review)
+        text = (str(exc).replace(key, "***") if key else str(exc))[:160]
         log.warning("analyst skipped: %s: %s", type(exc).__name__, text)
         return {"analyst": {"status": f"failed: {type(exc).__name__}: {text}"}}
 

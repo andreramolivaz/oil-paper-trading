@@ -517,6 +517,9 @@ class Book:
         )
         if not usable:
             reason = "Not enough data to size the position (forecast, volatility or price missing): position unchanged."
+            if combined is None and self.cfg.forecast == analyst.FAMILY:
+                # the analyst's words for it: no reading yet, or none for this book's market (found in review)
+                reason = f"{analyst.lead_text(forecast, self.cfg.sleeves)}Position unchanged."
             dec = Decision(ts, cfg.id, cfg.vehicle, symbol, price, equity, forecast, vol, 0.0, 0.0, "missing data",
                            current, current, 0.0, reason, str(snap.status))  # fmt: skip
             dec.legs = self._leg_rows(leg, leg_ref, leg_current, leg_current, 0.0)

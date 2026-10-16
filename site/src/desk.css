@@ -267,6 +267,8 @@ tr[data-href]:hover > * { background: var(--surface-1); }
 }
 
 /* ---------- the Claude analyst: the signals page's section and a Claude book's "Now" ---------- */
+/* the model's words can hold a long unbroken token (an address, a ticker run): it wraps, the page never scrolls */
+.a-state, .a-reasons li, .a-reading td.w, .term .b-analyst, .term .a-brief, .a-sources li { overflow-wrap: anywhere; }
 .a-state { margin: 0 0 10px; font-size: var(--t-base); color: var(--text-primary); max-width: 80ch; text-wrap: pretty; }
 .a-state .t-dot { margin-right: 8px; font-weight: 600; }
 .a-reading th[scope="row"] { min-width: 15ch; }

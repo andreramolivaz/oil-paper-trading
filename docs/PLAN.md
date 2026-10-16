@@ -219,7 +219,11 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   analyst» sui «Signals» (la lettura per mercato con le ragioni e il rischio, il riassunto e le fonti, il costo), la
   lettura del proprio mercato sulla pagina di ogni libro Claude. **Spento finché il proprietario non aggiunge il
   segreto `ANTHROPIC_API_KEY`** (README): senza, i quattro libri restano liquidi e la pagina lo dice. I diciassette
-  libri di prima e il loro backtest sono identici prima e dopo (impronta b66ecbb82b75 invariata).
+  libri di prima e il loro backtest sono identici prima e dopo (impronta b66ecbb82b75 invariata). Rivisto prima
+  della messa in linea da un agente che non lo aveva visto scrivere (capitolo 12 F): un tentativo pagato che un giro
+  fallito cancellava (ora un registro fuori dal ramo dati lo rimette), i limiti di token di un modello che non
+  pensa, un riassunto troncato accettato, le ricerche e il tempo senza un tetto per lettura, un mercato che poteva
+  mancare per sempre, il lunedì senza la seduta di venerdì: tutto corretto prima della prima lettura.
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

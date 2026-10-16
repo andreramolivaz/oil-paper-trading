@@ -295,16 +295,25 @@ How a tick works (`engine/live/jobs.py::tick`, driven by `scripts/runner_loop.sh
   overwritten, so `record_reading` and `apply_backfill` agree on the key `day|event`, and the backfilled
   records sit AFTER the live ones in the month's file: every reader sorts by day, none by line.
 - **The Claude analyst is a side call, and its key a secret.** The tick calls it before planning the downloads
-  (`jobs._analyst_step`), re-reads the clock only when it called the API, and never lets it cost the tick: every
-  attempt, failed or not, is one archived line with what was billed (`maybe_read`), errors carry the API's words and
-  never a header, and offline (tests, CI) nothing is called. The brief is what the model wrote after its last search
-  plus the passages before it that cite a source - its narration while searching is not - and only http(s) sources
-  are kept (the page links to them). A turn the API pauses is sent back as it is, at most three times and not after
-  `timeout_s`. The books on it get ONLY their entry of `book_forecasts` (`live.analyst_forecasts`), like the Kalshi
-  books; a market missing from a reading is no forecast for its book that day (position unchanged). Whether the key
-  is set is the runner's word (`claude_status.json`): the weekly and weekend jobs export without the key and must
-  not say "off" for the runner. The responses in the tests are SYNTHETIC in the documented shapes - no real reading
-  existed when they were written - and are labelled so; replace them with a real one once the runner has it.
+  (`jobs._analyst_step`), re-reads the clock only when it called the API, and never lets it cost the tick: the whole
+  reading has `timeout_s` (420 s), each request only what is left and none starts with under 20 s; every attempt,
+  failed or not, is one archived line with what was billed (`maybe_read`); errors carry the API's words and never a
+  header, the key is scrubbed BEFORE a message is cut (`analyst.scrub`); offline (tests, CI) nothing is called.
+  **A paid attempt must survive the tick**: a failed tick (`runner_loop.sh`: `git checkout -- . && git clean -fd`)
+  or a push that never lands (the next `sync` is `git reset --hard`) discards the data branch's tree with the
+  archive's line in it, so every attempt also goes to a ledger OUTSIDE that tree (`OPT_ANALYST_LEDGER`, the runner's
+  workspace) and the next tick puts back what the archive lacks (`restore_from_ledger`) - without it the 3-a-day cap
+  and the budget never saw a lost attempt and the next tick paid again. The model thinks by default (adaptive
+  thinking on Sonnet 5.5, effort high) and the thinking counts toward `max_tokens`: 16 000 per call; an answer cut
+  short (`max_tokens`, `model_context_window_exceeded`) is no reading, the brief's as well as the forecast's. Six
+  searches for the whole READING: a paused turn is sent back as it is with the searches left as `max_uses`. The
+  schema is an object with the four markets all required, so none can go missing day after day. The brief is what
+  the model wrote after its last search plus the passages before it that cite a source - its narration while
+  searching is not - and only http(s) sources are kept (the page links to them). The books on it get ONLY their
+  entry of `book_forecasts` (`live.analyst_forecasts`), like the Kalshi books. Whether the key is set is the
+  runner's word (`claude_status.json`): the weekly and weekend jobs export without the key and must not say "off" for
+  the runner. The responses in the tests are SYNTHETIC in the documented shapes - no real reading existed when they
+  were written - and are labelled so; replace them with a real one once the runner has it.
 - **A backtest belongs to the rules it was computed with.** Changing a constant in `signals.py`, `data.py`,
   `backtest.py`, `book.py` or `options.py`, a book, a vehicle, an inverse fund or the account rules in
   `config/risk.yaml` changes `report.model_signature`; the next tick recomputes (and so does a table that was
@@ -445,10 +454,11 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
 - Tests are offline by default; fixtures under `tests/fixtures/` are small real snapshots (dated, sourced).
 - One commit per completed phase; messages `phase N: ...`.
 - Secrets only via GitHub Secrets: `EIA_API_KEY`, `FRED_API_KEY`, `ALPHAVANTAGE_API_KEY`, `ANTHROPIC_API_KEY` (all
-  optional; system degrades gracefully). The Anthropic key reaches the runner alone (`runner.yml`), lives in
-  `Settings.anthropic_api_key` (`repr=False`) and in the transport's closure, and is never logged, archived,
-  exported or echoed in an error (`tests/test_desk_analyst.py` greps every file the tick wrote for it). Never ask
-  the owner to paste it anywhere: he adds the secret himself.
+  optional; system degrades gracefully). The Anthropic key reaches the runner's tick step alone (`runner.yml`: the
+  step's `env`, not the job's, so the setup actions before it never see it), lives in `Settings.anthropic_api_key`
+  (`repr=False`) and in the transport's closure, and is never logged, archived, exported or echoed in an error
+  (`tests/test_desk_analyst.py` greps every file the analyst step wrote for it; the review ran four real ticks and an
+  export and found it nowhere). Never ask the owner to paste it anywhere: he adds the secret himself.
 - A parameter of a book is a published value or a stated rule of thumb, never the best cell of a grid. When a
   result depends on a choice, show the neighbours (`docs/RESEARCH.md` does) instead of picking the winner.
 - Site: the desk pages (`site/src/pages/desk.ts`, `book.ts`, `signals.ts`, helpers in `site/src/deskview.ts`)
@@ -944,6 +954,18 @@ book's page the reading of its own market. Every word the model writes is escape
 and linked (`rel="noopener noreferrer"`). OFF until the owner adds the repository secret `ANTHROPIC_API_KEY` (README
 "Accendere l'analista Claude"): the books then stay in cash and the page says why. The tests' API answers are
 SYNTHETIC, in the documented response shapes, and say so: no real reading existed when phase 17 was written.
+Reviewed before shipping by an agent that had not seen it written (`docs/RESEARCH.md` 12 F), with the API's
+documentation and its own simulators (real ticks through a fake transport, the real `data_branch.sh` against a local
+bare remote, the page in a browser on a poisoned `desk.json`): the requests match the documentation (nothing would
+400 on the first call), the key is in none of the files four ticks and an export write, the 17 books of before are
+identical to main. What it found, all fixed before the first reading: a paid attempt lost with the tree a failed tick
+or an unpushed commit discards (the ledger); token limits sized for a model that does not think; a brief cut short
+accepted; six searches per request instead of per reading; no hard bound on the step's time; a market that could go
+missing for ever (the schema keyed by market, all required); "the last 48 hours" missing Friday's session on a
+Monday (the news since the previous business day's morning); the key scrubbed after the cut; the key given to the
+whole runner job; a generic rationale for a Claude book without a forecast; long words overflowing a phone. Left and
+written: a request that times out may be billed unseen; a double pause resends the whole turn (to check on the first
+one); web search must be enabled for the owner's organisation.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

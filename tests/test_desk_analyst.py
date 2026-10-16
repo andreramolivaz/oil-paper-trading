@@ -75,12 +75,10 @@ def brief_response(
 
 
 FORECAST = {
-    "markets": [
-        {"market": "oil", "forecast": 8, "confidence": "medium", "reasons": ["a", "b"], "risk": "a ceasefire"},
-        {"market": "gold", "forecast": -3, "confidence": "low", "reasons": ["c"], "risk": "the dollar"},
-        {"market": "equities", "forecast": 0, "confidence": "low", "reasons": [], "risk": "none"},
-        {"market": "bonds", "forecast": 35, "confidence": "high", "reasons": ["d"], "risk": "inflation"},
-    ]
+    "oil": {"forecast": 8, "confidence": "medium", "reasons": ["a", "b"], "risk": "a ceasefire"},
+    "gold": {"forecast": -3, "confidence": "low", "reasons": ["c"], "risk": "the dollar"},
+    "equities": {"forecast": 0, "confidence": "low", "reasons": [], "risk": "none"},
+    "bonds": {"forecast": 35, "confidence": "high", "reasons": ["d"], "risk": "inflation"},
 }
 
 
@@ -101,9 +99,11 @@ class Fake:
     def __init__(self, *answers: dict | Exception):
         self.answers = list(answers)
         self.sent: list[dict] = []
+        self.seconds: list[float] = []
 
-    def __call__(self, payload: dict) -> dict:
+    def __call__(self, payload: dict, seconds: float) -> dict:
         self.sent.append(json.loads(json.dumps(payload)))
+        self.seconds.append(seconds)
         answer = self.answers.pop(0)
         if isinstance(answer, Exception):
             raise answer
@@ -126,6 +126,10 @@ def test_a_reading_is_two_calls_archived_with_its_sources_usage_and_cost(tmp_pat
     assert brief["tools"] == [{"type": "web_search_20250305", "name": "web_search", "max_uses": 6}]
     assert "output_config" not in brief and brief["model"] == "claude-sonnet-5-5"
     assert "2026-10-16 (Friday), 13:20 UTC" in brief["system"] and "no advice" in brief["system"]
+    # the news since the previous business day's morning, and at least 48 hours back
+    assert "the news since Wednesday 14 October, 13:20 UTC that matter" in brief["system"]
+    assert brief["max_tokens"] == 16000 and forecast["max_tokens"] == 16000  # room for the thinking
+    assert all(0 < x <= CFG.timeout_s for x in send.seconds)  # each request waits only for what is left
     # the forecast call reads the brief alone, with no tool, and asks for the schema
     assert "tools" not in forecast and forecast["output_config"]["format"]["type"] == "json_schema"
     assert forecast["output_config"]["format"]["schema"] == analyst.SCHEMA
@@ -160,6 +164,8 @@ def test_a_paused_search_turn_is_sent_back_as_it_is_and_goes_on(tmp_path):
     resumed = send.sent[1]
     assert [m["role"] for m in resumed["messages"]] == ["user", "assistant"]
     assert resumed["messages"][1]["content"] == first["content"]  # the paused turn, unchanged
+    # six searches for the whole reading: the first request used three, the continuation may use what is left
+    assert [r["tools"][0]["max_uses"] for r in send.sent[:2]] == [6, 3]
     (record,) = analyst.records(StateStore(tmp_path))
     # the passage written between two searches cites a source: it is part of the brief; the narration is not
     assert record["brief"] == "Oil: ...\n\nGold: ..." and record["searches"] == 6
@@ -180,18 +186,100 @@ def test_the_brief_is_what_the_model_wrote_from_its_searches():
     assert analyst._brief_text([[search, found]]) == ""
 
 
-def test_a_search_still_going_after_the_time_allowed_is_not_continued(tmp_path, monkeypatch):
-    clock = iter([0.0, CFG.timeout_s + 1.0])
+def test_a_reading_never_takes_longer_than_its_time_or_searches_more_than_allowed(tmp_path, monkeypatch):
+    # the deadline is set when the reading starts; a request is not started with less than 20 seconds left
+    clock = iter([0.0, 1.0, CFG.timeout_s - 15.0])
     monkeypatch.setattr(analyst, "monotonic", lambda: next(clock))
     send = Fake(brief_response(stop="pause_turn"))
     out = analyst.maybe_read(StateStore(tmp_path), CFG, FRIDAY, send, readers=True)
-    assert out is not None and out["status"] == "failed" and "still going after 300 seconds" in out["error"]
-    assert len(send.sent) == 1  # the continuation was not sent
-    # and a turn still paused after the continuations allowed is no brief
-    paused = Fake(*[brief_response(stop="pause_turn")] * (1 + analyst.MAX_CONTINUATIONS))
+    assert out is not None and out["status"] == "failed" and "no time left for the search" in out["error"]
+    assert len(send.sent) == 1 and send.seconds == [CFG.timeout_s - 1.0]  # the continuation was not sent
+    # a brief that took most of the time leaves no room for the forecast: the brief was billed, nothing else
+    clock = iter([0.0, 1.0, CFG.timeout_s - 10.0])
+    slow = Fake(brief_response())
+    out = analyst.maybe_read(StateStore(tmp_path / "slow"), CFG, FRIDAY, slow, readers=True)
+    assert out is not None and "no time left for the forecast" in out["error"] and out["cost_usd"] == 0.062
     monkeypatch.setattr(analyst, "monotonic", lambda: 0.0)
-    out = analyst.maybe_read(StateStore(tmp_path / "b"), CFG, FRIDAY, paused, readers=True)
+    # a turn paused after the six searches of the reading is not continued: no brief
+    spent = brief_response(stop="pause_turn")
+    spent["usage"]["server_tool_use"]["web_search_requests"] = 6
+    out = analyst.maybe_read(StateStore(tmp_path / "six"), CFG, FRIDAY, Fake(spent), readers=True)
+    assert out is not None and "paused after all 6 searches of the reading" in out["error"]
+    # and a turn still paused after the continuations allowed is no brief
+    paused = []
+    for _ in range(1 + analyst.MAX_CONTINUATIONS):
+        r = brief_response(stop="pause_turn")
+        r["usage"]["server_tool_use"]["web_search_requests"] = 1
+        paused.append(r)
+    out = analyst.maybe_read(StateStore(tmp_path / "b"), CFG, FRIDAY, Fake(*paused), readers=True)
     assert out is not None and "still paused after 3 continuations" in out["error"]
+
+
+def test_a_brief_cut_short_is_no_brief(tmp_path):
+    """The registered rule: a truncated answer gives no forecast that day - the brief's as well as the forecast's."""
+    for stop in ("max_tokens", "model_context_window_exceeded"):
+        send = Fake(brief_response(stop=stop))
+        out = analyst.maybe_read(StateStore(tmp_path / stop), CFG, FRIDAY, send, readers=True)
+        assert out is not None and out["status"] == "failed" and f"cut short ({stop})" in out["error"]
+        assert len(send.sent) == 1  # no forecast is asked of a brief cut short
+
+
+def test_the_news_start_at_the_previous_business_day_s_morning_and_at_least_two_days_back():
+    at = lambda *a: datetime(*a, tzinfo=UTC)  # noqa: E731
+    # a Monday: Friday morning, not Saturday - the week's last session is in the brief
+    assert analyst.news_since(at(2026, 10, 19, 13, 18)) == at(2026, 10, 16, 13, 0)
+    # a Tuesday: 48 hours back (Sunday), which is before Monday's morning
+    assert analyst.news_since(at(2026, 10, 20, 13, 18)) == at(2026, 10, 18, 13, 18)
+    # the day after a holiday (Thanksgiving, Thursday 26 November): Wednesday's morning
+    assert analyst.news_since(at(2026, 11, 27, 13, 18)) == at(2026, 11, 25, 13, 0)
+    assert analyst._when_words(at(2026, 10, 16, 13, 0)) == "Friday 16 October, 13:00 UTC"
+
+
+def test_an_attempt_a_failed_tick_discarded_is_put_back_and_never_paid_twice(tmp_path):
+    """A failed tick resets the data branch's working tree, and a push that does not land is reset over by the next
+    sync: the archive's line goes with them. The ledger, outside that tree, puts it back (found in review: eight
+    ticks, sixteen paid requests, nothing on file, the budget at zero)."""
+    ledger = tmp_path / "workspace" / "analyst-ledger.jsonl"
+    store = StateStore(tmp_path / "state")
+    out = analyst.maybe_read(store, CFG, FRIDAY, Fake(brief_response(), forecast_response()), True, ledger=ledger)
+    assert out is not None and out["status"] == "ok" and len(analyst.ledger_rows(ledger)) == 1
+    for f in (tmp_path / "state").glob("claude-*.jsonl"):
+        f.unlink()  # what `git checkout -- . && git clean -fd` does to it
+    again = Fake()
+    out = analyst.maybe_read(store, CFG, FRIDAY + timedelta(minutes=30), again, True, ledger=ledger)
+    assert out == {"status": "not due", "why": "today's reading is on file", "restored": 1} and again.sent == []
+    (back,) = analyst.records(store)
+    assert back["status"] == "ok" and back["markets"]["oil"]["forecast"] == 8.0 and back["cost_usd"] == 0.069
+    # put back once: the next tick finds it in the archive
+    assert analyst.maybe_read(store, CFG, FRIDAY + timedelta(hours=1), Fake(), True, ledger=ledger) == {
+        "status": "not due",
+        "why": "today's reading is on file",
+    }
+    # failures too: three paid attempts, then none, whatever happened to the archive in between
+    boom = analyst.AnalystError("HTTP 529 overloaded_error: Overloaded")
+    other = StateStore(tmp_path / "other")
+    led2 = tmp_path / "workspace" / "other.jsonl"
+    calls = 0
+    for minutes in (0, 30, 60, 90, 120):
+        f = Fake(brief_response(), boom)
+        analyst.maybe_read(other, CFG, FRIDAY + timedelta(minutes=minutes), f, True, ledger=led2)
+        calls += len(f.sent)
+        for g in (tmp_path / "other").glob("claude-*.jsonl"):
+            g.unlink()
+    assert calls == 2 * 3 and len(analyst.ledger_rows(led2)) == 3
+
+
+def test_a_message_is_scrubbed_of_the_key_before_it_is_cut(tmp_path):
+    key = "sk-ant-" + "x" * 300
+    assert analyst.scrub(f"bad header: {key}", key) == "bad header: ***"
+    assert key[:40] not in analyst.scrub("a" * 280 + key, key)  # cut first, 20 characters of the key would stay
+
+    def leaky(payload, seconds):
+        raise RuntimeError(f"connection reset while sending {key}")
+
+    out = analyst.maybe_read(StateStore(tmp_path), CFG, FRIDAY, leaky, True, secret=key)
+    assert out is not None and key[:12] not in json.dumps(out) and "***" in out["error"]
+    assert key[:12] not in "".join(p.read_text() for p in tmp_path.rglob("*") if p.is_file())
 
 
 def test_a_source_that_is_not_a_web_page_is_left_out():
@@ -257,13 +345,11 @@ def test_without_the_key_nothing_runs_and_nothing_is_written(tmp_path):
 def test_the_forecast_is_cut_to_the_scale_and_what_is_not_a_market_is_left_out():
     text = json.dumps(
         {
-            "markets": [
-                {"market": "oil", "forecast": -27, "confidence": "high", "reasons": ["a", "b", "c", "d"], "risk": "r"},
-                {"market": "oil", "forecast": 5, "confidence": "low", "reasons": [], "risk": ""},  # twice: dropped
-                {"market": "copper", "forecast": 5, "confidence": "low", "reasons": [], "risk": ""},  # not a market
-                {"market": "gold", "forecast": True, "confidence": "low", "reasons": [], "risk": ""},  # not a number
-                {"market": "bonds", "forecast": 4.0, "confidence": "certain", "reasons": [" ", "x"], "risk": "y"},
-            ]
+            "oil": {"forecast": -27, "confidence": "high", "reasons": ["a", "b", "c", "d"], "risk": "r"},
+            "copper": {"forecast": 5, "confidence": "low", "reasons": [], "risk": ""},  # not a market of the four
+            "gold": {"forecast": True, "confidence": "low", "reasons": [], "risk": ""},  # not a number
+            "equities": "flat",  # not an entry
+            "bonds": {"forecast": 4.0, "confidence": "certain", "reasons": [" ", "x"], "risk": "y"},
         }
     )
     out = analyst.parse_forecast(text)
@@ -273,7 +359,11 @@ def test_the_forecast_is_cut_to_the_scale_and_what_is_not_a_market_is_left_out()
     with pytest.raises(analyst.AnalystError):
         analyst.parse_forecast("not json")
     with pytest.raises(analyst.AnalystError):
-        analyst.parse_forecast(json.dumps({"verdict": "buy"}))
+        analyst.parse_forecast(json.dumps(["buy"]))
+    assert analyst.parse_forecast(json.dumps({"verdict": "buy"})) == {}  # no market: the reading says so and fails
+    # the schema the API is asked for names every market, all required: none can be left out of a reading
+    assert analyst.SCHEMA["required"] == list(analyst.MARKETS) and analyst.SCHEMA["additionalProperties"] is False
+    assert set(analyst.SCHEMA["properties"]) == set(analyst.MARKETS)
 
 
 def test_the_http_transport_says_what_the_api_said_and_never_the_key(monkeypatch):
@@ -286,15 +376,16 @@ def test_the_http_transport_says_what_the_api_said_and_never_the_key(monkeypatch
     sent: dict = {}
 
     def post(self, url, json, timeout, headers):  # noqa: A002 - the name requests uses
-        sent.update(url=url, headers=headers, body=json)
+        sent.update(url=url, headers=headers, body=json, timeout=timeout)
         return Response()
 
     monkeypatch.setattr("requests.Session.post", post)
-    send = analyst.http_transport(KEY)
+    send = analyst.http_transport(KEY, timeout=420.0)
     with pytest.raises(analyst.AnalystError) as err:
-        send({"model": "m"})
+        send({"model": "m"}, 30.0)
     assert str(err.value) == "HTTP 401 authentication_error: invalid x-api-key" and KEY not in str(err.value)
     assert sent["url"] == analyst.API_URL and sent["headers"]["x-api-key"] == KEY
+    assert sent["timeout"] == 30.0  # what the reading has left, never more than the transport's own limit
     assert sent["headers"]["anthropic-version"] == "2023-06-01"
 
 
@@ -391,7 +482,9 @@ def test_the_tick_runs_the_analyst_only_with_a_key_and_the_key_is_written_nowher
     from engine.core.config import Settings
     from engine.live import jobs
 
-    settings = dataclasses.replace(Settings.from_env(), state_dir=tmp_path, offline=False, anthropic_api_key=None)
+    settings = dataclasses.replace(
+        Settings.from_env(), state_dir=tmp_path, offline=False, anthropic_api_key=None, analyst_ledger=None
+    )
     runner = type("Runner", (), {"settings": settings})()
     desk = build_desk(tmp_path, RISK, [OIL])
     store = desk_store(tmp_path)
@@ -402,9 +495,17 @@ def test_the_tick_runs_the_analyst_only_with_a_key_and_the_key_is_written_nowher
     assert status is not None and status["key_set"] is False and status["readers"] is True and status["step"] is None
     keyed = type("Runner", (), {"settings": dataclasses.replace(settings, anthropic_api_key=KEY)})()
     calls = Fake(brief_response(), forecast_response())
-    monkeypatch.setattr(analyst, "http_transport", lambda key, timeout=300.0: calls)
+    monkeypatch.setattr(analyst, "http_transport", lambda key, timeout=420.0: calls)
     out = jobs._analyst_step(keyed, desk, FRIDAY)
     assert out["analyst"]["status"] == "ok" and len(calls.sent) == 2
+    # with a ledger in the settings (the runner's workspace), the attempt is written there too
+    ledger = tmp_path.parent / f"{tmp_path.name}-ledger.jsonl"
+    led = type("Runner", (), {"settings": dataclasses.replace(keyed.settings, analyst_ledger=ledger)})()
+    monkeypatch.setattr(
+        analyst, "http_transport", lambda key, timeout=420.0: Fake(brief_response(), forecast_response())
+    )
+    assert jobs._analyst_step(led, desk, FRIDAY + timedelta(days=3))["analyst"]["status"] == "ok"
+    assert [r["day"] for r in analyst.ledger_rows(ledger)] == ["2026-10-19"] and KEY not in ledger.read_text()
     assert analyst.read_status(store)["key_set"] is True and analyst.read_status(store)["step"] == {"status": "ok"}
     offline = type("Runner", (), {"settings": dataclasses.replace(keyed.settings, offline=True)})()
     assert jobs._analyst_step(offline, desk, FRIDAY + timedelta(days=3)) == {}  # tests and CI never call out
@@ -497,3 +598,15 @@ def test_a_reading_without_the_book_s_market_gives_that_book_no_forecast():
     assert analyst.lead_text(forecast.as_forecast(), {"oil": 1.0}) == (
         "The Claude analyst's reading of the news (today): no forecast for crude oil in it. "
     )
+    # and the decision says it in those words, not "not enough data" (found in review)
+    ts = datetime(2026, 10, 16, 18, 35, tzinfo=UTC)
+    dec, order = book.decide(ts, date(2026, 10, 16), "MCLZ26", 95.7, forecast.as_forecast(), 0.30)
+    assert (
+        order is None
+        and dec.limited_by == "missing data"
+        and dec.rationale
+        == ("The Claude analyst's reading of the news (today): no forecast for crude oil in it. Position unchanged.")
+    )
+    # no reading at all: the book's entry of the forecasts is empty
+    dec2, _ = book.decide(ts, date(2026, 10, 16), "MCLZ26", 95.7, {}, 0.30)
+    assert dec2.rationale == "No reading of the Claude analyst: no forecast. Position unchanged."

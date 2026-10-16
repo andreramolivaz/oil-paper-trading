@@ -274,12 +274,16 @@ notizie ogni giorno e dà una direzione, quattro libri di carta la comprano con 
 `docs/RESEARCH.md`, capitolo 12, prima della prima lettura.
 
 - **La lettura.** Una al giorno, nei giorni lavorativi americani, al primo giro dopo le 13:00 UTC (la mattina di
-  New York), due chiamate all'API Messages di Anthropic: la prima cerca sul web (al massimo 6 ricerche) e scrive un
-  riassunto dei fatti delle ultime 48 ore su greggio, oro, azioni americane e Treasury, ogni fatto con data e
-  fonte; la seconda, senza strumenti, legge quel riassunto e risponde con uno schema JSON: per ognuno dei quattro
-  mercati una previsione intera da −20 a +20 per le cinque sedute successive, la fiducia, fino a tre ragioni e il
-  rischio principale. Due chiamate perché l'output strutturato non si combina con le citazioni della ricerca. Al
-  massimo tre tentativi al giorno, a mezz'ora l'uno dall'altro.
+  New York), due chiamate all'API Messages di Anthropic: la prima cerca sul web (al massimo 6 ricerche per lettura)
+  e scrive un riassunto dei fatti dalla mattina del giorno lavorativo americano precedente (almeno 48 ore: il lunedì
+  da venerdì mattina) su greggio, oro, azioni americane e Treasury, ogni fatto con data e fonte; la seconda, senza
+  strumenti, legge quel riassunto e risponde con uno schema JSON: per ognuno dei quattro mercati, tutti
+  obbligatori, una previsione intera da −20 a +20 per le cinque sedute successive, la fiducia, fino a tre ragioni e
+  il rischio principale. Due chiamate perché l'output strutturato non si combina con le citazioni della ricerca. Il
+  modello pensa prima di rispondere (è il suo comportamento predefinito); una risposta troncata non è una lettura.
+  Al massimo tre tentativi al giorno, a mezz'ora l'uno dall'altro, sette minuti in tutto per lettura; ogni
+  tentativo pagato resta anche in un registro fuori dal ramo dati, così un giro fallito non lo fa pagare due
+  volte.
 - **I libri.** `claude_oil` sul future micro WTI (/MCL), long e short, tetto 10x e 3x prima di una chiusura;
   `claude_gold` (GLD), `claude_equities` (SPY), `claude_bonds` (TLT), solo long, tetto 2x e 1x prima di una
   chiusura. Tutti con obiettivo di volatilità 0,50, stop giornaliero −15%, la regola di taglia di ogni libro
