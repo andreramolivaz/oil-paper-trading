@@ -62,6 +62,25 @@ DISCLAIMER = "Study simulation on real data. No financial advice, no real orders
 MAX_CURVE_POINTS = 360
 MAX_DECISIONS = 40
 MAX_FILLS = 60
+# one history file per book (phase 16): the book page reads it when the reader opens the book
+BOOKS_DIR = "books"
+HISTORY_DETAIL_DAYS = 5  # every equity snapshot of the last five days, the last of each earlier day
+MAX_HISTORY_POINTS = 4000
+# The groups the page shows the books in, in this order, with what each one is in the reader's words. A book
+# is in a group by the forecast it reads, then by the role it was configured with (a retired book stays put).
+GROUPS: tuple[tuple[str, str, str], ...] = (
+    ("core", "Core desk", "the books the desk is judged on: one forecast on crude oil, four ways to hold it"),
+    (
+        "candidates",
+        "Candidates",
+        "the prudent book's rules on other markets, judged on real fills before anybody trusts them",
+    ),
+    (
+        "kalshi",
+        "Kalshi books",
+        "speculative: their direction comes from Kalshi's prediction markets, and no backtest exists",
+    ),
+)
 STRESS_MOVES = (-0.30, -0.20, -0.10, 0.10, 0.20)  # gaps of the vehicle's price the books are revalued on
 
 
@@ -100,9 +119,11 @@ def _quote(
     }
 
 
-def _curve(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Equity snapshots -> at most ``MAX_CURVE_POINTS`` points: every snapshot of the last three days, then
-    the last snapshot of each earlier day."""
+def _curve(
+    rows: list[dict[str, Any]], detail_days: int = 3, max_points: int = MAX_CURVE_POINTS
+) -> list[dict[str, Any]]:
+    """Equity snapshots -> at most ``max_points`` points: every snapshot of the last ``detail_days`` days,
+    then the last snapshot of each earlier day."""
     if not rows:
         return []
     frame = pd.DataFrame(
@@ -114,20 +135,82 @@ def _curve(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     frame = frame.dropna().sort_values("t")
     if frame.empty:
         return []
-    cutoff = frame["t"].iloc[-1] - pd.Timedelta(days=3)
+    cutoff = frame["t"].iloc[-1] - pd.Timedelta(days=detail_days)
     recent = frame[frame["t"] >= cutoff]
     old = frame[frame["t"] < cutoff]
     if not old.empty:
         old = old.groupby(old["t"].dt.date, as_index=False).last()
     out = pd.concat([old, recent], ignore_index=True)
-    if len(out) > MAX_CURVE_POINTS:
-        step = math.ceil(len(out) / MAX_CURVE_POINTS)
+    if len(out) > max_points:
+        step = math.ceil(len(out) / max_points)
         out = pd.concat([out.iloc[:-1:step], out.iloc[[-1]]], ignore_index=True)
     return [{"t": iso(t.to_pydatetime()), "v": round(float(v), 2)} for t, v in zip(out["t"], out["v"], strict=True)]
 
 
 def _current_epoch(rows: list[dict[str, Any]], epoch: int) -> list[dict[str, Any]]:
     return [r for r in rows if int(r.get("epoch", epoch) or epoch) == epoch]
+
+
+def book_group(configured_role: str | None, forecast: str | None) -> str:
+    """The group (``GROUPS``) a book is shown in: by the forecast it reads, then by its configured role."""
+    if forecast == oracle.FAMILY:
+        return "kalshi"
+    if forecast and forecast != FORECAST_DESK:
+        return str(forecast)
+    return "core" if configured_role in (None, "core") else "candidates"
+
+
+def portfolios_block(books: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The groups of books with their totals and, per day, the sum of their members' P&L since start.
+
+    The curve is a sum of P&L, not of equity, so that a book that starts later joins at zero instead of adding a
+    step of 10 000 $: on each UTC day each member counts with the last equity it had on or before that day (from
+    its own curve, the current epoch), and a member that had not started counts nothing."""
+    known = [g for g, _, _ in GROUPS]
+    extra = sorted({str(b.get("group")) for b in books} - set(known))
+    labels = {g: (label, note) for g, label, note in GROUPS}
+    out: list[dict[str, Any]] = []
+    for gid in [*known, *extra]:
+        members = [b for b in books if b.get("group") == gid]
+        if not members:
+            continue
+        label, note = labels.get(gid, (gid.capitalize(), ""))
+        equity = sum(float(b.get("equity") or 0.0) for b in members)
+        initial = sum(float(b.get("initial_capital") or 0.0) for b in members)
+        pnl_day = sum(float(b.get("pnl_day") or 0.0) for b in members)
+        per_book: list[dict[str, float]] = []
+        for b in members:
+            base = float(b.get("initial_capital") or 0.0)
+            daily: dict[str, float] = {}
+            for point in b.get("curve") or []:
+                daily[str(point.get("t"))[:10]] = float(point.get("v") or 0.0) - base
+            per_book.append(daily)
+        last: list[float | None] = [None] * len(per_book)
+        curve: list[dict[str, Any]] = []
+        for day in sorted(set().union(*per_book)):
+            for i, daily in enumerate(per_book):
+                if day in daily:
+                    last[i] = daily[day]
+            curve.append({"t": day, "v": round(sum(v for v in last if v is not None), 2)})
+        out.append(
+            {
+                "id": gid,
+                "label": label,
+                "note": note,
+                "books": [b["id"] for b in members],
+                "n_books": len(members),
+                "holding": [b["id"] for b in members if b.get("positions") or b.get("structures")],
+                "queued": [b["id"] for b in members if b.get("pending")],
+                "equity": _r(equity, 2),
+                "initial_capital": _r(initial, 2),
+                "pnl": _r(equity - initial, 2),
+                "pnl_pct": _r(equity / initial - 1.0, 5) if initial > 0 else None,
+                "pnl_day": _r(pnl_day, 2),
+                "pnl_day_pct": _r(pnl_day / (equity - pnl_day), 5) if equity - pnl_day > 0 else None,
+                "curve": curve,
+            }
+        )
+    return out
 
 
 # ----------------------------------------------------------------------------------------------- blocks
@@ -316,6 +399,8 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
                 "last_price": _r(last, 4),
                 "notional": _r(notional, 2),
                 "unrealized": _r(unrealized, 2),
+                # the signed oil (or fund) exposure of this position as a multiple of the book's equity
+                "exposure": _r(float(pos.qty_bbl) * last * times / equity, 4) if equity > 0 else None,
                 "opened_at": iso(pos.opened_ts) if getattr(pos, "opened_ts", None) else None,
             }
         )
@@ -344,6 +429,8 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         # lifecycle rule stopped it. The configured role unless the allocator changed it.
         "role": desk.role_of(book),
         "configured_role": cfg.role,
+        # the group of the page (GROUPS): core desk, candidates, the Kalshi books
+        "group": book_group(cfg.role, cfg.forecast),
         "role_change": desk.state.roles.get(cfg.id),
         # which forecast the book reads: "desk" (the seven sleeves, replayed in the backtest) or "kalshi" (the
         # prediction markets' de-escalation index, phase 14: no history, no backtest, live fills only)
@@ -359,6 +446,7 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         "description": cfg.description,
         "vehicle": vehicle.id,
         "vehicle_name": vehicle.name,
+        "unit": vehicle.unit,  # how one unit of the vehicle is called on the page ("shares", "barrels")
         "underlying": vehicle.underlying,
         "robinhood": vehicle.robinhood,
         "note": vehicle.note,
@@ -398,7 +486,16 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         "price_asof": iso(st.last_price_asof) if st.last_price_asof else None,
         "positions": positions,
         "pending": [
-            {"symbol": o.instrument, "units": float(o.qty_bbl), "decided_at": iso(o.ts), "reason": str(o.reason)}
+            {
+                "symbol": o.instrument,
+                "units": float(o.qty_bbl),
+                # the inverse fund's shares or the vehicle's own unit, for the page's "buy 7 BNO shares"
+                "unit": book.short.unit
+                if book.short is not None and o.instrument == book.short_symbol
+                else vehicle.unit,
+                "decided_at": iso(o.ts),
+                "reason": str(o.reason),
+            }
             for o in st.pending
         ],
         "n_fills": int(st.epoch_n_fills),
@@ -439,6 +536,7 @@ def options_block(state_dir: Path, risk: RiskConfig, config_dir: Path | None) ->
         "id": cfg.id,
         "kind": "options",
         "role": "core",
+        "group": "core",
         "name": cfg.name,
         "description": cfg.description,
         "vehicle": "/".join(u.symbol for u in cfg.underlyings),
@@ -459,7 +557,8 @@ def options_block(state_dir: Path, risk: RiskConfig, config_dir: Path | None) ->
         "status": state.get("status", "active"),
         "epoch": epoch,
         "started_at": state.get("started_at"),
-        "structures": structures,
+        "structures": [_structure_row(x) for x in structures],
+        "pending": [],  # the options book queues nothing: a structure is opened at the decision, on live quotes
         "n_closed": int(state.get("n_closed", 0)),
         "n_wins": int(state.get("n_wins", 0)),
         "realized_pnl": _r(state.get("realized_pnl", 0.0), 2),
@@ -470,99 +569,238 @@ def options_block(state_dir: Path, risk: RiskConfig, config_dir: Path | None) ->
     }
 
 
+def _structure_row(s: dict[str, Any]) -> dict[str, Any]:
+    """An open structure of the options book as the page shows it: the state's record plus its open P&L at the
+    mark - the credit received less what buying the spread back at the mark would cost, per share, times 100
+    shares and the contracts. The fees paid at the open are in the equity, not here."""
+    row = dict(s)
+    try:
+        row["unrealized"] = _r((float(s["credit"]) - float(s["mark"])) * 100.0 * int(s["contracts"]), 2)
+        # the most it can still lose from here: the spread going to its full width from today's mark (the book's
+        # `max_loss_open` is the sum of these)
+        row["max_loss_now"] = _r((float(s["width"]) - float(s["mark"])) * 100.0 * int(s["contracts"]), 2)
+    except (KeyError, TypeError, ValueError):
+        row["unrealized"] = None
+        row["max_loss_now"] = None
+    return row
+
+
+def _epoch_row(e: dict[str, Any]) -> dict[str, Any]:
+    """One life of a book (``epochs.json`` of the paper broker, ``epochs`` of the options book's state) with the
+    same fields for both kinds of book. A life ends on a reset ("reset_manual") or when the account dies
+    ("dead"); the current life is listed too when it ended that way and no reset has followed yet."""
+    return {
+        "epoch": e.get("epoch"),
+        "started_at": e.get("started_ts") or e.get("started_at"),
+        "ended_at": e.get("ended_ts") or e.get("ended_at"),
+        "start_equity": _r(e.get("start_equity"), 2),
+        "end_equity": _r(e.get("end_equity", e.get("final_equity")), 2),
+        "min_equity": _r(e.get("min_equity"), 2),
+        # the options book's record has no reason: it is only ever closed by a reset
+        "end_reason": e.get("end_reason") or ("reset_manual" if e.get("ended_at") else None),
+        "n_trades": e.get("n_trades", e.get("n_closed")),
+    }
+
+
+def _decision_row(d: dict[str, Any]) -> dict[str, Any]:
+    """One decision of a linear book as the page shows it (the record is ``Decision.to_dict``)."""
+    forecast = d.get("forecast") or {}
+    return {
+        "ts": d.get("ts"),
+        "book": d.get("book"),
+        "symbol": d.get("symbol"),
+        "price": _r(d.get("price"), 3),
+        "forecast": _r(forecast.get("combined"), 2),
+        "exposure": _r(d.get("exposure"), 3),
+        "exposure_actual": _r(d.get("exposure_actual"), 3),
+        "target_units": _r(d.get("target_units"), 4),
+        "current_units": _r(d.get("current_units"), 4),
+        "limited_by": d.get("limited_by"),
+        # the order on the vehicle, or - when only the short leg trades - the one on the inverse fund
+        "order_units": d.get("order_units")
+        or next((leg.get("order_units") for leg in d.get("legs") or [] if leg.get("order_units")), 0.0),
+        "legs": d.get("legs") or [],
+        "risk_scale": _r(d.get("risk_scale"), 3),
+        "text": d.get("rationale"),
+        "status": d.get("status"),
+    }
+
+
+def _options_decision_row(d: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ts": d.get("ts"),
+        "book": d.get("book"),
+        "symbol": d.get("underlying"),
+        "price": _r((d.get("candidate") or {}).get("underlying_price"), 3),
+        "forecast": _r(d.get("forecast"), 2),
+        "exposure": None,
+        "limited_by": None,
+        # the log is append-only: rows written before 2026-10-13 carry the Italian "aperta"
+        "order_units": 1 if d.get("action") in ("opened", "aperta") else 0,
+        "text": d.get("reason"),
+        "status": d.get("action"),
+    }
+
+
 def decisions_block(state_dir: Path, options_id: str | None) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for d in desk_store(state_dir).tail_jsonl(DECISIONS_LOG, 200):
-        forecast = d.get("forecast") or {}
-        rows.append(
-            {
-                "ts": d.get("ts"),
-                "book": d.get("book"),
-                "symbol": d.get("symbol"),
-                "price": _r(d.get("price"), 3),
-                "forecast": _r(forecast.get("combined"), 2),
-                "exposure": _r(d.get("exposure"), 3),
-                "limited_by": d.get("limited_by"),
-                # the order on the vehicle, or - when only the short leg trades - the one on the inverse fund
-                "order_units": d.get("order_units")
-                or next((leg.get("order_units") for leg in d.get("legs") or [] if leg.get("order_units")), 0.0),
-                "legs": d.get("legs") or [],
-                "text": d.get("rationale"),
-                "status": d.get("status"),
-            }
-        )
+    rows = [_decision_row(d) for d in desk_store(state_dir).tail_jsonl(DECISIONS_LOG, 200)]
     if options_id:
         for d in StateStore(Path(state_dir) / "desk" / options_id).tail_jsonl("decisions", 60):
-            rows.append(
-                {
-                    "ts": d.get("ts"),
-                    "book": d.get("book"),
-                    "symbol": d.get("underlying"),
-                    "price": _r((d.get("candidate") or {}).get("underlying_price"), 3),
-                    "forecast": _r(d.get("forecast"), 2),
-                    "exposure": None,
-                    "limited_by": None,
-                    # the log is append-only: rows written before 2026-10-13 carry the Italian "aperta"
-                    "order_units": 1 if d.get("action") in ("opened", "aperta") else 0,
-                    "text": d.get("reason"),
-                    "status": d.get("action"),
-                }
-            )
+            rows.append(_options_decision_row(d))
     rows.sort(key=lambda r: str(r.get("ts")), reverse=True)
     return rows[:MAX_DECISIONS]
+
+
+def _fill_row(f: dict[str, Any], book_id: str, unit: str) -> dict[str, Any]:
+    """One fill of a linear book as the page shows it (the record is the paper broker's ``Fill``)."""
+    meta = f.get("meta") or {}
+    return {
+        # an order fills at the OPEN of its bar: that is when it was executed. The broker stamps the fill with
+        # the bar's end, which is when it learned of it (forced exits keep that).
+        "ts": meta.get("bar_start") or f.get("ts"),
+        "book": book_id,
+        "symbol": f.get("instrument"),
+        "units": f.get("qty_bbl"),
+        "unit": unit,
+        "price": _r(f.get("price"), 4),
+        "reference_price": _r(f.get("reference_price"), 4),
+        "cost_bps": _r(meta.get("total_adverse_bps"), 2),
+        "commission": _r(f.get("commission"), 2),
+        "reason": f.get("reason"),
+        "realized_pnl": _r(f.get("realized_pnl"), 2),
+        "decided_at": meta.get("order_ts"),
+        "leverage_after": _r(meta.get("leverage_after"), 3),
+        "equity_after": _r(meta.get("equity_after"), 2),
+    }
+
+
+def _options_fill_row(t: dict[str, Any], book_id: str) -> dict[str, Any]:
+    short, long = t.get("short") or {}, t.get("long") or {}
+    opened = t.get("action") == "open"
+    return {
+        "ts": t.get("ts"),
+        "book": book_id,
+        "symbol": f"{t.get('underlying')} put {short.get('strike'):g}/{long.get('strike'):g} {t.get('expiry')}",
+        "units": -int(t.get("contracts") or 0) if opened else int(t.get("contracts") or 0),
+        "unit": "spread",
+        "price": _r(t.get("credit") if opened else t.get("settle_value"), 4),
+        "reference_price": None,
+        "cost_bps": None,
+        "commission": None,
+        "reason": "open" if opened else "expiry",
+        "realized_pnl": _r(t.get("pnl"), 2),
+        "decided_at": None,
+        "leverage_after": None,
+    }
 
 
 def fills_block(state_dir: Path, desk: Desk, options_id: str | None) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for book in desk.books.values():
         store = StateStore(Path(state_dir) / "desk" / book.id)
-        for f in store.tail_jsonl("trades", 80):
-            meta = f.get("meta") or {}
-            rows.append(
-                {
-                    # an order fills at the OPEN of its bar: that is when it was executed. The broker stamps
-                    # the fill with the bar's end, which is when it learned of it (forced exits keep that).
-                    "ts": meta.get("bar_start") or f.get("ts"),
-                    "book": book.id,
-                    "symbol": f.get("instrument"),
-                    "units": f.get("qty_bbl"),
-                    "unit": book.vehicle.unit,
-                    "price": _r(f.get("price"), 4),
-                    "reference_price": _r(f.get("reference_price"), 4),
-                    "cost_bps": _r(meta.get("total_adverse_bps"), 2),
-                    "commission": _r(f.get("commission"), 2),
-                    "reason": f.get("reason"),
-                    "realized_pnl": _r(f.get("realized_pnl"), 2),
-                    "decided_at": meta.get("order_ts"),
-                    "leverage_after": _r(meta.get("leverage_after"), 3),
-                }
-            )
+        rows += [_fill_row(f, book.id, book.vehicle.unit) for f in store.tail_jsonl("trades", 80)]
     if options_id:
-        for t in StateStore(Path(state_dir) / "desk" / options_id).tail_jsonl("trades", 40):
-            short, long = t.get("short") or {}, t.get("long") or {}
-            rows.append(
-                {
-                    "ts": t.get("ts"),
-                    "book": options_id,
-                    "symbol": (
-                        f"{t.get('underlying')} put {short.get('strike'):g}/{long.get('strike'):g} {t.get('expiry')}"
-                    ),
-                    "units": -int(t.get("contracts") or 0)
-                    if t.get("action") == "open"
-                    else int(t.get("contracts") or 0),
-                    "unit": "spread",
-                    "price": _r(t.get("credit") if t.get("action") == "open" else t.get("settle_value"), 4),
-                    "reference_price": None,
-                    "cost_bps": None,
-                    "commission": None,
-                    "reason": "open" if t.get("action") == "open" else "expiry",
-                    "realized_pnl": _r(t.get("pnl"), 2),
-                    "decided_at": None,
-                    "leverage_after": None,
-                }
-            )
+        rows += [
+            _options_fill_row(t, options_id)
+            for t in StateStore(Path(state_dir) / "desk" / options_id).tail_jsonl("trades", 40)
+        ]
     rows.sort(key=lambda r: str(r.get("ts")), reverse=True)
     return rows[:MAX_FILLS]
+
+
+def _since(ts: Any, start: datetime | None) -> bool:
+    """True when ``ts`` is at or after ``start`` (an unreadable stamp is kept: nothing is dropped silently)."""
+    if start is None:
+        return True
+    when = parse_iso(str(ts)) if ts else None
+    return when is None or when >= ensure_utc(start)
+
+
+def book_history(
+    book: Book, state_dir: Path, now: datetime, decisions_log: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    """Everything a linear book has done in its current life (epoch), for its own page: every fill, every
+    decision with its rationale, the equity curve, and the lives before it (``epochs.json``). ``decisions_log``
+    is the desk's decisions log when the caller has read it already (once for every book)."""
+    cfg, st = book.cfg, book.broker.state
+    store = StateStore(Path(state_dir) / "desk" / cfg.id)
+    epoch = int(st.epoch)
+    started = st.epoch_started_ts
+    fills = [
+        _fill_row(f, cfg.id, book.vehicle.unit)
+        for f in store.iter_jsonl("trades", skip_bad=True)
+        if int((f.get("meta") or {}).get("epoch", epoch) or epoch) == epoch
+    ]
+    fills.sort(key=lambda r: str(r.get("ts")), reverse=True)
+    if decisions_log is None:
+        decisions_log = list(desk_store(state_dir).iter_jsonl(DECISIONS_LOG, skip_bad=True))
+    decisions = [_decision_row(d) for d in decisions_log if d.get("book") == cfg.id and _since(d.get("ts"), started)]
+    decisions.sort(key=lambda r: str(r.get("ts")), reverse=True)
+    rows = _current_epoch(store.read_jsonl("equity"), epoch)
+    return {
+        "generated_at": iso(now),
+        "id": cfg.id,
+        "name": cfg.name,
+        "kind": "linear",
+        "vehicle": book.vehicle.id,
+        "unit": book.vehicle.unit,
+        "epoch": epoch,
+        "started_at": iso(started) if started else None,
+        "curve": _curve(rows, detail_days=HISTORY_DETAIL_DAYS, max_points=MAX_HISTORY_POINTS),
+        "fills": fills,
+        "decisions": decisions,
+        "summary": {
+            "n_fills": len(fills),
+            "n_decisions": len(decisions),
+            "n_orders": sum(1 for d in decisions if d.get("order_units")),
+            "realized_pnl": _r(sum(float(f.get("realized_pnl") or 0.0) for f in fills), 2),
+            "commission": _r(sum(float(f.get("commission") or 0.0) for f in fills), 2),
+        },
+        "epochs": [_epoch_row(e) for e in store.read_json("epochs.json", []) or []],
+    }
+
+
+def options_history(state_dir: Path, config_dir: Path | None, now: datetime) -> dict[str, Any] | None:
+    """``book_history`` for the options book, from its own logs (structures opened and settled, decisions)."""
+    cfg = load_options_config(config_dir)
+    if cfg is None:
+        return None
+    store = options_store(state_dir, cfg)
+    state = store.read_json(STATE_FILE) or {}
+    epoch = int(state.get("epoch", 1))
+    started = parse_iso(str(state["started_at"])) if state.get("started_at") else None
+    fills = [
+        _options_fill_row(t, cfg.id)
+        for t in store.iter_jsonl("trades", skip_bad=True)
+        if int(t.get("epoch", epoch) or epoch) == epoch
+    ]
+    fills.sort(key=lambda r: str(r.get("ts")), reverse=True)
+    decisions = [
+        _options_decision_row(d) for d in store.iter_jsonl("decisions", skip_bad=True) if _since(d.get("ts"), started)
+    ]
+    decisions.sort(key=lambda r: str(r.get("ts")), reverse=True)
+    rows = _current_epoch(store.read_jsonl("equity"), epoch)
+    return {
+        "generated_at": iso(now),
+        "id": cfg.id,
+        "name": cfg.name,
+        "kind": "options",
+        "vehicle": "/".join(u.symbol for u in cfg.underlyings),
+        "unit": "spread",
+        "epoch": epoch,
+        "started_at": iso(started) if started else None,
+        "curve": _curve(rows, detail_days=HISTORY_DETAIL_DAYS, max_points=MAX_HISTORY_POINTS),
+        "fills": fills,
+        "decisions": decisions,
+        "summary": {
+            "n_fills": len(fills),
+            "n_decisions": len(decisions),
+            "n_orders": sum(1 for d in decisions if d.get("order_units")),
+            "realized_pnl": _r(sum(float(f.get("realized_pnl") or 0.0) for f in fills), 2),
+            "commission": _r(state.get("fees"), 2),
+        },
+        "epochs": [_epoch_row(e) for e in state.get("epochs", []) or []],
+    }
 
 
 def health_block(store: StateStore, now: datetime) -> dict[str, Any]:
@@ -677,6 +915,8 @@ def build_desk_payload(
         "market": market,
         "forecast": forecast_block(data),
         "books": books,
+        # the groups the page shows the books in, with their totals and their P&L since start day by day
+        "portfolios": portfolios_block(books),
         # the sum of the core books (the desk as it is judged) and, apart, the sum of the candidate books
         "total": totals([b for b in books if b["role"] == "core"]),
         "total_candidates": totals([b for b in books if b["role"] != "core"]),
@@ -777,6 +1017,40 @@ def allocator_block(desk: Desk, data: DeskData, cfg: AllocatorConfig, today: dat
     }
 
 
+def export_book_histories(settings: Settings, risk: RiskConfig, out_dir: Path, now: datetime) -> list[str]:
+    """``books/<id>.json`` for every book on file (``book_history``): the book page reads one when it opens.
+    A file left by a book that is no longer configured is removed. A book whose history cannot be read is
+    reported and skipped: its page then says the history is unavailable, and the rest of the export stands."""
+    folder = Path(out_dir) / BOOKS_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    desk = build_desk(settings.state_dir, risk)
+    histories: list[dict[str, Any]] = []
+    decisions_log = list(desk_store(settings.state_dir).iter_jsonl(DECISIONS_LOG, skip_bad=True))
+    for book in desk.books.values():
+        try:
+            histories.append(book_history(book, settings.state_dir, now, decisions_log))
+        except Exception as exc:  # one book's logs must not cost the others their page
+            log.warning("history of %s skipped: %s", book.id, exc)
+    try:
+        options = options_history(settings.state_dir, settings.config_dir, now)
+    except Exception as exc:
+        log.warning("history of the options book skipped: %s", exc)
+        options = None
+    if options is not None:
+        histories.append(options)
+    written: list[str] = []
+    keep: set[str] = set()
+    for h in histories:
+        name = f"{h['id']}.json"
+        (folder / name).write_text(dumps(_clean(h), indent=None) + "\n", encoding="utf-8")
+        keep.add(name)
+        written.append(f"{BOOKS_DIR}/{name}")
+    for stale in folder.glob("*.json"):
+        if stale.name not in keep:
+            stale.unlink()
+    return written
+
+
 def export_desk(
     settings: Settings, raw: RawStore, risk: RiskConfig, store: StateStore, out_dir: Path, now: datetime | None = None
 ) -> list[str]:
@@ -784,9 +1058,14 @@ def export_desk(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[str] = []
-    payload = build_desk_payload(settings, raw, risk, store, now)
+    when = ensure_utc(now or datetime.now(tz=UTC))
+    payload = build_desk_payload(settings, raw, risk, store, when)
     (out_dir / DESK_FILE).write_text(dumps(payload, indent=None) + "\n", encoding="utf-8")
     written.append(DESK_FILE)
+    try:
+        written += export_book_histories(settings, risk, out_dir, when)
+    except Exception as exc:  # the book pages lose their history files, never desk.json or the backtest copy
+        log.warning("book histories not exported: %s", exc)
     backtest = desk_store(settings.state_dir).read_json(BACKTEST_FILE)
     if backtest:
         (out_dir / DESK_BACKTEST_FILE).write_text(dumps(_clean(backtest), indent=None) + "\n", encoding="utf-8")

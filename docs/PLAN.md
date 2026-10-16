@@ -35,7 +35,8 @@ Altre decisioni della fase 10, con il motivo:
   richieste) bastano perché Yahoo rifiuti tutto per minuti, e un rifiuto costa al giro le sue barre. Ogni
   libro chiede le proprie tabelle al momento di decidere; tutto insieme una volta dopo la chiusura.
 - **Sito a una pagina.** Il terminale sostituisce la home; le sette pagine del primo sistema restano
-  raggiungibili dall'archivio.
+  raggiungibili dall'archivio. (Dalla fase 16 la home è la pagina «Desk», con una pagina per libro; il resto del
+  terminale è la pagina «Signals».)
 
 ## Decisioni di architettura (con motivazione in una riga)
 
@@ -48,7 +49,7 @@ Altre decisioni della fase 10, con il motivo:
 | Cadenza intraday | Un solo cron `*/30 * * * *` con guardia in-job sull'orario ICE (01:00–23:00 Londra, DST via `zoneinfo`) | Più semplice e robusto di cron multipli per ora legale; le run fuori orario escono in pochi secondi. |
 | Fine giornata | Cron 18:40 e 19:40 UTC con guardia "è dopo le 19:30 a Londra e non ho ancora fatto l'EOD di oggi" | Copre BST e GMT; idempotente per costruzione. |
 | Idempotenza | Chiave `sha1(epoch, decision_ts, instrument, strategy_set)` su ogni ordine; `concurrency` per workflow | Il cron GitHub può ritardare o duplicare; nessun trade doppio. |
-| Frontend | Vite + TypeScript vanilla, grafici SVG scritti a mano, tema scuro, mobile-first; in inglese dalla fase 12 (prima in italiano) | Leggero, nessun framework né libreria di grafici da mantenere; quattro pagine di testo che formattano il JSON e non calcolano nulla. |
+| Frontend | Vite + TypeScript vanilla, grafici SVG scritti a mano, tema scuro, mobile-first; in inglese dalla fase 12 (prima in italiano) | Leggero, nessun framework né libreria di grafici da mantenere; cinque pagine e una per libro, che formattano il JSON e non calcolano nulla (contano solo righe). |
 | Reset | `reset.yml` con `workflow_dispatch` e input `confirm=RESET`; pulsante del sito con token fine-grained nel `localStorage` oppure link alla pagina del workflow | Stato ufficiale unico e tracciato in `epochs.json`. |
 | Strumento master | Future Brent front-month in barili (lotto 100 bbl), roll esplicito 3 giorni prima della scadenza ICE; spread come posizioni multi-gamba | Specifiche ICE verificate; 100 bbl × ~100 $ ≈ capitale iniziale → granularità sensata per 10 000 $. |
 | Storico lungo | Brent spot EIA 1987+ per regimi/stress (Golfo 1990–91), BZ=F Yahoo 2007+ per il future, curva archiviata da oggi + proxy WTI C1–C4 EIA | Il più lungo possibile dalle fonti gratuite, con i proxy etichettati. |
@@ -190,6 +191,17 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   con il motivo: il lato short (SH, TBF: fondi inversi non qualificati), le scale sulle stampe mensili (CPI, buste
   paga: un altro tipo di indice, da registrare a parte), un libro sull'oro con la sola Fed (la manica da sola
   misura +1,9, ma il libro registrato era con la de-escalation e non si tolgono maniche dopo aver guardato).
+- [x] 16. Il terminale più semplice (16 ottobre 2026, su «sistema il design più semplice, che mi faccia capire in tutto
+  quali sono le posizioni aperte, i vari portafogli, con scelte che si cliccano, e vedi tutto lo storico del paper
+  trading»). La home è la pagina «Desk»: una frase in alto (quanti libri hanno una posizione, il P&L di ogni gruppo),
+  le posizioni aperte con l'esposizione come barra centrata sullo zero, i libri in tre gruppi («Core desk»,
+  «Candidates», «Kalshi books») con un filtro da cliccare, il P&L di ogni gruppo dall'inizio, gli ultimi eseguiti e,
+  a richiesta, tutti. Ogni libro ha la sua pagina (`#/book/<id>`): cifre, cosa tiene ora con l'ultima decisione,
+  equity, e tutta la vita corrente in schede (eseguiti, decisioni con le parole del libro, vite). Ciò che i libri
+  leggono è sulla pagina «Signals». Il motore esporta i gruppi con i loro totali, l'esposizione per posizione, il P&L
+  aperto delle strutture e un file di storia per libro (`books/<id>.json`, `docs/SITE_DATA.md`); nessun numero di
+  nessun libro cambia. Carattere Atkinson Hyperlegible Next, palette della sala nautica di notte, colori dei gruppi
+  validati sui due temi.
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

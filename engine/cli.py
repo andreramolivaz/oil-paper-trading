@@ -318,7 +318,9 @@ def cmd_export_site(args: argparse.Namespace) -> int:
         from engine.desk.export import export_desk
 
         desk_files = export_desk(runner.settings, runner.raw, runner.risk, runner.store, _Path(args.out))
-        print(f"desk: {', '.join(desk_files)}")
+        histories = [f for f in desk_files if "/" in f]
+        rest = [f for f in desk_files if "/" not in f]
+        print(f"desk: {', '.join(rest)}" + (f" and {len(histories)} book histories (books/)" if histories else ""))
     except Exception as exc:
         print(f"attenzione: export del desk non riuscito ({type(exc).__name__}: {exc})")
         return EXIT_ERROR

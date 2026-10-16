@@ -31,10 +31,16 @@ def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_pat
     written = ex.export_desk(
         settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir), tmp_path / "out"
     )
-    assert written == ["desk.json"]  # no backtest on file: its copy is not written
     text = (tmp_path / "out" / "desk.json").read_text()
     assert "NaN" not in text and "Infinity" not in text
     doc = json.loads(text)
+    # desk.json, then one history file per book for its own page; no backtest on file: its copy is not written
+    assert written == [
+        "desk.json",
+        *(f"books/{b['id']}.json" for b in doc["books"] if b["kind"] == "linear"),
+        "books/opzioni.json",
+    ]
+    assert json.loads((tmp_path / "out" / "books" / "spinto.json").read_text())["fills"] == []
     # the core books first, the options book among them, then the candidate books of phases 12 and 13
     candidates = ["gold", "copper", "agri", "bonds", "equities", "uranium", "utilities", "lithium", "semis", "clean"]
     kalshi = ["oracle", "oracle_equities", "oracle_utilities"]  # the speculative books of phases 14 and 15
@@ -171,3 +177,180 @@ def test_the_equity_curve_keeps_recent_detail_and_one_point_a_day_before(tmp_pat
     assert 2 <= len(curve) <= ex.MAX_CURVE_POINTS + 1
     assert curve[-1]["v"] == 10_000.0 and curve[0]["t"] < curve[-1]["t"]
     assert ex._curve([]) == [] and ex._current_epoch([{"epoch": 1}, {"epoch": 2}], 2) == [{"epoch": 2}]
+
+
+def _two_ticks(tmp_path, monkeypatch):
+    """The state after a decision (15:18 New York) and the tick that fills it (the 15:30 bar is in)."""
+    settings = _settings(tmp_path)
+    data = make_desk_data(n_days=420, start=date(2025, 2, 24))  # SYNTHETIC series ending on a Thursday
+    day = data.series["BNO"].bars.index[-1].date()
+    data.intraday["BNO"] = half_hour_bars(day, float(data.series["BNO"].bars["close"].iloc[-1]), n=13)
+    monkeypatch.setattr(ex, "build_desk_data", lambda raw, cfg: data)
+    t0 = datetime(day.year, day.month, day.day, 19, 18, tzinfo=UTC)
+    live_tick(build_desk(settings.state_dir, RISK), data, t0)
+    live_tick(build_desk(settings.state_dir, RISK), data, t0 + timedelta(hours=1))
+    return settings, t0 + timedelta(hours=1)
+
+
+def test_the_desk_page_groups_the_books_and_sums_each_group(tmp_path, monkeypatch):
+    settings, now = _two_ticks(tmp_path, monkeypatch)
+    doc = ex.build_desk_payload(settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir), now)
+    by_id = {b["id"]: b for b in doc["books"]}
+    groups = {g["id"]: g for g in doc["portfolios"]}
+    # three groups, in the page's order, and every book in exactly one of them: the group its forecast and its
+    # configured role give it
+    assert [g["id"] for g in doc["portfolios"]] == ["core", "candidates", "kalshi"]
+    assert groups["core"]["books"] == ["prudente", "dinamico", "spinto", "opzioni"]
+    assert groups["kalshi"]["books"] == ["oracle", "oracle_equities", "oracle_utilities"]
+    assert sorted(i for g in doc["portfolios"] for i in g["books"]) == sorted(by_id)
+    assert all(by_id[i]["group"] == gid for gid, g in groups.items() for i in g["books"])
+    assert all(g["n_books"] == len(g["books"]) and g["label"] and g["note"] for g in doc["portfolios"])
+    # what each group holds, and its totals: sums of its own books, nothing else
+    core = groups["core"]
+    assert core["holding"] == ["prudente", "dinamico"] and core["queued"] == []
+    members = [by_id[i] for i in core["books"]]
+    assert core["equity"] == pytest.approx(sum(b["equity"] for b in members), abs=0.01)
+    assert core["pnl"] == pytest.approx(core["equity"] - core["initial_capital"], abs=0.01)
+    assert core["initial_capital"] == 40_000.0 and core["pnl"] != 0.0
+    assert core["curve"][-1]["v"] == pytest.approx(core["pnl"], abs=0.02)  # the last day's P&L is today's
+    assert groups["candidates"]["holding"] == [] and groups["candidates"]["pnl"] == 0.0
+    # a position carries its exposure as a multiple of the book's equity: here the book's whole exposure
+    for book_id in core["holding"]:
+        b = by_id[book_id]
+        (position,) = b["positions"]
+        assert position["exposure"] == pytest.approx(position["units"] * position["last_price"] / b["equity"], abs=1e-3)
+        assert position["exposure"] == pytest.approx(b["exposure"], abs=1e-3)
+    json.dumps(doc, allow_nan=False)
+
+
+def test_a_group_curve_sums_the_pnl_and_a_book_that_starts_later_joins_at_zero():
+    def book(book_id, group, equity, curve, **extra):
+        return {"id": book_id, "group": group, "equity": equity, "initial_capital": 10_000.0, "curve": curve, **extra}
+
+    books = [
+        book(
+            "a",
+            "core",
+            10_020.0,
+            [
+                {"t": "2026-10-08T21:00:00Z", "v": 10_000.0},
+                {"t": "2026-10-09T15:00:00Z", "v": 10_004.0},
+                {"t": "2026-10-09T20:00:00Z", "v": 10_010.0},  # the last of the day is the day's
+                {"t": "2026-10-12T20:00:00Z", "v": 10_020.0},
+            ],
+            pnl_day=10.0,
+            positions=[{"symbol": "BNO"}],
+            pending=[],
+        ),
+        book(
+            "b",
+            "core",
+            9_990.0,
+            [{"t": "2026-10-09T20:00:00Z", "v": 10_000.0}, {"t": "2026-10-12T20:00:00Z", "v": 9_990.0}],
+            pnl_day=-10.0,
+            positions=[],
+            pending=[{"symbol": "BNO", "units": 3.0}],
+        ),
+        book("c", "candidates", 10_000.0, []),
+        book("d", "claude", 10_000.0, [], structures=[{"id": "s"}]),  # a group the page does not know yet
+    ]
+    out = ex.portfolios_block(books)
+    assert [g["id"] for g in out] == ["core", "candidates", "claude"]  # the known groups first, then the others
+    core = out[0]
+    # 8 Oct: only "a", flat; 9 Oct: "a" +10 and "b" joins at 0; 12 Oct: +20 and -10
+    assert core["curve"] == [
+        {"t": "2026-10-08", "v": 0.0},
+        {"t": "2026-10-09", "v": 10.0},
+        {"t": "2026-10-12", "v": 10.0},
+    ]
+    assert core["holding"] == ["a"] and core["queued"] == ["b"]
+    assert core["equity"] == 20_010.0 and core["pnl"] == 10.0 and core["pnl_pct"] == pytest.approx(0.0005)
+    assert core["pnl_day"] == 0.0 and core["pnl_day_pct"] == 0.0
+    assert out[1]["curve"] == [] and out[1]["pnl"] == 0.0 and out[1]["holding"] == []
+    assert out[2]["label"] == "Claude" and out[2]["holding"] == ["d"]  # an options book holds structures
+    assert ex.book_group("core", "desk") == "core" and ex.book_group("candidate", "desk") == "candidates"
+    assert ex.book_group("candidate", "kalshi") == "kalshi" and ex.book_group(None, None) == "core"
+
+
+def test_each_book_has_a_history_file_with_its_whole_current_life(tmp_path, monkeypatch):
+    settings, now = _two_ticks(tmp_path, monkeypatch)
+    out = tmp_path / "out"
+    (out / "books").mkdir(parents=True)
+    (out / "books" / "gone.json").write_text("{}\n")  # left by a book that is no longer configured
+    written = ex.export_desk(settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir), out, now)
+    doc = json.loads((out / "desk.json").read_text())
+    assert written[0] == "desk.json"
+    assert sorted(written[1:]) == sorted(f"books/{b['id']}.json" for b in doc["books"])
+    assert not (out / "books" / "gone.json").exists()
+    by_id = {b["id"]: b for b in doc["books"]}
+    h = json.loads((out / "books" / "prudente.json").read_text())
+    assert (h["id"], h["kind"], h["vehicle"], h["unit"], h["epoch"]) == ("prudente", "linear", "BNO", "shares", 1)
+    # every fill of the book's life, with the equity after it; every decision of the book's, newest first
+    trades = list(StateStore(settings.state_dir / "desk" / "prudente").iter_jsonl("trades"))
+    assert len(h["fills"]) == len(trades) == 1
+    assert h["fills"][0]["units"] == trades[0]["qty_bbl"] and h["fills"][0]["equity_after"] is not None
+    assert h["decisions"] and all(d["book"] == "prudente" for d in h["decisions"])
+    assert [d["ts"] for d in h["decisions"]] == sorted((d["ts"] for d in h["decisions"]), reverse=True)
+    assert h["decisions"][-1]["order_units"] == h["fills"][0]["units"] and h["decisions"][-1]["text"]
+    assert h["summary"]["n_fills"] == 1 and h["summary"]["n_orders"] >= 1 and h["epochs"] == []
+    assert h["curve"][-1]["v"] == by_id["prudente"]["equity"]
+    options = json.loads((out / "books" / "opzioni.json").read_text())
+    assert (options["kind"], options["unit"], options["fills"]) == ("options", "spread", [])
+    # a reset starts a new life: the page shows what the book did since, and the life before it in `epochs`
+    later = now + timedelta(hours=1)
+    desk = build_desk(settings.state_dir, RISK)
+    desk.books["prudente"].broker.reset(later)
+    desk.save()
+    ex.export_desk(settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir), out, later)
+    h = json.loads((out / "books" / "prudente.json").read_text())
+    assert h["epoch"] == 2 and h["fills"] == [] and h["decisions"] == [] and h["summary"]["n_fills"] == 0
+    (life,) = h["epochs"]
+    assert life["epoch"] == 1 and life["end_reason"] == "reset_manual" and life["n_trades"] == 2  # bought, closed
+    assert life["start_equity"] == 10_000.0 and life["end_equity"] is not None and life["ended_at"]
+    dinamico = json.loads((out / "books" / "dinamico.json").read_text())
+    assert dinamico["epoch"] == 1 and len(dinamico["fills"]) == 1  # the other books keep their life
+
+
+def test_an_open_structure_carries_its_open_pnl_and_a_life_has_one_shape_for_both_books():
+    s = {"credit": 0.25, "mark": 0.275, "contracts": 2, "width": 2.0}
+    row = ex._structure_row(s)
+    assert row["unrealized"] == -5.0 and "unrealized" not in s  # the state is not touched
+    assert row["max_loss_now"] == 345.0  # (2.00 - 0.275) x 100 x 2: what the spread can still cost from its mark
+    assert ex._structure_row({"credit": 0.25})["unrealized"] is None
+    linear = {
+        "epoch": 1,
+        "started_ts": "2026-10-08T21:00:00Z",
+        "ended_ts": "2026-10-20T15:00:00Z",
+        "start_equity": 10_000.0,
+        "end_equity": 9_500.0,
+        "min_equity": 9_400.0,
+        "end_reason": "dead",
+        "n_trades": 7,
+    }
+    options = {"epoch": 1, "ended_at": "2026-10-20T15:00:00Z", "final_equity": 9_800.0, "n_closed": 3}
+    assert ex._epoch_row(linear) == {
+        "epoch": 1,
+        "started_at": "2026-10-08T21:00:00Z",
+        "ended_at": "2026-10-20T15:00:00Z",
+        "start_equity": 10_000.0,
+        "end_equity": 9_500.0,
+        "min_equity": 9_400.0,
+        "end_reason": "dead",
+        "n_trades": 7,
+    }
+    row = ex._epoch_row(options)
+    assert row["end_equity"] == 9_800.0 and row["end_reason"] == "reset_manual" and row["n_trades"] == 3
+    assert row["started_at"] is None and row["start_equity"] is None
+
+
+def test_a_failing_history_export_costs_the_book_pages_and_never_desk_json(tmp_path, monkeypatch):
+    settings = _settings(tmp_path)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("a log cut short")
+
+    monkeypatch.setattr(ex, "export_book_histories", boom)
+    written = ex.export_desk(
+        settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir), tmp_path / "out"
+    )
+    assert written == ["desk.json"] and json.loads((tmp_path / "out" / "desk.json").read_text())["books"]
