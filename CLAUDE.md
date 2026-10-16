@@ -868,6 +868,18 @@ and smaller ones (the lives count of a wiped-out book, UTC days in the readout, 
 orders, an unescaped group label, a malformed address, repeated labels on a flat axis, a difference computed in the
 browser).
 
+Phase 16 went live on 2026-10-16 at 08:08 UTC (PR #27, rebase-merged as 21f3b588; CI green on the branch and on
+main; Pages redeployed in the same minute). Checked on GitHub, on the data branch and on the public page, not
+assumed: the push started a new runner whose first tick (08:10 UTC, off the slot) exported `desk.json` with
+`portfolios` (core: 4 books, holding prudente, dinamico and opzioni, +89.13 $, its curve ending on +89.13 to the
+cent; candidates -120.98 $; Kalshi books 0) and the 17 `books/<id>.json` (2 to 19 kB each, 0.15 s), no private
+`_daily` field in the payload, the option spread's open P&L -5.00 and 345 $ still at risk; the backtest was not
+recomputed (`meta.model` b66ecbb82b75: export.py is not in the fingerprint); the 08:18 tick ran on its slot (ok, 2
+bars, no fill, no decision) and pushed. The public page renders the desk, a book page of each kind (a fund book, the
+options book on a phone), the signals and the backtest on the live JSON, in Los Angeles time, with no console error.
+Still NOT seen: a history file after a reset, a book page warned of a stale history file, a promoted book shown in
+the core group.
+
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
 failure looked like a normal red cross. The giveaway: the run's name was the file path instead of `ci`.
