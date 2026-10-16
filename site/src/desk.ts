@@ -83,6 +83,8 @@ export interface BookPosition {
   last_price: Num;
   notional: Num;
   unrealized: Num;
+  /** The signed exposure of this position as a multiple of the book's equity (an inverse fund counts −2x). */
+  exposure?: Num;
   opened_at?: string | null;
 }
 
@@ -135,6 +137,10 @@ export interface OptionStructure {
   underlying_last?: Num;
   rationale?: string;
   awaiting_close?: boolean;
+  /** The open P&L at the mark: the credit received less what buying the spread back would cost (engine). */
+  unrealized?: Num;
+  /** The most it can still lose from its mark (the book's `max_loss_open` is the sum of these). */
+  max_loss_now?: Num;
 }
 
 export interface SmilePoint {
@@ -211,6 +217,8 @@ export interface Book {
   role?: "core" | "candidate" | "retired";
   /** The role in config/books.yaml; `role` differs when the lifecycle rule changed it (`role_change` says why). */
   configured_role?: string;
+  /** The group of the desk page (`DeskDoc.portfolios`): "core", "candidates", "kalshi". */
+  group?: string;
   role_change?: RoleChange | null;
   allocator?: AllocatorScale | null;
   lifecycle?: LifecycleRecord | null;
@@ -225,6 +233,8 @@ export interface Book {
   description: string;
   vehicle: string;
   vehicle_name?: string;
+  /** How one unit of the vehicle is called: "shares", "barrels". */
+  unit?: string;
   underlying?: string;
   robinhood?: string;
   note?: string;
@@ -248,7 +258,7 @@ export interface Book {
   started_at?: string | null;
   marked_at?: string | null;
   positions?: BookPosition[];
-  pending?: { symbol: string; units: number; decided_at: string; reason: string }[];
+  pending?: { symbol: string; units: number; unit?: string; decided_at: string; reason: string }[];
   n_fills?: number;
   costs?: { commission: Num; spread_and_slippage: Num; financing: Num };
   /** Cash the fund paid its holders, credited on the ex-date (the raw price falls by it that day). */
@@ -600,6 +610,8 @@ export interface DeskDoc {
   market: MarketBlock;
   forecast: Record<string, ForecastBlock>;
   books: Book[];
+  /** The groups the desk page shows the books in, with their totals and P&L since start day by day. */
+  portfolios?: PortfolioGroup[];
   /** The sum of the core books, and apart the sum of the candidate books. */
   total: { equity: Num; initial_capital: Num; pnl: Num; pnl_pct: Num; n_books?: number };
   total_candidates?: { equity: Num; initial_capital: Num; pnl: Num; pnl_pct: Num; n_books?: number };
@@ -709,3 +721,60 @@ export const BOOK_COLOR: Record<string, string> = {
 };
 
 export const bookColor = (id: string): string => BOOK_COLOR[id] ?? "var(--series-4)";
+
+/** A group of books on the desk page (engine/desk/export.py, `portfolios_block`). The curve is the sum of the
+ *  members' P&L since start, one point per UTC day: a book that starts later joins at zero. */
+export interface PortfolioGroup {
+  id: string;
+  label: string;
+  note: string;
+  books: string[];
+  n_books: number;
+  holding: string[];
+  queued: string[];
+  equity: Num;
+  initial_capital: Num;
+  pnl: Num;
+  pnl_pct: Num;
+  pnl_day: Num;
+  pnl_day_pct: Num;
+  curve: CurvePoint[];
+}
+
+/** `site-data/books/<id>.json`: a book's whole current life, read by its page (engine/desk/export.py). */
+export interface BookHistory {
+  generated_at: string;
+  id: string;
+  name: string;
+  kind: "linear" | "options";
+  vehicle: string;
+  unit: string;
+  epoch: number;
+  started_at: string | null;
+  curve: CurvePoint[];
+  fills: (FillRow & { equity_after?: Num })[];
+  decisions: HistoryDecision[];
+  summary: { n_fills: number; n_decisions: number; n_orders: number; realized_pnl: Num; commission: Num };
+  /** The book's lives that ended (a reset by the owner, or the account wiped out), oldest first. */
+  epochs: BookLife[];
+}
+
+export interface BookLife {
+  epoch: number | null;
+  started_at: string | null;
+  ended_at: string | null;
+  start_equity: Num;
+  end_equity: Num;
+  min_equity: Num;
+  /** "reset_manual" (the owner's reset) or "dead" (equity at or below 5% of the start). */
+  end_reason: string | null;
+  n_trades: number | null;
+}
+
+export interface HistoryDecision extends DecisionRow {
+  exposure_actual?: Num;
+  target_units?: Num;
+  current_units?: Num;
+  risk_scale?: Num;
+  legs?: { symbol?: string; order_units?: Num }[];
+}

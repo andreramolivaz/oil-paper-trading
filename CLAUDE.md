@@ -2,8 +2,8 @@
 
 Brent crude research + paper-trading system. Engine in Python 3.12 runs on GitHub Actions (one long-lived
 runner that ticks every 30 minutes), persists JSON state on the `data` branch, and a static site (GitHub Pages,
-English since 2026-10-13, dark, mobile-first, four pages) reads that JSON. **Paper trading only. Real data only.
-Never fabricate a value.**
+English since 2026-10-13, dark, mobile-first: five pages and one page per book since phase 16) reads that JSON.
+**Paper trading only. Real data only. Never fabricate a value.**
 
 There are two systems in this repository and it matters which one you are touching:
 
@@ -23,7 +23,8 @@ There are two systems in this repository and it matters which one you are touchi
   the Fed path read off the FOMC meetings' outcome markets, the recession probability off the yearly NBER
   markets) and two more speculative books read them with a sign per sleeve, long only, on the S&P 500 and
   utilities funds (`oracle_equities`, `oracle_utilities`); two others (bonds, gold) were registered, measured a
-  negative Sharpe and do not exist. The terminal page shows all of it.
+  negative Sharpe and do not exist. The desk page shows what every book holds, each book's own page its whole
+  history, the signals page what they read.
 * **The first system** (`engine/strategies`, `engine/portfolio`, `engine/backtest/session.py`, ...) is 21
   strategies on shadow accounts behind a seven-condition validation gate. Nothing passed, so its master account
   is flat by construction. It still runs daily (the tick runs its end of day) and is reachable from the site's
@@ -55,7 +56,7 @@ python -m engine.cli eod                       # first system, after ICE settlem
 python -m engine.cli weekly                    # COT, rig count, retrain, full backtest, validation report
 python -m engine.cli backtest --start 1990-01-01 --end 2026-10-01 --report out/backtest
 python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|...|clean|oracle|oracle_equities|oracle_utilities|all]
-python -m engine.cli export-site               # site-data/: desk.json for the terminal + the first system's files
+python -m engine.cli export-site               # site-data/: desk.json + books/<id>.json for the desk pages + the first system's files
 
 python -m engine.cli watch                     # the prediction markets alone (the weekend job): read, archive, judge
 python -m engine.cli kalshi-backfill [--since 2026-01-01] [--file history.json]   # the archive's past from the candlesticks
@@ -304,8 +305,10 @@ engine/
   report/      backtest report + site JSON export
   monitoring/  source health, cron lag, GitHub issue alerts, live-vs-backtest divergence
 config/        strategies.yaml, risk.yaml, events.yaml, data_sources.yaml
-site/          Vite + TypeScript (vanilla), SVG charts drawn by hand, no chart library; four pages: terminal,
-               backtest, reset, archive (one English page on the first system)
+site/          Vite + TypeScript (vanilla), SVG charts drawn by hand, no chart library; five pages: desk (home:
+               open positions, the groups of books, P&L by group), signals (market, forecast, Kalshi, allocator,
+               options, prediction markets, status), backtest, reset, archive (one English page on the first
+               system); and a page per book, #/book/<id>, with its whole history (books/<id>.json)
 tests/         pytest; `network` marker for tests hitting real sources
 .github/workflows/  ci, runner (the tick loop), watchdog (restarts it), weekly, reset, deploy, keepalive,
                     eod (manual re-run of one date), research-data (manual download for research),
@@ -411,8 +414,12 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
 - Secrets only via GitHub Secrets: `EIA_API_KEY`, `FRED_API_KEY`, `ALPHAVANTAGE_API_KEY` (all optional; system degrades gracefully).
 - A parameter of a book is a published value or a stated rule of thumb, never the best cell of a grid. When a
   result depends on a choice, show the neighbours (`docs/RESEARCH.md` does) instead of picking the winner.
-- Site: the terminal (`site/src/pages/terminal.ts`) formats `desk.json` and computes nothing. Plain monospace
-  text, colour only for sign and state.
+- Site: the desk pages (`site/src/pages/desk.ts`, `book.ts`, `signals.ts`, helpers in `site/src/deskview.ts`)
+  format `desk.json` and `books/<id>.json` and compute nothing but counts of rows; a figure the page needs (a
+  group's total, a position's exposure, a structure's open P&L) is added to the export, not computed in the
+  browser. One typeface (Atkinson Hyperlegible Next, self-hosted), tabular figures in columns, sentence case,
+  no ALL-CAPS labels; colour only for sign (green and red), state, and what can be clicked (magenta, `--accent`).
+  The three group colours are the validated series slots 1-3 (`groupColor`), in the engine's fixed group order.
 
 ## State of play (2026-10-13)
 Phases 1-13 of `docs/PLAN.md` are implemented. Phase 10 (8 October) added the desk after three days of a flat
@@ -751,7 +758,9 @@ London settlement), and the page shows the block with both columns and no consol
 runner's first tick (18:32) started while the backfill job was pushing, so its push failed and the loop
 recovered at 18:48 as designed ("push failed: retried on the next tick"; `sync` took the branch's state) - a
 manual job that pushes the data branch costs the runner the tick it overlaps. Still NOT seen: the oracle's
-first order and fill (the forecast must reach about 15 at the halved target and 38 % volatility for one lot),
+first order and fill (the forecast must reach about ±8.5 for one lot at the halved target, 38 % volatility and
+a 96 $ contract, through Carver's buffer - computed with `book.buffered_target` on 16 October; "about 15",
+written here first, was wrong),
 a day on which its reading is a fallback (a weekend), the scale's re-measurement on the live record (late
 December).
 
@@ -820,6 +829,30 @@ rows and the backtest's three excluded rows with no console error. Still NOT see
 with the Fed path hawkish both should stay in cash and say so), their first fill, a day on which the Fed path's
 reading comes from a live reading rather than a candle (the 17th), the scales' re-measurement at 60 live
 readings per sleeve.
+
+Phase 16 (16 October, on the owner's "simplify the terminal's design: make me understand overall which positions
+are open, the portfolios, simple, clear, with impact, with choices you click, and see the whole history of the paper
+trading"). The site's home is now the DESK page (`site/src/pages/desk.ts`): one sentence at the top ("5 of 17 books
+hold a position", then each group's P&L since its start), the open positions (positions, option spreads, queued
+orders: exposure as a zero-centred bar full at 1x, value, open P&L, since), the portfolios as three groups - "Core
+desk", "Candidates", "Kalshi books" - filtered by a click (All / With a position / one group, kept in the address,
+`?show=`), every book a row that opens its own page, the P&L of each group since the start (one line per group, end
+labels, legend, a crosshair readout), the latest fills and, on demand, every fill since the start (read from the
+books' history files). A BOOK page (`#/book/<id>`, `site/src/pages/book.ts`) has the book's figures, what it holds
+now in words with its last decision quoted, its equity chart, and its whole current life in tabs - every trade,
+every decision in the book's own words (filter: only those that sent an order), the lives before a reset - and the
+rules and costs folded away. What the books read moved to a SIGNALS page (the old terminal without its book
+sections: market, forecast, Kalshi indices, allocator, options, prediction markets with the unusual-activity
+alerts, backtest summary, status; `?at=<section>` opens it at a section). Engine side, all in `export.py` and pinned
+by `tests/test_desk_export.py`: `portfolios` (groups with their totals and a per-day sum of P&L in which a book
+that starts later joins at zero), `group` and `unit` per book, `exposure` per position, `unit` per queued order,
+`unrealized` and `max_loss_now` per option structure, and `books/<id>.json` per book on every export (every fill and
+decision of the current life, the equity curve with five days of detail, the lives in one shape for both kinds of
+book; a stale file is removed, one book's unreadable logs cost only its own file). The design: the desk's chart
+room at night (navy surfaces, chart-paper text, chart-magenta for what can be clicked, starboard green and port red
+for gains and losses), Atkinson Hyperlegible Next self-hosted (`@fontsource-variable`), the group colours checked
+with the palette validator on both themes; a line chart's colours go through `style` (a presentation attribute may
+not resolve `var()`), and `[hidden]` always wins over a class that sets `display`. No number of any book changed.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

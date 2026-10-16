@@ -3,8 +3,12 @@
 Sistema di ricerca e **paper trading** sul petrolio. Scarica dati reali, calcola una previsione da sette
 segnali (il prezzo del greggio, la curva dei future, il rame e il dollaro), e la fa comprare a quattro conti
 simulati da 10.000 $ che differiscono per quanta leva usano e per il lato short; dal 13 ottobre 2026 tre libri
-**candidati** (oro, rame, agricoltura) girano accanto a loro con le stesse regole. Tutto è pubblicato su un
-terminale di una pagina, in inglese: <https://andreramolivaz.github.io/oil-paper-trading/>.
+**candidati** (oro, rame, agricoltura) girano accanto a loro con le stesse regole. Tutto è pubblicato su un sito
+in inglese: <https://andreramolivaz.github.io/oil-paper-trading/>. Dal 16 ottobre la pagina principale («Desk») dice
+in una frase quanti libri hanno una posizione aperta, elenca le posizioni e mostra i libri in tre gruppi (il nucleo,
+i candidati, i libri su Kalshi) con un filtro da cliccare; ogni libro apre la sua pagina con tutta la sua storia
+(ogni eseguito, ogni decisione con le sue parole, le vite prima di un reset). Ciò che i libri leggono - mercato,
+previsione, indici di Kalshi, allocatore, mercati a eventi con le allerte - è sulla pagina «Signals».
 
 > **Simulazione a scopo di studio su dati reali. Nessun consiglio finanziario, nessun ordine reale, nessun
 > broker collegato.** Ogni numero mostrato porta la sua fonte e il suo orario; quando un dato manca il sistema
@@ -151,7 +155,7 @@ Le quattro cose che il codice non poteva fare da sé sono state completate e ver
 | Repository pubblico | Settings → General | ✅ `raw.githubusercontent.com` risponde 200: la dashboard legge il branch `data` dal vivo |
 | GitHub Pages | Settings → Pages → Source: **GitHub Actions** | ✅ online su <https://andreramolivaz.github.io/oil-paper-trading/> |
 | Permessi dei workflow | Settings → Actions → General → Workflow permissions → **Read and write** | ✅ i job scrivono il branch dati e aprono le issue di allerta |
-| Chiavi API gratuite | Settings → Secrets and variables → Actions | ✅ `EIA_API_KEY` e `FRED_API_KEY` presenti; `ALPHAVANTAGE_API_KEY` aggiunta l'8 ottobre 2026 (la conferma è la fonte `insider_form4` verde nel riquadro «Stato» del terminale) |
+| Chiavi API gratuite | Settings → Secrets and variables → Actions | ✅ `EIA_API_KEY` e `FRED_API_KEY` presenti; `ALPHAVANTAGE_API_KEY` aggiunta l'8 ottobre 2026 (la conferma è la fonte `insider_form4` verde nel riquadro «Status» della pagina «Signals») |
 
 Le chiavi restano **opzionali**: senza di esse il sistema gira lo stesso, con più fonti sui fallback.
 
@@ -176,7 +180,7 @@ workflow su GitHub, dove parte con un clic. **Il token resta nel tuo browser e n
 
 ## Se il motore si ferma
 
-Il terminale lo dice in alto («motore in ritardo» o «motore fermo»). Ogni runner avvia il proprio successore;
+Ogni pagina del sito lo dice in alto («Engine late» o «Engine stopped»). Ogni runner avvia il proprio successore;
 se la catena si spezza la riaccende il watchdog, che però è su una pianificazione di GitHub e può tardare anche
 di ore. Per farlo subito: **Actions → runner → Run workflow**. Non c'è nulla da recuperare a mano: al primo
 giro il motore riprende da dove era rimasto, e le barre arrivate nel frattempo vengono lette nell'ordine e ai

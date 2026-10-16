@@ -191,7 +191,7 @@ function bookTable(books: DeskDoc["books"]): string {
   const body = books
     .map(
       (b) => `<tr>
-        <td>${escapeHtml(b.name)}${b.role === "candidate" ? ' <span class="muted">candidate</span>' : ""}</td>
+        <td><a href="#/book/${encodeURIComponent(b.id)}">${escapeHtml(b.name)}</a>${b.role === "candidate" ? ' <span class="muted">candidate</span>' : ""}</td>
         <td>${escapeHtml(b.vehicle)}</td>
         <td class="num">${cell(num(b.equity))}</td>
         <td class="num ${tone(b.pnl_total)}">${cell(signedUsd(b.pnl_total))}</td>

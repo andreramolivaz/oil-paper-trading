@@ -1,16 +1,16 @@
-/** The terminal: one screen of text for the desk's paper books.
+/** Signals: what the books read, in one column of text.
  *
- * Top to bottom it answers the questions somebody opening the page has: what is oil doing, what does the model
- * think, what does each book hold and what would a gap do to it, what happened lately, is the machine alive.
- * No number is computed here: the page formats what `desk.json` carries and says "n/a" for what it does not.
+ * The desk page says what the books hold; this one says why. Top to bottom: what oil and the markets around it
+ * are doing, the forecast the oil books read (seven sleeves from three sources), the Kalshi indices the
+ * speculative books read, the allocator's scales, the options book's quotes, the prediction markets, the backtest
+ * in one table, and whether the machine is alive. No number is computed here: the page formats what `desk.json`
+ * carries and says "n/a" for what it does not.
  */
-import { lineChart, lineLegend, type LineSeries } from "../charts/lines";
 import { repoUrl } from "../config";
 import { load } from "../data";
 import {
   bookColor,
   portfolios,
-  type Book,
   type DeskDoc,
   type ForecastBlock,
   type OptionUnderlying,
@@ -20,90 +20,8 @@ import {
   type PredictionEvent,
   type Quote,
 } from "../desk";
-import { EMPTY, escapeHtml, leverage, num, percent, relative, signedPercent, signedUsd, tone, usd } from "../format";
-
-const MINUS = "−";
-
-/** dd MMM HH:mm in the reader's own time zone (the header says which). */
-function clock(iso: string | null | undefined): string {
-  if (!iso) return EMPTY;
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return EMPTY;
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(t);
-}
-
-function zoneName(): string {
-  try {
-    const part = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" })
-      .formatToParts(new Date())
-      .find((p) => p.type === "timeZoneName");
-    return part?.value ?? "local time";
-  } catch {
-    return "local time";
-  }
-}
-
-function day(iso: string | null | undefined): string {
-  if (!iso) return EMPTY;
-  const t = Date.parse(iso.length <= 10 ? `${iso}T12:00:00Z` : iso);
-  if (Number.isNaN(t)) return EMPTY;
-  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" }).format(t);
-}
-
-function signed(value: number | null | undefined, digits = 1): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return EMPTY;
-  const s = num(Math.abs(value), digits);
-  return value > 0 ? `+${s}` : value < 0 ? `${MINUS}${s}` : s;
-}
-
-const span = (cls: string, text: string): string => `<span class="${cls}">${text}</span>`;
-const toneSpan = (value: number | null | undefined, text: string): string => span(tone(value), text);
-
-function section(title: string, body: string, note = ""): string {
-  return `<section class="t-sec">
-    <h2 class="t-h"><span>${escapeHtml(title)}</span>${note ? `<small>${note}</small>` : ""}</h2>
-    ${body}
-  </section>`;
-}
-
-// ---------------------------------------------------------------------------------------------- header
-function engineState(doc: DeskDoc): { cls: string; text: string } {
-  const ageMin = (Date.now() - Date.parse(doc.generated_at)) / 60000;
-  if (!Number.isFinite(ageMin)) return { cls: "warn", text: "engine state n/a" };
-  const ny = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const dow = ny.getDay();
-  const hm = ny.getHours() * 60 + ny.getMinutes();
-  const weekend = dow === 6 || (dow === 5 && hm >= 18 * 60 + 30) || (dow === 0 && hm < 17 * 60 + 30);
-  if (ageMin <= 50) return { cls: "ok", text: "engine running" };
-  if (weekend) return { cls: "dim", text: "markets closed: back Sunday 17:30 New York" };
-  if (ageMin <= 180) return { cls: "warn", text: `engine late (last tick ${relative(doc.generated_at)})` };
-  return { cls: "bad", text: `engine stopped ${relative(doc.generated_at)}` };
-}
-
-function dataState(doc: DeskDoc): { cls: string; text: string } {
-  const h = doc.health;
-  if (h.overall === "green") return { cls: "ok", text: `data ok (${h.n_green}/${h.n_sources})` };
-  if (h.overall === "yellow") return { cls: "ok", text: `data ok, ${h.n_sources - h.n_green} secondary sources partial` };
-  if (h.overall === "red") return { cls: "bad", text: "a critical source is down: no new decisions" };
-  return { cls: "dim", text: "data state n/a" };
-}
-
-function header(doc: DeskDoc, origin: string | null): string {
-  const eng = engineState(doc);
-  const dat = dataState(doc);
-  const from = origin === "live" ? "" : origin === "bundled" ? " · copy bundled with the site" : origin === "sample" ? " · SAMPLE DATA" : "";
-  return `<div class="t-status">
-    <span>updated ${escapeHtml(clock(doc.generated_at))} ${escapeHtml(zoneName())} · ${escapeHtml(relative(doc.generated_at))}${escapeHtml(from)}</span>
-    <span class="t-dot ${eng.cls}">${escapeHtml(eng.text)}</span>
-    <span class="t-dot ${dat.cls}">${escapeHtml(dat.text)}</span>
-  </div>`;
-}
+import { MINUS, section, span, statusLine, toneSpan } from "../deskview";
+import { EMPTY, clock, day, escapeHtml, leverage, num, percent, relative, signed, signedPercent, usd } from "../format";
 
 // ---------------------------------------------------------------------------------------------- market
 function quoteCell(q: Quote | undefined): string {
@@ -153,7 +71,8 @@ function market(doc: DeskDoc): string {
   return section(
     "Market",
     `<div class="t-quotes">${cells.join("")}</div>`,
-    "Yahoo prices, 10-15 minutes late · copper and dollar: daily closes · Hormuz: IMF PortWatch (AIS), weekly",
+    "Yahoo prices, 10-15 minutes late; copper and dollar: daily closes; Hormuz: IMF PortWatch (AIS), weekly",
+    "market",
   );
 }
 
@@ -162,7 +81,7 @@ function forecastTable(doc: DeskDoc): string {
   const cols: { key: string; title: string; f: ForecastBlock }[] = [];
   if (doc.forecast.BNO) cols.push({ key: "BNO", title: "Brent · BNO", f: doc.forecast.BNO });
   if (doc.forecast.MCL) cols.push({ key: "MCL", title: "WTI · /MCL", f: doc.forecast.MCL });
-  if (!cols.length) return section("Forecast", `<div class="t-empty">No forecast: the daily series are missing.</div>`);
+  if (!cols.length) return section("Forecast", `<div class="t-empty">No forecast: the daily series are missing.</div>`, "", "forecast");
   const row = (label: string, hint: string, pick: (f: ForecastBlock) => string, cls = ""): string =>
     `<tr${cls ? ` class="${cls}"` : ""}><th scope="row">${escapeHtml(label)}<small>${escapeHtml(hint)}</small></th>${cols
       .map((c) => `<td class="n">${pick(c.f)}</td>`)
@@ -199,7 +118,7 @@ function forecastTable(doc: DeskDoc): string {
       ${row("Data as of", "last session in the calculation", (f) => `${escapeHtml(day(f.day))}${f.approx ? " ≈" : ""}`)}
       ${row("Copper and dollar as of", "the previous session's close", macroDay)}
     </tbody></table></div>`;
-  return section("Forecast", body, "the same for every book on that instrument: only the size differs");
+  return section("Forecast", body, "the same for every book on that instrument: only the size differs", "forecast");
 }
 
 // ---------------------------------------------------------------------------------------------- oracle
@@ -213,9 +132,10 @@ function oracleTable(doc: DeskDoc): string {
     // the engine could not read the archive: the block says so instead of costing the page (found in review)
     const names = (o.books ?? []).map((b) => escapeHtml(typeof b === "string" ? b : b.id)).join(", ");
     return section(
-      "Kalshi indices · the Oracle books",
-      `<p class="warn">The Kalshi archive could not be read on this export: ${escapeHtml(String(o.error))}.</p><p class="t-dim">The books on it (${names}) took no new decision on it; their positions and marks are in the table above.</p>`,
+      "Kalshi indices and the Oracle books",
+      `<p class="warn">The Kalshi archive could not be read on this export: ${escapeHtml(String(o.error))}.</p><p class="t-dim">The books on it (${names}) took no new decision on it; their positions and marks are on <a href="#/">the desk</a>.</p>`,
       "the crowd's probabilities, read at a constant horizon",
+      "kalshi",
     );
   }
   const indices: OracleIndex[] = o.indices && o.indices.length ? o.indices : [{ ...o, books: undefined }];
@@ -243,9 +163,10 @@ function oracleTable(doc: DeskDoc): string {
   const body = `${tables}
     <p class="t-dim">Books: ${bookList}. Archive: ${archive}. ${o.disclaimer ? escapeHtml(o.disclaimer) : ""} <span class="warn">The prior written with every rule is that it has no edge.</span></p>`;
   return section(
-    "Kalshi indices · the Oracle books",
+    "Kalshi indices and the Oracle books",
     body,
     "the crowd's probabilities on de-escalation, the Fed's path and a recession, read at a constant horizon; a sleeve each, read with a sign per book",
+    "kalshi",
   );
 }
 
@@ -311,223 +232,6 @@ function oracleIndexTable(o: OracleIndex): string {
     <p class="t-dim">${escapeHtml(o.rule.text)}</p>`;
 }
 
-// ---------------------------------------------------------------------------------------------- books
-const STATUS: Record<string, { cls: string; text: string }> = {
-  active: { cls: "ok", text: "active" },
-  halted_breaker: { cls: "warn", text: "halted until tomorrow (daily loss)" },
-  halted_stale: { cls: "warn", text: "halted: stale data" },
-  dead: { cls: "bad", text: "wiped out: needs a reset" },
-};
-
-function positionText(b: Book): string {
-  if (b.kind === "options") {
-    const n = b.structures?.length ?? 0;
-    if (!n) return span("t-dim", "no open structure");
-    return `${n} put spread${n > 1 ? "s" : ""} · max risk ${usd(b.max_loss_open ?? null, 0)} (${percent(b.max_loss_open_pct ?? null, 1)})`;
-  }
-  const parts: string[] = [];
-  for (const p of b.positions ?? []) {
-    parts.push(
-      `${p.side} ${num(Math.abs(p.units), 0)} ${escapeHtml(p.unit)} ${escapeHtml(p.symbol)} at ${num(p.avg_price, 2)} ${toneSpan(
-        p.unrealized,
-        signedUsd(p.unrealized, 0),
-      )}`,
-    );
-  }
-  for (const o of b.pending ?? []) {
-    parts.push(span("warn", `order queued: ${signed(o.units, 0)} ${escapeHtml(o.symbol)}`));
-  }
-  return parts.length ? parts.join(" · ") : span("t-dim", "in cash");
-}
-
-function capText(b: Book): string {
-  if (b.kind === "options") return "defined risk";
-  const cap = b.cap_today ?? (b.rules.max_leverage as number | undefined) ?? null;
-  const risk = b.allocator?.risk;
-  const scaled =
-    risk === null || risk === undefined || risk >= 1
-      ? ""
-      : risk <= 0
-        ? " <span class='warn'>retired</span>"
-        : ` <span class='warn'>risk ×${num(risk, 2).replace(/\.?0+$/, "")}</span>`;
-  return `${leverage(cap)}${b.cap_reduced_today ? " <span class='warn'>pre-closure</span>" : ""}${scaled}`;
-}
-
-function stressText(b: Book): string {
-  if (b.kind === "options") return span("t-dim", "by structure");
-  const v = b.stress?.["-20%"];
-  if (v === null || v === undefined) return EMPTY;
-  return toneSpan(v, signedPercent(v, 1));
-}
-
-function bookRow(b: Book): string {
-  const st = STATUS[b.status] ?? { cls: "dim", text: b.status };
-  return `<tr>
-    <th scope="row"><span class="t-key" style="--sw:${bookColor(b.id)}"></span>${escapeHtml(b.name)}${
-      b.forecast_family === "kalshi"
-        ? ' <span class="warn">speculative · no backtest</span>'
-        : b.experimental
-          ? ' <span class="t-dim">experimental</span>'
-          : ""
-    }${b.role_change ? ` <span class="warn">${escapeHtml(b.role_change.role)} since ${escapeHtml(day(b.role_change.since))}</span>` : ""}<small>${escapeHtml(
-      b.vehicle,
-    )}</small></th>
-    <td class="n" data-l="Equity $"><b>${num(b.equity, 2)}</b></td>
-    <td class="n" data-l="Today">${toneSpan(b.pnl_day, signedPercent(b.pnl_day_pct, 2))}</td>
-    <td class="n" data-l="Since start">${toneSpan(b.pnl_total, signedPercent(b.pnl_total_pct, 2))}</td>
-    <td class="n" data-l="From peak">${b.drawdown ? `${MINUS}${percent(b.drawdown, 1)}` : "0%"}</td>
-    <td class="n" data-l="Leverage">${leverage(b.leverage)}</td>
-    <td class="n" data-l="Cap">${capText(b)}</td>
-    <td class="n" data-l="If −20% gap">${stressText(b)}</td>
-    <td class="w" data-l="Position">${positionText(b)}</td>
-    <td class="s"><span class="t-dot ${st.cls}">${escapeHtml(st.text)}</span></td>
-  </tr>`;
-}
-
-function totalRow(label: string, t: DeskDoc["total"] | undefined, note: string): string {
-  if (!t) return "";
-  return `<tr class="t-total"><th scope="row">${escapeHtml(label)}</th><td class="n" data-l="Equity $"><b>${num(t.equity, 2)}</b></td><td class="x"></td>
-    <td class="n" data-l="Since start">${toneSpan(t.pnl, signedPercent(t.pnl_pct, 2))}</td><td colspan="6" class="t-dim w">${escapeHtml(note)}</td></tr>`;
-}
-
-function booksTable(doc: DeskDoc): string {
-  const core = doc.books.filter((b) => (b.role ?? "core") === "core");
-  const candidates = doc.books.filter((b) => (b.role ?? "core") !== "core");
-  const capital = num(doc.books[0]?.initial_capital ?? 10000, 0);
-  const candidateRows = candidates.length
-    ? `<tr class="t-break"><th scope="row" colspan="10" class="t-dim w">Candidates · paper books beside the four, the prudent book's rules on their own price (gold, copper, agriculture, Treasuries, equities, uranium, utilities, lithium, semiconductors, clean energy), judged on real fills before anybody trusts them${
-        candidates.some((b) => b.forecast_family === "kalshi")
-          ? "; and the Oracle books, speculative, that take their direction from Kalshi's prediction markets (the de-escalation index on the micro WTI future; the Fed path and the recession odds on the equities and utilities funds, long only) - no backtest, live fills only"
-          : ""
-      }</th></tr>
-      ${candidates.map(bookRow).join("")}
-      ${totalRow("Candidates", doc.total_candidates, `${candidates.length} separate accounts of ${capital} $ each`)}`
-    : "";
-  const body = `<div class="t-scroll"><table class="t-table t-books">
-    <thead><tr>
-      <th>Book</th><th class="n">Equity $</th><th class="n">Today</th><th class="n">Since start</th>
-      <th class="n">From peak</th><th class="n">Leverage</th><th class="n">Cap</th><th class="n">If ${MINUS}20% gap</th><th>Position</th><th>State</th>
-    </tr></thead>
-    <tbody>${core.map(bookRow).join("")}
-    ${totalRow("Total", doc.total, `${core.length} separate accounts of ${capital} $ each: the total is only a sum`)}
-    ${candidateRows}</tbody>
-  </table></div>
-  <div class="t-chart" id="t-equity"></div><div id="t-equity-legend"></div>`;
-  return section(
-    "Books",
-    body,
-    `paper trading: no real orders, no broker · "if ${MINUS}20% gap": the book's loss on a 20% gap of its instrument at today's position, before any stop`,
-  );
-}
-
-/** What a Kalshi book's forecast is, from the signed sleeves on its row (the de-escalation index for the oil
- *  book; the Fed path and the recession odds for the fund books). */
-const SLEEVE_WORDS: Record<string, string> = {
-  deescalation: `the de-escalation index (${MINUS}2 per point: rising = short oil)`,
-  fedpath: `the Fed path (${MINUS}2.5 per basis point: turning dovish = positive)`,
-  recession: "the odds of a recession within a year (+4 per point: rising = positive)",
-};
-
-function kalshiSleevesText(sleeves: Record<string, 1 | -1> | null | undefined): string {
-  const names = Object.keys(sleeves ?? {});
-  if (!names.length) return "Forecast: the week's change of a Kalshi index, read the evening before on the desk's own archive; no backtest exists for it.";
-  const parts = names.map((n) => `${SLEEVE_WORDS[n] ?? n}${(sleeves ?? {})[n] < 0 ? ", read with a minus" : ""}`);
-  const how = names.length > 1 ? "the mean, with those signs, of the week's changes of" : "the week's change of";
-  return `Forecast: ${how} ${parts.join(" and ")}, read the evening before on the desk's own archive; no backtest exists for it.`;
-}
-
-function ruleLine(b: Book): string {
-  const r = b.rules;
-  if (b.kind === "options") {
-    const dte = (r.dte as number[] | undefined) ?? [];
-    return `Sells one put spread only with a forecast ≥ +${num(r.forecast_threshold as number, 0)}; put sold at delta ${num(
-      r.short_delta as number,
-      2,
-    )}, about ${dte[1] ?? "30"} days to expiry; maximum loss ${percent(r.risk_per_structure as number, 0)} of the account per structure,
-    at most ${r.max_open ?? 2} structures; legs quoted within ${percent(r.max_leg_spread as number, 0)} of their price, filled a quarter
-    of the spread from the bad side.`;
-  }
-  const weekend = r.weekend_max_leverage as number | null | undefined;
-  const source = b.forecast_family === "kalshi" ? `${kalshiSleevesText(b.sleeves)} ` : "";
-  return `${source}Volatility target ${percent(r.vol_target as number, 0)} · leverage cap ${leverage(r.max_leverage as number)}${
-    weekend !== null && weekend !== undefined ? ` (${leverage(weekend)} before a weekend or a holiday)` : ""
-  } · ${r.long_only ? "long only" : r.short_via ? `long and short (short by buying ${escapeHtml(String(r.short_via))})` : "long and short"} · margin ${percent(r.margin_rate as number, 0)} · decision at ${escapeHtml(
-    String(r.decision_time_ny ?? ""),
-  )} New York · daily stop at ${MINUS}${percent(r.daily_loss_breaker as number, 0)}.`;
-}
-
-function bookDetails(doc: DeskDoc): string {
-  return doc.books
-    .map((b) => {
-      const d = b.last_decision;
-      const costs = b.costs
-        ? `spread and slippage ${usd(b.costs.spread_and_slippage, 2)} · commissions ${usd(b.costs.commission, 2)} · interest ${usd(
-            b.costs.financing,
-            2,
-          )}`
-        : "";
-      const liq =
-        b.liquidation_price !== null && b.liquidation_price !== undefined
-          ? `<p>Forced liquidation price: <b>${num(b.liquidation_price, 2)}</b> (the broker closes the position when the margin is no longer enough).</p>`
-          : "";
-      const stress = b.stress
-        ? `<p class="t-dim">On a gap of the instrument, at today's position and before any stop: ${Object.entries(b.stress)
-            .map(([move, v]) => `${escapeHtml(move)} → ${signedPercent(v, 1)}`)
-            .join(" · ")}.</p>`
-        : "";
-      const structures = (b.structures ?? [])
-        .map(
-          (s) =>
-            `<p>${escapeHtml(s.underlying)} put ${num(s.short.strike, 0)}/${num(s.long.strike, 0)} expiring ${escapeHtml(
-              day(s.expiry),
-            )} × ${s.contracts}: credit ${num(s.credit, 2)}, now worth ${num(s.mark, 2)}${s.mark_stale ? " (stale mark)" : ""};
-            max gain ${usd(s.max_gain, 0)}, max loss ${usd(s.max_loss, 0)}, breakeven ${num(s.breakeven, 2)}${
-              s.awaiting_close ? " · expired, waiting for the official close" : ""
-            }.</p>`,
-        )
-        .join("");
-      return `<details class="t-details">
-        <summary><span class="t-key" style="--sw:${bookColor(b.id)}"></span><b>${escapeHtml(b.name)}</b>
-          <span class="t-dim">${escapeHtml(b.robinhood ?? b.vehicle)}${b.role === "candidate" ? " · candidate" : ""}${
-            b.forecast_family === "kalshi" ? " · speculative, no backtest" : ""
-          }</span></summary>
-        <p>${escapeHtml(b.description)}</p>
-        <p class="t-dim">${ruleLine(b)}</p>
-        ${structures}
-        ${d ? `<p><span class="t-dim">Last decision, ${escapeHtml(clock(d.ts))}:</span> ${escapeHtml(d.rationale ?? "")}</p>` : ""}
-        ${allocatorLine(b)}
-        ${stress}
-        ${liq}
-        ${b.last_roll ? `<p class="t-dim">Last roll: ${escapeHtml(b.last_roll)}</p>` : ""}
-        ${costs ? `<p class="t-dim">Costs paid so far: ${costs}. Fills: ${b.n_fills ?? 0}.${
-          b.distributions ? ` Distributions received: ${usd(b.distributions, 2)}.` : ""
-        }</p>` : ""}
-        ${b.note ? `<p class="t-dim">${escapeHtml(b.note)}</p>` : ""}
-        ${b.rules.short_note ? `<p class="t-dim">${escapeHtml(String(b.rules.short_note))}</p>` : ""}
-      </details>`;
-    })
-    .join("");
-}
-
-function allocatorLine(b: Book): string {
-  const a = b.allocator;
-  const l = b.lifecycle;
-  const parts: string[] = [];
-  if (a && a.reasons.length) parts.push(`Allocator, ${escapeHtml(day(a.day))}: ${escapeHtml(a.reasons.join("; "))}.`);
-  else if (a) parts.push(`Allocator, ${escapeHtml(day(a.day))}: the book's own rules, nothing scaled.`);
-  if (l && l.months_live !== null && l.months_live !== undefined) {
-    parts.push(
-      `Live record: ${num(l.months_live, 1)} months${
-        l.sharpe_live === null || l.sharpe_live === undefined ? "" : `, realised Sharpe ${signed(l.sharpe_live, 2)}`
-      }${
-        l.max_drawdown_live === null || l.max_drawdown_live === undefined ? "" : `, drawdown ${MINUS}${percent(l.max_drawdown_live, 1)}`
-      }.`,
-    );
-  }
-  if (b.role_change) parts.push(`${escapeHtml(b.role_change.role)} since ${escapeHtml(day(b.role_change.since))}: ${escapeHtml(b.role_change.reason)}.`);
-  return parts.length ? `<p class="t-dim">${parts.join(" ")}</p>` : "";
-}
-
 // ---------------------------------------------------------------------------------------------- allocator
 function allocator(doc: DeskDoc): string {
   const a = doc.allocator;
@@ -590,7 +294,7 @@ function allocator(doc: DeskDoc): string {
     <code>forecast / 10 × volatility target × m / volatility</code>, where m is the allocator's multiplier; nothing here ever
     raises a position above the book's own rules. Every rule was measured on the replay before it was switched on (and
     the backtest page shows the books with and without it).</p>`;
-  return section("Allocator", body, "how the desk recalibrates itself, by published rules");
+  return section("Allocator", body, "how the desk recalibrates itself, by published rules", "allocator");
 }
 
 // ---------------------------------------------------------------------------------------------- prediction markets
@@ -722,7 +426,7 @@ function predictionAlerts(doc: DeskDoc): string {
     : `<p class="t-dim">Nothing unusual in the last seven days of readings: no event market moved ${escapeHtml(
         pm.watch.move ?? "10% in 24 hours",
       )} on a day's volume far above its own usual.</p>`;
-  return `<div class="t-watch">
+  return `<div class="t-watch" id="alerts">
     <h3 class="t-sub">Unusual activity <span class="t-dim">${alerts.length ? `${alerts.length} in the last week` : "none in the last week"}</span></h3>
     ${body}
     <p class="t-dim">The rule, declared before it went live: ${escapeHtml(pm.watch.move ?? "")}; ${escapeHtml(
@@ -738,6 +442,8 @@ function predictionMarkets(doc: DeskDoc): string {
     return section(
       "Prediction markets",
       `<div class="t-empty">No reading from Kalshi yet: the tick asks for it every hour.</div>`,
+      "",
+      "prediction",
     );
   }
   const events = pm.groups.flatMap((g) => g.events);
@@ -775,74 +481,8 @@ function predictionMarkets(doc: DeskDoc): string {
   return section(
     "Prediction markets",
     body,
-    `Kalshi, read ${escapeHtml(clock(pm.asof))}${pm.stale ? ' <span class="warn">stale</span>' : ""} · ${pm.markets ?? 0} open markets · the price of a contract paying 1 $ is the crowd's probability`,
-  );
-}
-
-// ---------------------------------------------------------------------------------------------- activity
-function decisions(doc: DeskDoc): string {
-  if (!doc.decisions.length) {
-    return section("Decisions", `<div class="t-empty">No decision yet: the first comes on the first tick after 15:00 New York.</div>`);
-  }
-  const names = new Map(doc.books.map((b) => [b.id, b.name]));
-  const rows = doc.decisions
-    .slice(0, 14)
-    .map((d) => {
-      const acted = Boolean(d.order_units);
-      return `<tr>
-        <td class="t-nowrap">${escapeHtml(clock(d.ts))}</td>
-        <td class="t-nowrap"><span class="t-key" style="--sw:${bookColor(d.book)}"></span>${escapeHtml(names.get(d.book) ?? d.book)}</td>
-        <td class="w">${acted ? "" : '<span class="t-dim">no order · </span>'}${escapeHtml(d.text ?? "")}</td>
-      </tr>`;
-    })
-    .join("");
-  return section(
-    "Decisions",
-    `<div class="t-scroll"><table class="t-table t-log t-stack"><tbody>${rows}</tbody></table></div>`,
-    "one a day per book, written even when no order follows",
-  );
-}
-
-function fills(doc: DeskDoc): string {
-  if (!doc.fills.length) {
-    return section("Fills", `<div class="t-empty">No fill yet. An order fills on the first 30-minute bar that starts after the decision.</div>`);
-  }
-  const names = new Map(doc.books.map((b) => [b.id, b.name]));
-  const REASON: Record<string, string> = {
-    signal: "entry",
-    rebalance: "rebalance",
-    roll: "roll",
-    margin_call: "margin",
-    liquidation: "liquidation",
-    circuit_breaker: "daily stop",
-    reset: "reset",
-    open: "open",
-    expiry: "expiry",
-    apertura: "open",
-    scadenza: "expiry",
-  };
-  const rows = doc.fills
-    .slice(0, 16)
-    .map(
-      (f) => `<tr>
-        <td class="t-nowrap">${escapeHtml(clock(f.ts))}</td>
-        <td class="t-nowrap"><span class="t-key" style="--sw:${bookColor(f.book)}"></span>${escapeHtml(names.get(f.book) ?? f.book)}</td>
-        <td class="n t-nowrap">${toneSpan(f.units, signed(f.units, 0))} ${escapeHtml(f.unit)}</td>
-        <td class="t-nowrap">${escapeHtml(f.symbol)}</td>
-        <td class="n">${num(f.price, 2)}</td>
-        <td class="n">${f.cost_bps === null ? "" : `${num(f.cost_bps, 1)} bp`}</td>
-        <td>${escapeHtml(REASON[f.reason] ?? f.reason)}</td>
-        <td class="n">${f.realized_pnl ? toneSpan(f.realized_pnl, signedUsd(f.realized_pnl, 2)) : ""}</td>
-      </tr>`,
-    )
-    .join("");
-  return section(
-    "Fills",
-    `<div class="t-scroll"><table class="t-table t-log">
-      <thead><tr><th>When</th><th>Book</th><th class="n">Quantity</th><th>Instrument</th><th class="n">Price</th>
-      <th class="n">Cost</th><th>Reason</th><th class="n">Closed P&amp;L</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`,
-    "price after spread and slippage; the cost is the distance from the reference price",
+    `Kalshi, read ${escapeHtml(clock(pm.asof))}${pm.stale ? ' <span class="warn">stale</span>' : ""}; ${pm.markets ?? 0} open markets; the price of a contract paying 1 $ is the crowd's probability`,
+    "prediction",
   );
 }
 
@@ -896,6 +536,8 @@ function options(doc: DeskDoc): string {
       "Options",
       `<div class="t-empty">The options book has not read a chain yet: quotes are downloaded in New York market hours and the
       decision is taken once a day after 15:00.</div>`,
+      "",
+      "options",
     );
   }
   const body = `<div class="t-scroll"><table class="t-table t-options">
@@ -906,14 +548,14 @@ function options(doc: DeskDoc): string {
     <p class="t-dim">"Priced move" is the cost of a call plus a put at the money: how far the fund must move, up or down, for
     buying both to break even. Since 2007 that price has on average exceeded the move that followed: buying both ways
     lost, and the book does not do it.</p>`;
-  return section("Options", body, `Cboe quotes, 15 minutes late · read ${escapeHtml(clock(mon.generated_at))}`);
+  return section("Options", body, `Cboe quotes, 15 minutes late; read ${escapeHtml(clock(mon.generated_at))}`, "options");
 }
 
 // ---------------------------------------------------------------------------------------------- backtest
 function backtest(doc: DeskDoc): string {
   const bt = doc.backtest;
   if (!bt) {
-    return section("Backtest", `<div class="t-empty">The backtest is computed on the first tick that has the data, then weekly: not published yet.</div>`);
+    return section("Backtest", `<div class="t-empty">The backtest is computed on the first tick that has the data, then weekly: not published yet.</div>`, "", "backtest");
   }
   const names = new Map(doc.books.map((b) => [b.id, b.name]));
   const roles = new Map(doc.books.map((b) => [b.id, b.role ?? "core"]));
@@ -988,7 +630,7 @@ function backtest(doc: DeskDoc): string {
     <p class="t-dim">Real costs, ${escapeHtml(bt.fill_rule ?? "")}. The "t" under each Sharpe is how many standard errors it sits
     from zero: above 2 is serious evidence, not certainty. Part of the result is selection among the signals tried, and
     2023, 2024 and 2025 were all negative for the oil books. <a href="#/backtest">Year by year, components and sensitivity →</a></p>`;
-  return section("Backtest", body, `computed ${escapeHtml(relative(bt.generated_at))}`);
+  return section("Backtest", body, `computed ${escapeHtml(relative(bt.generated_at))}`, "backtest");
 }
 
 // ---------------------------------------------------------------------------------------------- health
@@ -1011,7 +653,7 @@ function health(doc: DeskDoc): string {
     ${notes.length ? `<p class="warn">${escapeHtml(notes.join(" · "))}</p>` : ""}
     <p class="t-dim">Only a book's own daily prices can stop its new decisions. Any other source, when missing, silences
     what reads it and nothing else.</p>`;
-  return section("Status", body, `${h.n_green} of ${h.n_sources} sources fine`);
+  return section("Status", body, `${h.n_green} of ${h.n_sources} sources fine`, "status");
 }
 
 function howTo(): string {
@@ -1071,16 +713,13 @@ function howTo(): string {
 }
 
 // ---------------------------------------------------------------------------------------------- page
-function equitySeries(doc: DeskDoc): LineSeries[] {
-  return doc.books.map((b) => ({
-    id: b.id,
-    label: b.name,
-    color: bookColor(b.id),
-    points: b.curve.map((p) => ({ t: Date.parse(p.t), v: p.v })).filter((p) => Number.isFinite(p.t)),
-  }));
+/** `#/signals?at=forecast` opens the page at that section (the book pages link to what each book reads). */
+function scrollTarget(): string | null {
+  const query = window.location.hash.split("?")[1] ?? "";
+  return new URLSearchParams(query).get("at");
 }
 
-export async function renderTerminal(el: HTMLElement): Promise<void> {
+export async function renderSignals(el: HTMLElement): Promise<void> {
   const loaded = await load<DeskDoc>("desk.json");
   const doc = loaded.data;
   if (!doc) {
@@ -1089,35 +728,25 @@ export async function renderTerminal(el: HTMLElement): Promise<void> {
     }. The engine publishes it on every tick; on a first start, try again in half an hour.</div></div>`;
     return;
   }
-  el.innerHTML = `<div class="term">
-    ${doc.sample ? '<div class="banner sample">SAMPLE DATA: this is not the real state of the books.</div>' : ""}
-    ${header(doc, loaded.origin)}
+  el.innerHTML = `<div class="term signals">
+    ${doc.sample ? '<div class="banner sample">Sample data: this is not the real state of the books.</div>' : ""}
+    ${statusLine(doc, loaded.origin)}
+    <header class="d-hero s-hero">
+      <h1 class="d-headline s-headline">What the books read</h1>
+      <p class="d-lede">The market, the forecast behind the oil books, the Kalshi indices behind the speculative ones,
+      and the rules that scale them all. What each book holds is on <a href="#/">the desk</a>.</p>
+    </header>
     ${market(doc)}
     ${forecastTable(doc)}
     ${oracleTable(doc)}
     ${allocator(doc)}
-    ${booksTable(doc)}
-    ${bookDetails(doc)}
-    ${decisions(doc)}
-    ${fills(doc)}
     ${options(doc)}
     ${predictionMarkets(doc)}
     ${backtest(doc)}
     ${health(doc)}
     ${howTo()}
   </div>`;
-  const chart = document.getElementById("t-equity");
-  const legend = document.getElementById("t-equity-legend");
-  if (chart && legend) {
-    const series = equitySeries(doc);
-    const dateFmt = (t: number): string => clock(new Date(t).toISOString());
-    lineChart(chart, series, {
-      ariaLabel: "Equity of the books since the start",
-      height: 170,
-      baseline: doc.books[0]?.initial_capital ?? 10000,
-      fmt: (v) => num(v, 0),
-      dateFmt,
-    });
-    legend.innerHTML = series.some((s) => s.points.length >= 2) ? lineLegend(series, (v) => num(v, 0)) : "";
-  }
+  const at = scrollTarget();
+  const target = at ? document.getElementById(at) : null;
+  if (target) target.scrollIntoView({ block: "start" });
 }

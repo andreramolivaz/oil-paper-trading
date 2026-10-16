@@ -198,3 +198,78 @@ export function escapeHtml(text: unknown): string {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+
+/** dd MMM HH:mm in the reader's own time zone (the page says which, with `zoneName`). */
+export function clock(iso: string | null | undefined): string {
+  if (!iso) return EMPTY;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return EMPTY;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(t);
+}
+
+/** The reader's time zone, as a short name ("PDT", "CEST"). */
+export function zoneName(): string {
+  try {
+    const part = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" })
+      .formatToParts(new Date())
+      .find((p) => p.type === "timeZoneName");
+    return part?.value ?? "local time";
+  } catch {
+    return "local time";
+  }
+}
+
+/** dd MMM of a date, or of an instant in UTC (a daily datum never moves to the next day in a local zone). */
+export function day(iso: string | null | undefined): string {
+  if (!iso) return EMPTY;
+  const t = Date.parse(iso.length <= 10 ? `${iso}T12:00:00Z` : iso);
+  if (Number.isNaN(t)) return EMPTY;
+  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" }).format(t);
+}
+
+/** A figure with its sign spelt out: +1.5, −1.5 (U+2212), 0.0. */
+export function signed(value: number | null | undefined, digits = 1): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return EMPTY;
+  const s = num(Math.abs(value), digits);
+  return value > 0 ? `+${s}` : value < 0 ? `${MINUS}${s}` : s;
+}
+
+/** "8 October" for a sentence: a date read aloud, not a column. A day ("2026-10-08") is that day; an instant is
+ *  the day it was in the reader's own time zone, as every clock time on the desk pages is. */
+export function longDay(iso: string | null | undefined): string {
+  return dayIn(iso, "long");
+}
+
+/** "9 Oct": the short form of `longDay`, for a column. */
+export function shortDay(iso: string | null | undefined): string {
+  return dayIn(iso, "short");
+}
+
+function dayIn(iso: string | null | undefined, month: "long" | "short"): string {
+  if (!iso) return EMPTY;
+  const dateOnly = iso.length <= 10;
+  const t = Date.parse(dateOnly ? `${iso}T12:00:00Z` : iso);
+  if (Number.isNaN(t)) return EMPTY;
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month, ...(dateOnly ? { timeZone: "UTC" } : {}) }).format(t);
+}
+
+/** "Thu 15 Oct, 12:19" in the reader's own time zone: when a decision or a fill happened. */
+export function when(iso: string | null | undefined): string {
+  if (!iso) return EMPTY;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return EMPTY;
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(t);
+}

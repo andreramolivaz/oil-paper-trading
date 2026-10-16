@@ -1,29 +1,40 @@
-/* Dark-first, mobile-first, terminal-flavoured.
+/* Dark-first, mobile-first: the desk's chart room at night.
  *
- * Three decisions carry the look, and everything else follows from them:
- *   1. Figures are set in the mono stack with tabular, slashed zeros. A number must read as a READOUT.
- *   2. The surface ladder is wide enough to see. The previous one separated steps by 1.05:1, which is
- *      invisible, so every box dissolved into the one behind it.
- *   3. Geometry is nearly square (4px / 3px) and rules are hairlines. Rounded blobs read as a consumer app.
+ * The palette comes from where this desk looks all day: the tankers in the Strait of Hormuz. Surfaces are night
+ * water (a ship's chart display dims to deep navy so the eye keeps its night vision), text is chart paper, and
+ * the one accent is chart magenta - on a nautical chart the colour of routes and notices, here the colour of
+ * whatever can be clicked or is selected. Gains and losses are starboard green and port red. Colour is spent on
+ * sign, on state and on "you can open this", never on decoration.
  *
- * Series colours are the validated data-viz palette (all six checks pass on --surface-1). Status colours are
- * fixed and never themed, but they are used as INK on dark and as FILL on light, because the same hue cannot
- * clear 4.5:1 on both surfaces.
+ * One family, Atkinson Hyperlegible Next (the Braille Institute's face, drawn so that every glyph stays apart from
+ * its neighbours at a glance): proportional figures for a headline number, tabular figures in every column.
+ *
+ * Every ink was checked against the surfaces it sits on (WCAG): primary 14.5:1, secondary 8.2:1, muted 5.4:1,
+ * accent 6.6:1, gain 8.6:1, loss 6.8:1 on --surface-1 in the dark theme; 16.7, 8.0, 5.4, 7.5, 5.8, 6.4 in the
+ * light one. The series colours are the validated data-viz defaults (all checks pass on --surface-1).
  */
 :root {
   color-scheme: dark;
 
-  /* surfaces: each step is ~1.25:1 from the previous, so nesting is visible */
-  --surface-0: #0a0c0f;
-  --surface-1: #12151a;
-  --surface-2: #1a1e25;
-  --surface-3: #242933;
-  --border: #333b47;
-  --border-strong: #4a5466;
+  /* surfaces: night water, each step visible from the previous */
+  --surface-0: #0b1622;
+  --surface-1: #102031;
+  --surface-2: #16293d;
+  --surface-3: #1d3349;
+  --border: #26405a;
+  --border-strong: #3b5a7a;
 
-  --text-primary: #f4f5f7;
-  --text-secondary: #b8bdc7;
-  --text-muted: #868d99;
+  --text-primary: #eaf1f8;
+  --text-secondary: #a9b9cb;
+  --text-muted: #8496ab;
+
+  /* chart magenta: links, the selected choice, the focus ring */
+  --accent: #ee7cc6;
+  --accent-wash: color-mix(in srgb, var(--accent) 13%, transparent);
+  --accent-ink: #0b1622; /* text on a magenta fill: 7.2:1 */
+  /* the neutral inks of the marks that are not a series: exposure bars, a single equity line */
+  --ink-bar: #6f93b8;
+  --ink-line: #86b9ea;
 
   --series-1: #3987e5;
   --series-2: #d95926;
@@ -38,64 +49,70 @@
   --warning: #fab219;
   --serious: #ec835a;
   --critical: #d03b3b;
-  /* chip ink (the hue carries itself on a dark surface) */
-  --good-ink: #2fc02f;
-  --warning-ink: #fab219;
+  --good-ink: #4fd283;
+  --warning-ink: #f2b84b;
   --serious-ink: #ec835a;
-  --critical-ink: #ef6464;
-  /* figure sign colours are their OWN tokens: a chip's ink and a negative number's colour are different
-     jobs, and sharing them made "−1,9%" render white-on-white the moment the light theme filled its chips */
-  --pos: #2fc02f;
-  --neg: #ef6464;
+  --critical-ink: #ff8080;
+  /* figure sign colours are their OWN tokens: starboard and port */
+  --pos: #4fd283;
+  --neg: #ff8080;
 
-  /* type scale: seven steps, no sizes between them */
-  --t-micro: 0.625rem; /* 10px — provenance stamp */
-  --t-xs: 0.6875rem; /* 11px — uppercase labels, chips, table heads */
-  --t-sm: 0.8125rem; /* 13px — table body, legends, secondary prose */
-  --t-base: 0.9375rem; /* 15px — body */
-  --t-lg: 1.0625rem; /* 17px — card titles */
-  --t-xl: 1.375rem; /* 22px — page title, tile figures */
-  --t-hero: clamp(2.1rem, 8.5vw, 2.9rem); /* the one figure that answers "quanto c'è" */
+  /* type scale (Bringhurst's 13/15/17/21/28 plus the one headline) */
+  --t-micro: 0.6875rem; /* 11px - provenance stamps */
+  --t-xs: 0.75rem; /* 12px - small labels, table heads */
+  --t-sm: 0.8125rem; /* 13px - tables, notes */
+  --t-base: 0.9375rem; /* 15px - body */
+  --t-lg: 1.0625rem; /* 17px - section titles */
+  --t-xl: 1.3125rem; /* 21px - page titles */
+  --t-2xl: 1.75rem; /* 28px - a book's equity */
+  --t-hero: clamp(1.75rem, 7.2vw, 2.6rem); /* the one sentence that answers "what is open" */
 
-  --radius: 4px;
-  --radius-sm: 3px;
+  --radius: 6px;
+  --radius-sm: 4px;
   --gutter: 16px;
   --nav-h: 56px;
-  --maxw: 1180px;
+  --maxw: 1120px;
 
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", "JetBrains Mono", "IBM Plex Mono", Menlo, Consolas,
-    "DejaVu Sans Mono", monospace;
-  --figures: var(--mono);
+  --font: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --figures: var(--font);
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --surface-0: #eceae5;
-  --surface-1: #fcfcfb;
-  --surface-2: #f4f3f0;
-  --surface-3: #e7e6e1;
-  --border: #c9c7c0;
-  --border-strong: #9b9890;
-  --text-primary: #0b0b0b;
-  --text-secondary: #4a4945;
-  --text-muted: #6e6d68;
-  --series-1: #1f66bd; /* darkened from #2a78d6: 4.30:1 was under the 4.5:1 text floor */
+  /* the same chart by day: pale water and white chart paper, navy ink */
+  --surface-0: #e8eef4;
+  --surface-1: #fbfcfd;
+  --surface-2: #f1f5f9;
+  --surface-3: #e1e9f1;
+  --border: #c6d2de;
+  --border-strong: #8ea2b7;
+  --text-primary: #0e1c2c;
+  --text-secondary: #3d5166;
+  --text-muted: #566a80;
+  --accent: #a1006e;
+  --accent-wash: color-mix(in srgb, var(--accent) 9%, transparent);
+  --accent-ink: #ffffff; /* 7.5:1 */
+  --ink-bar: #62809f;
+  --ink-line: #1f5f9e;
+  --series-1: #1f66bd;
   --series-2: #b8471c;
   --series-3: #14805c;
   --series-4: #8a5c00;
   --series-5: #b03a68;
   --series-6: #4a3aa7;
   --series-7: #1d7a75;
-  /* on a near-white surface a status hue cannot carry itself as text, so the chips become filled */
-  --good-ink: #084f08;
-  --warning-ink: #4a3300;
+  --good-ink: #12733a;
+  --warning-ink: #8a5a00;
   --serious-ink: #5a2a10;
-  --critical-ink: #8c1f1f;
-  --pos: #0a7a0a; /* 5.38:1 on --surface-1 */
-  --neg: #b3261e; /* 6.37:1 on --surface-1 */
+  --critical-ink: #b3261e;
+  --pos: #12733a;
+  --neg: #b3261e;
 }
 
 * { box-sizing: border-box; }
+/* `hidden` always wins: a class that sets `display` (a button, a grid row) would otherwise show what was hidden */
+[hidden] { display: none !important; }
 html, body { margin: 0; padding: 0; }
 body {
   background: var(--surface-0);
@@ -106,7 +123,7 @@ body {
   -webkit-text-size-adjust: 100%;
   overflow-x: hidden;
 }
-a { color: var(--series-1); text-decoration: none; }
+a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 h1, h2, h3 { line-height: 1.2; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
 h1 { font-size: var(--t-xl); }
@@ -117,7 +134,7 @@ table { border-collapse: collapse; width: 100%; }
 
 /* One visible focus ring everywhere: the UA default is invisible on these surfaces. */
 :where(a, button, summary, input, [tabindex]):focus-visible {
-  outline: 2px solid var(--series-1);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
@@ -138,10 +155,9 @@ table { border-collapse: collapse; width: 100%; }
   border-bottom: 1px solid var(--border);
 }
 .topbar .container { display: flex; align-items: center; gap: 10px; padding-block: 9px; }
-.topbar .brand { font-weight: 700; font-size: var(--t-sm); letter-spacing: 0.01em; }
+.topbar .brand { font-weight: 750; font-size: var(--t-base); letter-spacing: -0.005em; }
 .topbar .brand small {
-  display: block; font-weight: 450; font-size: var(--t-micro); color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 0.08em;
+  display: block; font-weight: 450; font-size: var(--t-micro); color: var(--text-muted); letter-spacing: 0;
 }
 .topbar .spacer { flex: 1; }
 .icon-btn {
@@ -173,7 +189,7 @@ main {
 }
 .nav-bottom a .ico { display: grid; place-items: center; line-height: 1; }
 .nav-bottom a .ico svg { display: block; width: 19px; height: 19px; }
-.nav-bottom a[aria-current="page"] { color: var(--text-primary); border-top-color: var(--series-1); }
+.nav-bottom a[aria-current="page"] { color: var(--text-primary); border-top-color: var(--accent); }
 .nav-bottom a:hover { color: var(--text-secondary); text-decoration: none; }
 @media (min-width: 1024px) {
   :root { --nav-h: 0px; }
@@ -189,7 +205,7 @@ main {
     font-size: var(--t-sm); padding: 9px 11px; border-radius: var(--radius-sm);
     border-top: none; border-left: 2px solid transparent;
   }
-  .nav-bottom a[aria-current="page"] { background: var(--surface-2); border-left-color: var(--series-1); }
+  .nav-bottom a[aria-current="page"] { background: var(--surface-2); border-left-color: var(--accent); }
   .wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 }
 
@@ -223,8 +239,7 @@ main {
 
 /* labels and subs are global: they were scoped under .tile, so the hero's own label fell through to body text */
 .label {
-  font-size: var(--t-xs); color: var(--text-secondary);
-  text-transform: uppercase; letter-spacing: 0.07em; font-weight: 550; line-height: 1.3;
+  font-size: var(--t-xs); color: var(--text-secondary); font-weight: 550; line-height: 1.3;
 }
 .sub { font-size: var(--t-sm); color: var(--text-muted); line-height: 1.35; }
 
@@ -252,7 +267,7 @@ main {
 }
 .hero .delta { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 12px; }
 .hero .delta .stat { min-width: 0; }
-.stat .k { font-size: var(--t-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; display: block; }
+.stat .k { font-size: var(--t-xs); color: var(--text-muted); display: block; }
 .stat .v { font-size: var(--t-base); font-weight: 550; line-height: 1.3; white-space: nowrap; }
 .stat .v .pct { font-size: 0.8em; color: inherit; opacity: 0.8; margin-left: 0.35em; }
 
@@ -273,14 +288,13 @@ main {
   display: inline-flex; align-items: center; gap: 5px;
   background: var(--surface-3); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 2px 7px;
-  font-size: var(--t-xs); color: var(--text-secondary);
-  text-transform: uppercase; letter-spacing: 0.05em; font-weight: 550;
+  font-size: var(--t-xs); color: var(--text-secondary); font-weight: 550;
   white-space: nowrap; font-variant-numeric: tabular-nums;
 }
 .chip.good { border-color: color-mix(in srgb, var(--good) 55%, var(--border)); color: var(--good-ink); }
 .chip.warn { border-color: color-mix(in srgb, var(--warning) 55%, var(--border)); color: var(--warning-ink); }
 .chip.bad { border-color: color-mix(in srgb, var(--critical) 55%, var(--border)); color: var(--critical-ink); }
-.chip.info { border-color: color-mix(in srgb, var(--series-1) 55%, var(--border)); color: var(--series-1); }
+.chip.info { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); color: var(--accent); }
 :root[data-theme="light"] .chip.good { background: var(--good); border-color: color-mix(in srgb, var(--good) 70%, #000); color: #0b0b0b; } /* 5.87:1 — white would be 3.35:1 */
 :root[data-theme="light"] .chip.warn { background: var(--warning); border-color: color-mix(in srgb, var(--warning) 70%, #000); color: #0b0b0b; }
 :root[data-theme="light"] .chip.bad { background: var(--critical); border-color: color-mix(in srgb, var(--critical) 70%, #000); color: #fff; }
@@ -303,7 +317,6 @@ table.data th, table.data td {
 }
 table.data th {
   color: var(--text-muted); font-weight: 600; font-size: var(--t-xs);
-  text-transform: uppercase; letter-spacing: 0.06em;
   position: sticky; top: 0; z-index: 1; background: var(--surface-1);
   box-shadow: inset 0 -1px 0 var(--border);
 }
@@ -358,7 +371,7 @@ table.data tbody tr:last-child td { border-bottom: none; }
 .banner.warn { border-left-color: var(--warning); }
 .banner.bad { border-left-color: var(--critical); }
 .banner.sample { border-color: var(--critical); border-left-color: var(--critical); color: var(--critical-ink); font-weight: 600; }
-.banner.info { border-left-color: var(--series-1); }
+.banner.info { border-left-color: var(--accent); }
 .banner.stack { display: block; }
 .banner.stack strong { font-size: var(--t-base); }
 .banner.stack p { font-size: var(--t-sm); line-height: 1.55; color: var(--text-secondary); }
@@ -374,7 +387,7 @@ table.data tbody tr:last-child td { border-bottom: none; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  background: var(--series-1); color: #fff; border: none; border-radius: var(--radius-sm);
+  background: var(--accent); color: var(--accent-ink); border: none; border-radius: var(--radius-sm);
   padding: 11px 16px; font-size: var(--t-base); font-weight: 600; cursor: pointer; font-family: inherit;
 }
 .btn:hover { filter: brightness(1.08); }
