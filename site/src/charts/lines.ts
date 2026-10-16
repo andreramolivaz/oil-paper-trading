@@ -33,8 +33,8 @@ export interface LineOptions {
   dateFmt?: (t: number) => string;
   /** The longer date of the readout (defaults to `dateFmt`). */
   readoutDate?: (t: number) => string;
-  /** A second figure in the readout, computed from the value (e.g. the P&L against the starting capital). */
-  readoutExtra?: (v: number) => string;
+  /** The smallest step between two rules of the value axis: the precision `fmt` prints (1 for whole dollars). */
+  minStep?: number;
   /** The figure format of the readout and of the end labels (defaults to `fmt`, the axis's). */
   readoutFmt?: (v: number) => string;
   /** Label each line at its end with its name and last value: for two to four series, beside the legend. */
@@ -61,11 +61,12 @@ export function disposeLineCharts(): void {
   registry.clear();
 }
 
-/** 1-2-5 ticks covering [lo, hi]. */
-function linearTicks(lo: number, hi: number, target = 4): number[] {
+/** 1-2-5 ticks covering [lo, hi], never closer than `minStep` (the precision of the axis's labels: a flat series
+ *  at 0 with whole-dollar labels would otherwise read "-1, -1, 0, +1, +1"). */
+function linearTicks(lo: number, hi: number, target = 4, minStep = 0): number[] {
   const span = hi - lo;
   if (!(span > 0)) return [lo];
-  const raw = span / target;
+  const raw = Math.max(span / target, minStep);
   const mag = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? raw;
   const out: number[] = [];
@@ -143,7 +144,7 @@ export function lineChart(el: HTMLElement, series: LineSeries[], opts: LineOptio
     const readoutFmt = opts.readoutFmt ?? fmt;
     const dateFmt = opts.dateFmt ?? defaultDate;
 
-    const ticks = (log ? logTicks(lo, hi) : linearTicks(lo, hi)).filter((v) => v >= lo && v <= hi);
+    const ticks = (log ? logTicks(lo, hi) : linearTicks(lo, hi, 4, opts.minStep ?? 0)).filter((v) => v >= lo && v <= hi);
     const rules = ticks
       .map((v) => {
         const y = sy(v).toFixed(1);
@@ -249,12 +250,6 @@ export function lineChart(el: HTMLElement, series: LineSeries[], opts: LineOptio
         const value = document.createElement("b");
         value.textContent = readoutFmt(p.v);
         row.append(key, value);
-        if (opts.readoutExtra) {
-          const extra = document.createElement("span");
-          extra.className = "lc-extra";
-          extra.textContent = opts.readoutExtra(p.v);
-          row.append(extra);
-        }
         if (usable.length > 1) {
           const name = document.createElement("span");
           name.className = "lc-name";

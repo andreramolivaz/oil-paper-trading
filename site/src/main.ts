@@ -45,9 +45,17 @@ function currentQuery(): URLSearchParams {
   return new URLSearchParams(window.location.hash.split("?")[1] ?? "");
 }
 
+function decoded(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text; // a malformed escape in the address: the book page says there is no such book
+  }
+}
+
 function matchRoute(path: string): { route: Route; render: Renderer; nav: string } {
   if (path.startsWith(BOOK_PREFIX)) {
-    const id = decodeURIComponent(path.slice(BOOK_PREFIX.length));
+    const id = decoded(path.slice(BOOK_PREFIX.length));
     return { route: routes[0]!, render: (el) => renderBook(el, id), nav: "/" };
   }
   const exact = routes.find((r) => r.path === path);
@@ -121,39 +129,61 @@ function markActive(nav: string): void {
   }
 }
 
-/** Where each page was scrolled to, so that going back to the desk from a book lands where the reader left it;
- *  a link opens its page at the top. */
+/** Where each page was scrolled to - kept as the reader scrolls, because on Back the browser may move the page
+ *  before the hash changes - so that going back to the desk from a book lands where the reader left it; a link
+ *  to another page opens it at the top. */
 const scrolled = new Map<string, number>();
 let shownPath = "";
 let followedLink = false;
+/** Each navigation renders into a container of its own: a page whose data arrives after the reader has moved
+ *  on writes into a container no longer on the screen, never over the page the address names. */
+let navigation = 0;
+/** While a page is being swapped in, the scroll the browser reports is the transition's, not the reader's. */
+let settling = false;
 
 async function navigate(): Promise<void> {
   const path = currentPath();
   const { route, render, nav } = matchRoute(path);
   const view = document.getElementById("view");
   if (!view) return;
-  if (shownPath) scrolled.set(shownPath, window.scrollY);
+  const mine = ++navigation;
+  const restore = scrolled.get(path) ?? 0; // read before the swap: a shorter page clamps the scroll and reports it
+  settling = true;
   const samePage = path === shownPath;
   const toTop = followedLink && !samePage;
   followedLink = false;
+  shownPath = path;
   disposeLineCharts();
   markActive(nav);
   document.title = route.title;
   view.setAttribute("aria-busy", "true");
-  if (!samePage) view.innerHTML = `<div class="empty">Loading…</div>`;
+  const container = document.createElement("div");
+  container.className = "page";
+  if (samePage && view.firstElementChild) {
+    // the same page again (the reload button, the theme): render beside the old one, swap when it is ready
+    container.hidden = true;
+    view.append(container);
+  } else {
+    container.innerHTML = `<div class="empty">Loading…</div>`;
+    view.replaceChildren(container);
+  }
   try {
-    await render(view);
+    await render(container);
   } catch (err) {
-    view.innerHTML = `<div class="banner bad">The page could not be rendered: ${escapeHtml(
+    container.innerHTML = `<div class="banner bad">The page could not be rendered: ${escapeHtml(
       err instanceof Error ? err.message : String(err),
     )}</div>`;
-  } finally {
-    view.setAttribute("aria-busy", "false");
   }
-  shownPath = path;
+  if (mine !== navigation) return; // the reader went elsewhere meanwhile: that navigation owns the view
+  if (container.hidden) {
+    container.hidden = false;
+    for (const old of [...view.children]) if (old !== container) old.remove();
+    window.dispatchEvent(new Event("resize")); // its charts were drawn hidden: redraw them at their real width
+  }
+  view.setAttribute("aria-busy", "false");
+  settling = false;
   if (currentQuery().get("at")) return; // the page scrolled itself to the section asked for
-  if (toTop) window.scrollTo(0, 0);
-  else window.scrollTo(0, scrolled.get(path) ?? 0);
+  window.scrollTo(0, toTop ? 0 : restore);
 }
 
 function applyStoredTheme(): void {
@@ -172,12 +202,32 @@ function boot(): void {
   app.setAttribute("aria-busy", "false");
   applyStoredTheme();
   renderDisclaimer();
-  // a click on a link inside the site opens its page at the top; back and forward restore where the reader was
+  // the page restores its own scroll (below): the browser's would move it before the new page is drawn
+  try {
+    history.scrollRestoration = "manual";
+  } catch {
+    /* an old browser: its own restoration stands */
+  }
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (shownPath && !settling) scrolled.set(shownPath, window.scrollY);
+    },
+    { passive: true },
+  );
+  // a click on a link to another page of the site opens it at the top; back and forward restore where the
+  // reader was. The book page's "Desk" link goes back when the reader came from the desk, filter and place kept.
   document.addEventListener(
     "click",
     (ev) => {
       const a = (ev.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="#/"]');
-      if (a) followedLink = true;
+      if (!a) return;
+      if (a.dataset.back !== undefined && cameFromDesk) {
+        ev.preventDefault();
+        history.back();
+        return;
+      }
+      if (a.getAttribute("href") !== window.location.hash) followedLink = true;
     },
     true,
   );
@@ -195,8 +245,15 @@ function boot(): void {
     }
     void navigate();
   });
-  window.addEventListener("hashchange", () => void navigate());
+  window.addEventListener("hashchange", (ev: HashChangeEvent) => {
+    const from = new URL(ev.oldURL).hash.replace(/^#/, "").split("?")[0] || "/";
+    cameFromDesk = from === "/" && currentPath().startsWith(BOOK_PREFIX);
+    void navigate();
+  });
   void navigate();
 }
+
+/** True while the book page on screen was opened from the desk: its "Desk" link then goes back. */
+let cameFromDesk = false;
 
 boot();

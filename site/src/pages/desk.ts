@@ -44,8 +44,9 @@ import {
 
 const bookHref = (id: string): string => `#/book/${encodeURIComponent(id)}`;
 
+/** A position or an open spread: what the headline counts and the filter "With a position" shows. A book with
+ *  only an order in the queue holds nothing yet (its order is listed under the open positions). */
 const isHolding = (b: Book): boolean => (b.positions?.length ?? 0) > 0 || (b.structures?.length ?? 0) > 0;
-const isBusy = (b: Book): boolean => isHolding(b) || (b.pending?.length ?? 0) > 0;
 
 function vehicleShort(b: Book): string {
   const v = b.vehicle === "MCL" ? "/MCL" : b.vehicle;
@@ -82,7 +83,7 @@ function groupsOf(doc: DeskDoc): PortfolioGroup[] {
 
 // ---------------------------------------------------------------------------------------------- the headline
 function groupPhrase(g: PortfolioGroup): string {
-  const w = GROUP_WORDS[g.id] ?? { noun: `the ${g.label}`, verb: "are" };
+  const w = GROUP_WORDS[g.id] ?? { noun: `the ${escapeHtml(g.label)}`, verb: "are" };
   if (g.pnl === null || g.pnl === undefined) return `${w.noun}: no total yet`;
   if (g.pnl === 0) return `${w.noun} ${w.verb} flat`;
   const up = g.pnl > 0;
@@ -193,9 +194,9 @@ function bookRow(b: Book): string {
     ? `<span>${b.max_loss_open ? `at most ${usd(b.max_loss_open, 0)} more to lose` : "nothing at risk"}</span>`
     : `${exposureBar(b.exposure)}<span>${escapeHtml(exposureWords(b.exposure))}</span>`;
   const holding = `${escapeHtml(holdingShort(b))}${st.quiet ? "" : ` <span class="t-dot ${st.cls}">${escapeHtml(st.text)}</span>`}`;
-  const quiet = isBusy(b) ? "" : " quiet";
+  const quiet = isHolding(b) || (b.pending?.length ?? 0) > 0 ? "" : " quiet";
   const label = `${b.name}: ${holdingShort(b)}; equity ${usd(b.equity, 2)}, ${signedUsd(b.pnl_total, 2)} since the start`;
-  return `<li data-busy="${isBusy(b) ? 1 : 0}">
+  return `<li data-holding="${isHolding(b) ? 1 : 0}">
     <a class="d-row" href="${bookHref(b.id)}" aria-label="${escapeHtml(label)}">
       <span class="c-name"><b>${escapeHtml(b.name)}</b><small>${escapeHtml(vehicleShort(b))}</small></span>
       <span class="c-hold${quiet}">${holding}</span>
@@ -254,7 +255,7 @@ function watchLine(doc: DeskDoc): string {
 function filterBar(doc: DeskDoc, groups: PortfolioGroup[], current: string): string {
   const options: [string, string, number][] = [
     ["all", "All", doc.books.length],
-    ["busy", "With a position", doc.books.filter(isBusy).length],
+    ["holding", "With a position", doc.books.filter(isHolding).length],
     ...groups.map((g): [string, string, number] => [g.id, g.label, g.n_books]),
   ];
   return `<div class="seg" role="radiogroup" aria-label="Show the books">${options
@@ -273,7 +274,7 @@ function portfolios(doc: DeskDoc, groups: PortfolioGroup[], current: string): st
     "Portfolios",
     `${filterBar(doc, groups, current)}
     <div class="d-groups">${groups.map((g) => groupBlock(doc, g, ids)).join("")}</div>
-    <div class="t-empty d-none" hidden>No book holds a position or waits on an order: every book is in cash.</div>`,
+    <div class="t-empty d-none" hidden>No book holds a position: every book is in cash.</div>`,
     "open a book for its whole paper-trading history",
     "portfolios",
   );
@@ -282,7 +283,7 @@ function portfolios(doc: DeskDoc, groups: PortfolioGroup[], current: string): st
 function readFilter(groups: PortfolioGroup[]): string {
   const query = window.location.hash.split("?")[1] ?? "";
   const asked = new URLSearchParams(query).get(FILTER_KEY) ?? "all";
-  return ["all", "busy", ...groups.map((g) => g.id)].includes(asked) ? asked : "all";
+  return ["all", "holding", ...groups.map((g) => g.id)].includes(asked) ? asked : "all";
 }
 
 /** Show the books the filter asks for, and remember it in the address (replaceState: no navigation, no reload). */
@@ -291,7 +292,7 @@ function applyFilter(root: HTMLElement, show: string): void {
   for (const group of root.querySelectorAll<HTMLElement>(".d-group")) {
     let inGroup = 0;
     for (const li of group.querySelectorAll<HTMLElement>(".d-list > li")) {
-      const on = show === "all" || (show === "busy" ? li.dataset.busy === "1" : group.dataset.group === show);
+      const on = show === "all" || (show === "holding" ? li.dataset.holding === "1" : group.dataset.group === show);
       li.hidden = !on;
       if (on) inGroup += 1;
     }
@@ -342,9 +343,9 @@ function pnlSection(groups: PortfolioGroup[]): string {
   );
 }
 
-function drawPnl(groups: PortfolioGroup[]): void {
-  const el = document.getElementById("d-pnl");
-  const legend = document.getElementById("d-pnl-legend");
+function drawPnl(root: HTMLElement, groups: PortfolioGroup[]): void {
+  const el = root.querySelector<HTMLElement>("#d-pnl");
+  const legend = root.querySelector<HTMLElement>("#d-pnl-legend");
   if (!el || !legend) return;
   const ids = groups.map((g) => g.id);
   const series: LineSeries[] = groups.map((g) => ({
@@ -361,9 +362,10 @@ function drawPnl(groups: PortfolioGroup[]): void {
     height: 210,
     baseline: 0,
     fmt: (v) => signed(v, 0),
+    minStep: 1,
     readoutFmt: (v) => signedUsd(v, 2),
     dateFmt,
-    readoutDate: (t) => longDay(new Date(t).toISOString()),
+    readoutDate: (t) => longDay(new Date(t).toISOString().slice(0, 10)),
     endLabels: series.filter((s) => s.points.length >= 2).length <= 4,
   });
   legend.innerHTML = lineLegend(series, (v) => signedUsd(v, 2));
@@ -418,9 +420,20 @@ async function showAllFills(root: HTMLElement, doc: DeskDoc, button: HTMLButtonE
   button.disabled = true;
   if (note) note.textContent = "Reading the books' histories…";
   const loaded = await Promise.all(doc.books.map((b) => load<BookHistory>(`books/${encodeURIComponent(b.id)}.json`)));
-  const missing = doc.books.filter((_, i) => !loaded[i]!.data).map((b) => b.name);
-  const fills = loaded
-    .flatMap((l) => l.data?.fills ?? [])
+  // a history of another life (a reset since, or a copy bundled at the last deploy) is not this book's: left out
+  const usable = doc.books.map((b, i) => {
+    const h = loaded[i]!.data;
+    return h && h.id === b.id && h.epoch === b.epoch ? h : null;
+  });
+  const missing = doc.books.filter((_, i) => !usable[i]).map((b) => b.name);
+  const older = doc.books
+    .filter((_, i) => {
+      const h = usable[i];
+      return h ? (Date.parse(doc.generated_at) - Date.parse(h.generated_at)) / 60000 > 90 : false;
+    })
+    .map((b) => b.name);
+  const fills = usable
+    .flatMap((h) => h?.fills ?? [])
     .sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0));
   const names = new Map(doc.books.map((b) => [b.id, b.name]));
   if (!fills.length) {
@@ -435,7 +448,7 @@ async function showAllFills(root: HTMLElement, doc: DeskDoc, button: HTMLButtonE
     if (note) {
       note.textContent = `${fills.length} fill${fills.length === 1 ? "" : "s"} in all${
         missing.length ? `; not read: ${missing.join(", ")}` : ""
-      }.`;
+      }${older.length ? `; published before the rest of the page: ${older.join(", ")}` : ""}.`;
     }
     button.textContent = `Show ${Math.min(FILLS_PAGE, hidden)} more`;
     button.hidden = hidden === 0;
@@ -477,6 +490,7 @@ export async function renderDesk(el: HTMLElement): Promise<void> {
     }. The engine publishes it every half hour; on a first start, try again in half an hour.</div></div>`;
     return;
   }
+  if (!el.isConnected) return; // the reader went elsewhere while the data came: nothing to draw
   const groups = groupsOf(doc);
   const start = readFilter(groups);
   el.innerHTML = `<div class="term desk">
@@ -492,7 +506,7 @@ export async function renderDesk(el: HTMLElement): Promise<void> {
   const root = el.querySelector<HTMLElement>(".desk")!;
   wireFilter(root, start);
   wireRowLinks(root);
-  drawPnl(groups);
+  drawPnl(root, groups);
   const all = root.querySelector<HTMLButtonElement>("[data-all-fills]");
   if (all) all.onclick = () => void showAllFills(root, doc, all);
 }

@@ -777,4 +777,8 @@ export interface HistoryDecision extends DecisionRow {
   current_units?: Num;
   risk_scale?: Num;
   legs?: { symbol?: string; order_units?: Num }[];
+  /** Each instrument of the decision (the vehicle, then an inverse fund) with what was held and what is wanted. */
+  held?: { symbol: string | null; from: Num; to: Num }[];
+  /** Every order the decision queued, with its instrument (a change of side is a sale and a purchase). */
+  orders?: { symbol: string | null; units: Num }[];
 }

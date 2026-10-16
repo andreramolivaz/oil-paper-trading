@@ -853,6 +853,20 @@ room at night (navy surfaces, chart-paper text, chart-magenta for what can be cl
 for gains and losses), Atkinson Hyperlegible Next self-hosted (`@fontsource-variable`), the group colours checked
 with the palette validator on both themes; a line chart's colours go through `style` (a presentation attribute may
 not resolve `var()`), and `[hidden]` always wins over a class that sets `display`. No number of any book changed.
+Reviewed before shipping by an agent that had not seen it written, with its own probes on the real state and in the
+browser (slow networks, back and forward, time zones, a poisoned string in every field); what it found is fixed and
+pinned (`docs/VALIDATION.md`, phase 16): a late page drawn over the one the address names (every navigation now
+renders into its own container, and pages query within it, never `document`); the group curve mixing today and
+yesterday once book curves are thinned (it reads each book's daily closes, `_daily`, dropped from the payload; each
+close in cents, so the last point is the group's `pnl` to the cent); a book page trusting a history file of another
+life or the copy bundled at deploy (it checks the epoch and the age); the SCO short side's decision columns (`held`
+and `orders` per instrument in `_decision_row`); a promoted book outside "Core desk" (the group follows today's
+role, as `total` does); the old life's last decision and fills shown after a reset (`last_decision`, `fills` and
+`decisions` are each book's current life); the scroll and the filter lost on the way back (`history.scrollRestoration
+= "manual"`, scroll kept as the reader scrolls, the book page's "Desk" link goes back when it came from the desk);
+and smaller ones (the lives count of a wiped-out book, UTC days in the readout, "With a position" counting queued
+orders, an unescaped group label, a malformed address, repeated labels on a flat axis, a difference computed in the
+browser).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

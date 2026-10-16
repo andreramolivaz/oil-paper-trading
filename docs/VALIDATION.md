@@ -170,6 +170,26 @@ ordine che aggiunge rischio, ha superato 150 esempi casuali per ore e poi è fal
 la proprietà, la ricerca a caso è stata ripetuta su 120 semi diversi (18.000 conti) senza trovare altro; si
 rifà con `HYPOTHESIS_PROFILE=explore pytest --hypothesis-seed=N`.
 
+**La pagina «Desk» e le pagine dei libri (fase 16, 16 ottobre 2026).** Il rifacimento del sito è stato riletto da
+un agente che non lo aveva visto scrivere, con i suoi probe sullo stato vero e nel browser (Playwright: reti lente,
+indietro e avanti, fusi orari, stringhe avvelenate in ogni campo). Ha trovato, e sono corretti: una pagina che
+arriva tardi disegnata sopra quella dell'indirizzo (ogni navigazione ora disegna in un contenitore suo); la curva
+del P&L di gruppo che, quando le curve dei libri vengono diradate (dopo circa un anno), mescola il valore di oggi
+di un libro con quello di ieri di un altro (ora legge le chiusure giornaliere di ogni libro); la pagina di un libro
+che si fidava di un file di storia di un'altra vita o della copia inclusa nel sito all'ultimo deploy (ora confronta
+la vita e l'età); le colonne «Position» e «Order» di una decisione che mostravano BNO e l'ordine su SCO senza
+simbolo (ora ogni strumento con il suo); un libro promosso dal ciclo di vita che il totale contava nel nucleo e il
+gruppo no (il gruppo segue ora il ruolo di oggi); subito dopo un reset l'ultima decisione e gli eseguiti della vita
+precedente ancora mostrati; lo scorrimento e il filtro persi tornando alla pagina principale; il conteggio delle
+vite di un libro azzerato; le date del grafico lette nel fuso del lettore invece che in UTC; il filtro «With a
+position» che contava anche gli ordini in coda, a differenza della frase in alto; un'etichetta di gruppo non
+protetta; un indirizzo malformato non gestito; un asse piatto con le etichette ripetute; e una differenza calcolata
+nel browser, tolta. Nove di questi difetti sono stati poi rimessi nel codice uno alla volta (niente riporto del
+giorno precedente, la variazione del giorno sull'equity invece che sull'inizio del giorno, la curva diradata al
+posto delle chiusure, il −2 del fondo inverso tolto dall'esposizione, gli eseguiti e la curva di ogni vita, gli
+eseguiti dal più vecchio, il gruppo dal ruolo configurato, l'ultima decisione della vita precedente): per tutti e
+nove un test di `tests/test_desk_export.py` fallisce.
+
 ---
 
 ## Il primo sistema: ciclo di vita e risultati
