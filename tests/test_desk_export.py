@@ -154,9 +154,16 @@ def test_the_export_shows_a_short_side_held_in_the_inverse_fund_as_a_short(tmp_p
     # the gap stress: a short side held in a -2x fund GAINS on a fall of the oil, twice its dollars' worth
     assert b["stress"]["-20%"] == pytest.approx(-0.2 * b["exposure"], abs=1e-4) and b["stress"]["-20%"] > 0
     assert b["stress"]["+10%"] == pytest.approx(0.1 * b["exposure"], abs=1e-4) and b["stress"]["+10%"] < 0
+    # the position's own exposure: the oil exposure of those shares, the -2 of the fund included
+    assert position["exposure"] == pytest.approx(b["exposure"], abs=1e-3) and position["exposure"] < -1.0
     decision = next(d for d in doc["decisions"] if d["book"] == "dinamico")
     assert decision["order_units"] > 0 and decision["legs"][0]["symbol"] == "SCO"  # the order was on the leg
     assert decision["exposure"] < 0 and "through SCO" in decision["text"]
+    # each instrument with its symbol: the fund held nothing and still holds nothing, the inverse fund is bought
+    assert [o["symbol"] for o in decision["orders"]] == ["SCO"] and decision["orders"][0]["units"] > 0
+    assert [h["symbol"] for h in decision["held"]] == ["BNO", "SCO"]
+    assert decision["held"][0]["from"] == decision["held"][0]["to"] == 0.0
+    assert decision["held"][1]["to"] == decision["orders"][0]["units"]
     assert [(f["book"], f["symbol"], f["units"] > 0) for f in doc["fills"]] == [("dinamico", "SCO", True)]
     # the forecast block: the seven sleeves, the three sources, and the close the macro sleeves were read at
     fc = doc["forecast"]["BNO"]
@@ -212,7 +219,7 @@ def test_the_desk_page_groups_the_books_and_sums_each_group(tmp_path, monkeypatc
     assert core["equity"] == pytest.approx(sum(b["equity"] for b in members), abs=0.01)
     assert core["pnl"] == pytest.approx(core["equity"] - core["initial_capital"], abs=0.01)
     assert core["initial_capital"] == 40_000.0 and core["pnl"] != 0.0
-    assert core["curve"][-1]["v"] == pytest.approx(core["pnl"], abs=0.02)  # the last day's P&L is today's
+    assert core["curve"][-1]["v"] == core["pnl"]  # the last day's P&L is today's, to the cent
     assert groups["candidates"]["holding"] == [] and groups["candidates"]["pnl"] == 0.0
     # a position carries its exposure as a multiple of the book's equity: here the book's whole exposure
     for book_id in core["holding"]:
@@ -236,6 +243,7 @@ def test_a_group_curve_sums_the_pnl_and_a_book_that_starts_later_joins_at_zero()
                 {"t": "2026-10-08T21:00:00Z", "v": 10_000.0},
                 {"t": "2026-10-09T15:00:00Z", "v": 10_004.0},
                 {"t": "2026-10-09T20:00:00Z", "v": 10_010.0},  # the last of the day is the day's
+                {"t": "2026-10-10T20:00:00Z", "v": 10_015.0},  # "b" has no point that day: it keeps its last
                 {"t": "2026-10-12T20:00:00Z", "v": 10_020.0},
             ],
             pnl_day=10.0,
@@ -246,7 +254,7 @@ def test_a_group_curve_sums_the_pnl_and_a_book_that_starts_later_joins_at_zero()
             "b",
             "core",
             9_990.0,
-            [{"t": "2026-10-09T20:00:00Z", "v": 10_000.0}, {"t": "2026-10-12T20:00:00Z", "v": 9_990.0}],
+            [{"t": "2026-10-09T20:00:00Z", "v": 10_005.0}, {"t": "2026-10-12T20:00:00Z", "v": 9_990.0}],
             pnl_day=-10.0,
             positions=[],
             pending=[{"symbol": "BNO", "units": 3.0}],
@@ -257,10 +265,12 @@ def test_a_group_curve_sums_the_pnl_and_a_book_that_starts_later_joins_at_zero()
     out = ex.portfolios_block(books)
     assert [g["id"] for g in out] == ["core", "candidates", "claude"]  # the known groups first, then the others
     core = out[0]
-    # 8 Oct: only "a", flat; 9 Oct: "a" +10 and "b" joins at 0; 12 Oct: +20 and -10
+    # 8 Oct: only "a", flat ("b" has not started: it counts nothing); 9 Oct: "a" +10, "b" +5; 10 Oct: "a" +15 and
+    # "b" keeps its +5 of the day before; 12 Oct: +20 and -10
     assert core["curve"] == [
         {"t": "2026-10-08", "v": 0.0},
-        {"t": "2026-10-09", "v": 10.0},
+        {"t": "2026-10-09", "v": 15.0},
+        {"t": "2026-10-10", "v": 20.0},
         {"t": "2026-10-12", "v": 10.0},
     ]
     assert core["holding"] == ["a"] and core["queued"] == ["b"]
@@ -268,8 +278,61 @@ def test_a_group_curve_sums_the_pnl_and_a_book_that_starts_later_joins_at_zero()
     assert core["pnl_day"] == 0.0 and core["pnl_day_pct"] == 0.0
     assert out[1]["curve"] == [] and out[1]["pnl"] == 0.0 and out[1]["holding"] == []
     assert out[2]["label"] == "Claude" and out[2]["holding"] == ["d"]  # an options book holds structures
-    assert ex.book_group("core", "desk") == "core" and ex.book_group("candidate", "desk") == "candidates"
-    assert ex.book_group("candidate", "kalshi") == "kalshi" and ex.book_group(None, None) == "core"
+    # the group is the role the book has today (what `total` counts): a promoted candidate is judged with the core,
+    # a retired book stays where its configured role put it, a Kalshi book is always apart
+    assert (
+        ex.book_group("core", "core", "desk") == "core"
+        and ex.book_group("candidate", "candidate", "desk") == "candidates"
+    )
+    assert (
+        ex.book_group("core", "candidate", "desk") == "core"
+        and ex.book_group("retired", "candidate", "desk") == "candidates"
+    )
+    assert ex.book_group("retired", "core", "desk") == "core" and ex.book_group(None, None, None) == "core"
+    assert ex.book_group("candidate", "candidate", "kalshi") == "kalshi"
+
+
+def test_a_group_day_change_is_against_the_day_start_and_the_curve_reads_the_daily_closes():
+    # the day's change of a group is its books' change against what they were worth when the day began
+    books = [
+        {"id": "a", "group": "core", "equity": 11_000.0, "initial_capital": 10_000.0, "pnl_day": 1_000.0, "curve": []},
+        {"id": "b", "group": "core", "equity": 10_000.0, "initial_capital": 10_000.0, "pnl_day": 0.0, "curve": []},
+    ]
+    (core,) = ex.portfolios_block(books)
+    assert core["pnl_day"] == 1_000.0 and core["pnl_day_pct"] == pytest.approx(0.05)  # 1 000 on 20 000, not 21 000
+    # two books that gain and lose 50 $ a day in turn: their sum is flat every day. Their page curves, thinned on
+    # different days once they are long, would mix today's value of one with yesterday's of the other; the group
+    # curve reads each book's daily closes instead (the payload drops them afterwards)
+    start = datetime(2025, 8, 1, 20, 0, tzinfo=UTC)
+    rows = {
+        name: [
+            {
+                "ts": (start + timedelta(days=i)).isoformat(),
+                "equity": 10_000.0 + sign * (50.0 if i % 2 else 0.0),
+                "epoch": 1,
+            }
+            for i in range(length)
+        ]
+        for name, sign, length in (("up", 1, 420), ("down", -1, 421))
+    }
+    two = [
+        {
+            "id": name,
+            "group": "core",
+            "equity": r[-1]["equity"],
+            "initial_capital": 10_000.0,
+            "curve": ex._curve(r),
+            "_daily": ex._daily_closes(r),
+        }
+        for name, r in rows.items()
+    ]
+    assert len(two[0]["curve"]) < 420  # the page curve is thinned
+    curve = ex.portfolios_block(two)[0]["curve"]
+    moves = [b["v"] - a["v"] for a, b in zip(curve[1:-1], curve[2:-1])]
+    assert len(curve) == 421 and all(m == 0.0 for m in moves)
+    assert ex._daily_closes([{"ts": "2026-10-09T23:30:00+00:00", "equity": 1.0}, {"ts": "bad", "equity": 2.0}]) == {
+        "2026-10-09": 1.0
+    }
 
 
 def test_each_book_has_a_history_file_with_its_whole_current_life(tmp_path, monkeypatch):
@@ -289,6 +352,19 @@ def test_each_book_has_a_history_file_with_its_whole_current_life(tmp_path, monk
     trades = list(StateStore(settings.state_dir / "desk" / "prudente").iter_jsonl("trades"))
     assert len(h["fills"]) == len(trades) == 1
     assert h["fills"][0]["units"] == trades[0]["qty_bbl"] and h["fills"][0]["equity_after"] is not None
+    # a second fill of the same life, a day later: the newest comes first
+    store = StateStore(settings.state_dir / "desk" / "prudente")
+    later_fill = {
+        **trades[0],
+        "fill_id": "test-later",
+        "ts": (now + timedelta(days=1)).isoformat(),
+        "meta": {**trades[0]["meta"], "bar_start": (now + timedelta(days=1)).isoformat()},
+    }
+    store.append_jsonl("trades", later_fill, ts=now)
+    h2 = ex.book_history(build_desk(settings.state_dir, RISK).books["prudente"], settings.state_dir, now)
+    assert [f["ts"] for f in h2["fills"]] == [later_fill["meta"]["bar_start"], h["fills"][0]["ts"]]
+    lines = store.jsonl_path("trades", now).read_text().splitlines()
+    store.jsonl_path("trades", now).write_text("\n".join(x for x in lines if "test-later" not in x) + "\n")
     assert h["decisions"] and all(d["book"] == "prudente" for d in h["decisions"])
     assert [d["ts"] for d in h["decisions"]] == sorted((d["ts"] for d in h["decisions"]), reverse=True)
     assert h["decisions"][-1]["order_units"] == h["fills"][0]["units"] and h["decisions"][-1]["text"]
@@ -304,6 +380,14 @@ def test_each_book_has_a_history_file_with_its_whole_current_life(tmp_path, monk
     ex.export_desk(settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir), out, later)
     h = json.loads((out / "books" / "prudente.json").read_text())
     assert h["epoch"] == 2 and h["fills"] == [] and h["decisions"] == [] and h["summary"]["n_fills"] == 0
+    assert all(p["t"] >= later.isoformat().replace("+00:00", "") for p in h["curve"])  # no point of the old life
+    # and the desk's own lists show this life too: no old decision quoted, no old fill among the latest
+    doc = json.loads((out / "desk.json").read_text())
+    prudente = next(b for b in doc["books"] if b["id"] == "prudente")
+    assert prudente["last_decision"] is None
+    assert not [f for f in doc["fills"] if f["book"] == "prudente"]
+    assert not [d for d in doc["decisions"] if d["book"] == "prudente"]
+    assert [f for f in doc["fills"] if f["book"] == "dinamico"]
     (life,) = h["epochs"]
     assert life["epoch"] == 1 and life["end_reason"] == "reset_manual" and life["n_trades"] == 2  # bought, closed
     assert life["start_equity"] == 10_000.0 and life["end_equity"] is not None and life["ended_at"]
@@ -354,3 +438,55 @@ def test_a_failing_history_export_costs_the_book_pages_and_never_desk_json(tmp_p
         settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir), tmp_path / "out"
     )
     assert written == ["desk.json"] and json.loads((tmp_path / "out" / "desk.json").read_text())["books"]
+
+
+def test_the_options_history_is_the_current_life_of_the_options_book(tmp_path):
+    from engine.desk.options import STATE_FILE, load_options_config, options_store
+
+    settings = _settings(tmp_path)
+    cfg = load_options_config(settings.config_dir)
+    assert cfg is not None
+    store = options_store(settings.state_dir, cfg)
+    started = "2026-10-20T15:00:00Z"
+    store.write_json(
+        STATE_FILE,
+        {
+            "epoch": 2,
+            "started_at": started,
+            "fees": 0.4,
+            "epochs": [
+                {"epoch": 1, "ended_at": started, "final_equity": 9_900.0, "realized_pnl": -100.0, "n_closed": 1}
+            ],
+        },
+    )
+    leg = {"strike": 57.0}
+    old = {
+        "ts": "2026-10-13T19:18:00Z",
+        "action": "open",
+        "epoch": 1,
+        "underlying": "BNO",
+        "expiry": "2026-11-20",
+        "contracts": 2,
+        "credit": 0.25,
+        "short": leg,
+        "long": {"strike": 55.0},
+    }
+    new = {**old, "ts": "2026-10-21T19:18:00Z", "epoch": 2}
+    for t in (old, new):
+        store.append_jsonl("trades", t, ts=datetime(2026, 10, 21, tzinfo=UTC))
+    for ts in ("2026-10-13T19:18:00Z", "2026-10-21T19:18:00Z"):
+        store.append_jsonl(
+            "decisions",
+            {"ts": ts, "book": cfg.id, "underlying": "BNO", "action": "none", "reason": "r", "forecast": 6.0},
+            ts=datetime(2026, 10, 21, tzinfo=UTC),
+        )
+    h = ex.options_history(settings.state_dir, settings.config_dir, datetime(2026, 10, 22, tzinfo=UTC))
+    assert h is not None and h["epoch"] == 2 and h["started_at"].startswith("2026-10-20")
+    assert [f["ts"] for f in h["fills"]] == [new["ts"]] and [d["ts"] for d in h["decisions"]] == [new["ts"]]
+    assert h["summary"]["commission"] == 0.4
+    assert h["epochs"][0]["end_reason"] == "reset_manual" and h["epochs"][0]["end_equity"] == 9_900.0
+    # the desk's own lists agree
+    assert [f["ts"] for f in ex.fills_block(settings.state_dir, build_desk(settings.state_dir, RISK), cfg.id)] == [
+        new["ts"]
+    ]
+    assert [d["ts"] for d in ex.decisions_block(settings.state_dir, cfg.id)] == [new["ts"]]

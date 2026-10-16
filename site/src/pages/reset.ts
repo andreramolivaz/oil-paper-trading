@@ -116,24 +116,25 @@ export async function renderReset(el: HTMLElement): Promise<void> {
     card("Start the reset", form, tokenState) +
     card("History of the account's lives", epochTable(epochRows), src("engine/live", epochs.data?.generated_at));
 
-  const confirmInput = document.getElementById("confirm") as HTMLInputElement | null;
-  const bookSelect = document.getElementById("book") as HTMLSelectElement | null;
-  const resetBtn = document.getElementById("btn-reset") as HTMLButtonElement | null;
-  const tokenInput = document.getElementById("token") as HTMLInputElement | null;
-  const tokenChip = document.getElementById("token-state");
-  const result = document.getElementById("reset-result");
+  // within this page: while the same page is drawn again (the reload button) the old copy is still in the document
+  const confirmInput = el.querySelector<HTMLInputElement>("#confirm");
+  const bookSelect = el.querySelector<HTMLSelectElement>("#book");
+  const resetBtn = el.querySelector<HTMLButtonElement>("#btn-reset");
+  const tokenInput = el.querySelector<HTMLInputElement>("#token");
+  const tokenChip = el.querySelector<HTMLElement>("#token-state");
+  const result = el.querySelector<HTMLElement>("#reset-result");
 
   confirmInput?.addEventListener("input", () => {
     if (resetBtn) resetBtn.disabled = confirmInput.value.trim() !== CONFIRM;
   });
-  document.getElementById("btn-save-token")?.addEventListener("click", () => {
+  el.querySelector("#btn-save-token")?.addEventListener("click", () => {
     if (tokenInput && tokenInput.value.trim()) {
       writeToken(tokenInput.value.trim());
       paintTokenChip(tokenChip, true);
       if (result) result.innerHTML = note("Token saved in this browser.");
     }
   });
-  document.getElementById("btn-clear-token")?.addEventListener("click", () => {
+  el.querySelector("#btn-clear-token")?.addEventListener("click", () => {
     writeToken(null);
     if (tokenInput) tokenInput.value = "";
     paintTokenChip(tokenChip, false);

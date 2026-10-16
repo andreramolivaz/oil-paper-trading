@@ -151,21 +151,46 @@ def _current_epoch(rows: list[dict[str, Any]], epoch: int) -> list[dict[str, Any
     return [r for r in rows if int(r.get("epoch", epoch) or epoch) == epoch]
 
 
-def book_group(configured_role: str | None, forecast: str | None) -> str:
-    """The group (``GROUPS``) a book is shown in: by the forecast it reads, then by its configured role."""
+def book_group(role: str | None, configured_role: str | None, forecast: str | None) -> str:
+    """The group (``GROUPS``) a book is shown in. The Kalshi books apart (the lifecycle never promotes them); then
+    the role the book has TODAY, the one `total` counts it under - a candidate the lifecycle promoted is judged
+    with the core and is shown there - except a retired book, which stays in the group of its configured role."""
     if forecast == oracle.FAMILY:
         return "kalshi"
     if forecast and forecast != FORECAST_DESK:
         return str(forecast)
-    return "core" if configured_role in (None, "core") else "candidates"
+    effective = configured_role if role in (None, "retired") else role
+    return "core" if effective in (None, "core") else "candidates"
+
+
+def _daily_closes(rows: list[dict[str, Any]]) -> dict[str, float]:
+    """A book's equity log -> the last equity of each UTC day, the day as "YYYY-MM-DD" (the group curves read
+    these, never the thinned page curve: two books thinned on different days would mix today and yesterday)."""
+    out: dict[str, float] = {}
+    for r in sorted(rows, key=lambda r: str(r.get("ts", ""))):
+        ts, equity = r.get("ts"), r.get("equity")
+        if ts is None or equity is None:
+            continue
+        try:
+            value = float(equity)
+        except (TypeError, ValueError):
+            continue
+        try:
+            when = parse_iso(str(ts))
+        except ValueError:  # a stamp cut short in the log: that row says nothing about a day
+            continue
+        if when is not None and math.isfinite(value):
+            out[when.astimezone(UTC).date().isoformat()] = value
+    return out
 
 
 def portfolios_block(books: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The groups of books with their totals and, per day, the sum of their members' P&L since start.
 
     The curve is a sum of P&L, not of equity, so that a book that starts later joins at zero instead of adding a
-    step of 10 000 $: on each UTC day each member counts with the last equity it had on or before that day (from
-    its own curve, the current epoch), and a member that had not started counts nothing."""
+    step of 10 000 $: on each UTC day each member counts with the last equity it had on or before that day (its
+    daily closes, ``_daily``, of the current epoch; the page curve when a book has none), and a member that had
+    not started counts nothing."""
     known = [g for g, _, _ in GROUPS]
     extra = sorted({str(b.get("group")) for b in books} - set(known))
     labels = {g: (label, note) for g, label, note in GROUPS}
@@ -181,10 +206,11 @@ def portfolios_block(books: list[dict[str, Any]]) -> list[dict[str, Any]]:
         per_book: list[dict[str, float]] = []
         for b in members:
             base = float(b.get("initial_capital") or 0.0)
-            daily: dict[str, float] = {}
-            for point in b.get("curve") or []:
-                daily[str(point.get("t"))[:10]] = float(point.get("v") or 0.0) - base
-            per_book.append(daily)
+            closes = b.get("_daily")
+            if closes is None:
+                closes = {str(point.get("t"))[:10]: float(point.get("v") or 0.0) for point in b.get("curve") or []}
+            # each close in cents, as the book's own equity is shown: the last day then adds up to the group's pnl
+            per_book.append({day: round(float(v), 2) - base for day, v in closes.items()})
         last: list[float | None] = [None] * len(per_book)
         curve: list[dict[str, Any]] = []
         for day in sorted(set().union(*per_book)):
@@ -419,7 +445,11 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
             if pos.qty_bbl != 0
         )
         stress[f"{move:+.0%}"] = _r(pnl / equity, 5) if equity > 0 else None
-    decisions = [d for d in desk_store(state_dir).tail_jsonl(DECISIONS_LOG, 400) if d.get("book") == cfg.id]
+    decisions = [  # this life's: right after a reset the book has no decision yet, not its old life's last one
+        d
+        for d in desk_store(state_dir).tail_jsonl(DECISIONS_LOG, 400)
+        if d.get("book") == cfg.id and _since(d.get("ts"), st.epoch_started_ts)
+    ]
     full_cap = min(10.0, cfg.max_leverage, vehicle.max_leverage)
     cap_today = book._cap(today)
     return {
@@ -430,7 +460,7 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         "role": desk.role_of(book),
         "configured_role": cfg.role,
         # the group of the page (GROUPS): core desk, candidates, the Kalshi books
-        "group": book_group(cfg.role, cfg.forecast),
+        "group": book_group(desk.role_of(book), cfg.role, cfg.forecast),
         "role_change": desk.state.roles.get(cfg.id),
         # which forecast the book reads: "desk" (the seven sleeves, replayed in the backtest) or "kalshi" (the
         # prediction markets' de-escalation index, phase 14: no history, no backtest, live fills only)
@@ -512,6 +542,7 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         "decision_owed": desk.state.last_decision_day.get(cfg.id) != day.isoformat(),
         "last_roll": desk.state.last_roll.get(cfg.id),
         "curve": _curve(equity_rows),
+        "_daily": _daily_closes(equity_rows),  # for the group curves; dropped before the payload is written
     }
 
 
@@ -566,6 +597,7 @@ def options_block(state_dir: Path, risk: RiskConfig, config_dir: Path | None) ->
         "monitor": monitor or None,
         "last_decision_day": state.get("last_decision_day"),
         "curve": _curve(rows),
+        "_daily": _daily_closes(rows),  # for the group curves; dropped before the payload is written
     }
 
 
@@ -620,6 +652,17 @@ def _decision_row(d: dict[str, Any]) -> dict[str, Any]:
         "order_units": d.get("order_units")
         or next((leg.get("order_units") for leg in d.get("legs") or [] if leg.get("order_units")), 0.0),
         "legs": d.get("legs") or [],
+        # each instrument with its symbol: what the book held and what it decided to hold, and every order queued
+        # (a book that changes side sells the fund and buys the inverse fund in one decision)
+        "held": [
+            {"symbol": x.get("symbol"), "from": _r(x.get("current_units"), 4), "to": _r(x.get("target_units"), 4)}
+            for x in [d, *(d.get("legs") or [])]
+        ],
+        "orders": [
+            {"symbol": x.get("symbol"), "units": _r(x.get("order_units"), 4)}
+            for x in [d, *(d.get("legs") or [])]
+            if x.get("order_units")
+        ],
         "risk_scale": _r(d.get("risk_scale"), 3),
         "text": d.get("rationale"),
         "status": d.get("status"),
@@ -642,11 +685,28 @@ def _options_decision_row(d: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def decisions_block(state_dir: Path, options_id: str | None) -> list[dict[str, Any]]:
-    rows = [_decision_row(d) for d in desk_store(state_dir).tail_jsonl(DECISIONS_LOG, 200)]
+def _options_life(state_dir: Path, options_id: str) -> tuple[int, datetime | None]:
+    """The options book's current life: its epoch and when it started (its own state file)."""
+    state = StateStore(Path(state_dir) / "desk" / options_id).read_json(STATE_FILE) or {}
+    started = parse_iso(str(state["started_at"])) if state.get("started_at") else None
+    return int(state.get("epoch", 1) or 1), started
+
+
+def decisions_block(
+    state_dir: Path, options_id: str | None, starts: dict[str, datetime | None] | None = None
+) -> list[dict[str, Any]]:
+    """The desk's latest decisions, each book's of its current life only (``starts``: when each life began)."""
+    starts = starts or {}
+    rows = [
+        _decision_row(d)
+        for d in desk_store(state_dir).tail_jsonl(DECISIONS_LOG, 200)
+        if _since(d.get("ts"), starts.get(str(d.get("book"))))
+    ]
     if options_id:
+        _, started = _options_life(state_dir, options_id)
         for d in StateStore(Path(state_dir) / "desk" / options_id).tail_jsonl("decisions", 60):
-            rows.append(_options_decision_row(d))
+            if _since(d.get("ts"), started):
+                rows.append(_options_decision_row(d))
     rows.sort(key=lambda r: str(r.get("ts")), reverse=True)
     return rows[:MAX_DECISIONS]
 
@@ -695,24 +755,36 @@ def _options_fill_row(t: dict[str, Any], book_id: str) -> dict[str, Any]:
 
 
 def fills_block(state_dir: Path, desk: Desk, options_id: str | None) -> list[dict[str, Any]]:
+    """The desk's latest fills, each book's of its current life only: the same rows "every fill since the start"
+    finds in the books' own history files."""
     rows: list[dict[str, Any]] = []
     for book in desk.books.values():
         store = StateStore(Path(state_dir) / "desk" / book.id)
-        rows += [_fill_row(f, book.id, book.vehicle.unit) for f in store.tail_jsonl("trades", 80)]
+        epoch = int(book.broker.state.epoch)
+        rows += [
+            _fill_row(f, book.id, book.vehicle.unit)
+            for f in store.tail_jsonl("trades", 80)
+            if int((f.get("meta") or {}).get("epoch", epoch) or epoch) == epoch
+        ]
     if options_id:
+        epoch, _ = _options_life(state_dir, options_id)
         rows += [
             _options_fill_row(t, options_id)
             for t in StateStore(Path(state_dir) / "desk" / options_id).tail_jsonl("trades", 40)
+            if int(t.get("epoch", epoch) or epoch) == epoch
         ]
     rows.sort(key=lambda r: str(r.get("ts")), reverse=True)
     return rows[:MAX_FILLS]
 
 
 def _since(ts: Any, start: datetime | None) -> bool:
-    """True when ``ts`` is at or after ``start`` (an unreadable stamp is kept: nothing is dropped silently)."""
-    if start is None:
+    """True when ``ts`` is at or after ``start``. An unreadable stamp is kept: nothing is dropped silently."""
+    if start is None or not ts:
         return True
-    when = parse_iso(str(ts)) if ts else None
+    try:
+        when = parse_iso(str(ts))
+    except ValueError:
+        return True
     return when is None or when >= ensure_utc(start)
 
 
@@ -907,6 +979,9 @@ def build_desk_payload(
             "n_books": len(rows),
         }
 
+    groups = portfolios_block(books)
+    for b in books:
+        b.pop("_daily", None)  # the books' daily closes made the group curves; the page has its own curve
     today = now.astimezone(NEW_YORK).date()
     market = market_block(data, now)
     payload = {
@@ -916,11 +991,15 @@ def build_desk_payload(
         "forecast": forecast_block(data),
         "books": books,
         # the groups the page shows the books in, with their totals and their P&L since start day by day
-        "portfolios": portfolios_block(books),
+        "portfolios": groups,
         # the sum of the core books (the desk as it is judged) and, apart, the sum of the candidate books
         "total": totals([b for b in books if b["role"] == "core"]),
         "total_candidates": totals([b for b in books if b["role"] != "core"]),
-        "decisions": decisions_block(settings.state_dir, options_cfg.id if options_cfg else None),
+        "decisions": decisions_block(
+            settings.state_dir,
+            options_cfg.id if options_cfg else None,
+            {b.id: b.broker.state.epoch_started_ts for b in desk.books.values()},
+        ),
         "fills": fills_block(settings.state_dir, desk, options_cfg.id if options_cfg else None),
         "health": health_block(store, now),
         "backtest": backtest_summary(settings.state_dir),

@@ -747,6 +747,6 @@ export async function renderSignals(el: HTMLElement): Promise<void> {
     ${howTo()}
   </div>`;
   const at = scrollTarget();
-  const target = at ? document.getElementById(at) : null;
-  if (target) target.scrollIntoView({ block: "start" });
+  const target = at ? el.querySelector<HTMLElement>(`#${CSS.escape(at)}`) : null;
+  if (target && el.isConnected) target.scrollIntoView({ block: "start" });
 }

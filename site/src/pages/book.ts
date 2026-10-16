@@ -143,8 +143,8 @@ function chartSection(b: Book, h: BookHistory | null): string {
   );
 }
 
-function drawEquity(b: Book, h: BookHistory | null): void {
-  const el = document.getElementById("b-equity");
+function drawEquity(root: HTMLElement, b: Book, h: BookHistory | null): void {
+  const el = root.querySelector<HTMLElement>("#b-equity");
   if (!el) return;
   const curve = h?.curve?.length ? h.curve : b.curve;
   const points = curve.map((p) => ({ t: Date.parse(p.t), v: p.v })).filter((p) => Number.isFinite(p.t));
@@ -154,8 +154,8 @@ function drawEquity(b: Book, h: BookHistory | null): void {
     baseline: b.initial_capital,
     area: true,
     fmt: (v) => num(v, 0),
+    minStep: 1,
     readoutFmt: (v) => usd(v, 2),
-    readoutExtra: (v) => signedUsd(v - b.initial_capital, 2),
     dateFmt: (t) => new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(t),
     readoutDate: (t) => when(new Date(t).toISOString()),
   });
@@ -195,12 +195,29 @@ function fillsPanel(fills: FillRow[], partial: boolean): string {
     A trade is shown at the time its bar opened, when it was executed.${partial ? " Only the desk's latest trades: the book's full history is not published yet." : ""}</p>`;
 }
 
+/** What the decision held and wanted, instrument by instrument: "BNO 26 to 19", "SCO 0 to 69" (a fund book's short
+ *  side is shares of an inverse fund, so a decision can move two instruments at once). */
 function positionChange(d: HistoryDecision, unit: string | undefined): string {
+  const u = unit === "barrels" ? " bbl" : "";
+  const held = (d.held ?? []).filter((x) => x.from !== null && x.to !== null);
+  if (held.length) {
+    const moving = held.filter((x) => x.from !== 0 || x.to !== 0);
+    const shown = moving.length ? moving : held.slice(0, 1);
+    return shown
+      .map((x) => `${x.symbol ?? ""} ${num(x.from, 0)}${x.from === x.to ? "" : ` to ${num(x.to, 0)}`}${u}`)
+      .join(", ");
+  }
   const cur = d.current_units;
   const tgt = d.target_units;
   if (cur === null || cur === undefined || tgt === null || tgt === undefined) return EMPTY;
-  const u = unit === "barrels" ? "bbl" : unit === "shares" ? "sh" : "";
-  return cur === tgt ? `${num(cur, 0)} ${u}` : `${num(cur, 0)} to ${num(tgt, 0)} ${u}`;
+  return cur === tgt ? `${num(cur, 0)}${u}` : `${num(cur, 0)} to ${num(tgt, 0)}${u}`;
+}
+
+/** Every order the decision queued, with its instrument: "+69 SCO", "-40 BNO, +69 SCO". */
+function orderText(d: HistoryDecision): string {
+  const orders = (d.orders ?? []).filter((o) => o.units);
+  if (orders.length) return orders.map((o) => `${signed(o.units, 0)} ${o.symbol ?? ""}`.trim()).join(", ");
+  return signed(d.order_units, 0);
 }
 
 function decisionsPanel(decisions: HistoryDecision[], unit: string | undefined, partial: boolean): string {
@@ -210,7 +227,7 @@ function decisionsPanel(decisions: HistoryDecision[], unit: string | undefined, 
     .map((d, i) => {
       const acted = Boolean(d.order_units);
       const refused = typeof d.status === "string" && d.status.includes("refused");
-      const order = acted ? `${signed(d.order_units, 0)}${refused ? ` ${span("warn", "refused")}` : ""}` : span("t-dim", "none");
+      const order = acted ? `${escapeHtml(orderText(d))}${refused ? ` ${span("warn", "refused")}` : ""}` : span("t-dim", "none");
       return `<tr data-order="${acted ? 1 : 0}"${i >= PAGE ? " hidden" : ""}>
         <td class="t-nowrap h-when">${escapeHtml(when(d.ts))}</td>
         <td class="n h-a" data-l="Forecast">${toneSpan(d.forecast, signed(d.forecast, 1))}</td>
@@ -270,15 +287,18 @@ function livesPanel(b: Book, h: BookHistory | null): string {
     <p class="t-dim">${note}</p>`;
 }
 
-function historySection(b: Book, h: BookHistory | null, doc: DeskDoc): string {
+function historySection(b: Book, h: BookHistory | null, doc: DeskDoc, warning: string): string {
   const partial = h === null;
   const fills = h ? h.fills : doc.fills.filter((f) => f.book === b.id);
   const decisions: HistoryDecision[] = h ? h.decisions : doc.decisions.filter((d) => d.book === b.id);
-  const lives = (h?.epochs ?? []).filter((l) => l.ended_at).length;
+  // the lives the panel lists: the ended ones, and this one unless it has ended too (a book wiped out, not yet reset)
+  const ended = (h?.epochs ?? []).filter((l) => l.ended_at);
+  const current = h?.epoch ?? b.epoch;
+  const lives = ended.length + (ended.some((l) => l.epoch === current) ? 0 : 1);
   const tabs: [string, string, number][] = [
     ["fills", "Trades", fills.length],
     ["decisions", "Decisions", decisions.length],
-    ["lives", "Lives", lives + 1],
+    ["lives", "Lives", lives],
   ];
   const first = fills.length ? "fills" : "decisions";
   const unit = h?.unit ?? b.unit;
@@ -288,7 +308,7 @@ function historySection(b: Book, h: BookHistory | null, doc: DeskDoc): string {
     decisions: decisionsPanel(decisions, unit, partial),
     lives: livesPanel(b, h),
   };
-  const body = `<div class="tabs" role="tablist" aria-label="History">${tabs
+  const body = `${warning ? `<p class="warn">${escapeHtml(warning)}</p>` : ""}<div class="tabs" role="tablist" aria-label="History">${tabs
     .map(
       ([id, label, n]) =>
         `<button type="button" role="tab" id="tab-${id}" aria-controls="panel-${id}" aria-selected="${id === first}" tabindex="${
@@ -418,9 +438,32 @@ function rulesSection(b: Book): string {
   </details>`;
 }
 
+/** The book's history file, when it belongs to the life desk.json shows (a reset since, or a copy bundled with the
+ *  site at its last deploy, would be another life), with a warning when it is older than the rest of the page. */
+function historyFor(b: Book, doc: DeskDoc, loaded: BookHistory | null): { h: BookHistory | null; warning: string } {
+  if (!loaded || loaded.id !== b.id) {
+    return { h: null, warning: "" };
+  }
+  if (loaded.epoch !== b.epoch) {
+    return {
+      h: null,
+      warning: `The book's history file is of its life ${loaded.epoch}, and the book is in life ${b.epoch}: it is not shown until the next export rewrites it. The rows below are the desk's latest.`,
+    };
+  }
+  const lag = (Date.parse(doc.generated_at) - Date.parse(loaded.generated_at)) / 60000;
+  if (Number.isFinite(lag) && lag > 90) {
+    return {
+      h: loaded,
+      warning: `This history was published ${when(loaded.generated_at)}, before the rest of the page: the latest trades and decisions may be missing.`,
+    };
+  }
+  return { h: loaded, warning: "" };
+}
+
 export async function renderBook(el: HTMLElement, id: string): Promise<void> {
   const [loaded, hist] = await Promise.all([load<DeskDoc>("desk.json"), load<BookHistory>(`books/${encodeURIComponent(id)}.json`)]);
-  const back = `<a class="d-back" href="#/">${chevron("left")}<span>Desk</span></a>`;
+  if (!el.isConnected) return; // the reader went elsewhere while the data came: nothing to draw
+  const back = `<a class="d-back" href="#/" data-back>${chevron("left")}<span>Desk</span></a>`;
   const doc = loaded.data;
   if (!doc) {
     el.innerHTML = `<div class="term">${back}<div class="t-empty">The books are unavailable: <code>desk.json</code> does not answer${
@@ -435,7 +478,7 @@ export async function renderBook(el: HTMLElement, id: string): Promise<void> {
     return;
   }
   document.title = `${b.name} · Brent Desk`;
-  const h = hist.data && hist.data.id === id ? hist.data : null;
+  const { h, warning } = historyFor(b, doc, hist.data);
   el.innerHTML = `<div class="term bookpage">
     ${doc.sample ? '<div class="banner sample">Sample data: this is not the real state of the books.</div>' : ""}
     ${statusLine(doc, loaded.origin)}
@@ -444,10 +487,10 @@ export async function renderBook(el: HTMLElement, id: string): Promise<void> {
     ${figures(b)}
     ${nowSection(b, h)}
     ${chartSection(b, h)}
-    ${historySection(b, h, doc)}
+    ${historySection(b, h, doc, warning)}
     ${rulesSection(b)}
   </div>`;
   const root = el.querySelector<HTMLElement>(".bookpage")!;
   wireHistory(root);
-  drawEquity(b, h);
+  drawEquity(root, b, h);
 }

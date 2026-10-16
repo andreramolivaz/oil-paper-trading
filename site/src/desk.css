@@ -196,7 +196,7 @@ tr[data-href]:hover > * { background: var(--surface-1); }
 .lc-row { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .lc-key { inline-size: 10px; block-size: 3px; border-radius: 1px; flex-shrink: 0; }
 .lc-row b { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
-.lc-extra, .lc-name { color: var(--text-muted); }
+.lc-name { color: var(--text-muted); }
 
 /* ---------- phone ---------- */
 @media (max-width: 720px) {

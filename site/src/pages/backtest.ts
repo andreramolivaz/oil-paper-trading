@@ -453,8 +453,8 @@ export async function renderBacktest(el: HTMLElement): Promise<void> {
     ${rejected()}
   </div>`;
   for (const v of vehicles) {
-    const target = document.getElementById(`bt-${v}`);
-    const legend = document.getElementById(`bt-${v}-legend`);
+    const target = el.querySelector<HTMLElement>(`#bt-${v}`);
+    const legend = el.querySelector<HTMLElement>(`#bt-${v}-legend`);
     if (!target || !legend) continue;
     const series: LineSeries[] = Object.entries(doc.books)
       .filter(([, b]) => b.vehicle === v)
