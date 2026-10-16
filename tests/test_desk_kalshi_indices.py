@@ -83,9 +83,11 @@ def test_the_fed_path_sums_the_meetings_within_ninety_days_and_a_meeting_day_dro
     # 30 July: September and October (28 October is 90 days away)
     assert list(readings[date(2026, 7, 30)].components) == ["KXFEDDECISION-26SEP", "KXFEDDECISION-26OCT"]
     assert readings[date(2026, 7, 30)].dates["KXFEDDECISION-26OCT"] == date(2026, 10, 28)
-    # the day of a meeting it is no longer "within the horizon": the markets close that day
+    # the day of a meeting it is still within the horizon (the reading is the evening before, the markets are
+    # open until the decision); the day after, it has no market
     sept16 = readings[date(2026, 9, 16)]
-    assert list(sept16.components) == ["KXFEDDECISION-26OCT", "KXFEDDECISION-26DEC"]
+    assert list(sept16.components) == ["KXFEDDECISION-26SEP", "KXFEDDECISION-26OCT", "KXFEDDECISION-26DEC"]
+    assert list(readings[date(2026, 9, 17)].components) == ["KXFEDDECISION-26OCT", "KXFEDDECISION-26DEC"]
     # 15 October: the sum of the two meetings read above, in basis points, by date
     r15 = readings[D15]
     assert list(r15.components) == ["KXFEDDECISION-26OCT", "KXFEDDECISION-26DEC"]
@@ -142,9 +144,58 @@ def test_the_recession_probability_is_the_yearly_markets_as_one_ladder_at_a_year
     expected = p26 + (by_2027 - p26) * (date(2027, 10, 15) - date(2026, 12, 31)).days / 365
     assert r15.components == {"KXRECSSNBER": pytest.approx(expected)} and expected == pytest.approx(0.1919, abs=5e-4)
     out = oracle.forecast_on(list(readings.values()), D15, oracle.RECESSION)
-    assert out.reference.day == date(2026, 10, 8) and out.change == pytest.approx(0.011, abs=1e-3)
-    assert out.forecast == pytest.approx(4.0 * out.change * 100) and "+4 per point" in out.note
+    assert out.reference.day == date(2026, 10, 8) and out.reference.years == {"KXRECSSNBER": {2026: 0.045, 2027: 0.185}}
+    # the change is read on the two years both readings quote, both ladders at today's date: only the 2027
+    # quote moved (0.185 -> 0.195), and a week of the horizon sliding towards the end of 2027 is not a move
+    by_2027_before = 1 - (1 - p26) * (1 - 0.185)
+    expected_change = (by_2027 - by_2027_before) * (date(2027, 10, 15) - date(2026, 12, 31)).days / 365
+    assert out.change == pytest.approx(expected_change) and expected_change == pytest.approx(0.0075, abs=2e-4)
+    assert out.today == {"KXRECSSNBER": pytest.approx(expected)} and out.before["KXRECSSNBER"] < expected
+    assert out.forecast == 0.0 and "deadband" in out.note  # three quarters of a point: no view
+    fc = out.as_forecast()
+    assert fc["recession:r:KXRECSSNBER"] == pytest.approx(out.before["KXRECSSNBER"])
+    assert out.to_dict()["index_reference"] == pytest.approx(out.before["KXRECSSNBER"], abs=1e-4)
     assert oracle.RECESSION.horizon_days == 365 and oracle.RECESSION.deadband == 0.01
+
+
+def test_a_year_market_that_lists_settles_or_ends_is_not_a_move():
+    def reading(day: date, years: dict[int, float]) -> oracle.IndexReading:
+        p = oracle.horizon_probability(oracle.year_ladder(years, day), day, 365)
+        return oracle.IndexReading(day, "", {"KXRECSSNBER": p}, {}, oracle.RECESSION, {"KXRECSSNBER": years})
+
+    quotes = {2026: 0.045, 2027: 0.195}
+    # the turn of the year: the 2026 market's end passes and the index level falls with every quote unchanged
+    before, after = reading(date(2026, 12, 30), quotes), reading(date(2027, 1, 6), quotes)
+    assert after.value < before.value - 0.03
+    out = oracle.forecast_on([before, after], date(2027, 1, 6), oracle.RECESSION)
+    assert out.change == 0.0 and out.forecast == 0.0
+    # a new year's market listing: the 2028 market appears, the others unchanged
+    listed = reading(date(2027, 1, 13), {**quotes, 2028: 0.30})
+    out2 = oracle.forecast_on([after, listed], date(2027, 1, 13), oracle.RECESSION)
+    assert listed.value > after.value + 0.005 and out2.change == 0.0
+    # a quote moving is a move: 2027 from 0.195 to 0.245
+    moved = reading(date(2027, 1, 13), {**quotes, 2027: 0.245})
+    out3 = oracle.forecast_on([after, moved], date(2027, 1, 13), oracle.RECESSION)
+    # 2026 is over, so the ladder is the 2027 market alone and a year ahead lies beyond it: the last value
+    assert out3.change == pytest.approx(0.245 - 0.195, abs=1e-6)
+    assert out3.forecast == pytest.approx(4.0 * out3.change * 100)
+    # a reading that quotes only a year the reference does not: no common year, no measurable move
+    only_2028 = reading(date(2027, 1, 13), {2028: 0.30})
+    assert oracle.forecast_on([after, only_2028], date(2027, 1, 13), oracle.RECESSION).forecast == 0.0
+
+
+def test_a_near_certain_outcome_with_no_ask_is_read_at_its_bid():
+    def market(code: str, bid: float, ask: float) -> dict:
+        return {"ticker": f"KXFEDDECISION-26OCT-{code}", "yes_bid": bid, "yes_ask": ask}
+
+    # the week before a meeting everybody expects to hold: 0.99 bid, nobody offers at 1.00, the rest at 0/0.01
+    certain = [market("H0", 0.99, 1.0), market("H25", 0.0, 0.01), market("C25", 0.0, 0.01)]
+    assert oracle.two_sided_mid(0.99, 1.0) is None  # the general rule: ask 1 is no ask
+    assert oracle.meeting_expectation([*certain, market("H26", 0.0, 0.01)]) is None  # one outcome: not enough
+    assert oracle.meeting_expectation([market("H0", 0.99, 1.0), market("H25", 0.01, 0.02)]) == pytest.approx(
+        0.015 * 25 / (0.99 + 0.015)
+    )
+    assert oracle.meeting_expectation([market("H0", 0.90, 1.0), market("H25", 0.01, 0.02)]) is None  # under 0.95
 
 
 # ------------------------------------------------------------------------------------------- the books
@@ -164,9 +215,12 @@ def test_a_book_averages_its_sleeves_with_its_signs_and_stays_in_cash_on_a_negat
     assert dec.forecast["combined"] == pytest.approx(10.0) and dec.exposure == pytest.approx(2.0)
     assert dec.limited_by == "the book's leverage ceiling" and order is not None and order.qty_bbl > 0
     assert (
-        "Forecast +10.0 out of 20: the mean of the sleeves with the book's signs (fedpath +, recession -)"
-        in dec.rationale
+        "Forecast +10.0 out of 20: the mean of the sleeves with a value today, with the book's signs "
+        "(fedpath +, recession -)." in dec.rationale
     )
+    # one sleeve without a value: the words say which (found in review)
+    dec_one, _ = book.decide(ts, date(2026, 10, 21), "SPY", 670.0, {"fedpath": 16.0, "recession": None}, 0.15)
+    assert "with the book's signs (fedpath +); without a value: recession." in dec_one.rationale
     assert dec.rationale.startswith("Kalshi, the meetings within 90 days")
     assert order.strategies_for == ["fedpath", "recession"]  # both sleeves, with their signs, want the long
     # a negative mean: a long-only book is in cash, and says so
@@ -184,7 +238,8 @@ def test_on_the_live_path_each_sleeve_is_read_once_and_every_book_gets_its_own(t
     own = oracle_forecasts(desk, list(desk.books.values()), D15, report)
     assert set(own) == {"oracle_equities", "oracle_utilities"}
     assert own["oracle_equities"]["fedpath"] == pytest.approx(-13.37, abs=0.01)
-    assert own["oracle_equities"]["recession"] == pytest.approx(4.4, abs=0.1)
+    assert own["oracle_equities"]["recession"] == 0.0  # three quarters of a point: inside the deadband
+    assert own["oracle_equities"]["recession:change"] == pytest.approx(0.0075, abs=2e-4)
     assert (
         "recession" not in own["oracle_utilities"]
         and own["oracle_utilities"]["fedpath"] == own["oracle_equities"]["fedpath"]
@@ -228,3 +283,22 @@ def test_the_books_on_file_are_the_registered_ones_and_stay_out_of_the_replay():
     )
     with pytest.raises(ValueError, match="unknown sleeves"):
         BookConfig(**{**EQUITIES.__dict__, "sleeves": {"fedpath": 1.0, "weather": 1.0}})
+
+
+def test_the_archives_days_are_counted_over_every_series_and_the_filled_ones_are_those_the_tick_never_read(tmp_path):
+    from engine.desk.backfill import archive_days, backfilled_days
+
+    store = desk_store(tmp_path)
+    assert archive_days(store) == (0, None) and backfilled_days(store) == 0
+    apply_backfill(store, records_from_history(history()))
+    n, first = archive_days(store)
+    assert (n, first) == (137, "2026-06-01") and backfilled_days(store) == 137  # June to 15 October, candles only
+    # the tick reads one series on the 15th: that day is the tick's, even though the other series' records of
+    # the day are still the candles'
+    live = {
+        "key": "2026-10-15|KXHORMUZNORM-X", "day": "2026-10-15", "ts": "2026-10-15T00:20:00Z", "series": "KXHORMUZNORM",
+        "event": "KXHORMUZNORM-X", "title": "x", "columns": ["ticker", "label", "yes_bid", "yes_ask"],
+        "markets": [["KXHORMUZNORM-X-1", "Before Jan 1, 2027", 0.05, 0.07]],
+    }  # fmt: skip
+    store.append_jsonl(oracle.KALSHI_LOG, live, ts=datetime(2026, 10, 15, 0, 20, tzinfo=UTC))
+    assert archive_days(store) == (137, "2026-06-01") and backfilled_days(store) == 136

@@ -181,10 +181,11 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   come scala a 365 giorni) - e nessuno con storia per rame, chip, litio, energia pulita, uranio, agricoltura.
   `oracle.py` è diventato un registro di indici con la stessa regola (lettura, riferimento a una settimana,
   componenti comuni, banda morta, tetto); un libro legge le maniche con un segno e ne fa la media. Quattro libri
-  registrati e misurati una volta (solo long, 2x, obiettivo 0,50): equities (SPY) +1,7 ± 1,8 e utilities (XLU)
-  +1,7 ± 2,7 partono; bonds (TLT) −1,8 e gold (GLD) −1,7 non partono, per il filtro dichiarato. Le scale di
-  fedpath e recession portate da 1 e 2 a 2,5 e 4 con la regola di normalizzazione scritta prima (|F| medio 3,8 e
-  4,8 contro 10). Il giro scarica e il backfill riempie le due serie nuove; la pagina mostra un blocco per indice
+  registrati e misurati una volta (solo long, 2x, obiettivo 0,50): equities (SPY) +1,6 ± 1,7 e utilities (XLU)
+  +1,7 ± 2,7 partono; bonds (TLT) −1,5 e gold (GLD) −1,7 non partono, per il filtro dichiarato. Le scale di
+  fedpath e recession portate da 1 e 2 a 2,5 e 4 con la regola di normalizzazione scritta prima (|F| medio 3,9 e
+  4,7 contro 10). Rivisto prima della messa in linea da un agente che non lo aveva visto scrivere (capitolo 11 G:
+  la scala annuale che si muoveva da sola, il giorno della riunione, la pagina sul blocco d'errore, l'impronta). Il giro scarica e il backfill riempie le due serie nuove; la pagina mostra un blocco per indice
   con i libri e il segno; i tredici libri replicabili e il backtest sono identici byte per byte. Rimandato,
   con il motivo: il lato short (SH, TBF: fondi inversi non qualificati), le scale sulle stampe mensili (CPI, buste
   paga: un altro tipo di indice, da registrare a parte), un libro sull'oro con la sola Fed (la manica da sola

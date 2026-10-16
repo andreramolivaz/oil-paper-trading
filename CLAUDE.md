@@ -769,12 +769,24 @@ recession probability within 365 days), four books (TLT: fedpath +, recession +;
 fedpath +, deescalation +; XLU: fedpath +), long only, 2x, vol target 0.50, with the phase-12 filter (a negative
 after-cost Sharpe does not start) and Carver's normalisation check written down first. Measured once
 (`scripts/research_kalshi_books.py`, the candles through 14 October, the live archive winning, the funds' own
-series): mean |F| 3.8 (fedpath) and 4.8 (recession) against the 10 the rule asks for - off by more than two, so
-the scales went from 1 and 2 to 2.5 and 4 as declared (the x2 neighbours show a LOWER Sharpe, not a higher one);
-equities +1.72 (SE 1.78, 197 sessions, April and May making the year) and utilities +1.69 (SE 2.73, 82 sessions)
-start, bonds -1.79 and gold -1.66 do not (the same fedpath sleeve measures -2.7 on Treasuries and +1.6/+1.9/+1.7
-on equities, gold and utilities over the same days: a regime or a coincidence, 82-197 sessions cannot tell; gold's
-fedpath sleeve alone would be +1.9, and the book stays out as registered: no sleeve is dropped after looking).
+series): mean |F| 3.9 (fedpath) and 4.7 (recession) against the 10 the rule asks for - off by more than two, so
+the scales went from 1 and 2 to 2.5 and 4 as declared (not neutral on a capped long-only book: utilities 2.53 ->
+1.69; the verdicts do not change); equities +1.60 (SE 1.71, 197 sessions, April and May making the year) and
+utilities +1.69 (SE 2.73, 82 sessions) start, bonds -1.53 and gold -1.66 do not (the same fedpath sleeve measures
+-2.7 on Treasuries and +1.6/+1.9/+1.7 on equities, gold and utilities over the same days: a regime or a
+coincidence, 82-197 sessions cannot tell; gold's fedpath sleeve alone would be +1.9, and the book stays out as
+registered: no sleeve is dropped after looking). Reviewed before shipping by an agent that had not seen it
+written (ch. 11 G), which found the one that mattered: the yearly recession ladder moved by itself (the end of
+2026 dropping out, the 2027 market listing on 25 April: +20 for a week inside the measured history, on nothing)
+- the change is now read on the years both readings quote, the reference's ladder re-read at today's date
+(`oracle.common_values`); also fixed: the meeting day was excluded from the horizon against the registered text,
+a 0.99/1.00 outcome would have made a certain meeting unreadable (`CERTAIN_BID`), the page crashed on the
+engine's error block, the book rows said "de-escalation index" for every Kalshi book (they carry `sleeves`
+now), the rationale named sleeves without a value, the backfill job summarised the de-escalation readings alone,
+a failed settled listing cost the whole series, the alert would have judged the FOMC markets
+(`watch.SCHEDULED_SERIES`), and the fingerprint had changed for `FORECAST_FAMILIES` in the hash, not for the
+books (`report.NOT_REPLAYED`). Known and left as registered: the same deadline-passing mechanics in the phase-14
+ladder (two points on 1 December), for the December review.
 Engine: `oracle.py` as a registry (`IndexSpec`, `INDICES`, `ALL_SERIES`; the forecast keys are namespaced
 `<index>:index`, `<index>:change`, `<index>:c:<component>`, `<index>:r:<component>`), `Book.combined_forecast`
 as the signed mean, `live.oracle_forecasts` per sleeve, `export.oracle_block` with `indices` and `books` (the
@@ -784,9 +796,9 @@ listing. Tests: `tests/test_desk_kalshi_indices.py` (fixture `tests/fixtures/kal
 the runner's own download trimmed; the Fed-path expectation and the recession ladder worked out by hand in the
 test). Site: one table per index with the books and their signs. Checked before shipping: the replay of the
 thirteen replayable books on a copy of the data branch is byte-identical with main's code (1000bfd5) and with
-this branch's (spinto 0.68, `all` 1.23; the payload differs only in `excluded` and in the fingerprint,
-62d61be3e097 -> 5dc548c4ffa2 for the two new books in `books.yaml`: the first tick after the deploy recomputes
-the backtest once, same numbers).
+this branch's (spinto 0.68, `all` 1.23; the payload differs only in `excluded` and in the fingerprint, which
+changes once, 62d61be3e097 -> b66ecbb82b75, because the hash of book.py's constants now leaves the Kalshi
+registry out: the first tick after the deploy recomputes the backtest once, same numbers).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

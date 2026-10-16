@@ -209,6 +209,15 @@ function forecastTable(doc: DeskDoc): string {
 function oracleTable(doc: DeskDoc): string {
   const o: OracleBlock | null | undefined = doc.oracle;
   if (!o) return "";
+  if (o.error) {
+    // the engine could not read the archive: the block says so instead of costing the page (found in review)
+    const names = (o.books ?? []).map((b) => escapeHtml(typeof b === "string" ? b : b.id)).join(", ");
+    return section(
+      "Kalshi indices · the Oracle books",
+      `<p class="warn">The Kalshi archive could not be read on this export: ${escapeHtml(String(o.error))}.</p><p class="t-dim">The books on it (${names}) took no new decision on it; their positions and marks are in the table above.</p>`,
+      "the crowd's probabilities, read at a constant horizon",
+    );
+  }
   const indices: OracleIndex[] = o.indices && o.indices.length ? o.indices : [{ ...o, books: undefined }];
   const archive = o.archive_days
     ? `${o.archive_days} daily reading${o.archive_days === 1 ? "" : "s"} since ${escapeHtml(day(o.archive_first_day))}${
@@ -411,6 +420,22 @@ function booksTable(doc: DeskDoc): string {
   );
 }
 
+/** What a Kalshi book's forecast is, from the signed sleeves on its row (the de-escalation index for the oil
+ *  book; the Fed path and the recession odds for the fund books). */
+const SLEEVE_WORDS: Record<string, string> = {
+  deescalation: `the de-escalation index (${MINUS}2 per point: rising = short oil)`,
+  fedpath: `the Fed path (${MINUS}2.5 per basis point: turning dovish = positive)`,
+  recession: "the odds of a recession within a year (+4 per point: rising = positive)",
+};
+
+function kalshiSleevesText(sleeves: Record<string, 1 | -1> | null | undefined): string {
+  const names = Object.keys(sleeves ?? {});
+  if (!names.length) return "Forecast: the week's change of a Kalshi index, read the evening before on the desk's own archive; no backtest exists for it.";
+  const parts = names.map((n) => `${SLEEVE_WORDS[n] ?? n}${(sleeves ?? {})[n] < 0 ? ", read with a minus" : ""}`);
+  const how = names.length > 1 ? "the mean, with those signs, of the week's changes of" : "the week's change of";
+  return `Forecast: ${how} ${parts.join(" and ")}, read the evening before on the desk's own archive; no backtest exists for it.`;
+}
+
 function ruleLine(b: Book): string {
   const r = b.rules;
   if (b.kind === "options") {
@@ -423,10 +448,7 @@ function ruleLine(b: Book): string {
     of the spread from the bad side.`;
   }
   const weekend = r.weekend_max_leverage as number | null | undefined;
-  const source =
-    b.forecast_family === "kalshi"
-      ? `Forecast: the week's change of Kalshi's de-escalation index, ${MINUS}2 per point (rising = short oil), read the evening before on the desk's own archive; no backtest exists for it. `
-      : "";
+  const source = b.forecast_family === "kalshi" ? `${kalshiSleevesText(b.sleeves)} ` : "";
   return `${source}Volatility target ${percent(r.vol_target as number, 0)} · leverage cap ${leverage(r.max_leverage as number)}${
     weekend !== null && weekend !== undefined ? ` (${leverage(weekend)} before a weekend or a holiday)` : ""
   } · ${r.long_only ? "long only" : r.short_via ? `long and short (short by buying ${escapeHtml(String(r.short_via))})` : "long and short"} · margin ${percent(r.margin_rate as number, 0)} · decision at ${escapeHtml(

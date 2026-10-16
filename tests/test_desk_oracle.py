@@ -382,6 +382,16 @@ def test_the_replay_the_fingerprint_and_the_lifecycle_leave_the_oracle_out():
     assert replayed_books([SPINTO, ORACLE]) == [SPINTO]
     assert model_signature([SPINTO, ORACLE]) == model_signature([SPINTO])
     assert model_signature([SPINTO, dataclasses.replace(ORACLE, vol_target=0.2)]) == model_signature([SPINTO])
+    # and the registry of Kalshi indices is not in the fingerprint either: a new index must not cost a
+    # recomputation of a replay it does not touch (found in review of phase 15)
+    from engine.desk import book as sizing
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(sizing, "FORECAST_FAMILIES", {**sizing.FORECAST_FAMILIES, "kalshi": ("deescalation", "weather")})
+        patch.setattr(sizing, "DEFAULT_WEIGHTS_OF", {**sizing.DEFAULT_WEIGHTS_OF, "kalshi": {"weather": 1.0}})
+        assert model_signature([SPINTO]) == model_signature([SPINTO, ORACLE])
+        same = model_signature([SPINTO])
+    assert same == model_signature([SPINTO])
     # a book without a backtest drawdown to compare with is never promoted, however good its live record
     good = LiveRecord(days=270, sharpe=1.5, max_drawdown=-0.05, start=date(2025, 10, 8), end=date(2026, 10, 13))
     cfg = AllocatorConfig()

@@ -102,7 +102,7 @@ catalogo: il **percorso della Fed** (la variazione attesa del tasso sulle riunio
 sui mercati degli esiti di ogni riunione; una rilettura accomodante in una settimana è un segnale positivo) e la
 **probabilità di recessione** (i mercati annuali come scala a 365 giorni). Quattro libri registrati prima di
 misurare e misurati una volta sull'archivio ricostruito dalle candele: **Oracle equities** (SPY: Fed +, recessione
-−) e **Oracle utilities** (XLU: Fed +) partono con Sharpe +1,7 (errore standard 1,8 e 2,7); bonds e gold hanno
+−) e **Oracle utilities** (XLU: Fed +) partono con Sharpe +1,6 e +1,7 (errore standard 1,7 e 2,7); bonds e gold hanno
 misurato uno Sharpe negativo e non partono, per il filtro dichiarato. Per rame, chip, litio, energia pulita,
 uranio e agricoltura Kalshi non ha oggi un mercato con storia, e il sistema lo dice invece di inventare un
 segnale (`docs/RESEARCH.md`, capitolo 11). Stesse regole dell'Oracle: nessun backtest, mai promossi, giudicati

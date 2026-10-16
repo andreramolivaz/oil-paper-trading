@@ -34,7 +34,7 @@ from engine.desk.allocator import (
     transit_ratios,
 )
 from engine.desk.backfill import archive_days, backfilled_days
-from engine.desk.book import Book, is_pre_closure
+from engine.desk.book import FORECAST_DESK, Book, is_pre_closure
 from engine.desk.data import MACRO_MAX_AGE_DAYS, DeskData, _latest, build_desk_data, held_contract, hormuz_summary
 from engine.desk.engine import DECISIONS_LOG, Desk, _clean
 from engine.desk.live import (
@@ -348,6 +348,8 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         # which forecast the book reads: "desk" (the seven sleeves, replayed in the backtest) or "kalshi" (the
         # prediction markets' de-escalation index, phase 14: no history, no backtest, live fills only)
         "forecast_family": cfg.forecast,
+        # the Kalshi books: which indices the book reads and with which sign (the page says so on the row)
+        "sleeves": {s: (1 if w > 0 else -1) for s, w in cfg.sleeves.items()} if cfg.forecast != FORECAST_DESK else None,
         "backtested": book.replayable,
         "experimental": not book.replayable,
         # the allocator's scales in force at the last decision (engine/desk/allocator.py), 1 = the book's own rules

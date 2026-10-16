@@ -190,9 +190,15 @@ def _age_hours(open_time: str | None, now: datetime) -> float | None:
     return None if when is None else (now - ensure_utc(when)).total_seconds() / 3600.0
 
 
+# the series whose markets settle on a scheduled announcement (the FOMC's decisions, phase 15): a ten-point
+# move on the day of the meeting, or of a CPI print, is the announcement, not a footprint - the alert looks
+# for someone who moves a market before the news, and these markets have a published calendar
+SCHEDULED_SERIES = frozenset({"KXFEDDECISION"})
+
+
 def flagged_events(reading: Reading, bases: dict[str, Baseline]) -> list[dict[str, Any]]:
     """The events of the reading with at least one market that meets the rule: one entry per event with its
-    flagged markets and what they measured. Price ladders are skipped."""
+    flagged markets and what they measured. Price ladders and the scheduled-decision series are skipped."""
     now = reading.seen.to_pydatetime()
     rows = _records(reading.frame)
     by_event: dict[str, list[dict[str, Any]]] = {}
@@ -201,7 +207,7 @@ def flagged_events(reading: Reading, bases: dict[str, Baseline]) -> list[dict[st
     out: list[dict[str, Any]] = []
     for event, members in by_event.items():
         series = _series_of(members[0])
-        if series in PRICE_SERIES:
+        if series in PRICE_SERIES or series in SCHEDULED_SERIES:
             continue
         views = [_market_view(m) for m in members]
         flagged: list[dict[str, Any]] = []

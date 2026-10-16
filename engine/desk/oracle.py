@@ -79,9 +79,10 @@ COMPONENTS: dict[str, str] = {
 MEETING_OUTCOMES_BP: dict[str, float] = {"C26": -50.0, "C25": -25.0, "H0": 0.0, "H25": 25.0, "H26": 50.0}
 MIN_OUTCOME_MASS = 0.80
 MIN_OUTCOMES = 2
+CERTAIN_BID = 0.95  # an outcome bid at least this with no ask is read at its bid
 # the scales of the phase-15 sleeves. Declared as 1 per basis point and 2 per point (docs/RESEARCH.md 11 B) with
 # the rule that Carver's normalisation - the mean |F| should be about 10 - is checked once on the archive and the
-# scale touched only if off by a factor of two: measured 3.8 and 4.8 on the archive through 14 October 2026
+# scale touched only if off by a factor of two: measured 3.9 and 4.7 on the archive through 14 October 2026
 # (11 E), both off by more than two, so 2.5 and 4; re-measured after 60 live readings
 FORECAST_PER_BP = 2.5
 RECESSION_PER_POINT = 4.0
@@ -250,7 +251,12 @@ def meeting_expectation(markets: list[dict[str, Any]]) -> float | None:
     for m in markets:
         code = str(m.get("ticker") or "").rsplit("-", 1)[-1].upper()
         bp = MEETING_OUTCOMES_BP.get(code)
-        mid = two_sided_mid(_num(m.get("yes_bid")), _num(m.get("yes_ask")))
+        bid, ask = _num(m.get("yes_bid")), _num(m.get("yes_ask"))
+        mid = two_sided_mid(bid, ask)
+        if mid is None and bid is not None and ask is not None and bid >= CERTAIN_BID and ask >= 1.0:
+            # a near-certain outcome in the days before a meeting is bid 0.99 with nobody offering at 1.00:
+            # that is a probability, not an absence (found in review; declared, not yet seen in the archive)
+            mid = bid
         if bp is not None and mid is not None:
             mids[code] = mid
     mass = sum(mids.values())
@@ -301,6 +307,11 @@ class IndexReading:
     components: dict[str, float] = field(default_factory=dict)
     dates: dict[str, date] = field(default_factory=dict)
     spec: IndexSpec = DEESCALATION
+    # the yearly quotes a ``years`` component was read from (series -> year -> probability): the change over a
+    # week is read on the years BOTH readings quote, at today's date, so that a year market that lists, settles
+    # or passes its end is not a move (found in review: the end of 2026 and the listing of the 2027 market each
+    # moved the index by four to eight points with every quote unchanged)
+    years: dict[str, dict[int, float]] = field(default_factory=dict)
 
     @property
     def value(self) -> float | None:
@@ -390,7 +401,7 @@ def _readings_meetings(records: Iterable[Mapping[str, Any]], spec: IndexSpec) ->
         by_day.setdefault(day_text, {})
         markets = _markets_of(rec)
         meeting = _close_date(markets)
-        if meeting is None or not (day < meeting <= day + timedelta(days=spec.horizon_days)):
+        if meeting is None or not (day <= meeting <= day + timedelta(days=spec.horizon_days)):
             continue
         expected = meeting_expectation(markets)
         if expected is not None:
@@ -439,8 +450,41 @@ def _readings_years(records: Iterable[Mapping[str, Any]], spec: IndexSpec) -> li
             p = horizon_probability(year_ladder(years, day), day, spec.horizon_days)
             if p is not None:
                 components[series] = p
-        out.append(IndexReading(day=day, ts=stamps.get(day_text, ""), components=components, spec=spec))
+        out.append(
+            IndexReading(
+                day=day,
+                ts=stamps.get(day_text, ""),
+                components=components,
+                spec=spec,
+                years={k: dict(v) for k, v in by_day[day_text].items()},
+            )
+        )
     return out
+
+
+def common_values(
+    reading: IndexReading, reference: IndexReading, day: date, spec: IndexSpec
+) -> tuple[dict[str, float], dict[str, float]]:
+    """The values the change is read on, component by component, for the components BOTH readings have: today's
+    and the reference's. For a deadline ladder and the meetings, the components as read. For the yearly ladder
+    (``KIND_YEARS``), both are re-read at ``day`` on the years both readings quote: the reference's quotes on
+    today's ladder, so that only a quote moving is a move."""
+    if spec.kind != KIND_YEARS:
+        names = reading.components if spec.kind == KIND_MEETINGS else spec.components
+        common = [c for c in names if c in reading.components and c in reference.components]
+        return {c: reading.components[c] for c in common}, {c: reference.components[c] for c in common}
+    today: dict[str, float] = {}
+    before: dict[str, float] = {}
+    for series in spec.components:
+        q_now, q_ref = reading.years.get(series, {}), reference.years.get(series, {})
+        years = sorted(set(q_now) & set(q_ref))
+        if not years:
+            continue
+        p_now = horizon_probability(year_ladder({y: q_now[y] for y in years}, day), day, spec.horizon_days)
+        p_ref = horizon_probability(year_ladder({y: q_ref[y] for y in years}, day), day, spec.horizon_days)
+        if p_now is not None and p_ref is not None:
+            today[series], before[series] = p_now, p_ref
+    return today, before
 
 
 def index_readings(records: Iterable[Mapping[str, Any]], spec: IndexSpec = DEESCALATION) -> list[IndexReading]:
@@ -473,6 +517,9 @@ class OracleForecast:
     forecast: float | None  # the sleeve's value: None when it cannot be read, 0 when it has no view
     note: str
     spec: IndexSpec = DEESCALATION
+    # the values the change was read on (``common_values``): today's and the reference's, by common component
+    today: dict[str, float] = field(default_factory=dict)
+    before: dict[str, float] = field(default_factory=dict)
 
     def as_forecast(self) -> dict[str, float | None]:
         """The forecast dict a ``Book`` reads: the sleeve plus every input of the decision, as numbers."""
@@ -486,15 +533,15 @@ class OracleForecast:
         if self.reference is not None:
             out[key_ref_age(spec)] = float((self.day - self.reference.day).days)
             for component in self.common:
-                out[key_reference(spec, component)] = self.reference.components[component]
+                out[key_reference(spec, component)] = self.before.get(component, self.reference.components[component])
         out[key_change(spec)] = self.change
         out[key_common(spec)] = float(len(self.common))
         return out
 
-    def _common_value(self, reading: IndexReading | None) -> float | None:
-        if reading is None or not self.common:
+    def _common_value(self, values: Mapping[str, float]) -> float | None:
+        if not self.common:
             return None
-        return self.spec.combine(reading.components[c] for c in self.common)
+        return self.spec.combine(values[c] for c in self.common)
 
     def to_dict(self) -> dict[str, Any]:
         """For the terminal (``desk.json``)."""
@@ -514,8 +561,8 @@ class OracleForecast:
             # the index as it is today (every component read); the two numbers the CHANGE is made of are over
             # the components both readings have, so that change = index_common - index_reference exactly
             "index": None if reading is None or reading.value is None else round(reading.value, 4),
-            "index_common": _round(self._common_value(reading)),
-            "index_reference": _round(self._common_value(reference)),
+            "index_common": _round(self._common_value(self.today)),
+            "index_reference": _round(self._common_value(self.before)),
             "components_common": len(self.common),
             "components_read": 0 if reading is None else len(reading.components),
             "change": None if self.change is None else round(self.change, 4),
@@ -527,7 +574,9 @@ class OracleForecast:
                     "series": c,
                     "label": component_label(spec, c, reading, reference),
                     "p": _round(None if reading is None else reading.components.get(c)),
-                    "p_reference": _round(None if reference is None else reference.components.get(c)),
+                    "p_reference": _round(
+                        self.before.get(c, None if reference is None else reference.components.get(c))
+                    ),
                 }
                 for c in components
             ],
@@ -589,14 +638,14 @@ def forecast_on(readings: list[IndexReading], day: date, spec: IndexSpec | None 
             "days ago: the sleeve waits for a week of archive",
             spec,
         )  # fmt: skip
-    names = reading.components if spec.kind == KIND_MEETINGS else spec.components
-    common = tuple(c for c in names if c in reading.components and c in reference.components)
+    today, before = common_values(reading, reference, day, spec)
+    common = tuple(today)
     if not common:
         return OracleForecast(
             day, reading, reference, (), None, 0.0,
             f"{spec.label}: no component present in both readings: no measurable move, flat", spec,
         )  # fmt: skip
-    change = spec.combine(reading.components[c] - reference.components[c] for c in common)
+    change = spec.combine(today[c] - before[c] for c in common)
     assert change is not None
     if abs(change) < spec.deadband:
         forecast, why = 0.0, f"inside the deadband of {spec.fmt_change(spec.deadband).lstrip('+')}"
@@ -605,15 +654,15 @@ def forecast_on(readings: list[IndexReading], day: date, spec: IndexSpec | None 
         forecast = max(-FORECAST_CAP, min(FORECAST_CAP, raw))
         unit = "point" if spec.unit == "points" else "bp"
         why = "capped at +-20" if abs(raw) > FORECAST_CAP else f"{spec.per_unit:+g} per {unit}"
-    today_common = spec.combine(reading.components[c] for c in common)
-    ref_common = spec.combine(reference.components[c] for c in common)
+    today_common = spec.combine(today.values())
+    ref_common = spec.combine(before.values())
     total = len(reading.components) if spec.kind == KIND_MEETINGS else len(spec.components)
     note = (
         f"{spec.label} {spec.fmt(today_common)} on {reading.day.isoformat()} against {spec.fmt(ref_common)} on "
         f"{reference.day.isoformat()} ({len(common)} of {total} components in both): {spec.fmt_change(change)} "
         f"-> sleeve {forecast:+.1f} ({why})"
     )
-    return OracleForecast(day, reading, reference, common, change, forecast, note, spec)
+    return OracleForecast(day, reading, reference, common, change, forecast, note, spec, today, before)
 
 
 def forecast_for(store: StateStore, day: date, spec: IndexSpec = DEESCALATION) -> OracleForecast:

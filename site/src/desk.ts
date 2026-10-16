@@ -217,6 +217,8 @@ export interface Book {
   /** Which forecast the book reads: "desk" (the seven sleeves, replayed in the backtest) or "kalshi" (the
    *  prediction markets' de-escalation index, phase 14: no history, no backtest, live fills only). */
   forecast_family?: "desk" | "kalshi";
+  /** A Kalshi book's indices and the sign it reads each with (phase 15); null for a book on the desk's forecast. */
+  sleeves?: Record<string, 1 | -1> | null;
   /** False for a book the replay cannot run: it has no row in the backtest, by construction. */
   backtested?: boolean;
   name: string;
@@ -428,6 +430,8 @@ export interface OracleIndex {
 /** The Kalshi block: every index a speculative book reads (`indices`), the books with their sleeves and signs,
  *  the archive. The first index's fields are repeated at the top level, as the first version of the page read them. */
 export interface OracleBlock extends Omit<OracleIndex, "books"> {
+  /** Set, with `books`, when the archive could not be read: every other field is then absent. */
+  error?: string;
   indices?: OracleIndex[];
   books: { id: string; name: string; vehicle: string; sleeves: Record<string, 1 | -1> }[] | string[];
   archive_days: number;
