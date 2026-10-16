@@ -11,6 +11,8 @@ import type { Book, BookHistory, BookLife, DeskDoc, FillRow, HistoryDecision, Op
 import {
   MINUS,
   allocatorLine,
+  analystMarketName,
+  analystStatus,
   bookState,
   capText,
   chevron,
@@ -19,6 +21,7 @@ import {
   exposureWords,
   groupLabel,
   groupOf,
+  isSpeculative,
   orderWords,
   positionWords,
   reasonWords,
@@ -52,7 +55,7 @@ const PAGE = 25;
 function head(b: Book): string {
   const st = bookState(b);
   const tags = [groupLabel(groupOf(b))];
-  if (b.forecast_family === "kalshi") tags.push("Speculative: no backtest");
+  if (isSpeculative(b)) tags.push("Speculative: no backtest");
   else if (b.experimental) tags.push("Experimental");
   if (b.role_change) tags.push(`${b.role_change.role} since ${longDay(b.role_change.since)}`);
   return `<header class="b-head">
@@ -94,7 +97,33 @@ function structureLine(s: OptionStructure): string {
     breakeven ${num(s.breakeven, 2)}${s.awaiting_close ? ". Expired: waiting for the official close" : ""}.</li>`;
 }
 
-function nowSection(b: Book, h: BookHistory | null): string {
+/** For a Claude book: what the analyst's reading says of the book's market - the forecast, its confidence, the
+ *  reasons and the main risk in the model's words - or why there is no reading. */
+function analystView(b: Book, doc: DeskDoc): string {
+  const a = doc.analyst;
+  if (b.forecast_family !== "claude" || !a) return "";
+  const r = a.reading;
+  const link = `<a href="#/signals?at=claude">${r ? "The whole reading, its brief and its sources" : "How the analyst works"}</a>`;
+  if (a.error) return `<p class="warn">The analyst's archive could not be read on this export. ${link}.</p>`;
+  if (!r || a.state !== "on" || !a.today || a.today.stale) {
+    return `<p class="b-analyst">The Claude analyst: ${analystStatus(a)} ${link}.</p>`;
+  }
+  const parts = Object.keys(b.sleeves ?? {}).map((m) => {
+    const x = r.markets[m];
+    const name = analystMarketName(m);
+    if (!x) return `<p class="b-analyst">The reading of ${escapeHtml(longDay(r.day))} gave no forecast for ${escapeHtml(name)}: the book holds what it has.</p>`;
+    const why = x.reasons.length ? `<ul class="a-reasons">${x.reasons.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>` : "";
+    return `<p class="b-analyst">The Claude analyst's reading of ${escapeHtml(longDay(r.day))}: ${escapeHtml(name)} <b>${toneSpan(
+      x.forecast,
+      signed(x.forecast, 0),
+    )}</b> out of 20${x.confidence ? `, confidence ${escapeHtml(x.confidence)}` : ""}. Why, in the model's words:</p>${why}${
+      x.risk ? `<p class="b-analyst">The main risk to the view: ${escapeHtml(x.risk)}</p>` : ""
+    }`;
+  });
+  return `${parts.join("")}<p class="t-dim">${link}. A language model's reading of the news for a paper-trading study: not advice.</p>`;
+}
+
+function nowSection(b: Book, h: BookHistory | null, doc: DeskDoc): string {
   const lines: string[] = [];
   for (const p of b.positions ?? []) {
     lines.push(`<li>${escapeHtml(positionWords(p))}, bought at ${num(p.avg_price, 2)} on average${
@@ -121,7 +150,7 @@ function nowSection(b: Book, h: BookHistory | null): string {
     b.decision_owed && b.kind === "linear"
       ? `<p class="t-dim">The next decision is due at ${escapeHtml(String(b.rules.decision_time_ny ?? ""))} New York, on the first tick after it.</p>`
       : "";
-  return section("Now", `<ul class="b-now">${lines.join("")}</ul>${quote}${owed}`, "", "now");
+  return section("Now", `<ul class="b-now">${lines.join("")}</ul>${analystView(b, doc)}${quote}${owed}`, "", "now");
 }
 
 // ---------------------------------------------------------------------------------------------- equity chart
@@ -417,13 +446,17 @@ function rulesSection(b: Book): string {
   const forecast =
     b.forecast_family === "kalshi"
       ? `<a href="#/signals?at=kalshi">The Kalshi indices it reads</a>`
-      : b.kind === "options"
-        ? `<a href="#/signals?at=options">The option quotes it reads</a>`
-        : `<a href="#/signals?at=forecast">The forecast it reads</a>`;
+      : b.forecast_family === "claude"
+        ? `<a href="#/signals?at=claude">The Claude analyst it reads</a>`
+        : b.kind === "options"
+          ? `<a href="#/signals?at=options">The option quotes it reads</a>`
+          : `<a href="#/signals?at=forecast">The forecast it reads</a>`;
   const backtest =
-    b.backtested === false || b.forecast_family === "kalshi"
-      ? "It has no backtest: its signal has no history the replay could run on."
-      : `<a href="#/backtest">Its backtest</a> replays these rules on decades of real prices.`;
+    b.forecast_family === "claude"
+      ? "It has no backtest, and none can exist: a language model knows the prices a replay of the past would ask it to forecast."
+      : b.backtested === false || isSpeculative(b)
+        ? "It has no backtest: its signal has no history the replay could run on."
+        : `<a href="#/backtest">Its backtest</a> replays these rules on decades of real prices.`;
   return `<details class="t-details b-rules">
     <summary><b>Rules and costs</b> <span class="t-dim">what the book is allowed to do, and what trading cost it</span></summary>
     <p>${ruleLine(b)}</p>
@@ -485,7 +518,7 @@ export async function renderBook(el: HTMLElement, id: string): Promise<void> {
     ${back}
     ${head(b)}
     ${figures(b)}
-    ${nowSection(b, h)}
+    ${nowSection(b, h, doc)}
     ${chartSection(b, h)}
     ${historySection(b, h, doc, warning)}
     ${rulesSection(b)}

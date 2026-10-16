@@ -4,7 +4,7 @@
  * Everything here formats what `desk.json` and `books/<id>.json` carry. The only arithmetic is counting rows:
  * every figure - an exposure, a P&L, a group's total - comes from the engine with its own rounding.
  */
-import type { Book, BookPosition, DeskDoc, FillRow, OptionStructure } from "./desk";
+import type { AnalystBlock, Book, BookPosition, DeskDoc, FillRow, OptionStructure } from "./desk";
 import {
   EMPTY,
   clock,
@@ -100,21 +100,51 @@ export const GROUP_WORDS: Record<string, { label: string; noun: string; verb: st
   core: { label: "Core desk", noun: "the core desk", verb: "is" },
   candidates: { label: "Candidates", noun: "the candidates", verb: "are" },
   kalshi: { label: "Kalshi books", noun: "the Kalshi books", verb: "are" },
+  claude: { label: "Claude books", noun: "the Claude books", verb: "are" },
 };
-const KNOWN_GROUPS = ["core", "candidates", "kalshi"];
+const KNOWN_GROUPS = ["core", "candidates", "kalshi", "claude"];
 
 export function groupOf(b: Book): string {
   if (b.group) return b.group;
-  if (b.forecast_family === "kalshi") return "kalshi";
+  if (b.forecast_family === "kalshi" || b.forecast_family === "claude") return b.forecast_family;
   return (b.configured_role ?? b.role ?? "core") === "core" ? "core" : "candidates";
+}
+
+/** True for a book whose direction comes from somewhere the replay cannot go: Kalshi's archive, the Claude analyst. */
+export const isSpeculative = (b: Book): boolean => !!b.forecast_family && b.forecast_family !== "desk";
+
+/** The four markets the Claude analyst reads (engine: `analyst.MARKETS`), in its order: id, name, the name inside a
+ *  sentence, what it means. */
+export const ANALYST_MARKETS: [string, string, string, string][] = [
+  ["oil", "Crude oil", "crude oil", "Brent and WTI"],
+  ["gold", "Gold", "gold", "the metal, through GLD"],
+  ["equities", "US equities", "US equities", "the S&P 500"],
+  ["bonds", "Long Treasuries", "long Treasuries", "positive: prices up, yields down"],
+];
+/** A market's name inside a sentence ("long Treasuries"). */
+export const analystMarketName = (m: string): string => ANALYST_MARKETS.find(([id]) => id === m)?.[2] ?? m;
+
+const ANALYST_STATE: Record<string, { cls: string; word: string }> = {
+  on: { cls: "ok", word: "Reading the news" },
+  waiting: { cls: "dim", word: "Waiting for its first reading" },
+  off: { cls: "dim", word: "Off" },
+  stale: { cls: "warn", word: "No recent reading" },
+  budget: { cls: "warn", word: "Budget spent" },
+  disabled: { cls: "dim", word: "Turned off" },
+};
+
+/** The Claude analyst's state as the pages show it: a dot and a word, then the engine's sentence. */
+export function analystStatus(a: AnalystBlock): string {
+  const st = ANALYST_STATE[a.state ?? "off"] ?? { cls: "dim", word: a.state ?? "Off" };
+  return `<span class="t-dot ${st.cls}">${escapeHtml(st.word)}</span> ${escapeHtml(a.state_text ?? "")}`;
 }
 
 export function groupLabel(id: string): string {
   return GROUP_WORDS[id]?.label ?? id.charAt(0).toUpperCase() + id.slice(1);
 }
 
-/** One colour per group in the engine's fixed order (core, candidates, Kalshi, then any group added later), so the
- *  colour follows the group: a filter that hides one never repaints another. Validated on both themes. */
+/** One colour per group in the engine's fixed order (core, candidates, Kalshi, Claude, then any group added later), so
+ *  the colour follows the group: a filter that hides one never repaints another. The four validated on both themes. */
 export function groupColor(id: string, all: string[]): string {
   const known = KNOWN_GROUPS.indexOf(id);
   const extra = all.filter((g) => !KNOWN_GROUPS.includes(g)).indexOf(id);
@@ -258,6 +288,13 @@ export function kalshiSleevesText(sleeves: Record<string, 1 | -1> | null | undef
   return `Forecast: ${how} ${parts.join(" and ")}, read the evening before on the desk's own archive; no backtest exists for it.`;
 }
 
+/** What a Claude book's forecast is, from the market on its row. */
+export function analystSleevesText(sleeves: Record<string, 1 | -1> | null | undefined): string {
+  const names = Object.keys(sleeves ?? {}).map(analystMarketName);
+  const what = names.length ? names.join(" and ") : "its market";
+  return `Forecast: the Claude analyst's reading of the day's news for ${escapeHtml(what)}, from ${MINUS}20 to +20 for the next five sessions, taken once a day in the New York morning; a reading more than three days old is no view, and the book closes. No backtest can exist for it.`;
+}
+
 export function ruleLine(b: Book): string {
   const r = b.rules;
   if (b.kind === "options") {
@@ -272,7 +309,12 @@ export function ruleLine(b: Book): string {
     )} of their price, filled a quarter of the spread from the bad side.`;
   }
   const weekend = r.weekend_max_leverage as number | null | undefined;
-  const source = b.forecast_family === "kalshi" ? `${kalshiSleevesText(b.sleeves)} ` : "";
+  const source =
+    b.forecast_family === "kalshi"
+      ? `${kalshiSleevesText(b.sleeves)} `
+      : b.forecast_family === "claude"
+        ? `${analystSleevesText(b.sleeves)} `
+        : "";
   const sides = r.long_only
     ? "long only"
     : r.short_via

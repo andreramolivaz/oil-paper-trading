@@ -2,7 +2,7 @@
 
 Sito statico **in inglese** (richiesta del proprietario del 13 ottobre 2026; prima era in italiano), mobile-first,
 tema scuro. Non contiene logica di trading: legge i JSON che il motore pubblica e li mostra con fonte e orario
-accanto a ogni numero. Quattro pagine, nessuna libreria di grafici.
+accanto a ogni numero. Cinque pagine e una pagina per libro, nessuna libreria di grafici.
 
 ## Comandi
 
@@ -31,15 +31,20 @@ Override a build time: `VITE_OWNER`, `VITE_REPO`, `VITE_DATA_BRANCH`, `VITE_DATA
 
 | Rotta | Contenuto |
 |---|---|
-| `#/` | **Il terminale**: mercato (Brent, WTI, BNO, OVX, rame e dollaro, pendenza della curva, Hormuz), previsione per fonte, i libri con equity, leva, tetto, posizione e **perdita su un gap del −20 %** (`stress`), i libri candidati in un gruppo a parte con il loro totale, decisioni ed eseguiti recenti, catene di opzioni lette, riassunto del backtest con i libri insieme (`portfolio`), stato di dati e motore, come leggere. Legge solo `desk.json`. |
-| `#/backtest` | Risultato per libro (candidati separati), **i libri insieme** a capitale uguale (nucleo, nucleo sulla finestra dei candidati, tutti) con anno per anno, curve su scala logaritmica contro lo strumento comprato e tenuto, rischio di rovina, sensibilità a costi ed esecuzione, i segnali uno alla volta, anno per anno, simulazione delle opzioni (≈), provenienza dei dati, ciò che è stato scartato (fase 11 e fase 12). Legge `desk_backtest.json`. |
+| `#/` | **Desk** (dalla fase 16): una frase su quanti libri hanno una posizione e sul P&L di ogni gruppo, le posizioni aperte (esposizione come barra centrata sullo zero, valore, P&L aperto, da quando), gli ordini in coda, i libri in gruppi - «Core desk», «Candidates», «Kalshi books», «Claude books» (fase 17, con la lettura del giorno dell'analista in una riga) - con un filtro da cliccare (`?show=`), il P&L di ogni gruppo dall'inizio, gli ultimi eseguiti e, a richiesta, tutti. Legge `desk.json` e, per «tutti gli eseguiti», `books/<id>.json`. |
+| `#/book/<id>` | **La pagina di un libro**: cifre, che cosa tiene ora con l'ultima decisione citata (e, per un libro Claude, la lettura dell'analista sul suo mercato con ragioni e rischio), l'equity, tutta la vita corrente in schede (eseguiti, decisioni con le parole del libro, vite), regole e costi. Legge `desk.json` e `books/<id>.json`. |
+| `#/signals` | **Che cosa leggono i libri**: mercato, previsione per fonte, indici di Kalshi e i libri Oracle, **l'analista Claude** (`?at=claude`: lo stato, la lettura per mercato con fiducia, ragioni, rischio e libro, il riassunto e le fonti, il costo e la spesa del mese, la regola), allocatore, opzioni, mercati a eventi con le allerte, riassunto del backtest, stato di dati e motore, come leggere. `?at=<sezione>` apre la pagina su una sezione. Legge `desk.json`. |
+| `#/backtest` | Risultato per libro (candidati separati; i libri speculativi in righe senza numeri, con il motivo), **i libri insieme** a capitale uguale con anno per anno, curve su scala logaritmica contro lo strumento comprato e tenuto, rischio di rovina, sensibilità a costi ed esecuzione, i segnali uno alla volta, simulazione delle opzioni (≈), provenienza dei dati, ciò che è stato scartato. Legge `desk_backtest.json`. |
 | `#/reset` | Stato dei libri, scelta di che cosa azzerare, token facoltativo nel browser, avvio del workflow, storico delle vite. |
-| `#/archive` | **Una pagina** sul primo sistema: conto master (vivo e nel backtest walk-forward), il verdetto della validazione per ognuna delle strategie (Sharpe, a costi doppi, DSR, operazioni), l'etichetta di regime con il suo limite noto, i documenti. Legge `summary.json`, `validation.json`, `strategies.json`. Le sei pagine italiane del primo sistema (`#/conto-storico`, `#/strategie`, `#/previsioni`, `#/mercato`, `#/operazioni`, `#/rischio`) e `#/archivio` reindirizzano qui. |
+| `#/archive` | **Una pagina** sul primo sistema: conto master (vivo e nel backtest walk-forward), il verdetto della validazione per ognuna delle strategie, l'etichetta di regime con il suo limite noto, i documenti. Legge `summary.json`, `validation.json`, `strategies.json`. Le sei pagine italiane del primo sistema e `#/archivio` reindirizzano qui. |
 
-Il terminale è testo in carattere monospaziato: tabelle senza riquadri, cifre tabulari, il colore usato solo
-per il segno (guadagno o perdita) e per lo stato (a posto, attenzione, guasto). Sul telefono la tabella dei
-libri diventa un blocco per libro e le righe del registro vanno su due linee. I grafici a linee sono SVG
-disegnati alla larghezza reale del contenitore (`src/charts/lines.ts`), senza libreria.
+Dalla fase 16 le pagine del desk usano un solo carattere, Atkinson Hyperlegible Next (incluso nel sito,
+`@fontsource-variable`), con cifre tabulari nelle colonne: tabelle senza riquadri, il colore usato solo per il segno
+(guadagno o perdita), per lo stato (a posto, attenzione, guasto) e per ciò che si clicca (magenta, `--accent`). Sul
+telefono le tabelle diventano un blocco per riga, ogni cifra sotto la sua etichetta. I grafici a linee sono SVG
+disegnati alla larghezza reale del contenitore (`src/charts/lines.ts`), senza libreria. Il testo che scrive un
+modello di linguaggio (il riassunto, le ragioni, le fonti dell'analista Claude) è un dato: sempre in escape, solo
+titoli, elenchi e grassetto del riassunto diventano markup, e si collegano solo indirizzi http(s).
 
 I nomi delle strategie del primo sistema e le etichette di regime arrivano in italiano dal motore (sono
 costanti del primo sistema, che non si tocca): la pagina archivio li traduce con una mappa per id
@@ -54,7 +59,9 @@ costanti del primo sistema, che non si tocca): la pagina archivio li traduce con
   terminale nel fuso del lettore con il nome del fuso accanto, quelli delle tabelle del reset in ora di New York.
 - La palette dei grafici è quella validata dallo skill di data visualization: contrasto e separazione per
   daltonismo verificati con lo script del validatore sulla superficie scura effettiva del sito; il settimo
-  colore (`--series-7`, agricoltura) è stato aggiunto nella fase 12 con lo stesso criterio.
+  colore (`--series-7`, agricoltura) è stato aggiunto nella fase 12 con lo stesso criterio. I colori dei gruppi
+  della pagina «Desk» sono i primi quattro, nell'ordine fisso dei gruppi (il quarto, «Claude books», dalla fase 17),
+  validati sui due temi.
 - Nessuna libreria di grafici: TradingView Lightweight Charts è stata rimossa con le pagine del primo sistema
   (il bundle è passato da circa 300 a 73 kB).
 

@@ -45,6 +45,8 @@ jobs:
       EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
       FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
       ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
+      # optional: the Claude analyst (engine/desk/analyst.py) reads the news once a day only when this secret is set
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       GH_TOKEN: ${{ github.token }}
       RUNNER_SECONDS: ${{ inputs.seconds || '19200' }}
       RUNNER_RESTARTS: ${{ inputs.restarts || '0' }}

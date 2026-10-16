@@ -5,10 +5,11 @@ segnali (il prezzo del greggio, la curva dei future, il rame e il dollaro), e la
 simulati da 10.000 $ che differiscono per quanta leva usano e per il lato short; dal 13 ottobre 2026 tre libri
 **candidati** (oro, rame, agricoltura) girano accanto a loro con le stesse regole. Tutto è pubblicato su un sito
 in inglese: <https://andreramolivaz.github.io/oil-paper-trading/>. Dal 16 ottobre la pagina principale («Desk») dice
-in una frase quanti libri hanno una posizione aperta, elenca le posizioni e mostra i libri in tre gruppi (il nucleo,
-i candidati, i libri su Kalshi) con un filtro da cliccare; ogni libro apre la sua pagina con tutta la sua storia
-(ogni eseguito, ogni decisione con le sue parole, le vite prima di un reset). Ciò che i libri leggono - mercato,
-previsione, indici di Kalshi, allocatore, mercati a eventi con le allerte - è sulla pagina «Signals».
+in una frase quanti libri hanno una posizione aperta, elenca le posizioni e mostra i libri in quattro gruppi (il
+nucleo, i candidati, i libri su Kalshi, i libri Claude) con un filtro da cliccare; ogni libro apre la sua pagina con
+tutta la sua storia (ogni eseguito, ogni decisione con le sue parole, le vite prima di un reset). Ciò che i libri
+leggono - mercato, previsione, indici di Kalshi, l'analista Claude, allocatore, mercati a eventi con le allerte - è
+sulla pagina «Signals».
 
 > **Simulazione a scopo di studio su dati reali. Nessun consiglio finanziario, nessun ordine reale, nessun
 > broker collegato.** Ogni numero mostrato porta la sua fonte e il suo orario; quando un dato manca il sistema
@@ -112,6 +113,20 @@ uranio e agricoltura Kalshi non ha oggi un mercato con storia, e il sistema lo d
 segnale (`docs/RESEARCH.md`, capitolo 11). Stesse regole dell'Oracle: nessun backtest, mai promossi, giudicati
 sugli eseguiti veri, prior di nessun vantaggio.
 
+**Un analista Claude** (fase 17, 16 ottobre 2026, su «ho chiamate API gratis Claude 200 $ con la University of
+Southern California: come posso usarle per il progetto, e aprire e chiudere posizioni»). Una volta al giorno, la
+mattina di New York, il giro chiama l'API di Anthropic due volte: la prima cerca le notizie delle ultime 48 ore sul
+web e scrive un riassunto dei fatti con le fonti; la seconda legge solo quel riassunto e dà al greggio, all'oro,
+all'S&P 500 e ai Treasury lunghi una previsione da −20 a +20 per le cinque sedute successive, con la fiducia, le
+ragioni e il rischio principale. Quattro libri candidati la comprano con le regole di sempre: **Claude oil** sul
+future micro WTI (long e short, fino a 10x), **Claude gold**, **Claude equities** e **Claude bonds** su GLD, SPY e
+TLT (solo long, fino a 2x). La regola è scritta in `docs/RESEARCH.md` (capitolo 12) prima della prima lettura.
+**Non può esistere un backtest**: un modello addestrato sul passato conosce i prezzi che un replay gli chiederebbe
+di prevedere. Si giudicano sui soli eseguiti, non vengono mai promossi, il prior è che non abbiano alcun vantaggio.
+Ogni lettura resta nell'archivio con il riassunto, le fonti e il costo; la pagina «Signals» la mostra per intero.
+**È spento finché non si aggiunge la chiave** (sotto, «Accendere l'analista Claude»): senza, i quattro libri
+restano liquidi e la pagina lo dice.
+
 Il primo sistema (21 strategie su conti ombra, regimi, previsioni di prezzo) continua a girare ogni giorno e
 resta consultabile dalla pagina **Archive** del sito, una pagina sola: nessuna sua strategia ha superato la
 validazione, quindi il suo conto è fermo per costruzione.
@@ -164,9 +179,30 @@ Le chiavi restano **opzionali**: senza di esse il sistema gira lo stesso, con pi
 | `EIA_API_KEY` | <https://www.eia.gov/opendata/register.php> (istantaneo) | Storico completo delle scorte settimanali, scorte di **Cushing**, previsione STEO, proxy storico della curva (WTI C1-C4) | Solo l'ultima settimana di scorte, nessun Cushing, nessun proxy di curva: le feature relative restano NaN dichiarato e le strategie che le usano non operano |
 | `FRED_API_KEY` | <https://fredaccount.stlouisfed.org/apikeys> | OVX, VIX, dollaro, tassi e breakeven con storico pieno e fonte ufficiale | Fallback su Yahoo e sui CSV di FRED: funziona, stato giallo |
 | `ALPHAVANTAGE_API_KEY` | <https://www.alphavantage.co/support/#api-key> (istantaneo) | Le dichiarazioni Form 4 degli insider del settore, per la strategia S21 del primo sistema | La tabella resta vuota e S21 non opera. I quattro libri non la usano |
+| `ANTHROPIC_API_KEY` | <https://console.anthropic.com/> → API keys, nell'organizzazione che ha i crediti | L'analista Claude e i suoi quattro libri (fase 17) | Nessuna lettura: i quattro libri Claude restano liquidi, tutto il resto è com'è |
 
 Senza chiavi il sistema gira comunque: in un'esecuzione reale del 5 ottobre 2026 ha recuperato 23 voci su 25,
 stato complessivo giallo, senza alcun crash (dettagli in `docs/DATA_SOURCES.md`).
+
+## Accendere l'analista Claude
+
+1. Nella console di Anthropic (<https://console.anthropic.com/>), nell'organizzazione o nello spazio di lavoro che
+   ha i crediti, creare una chiave API (la voce «API keys»).
+2. Su GitHub, nel repository: Settings → Secrets and variables → Actions → **New repository secret**, nome
+   `ANTHROPIC_API_KEY`, valore la chiave. **La chiave va solo lì**: mai in un file, in un messaggio o in una issue.
+   Il motore non la scrive mai: né nell'archivio, né nei log, né sul sito.
+3. Il runner legge i segreti quando parte: la chiave vale dal runner successivo, cioè al passaggio di consegne
+   (entro circa cinque ore) o al prossimo aggiornamento del motore su `main`. Per averla subito: Actions → la
+   corsa di `runner` in esecuzione → Cancel, poi Actions → `runner` → Run workflow.
+4. La prima lettura arriva al primo giro dopo le 13:00 UTC di un giorno lavorativo americano (le 9 di New York con
+   l'ora legale). La pagina «Signals», sezione «Claude analyst», dice se la chiave c'è («Reading the news» oppure
+   «Off»), mostra la lettura per mercato con le ragioni, il riassunto con le fonti e quanto è costata.
+
+Quanto costa: ogni lettura sono due chiamate a Claude Sonnet 5.5 (2 $ e 10 $ per milione di token in ingresso e in
+uscita) più fino a sei ricerche web (0,01 $ l'una); stimato 0,10-0,25 $ a lettura, 3-6 $ al mese, una lettura per
+giorno lavorativo. Un tetto in `config/analyst.yaml` (`monthly_budget_usd: 20`) ferma le chiamate quando la spesa del
+mese, calcolata dall'uso che l'API riporta, lo raggiunge. Con 200 $ di crediti sono anni. Per spegnerlo basta
+togliere il segreto (o `enabled: false` nel file): i libri leggono l'ultima lettura per tre giorni, poi si chiudono.
 
 ## Il pulsante Reset
 

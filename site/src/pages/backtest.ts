@@ -69,16 +69,20 @@ function summary(doc: BacktestDoc, names: Names, roles: Roles): string {
         <td class="n">1.00x</td><td class="n">100%</td><td></td><td class="n">×${num(s.final_multiple ?? null, 2)}</td></tr>`;
     })
     .join("");
-  // the books on file the replay cannot run (the speculative Kalshi book, phase 14): a row with the reason, no numbers
+  // the books on file the replay cannot run (the speculative Kalshi and Claude books): a row with the reason, no numbers
+  const FAMILY: Record<string, string> = { kalshi: "Kalshi's prediction markets", claude: "the Claude analyst" };
   const excluded = (doc.excluded ?? []).map(
-    (x) => `<tr class="t-bench"><th scope="row">${escapeHtml(x.name)}<small>${escapeHtml(x.vehicle)} · speculative, ${escapeHtml(
-      x.forecast ?? "",
-    )} forecast</small></th><td colspan="9" class="t-dim w">No backtest: ${escapeHtml(x.reason)}.</td></tr>`,
+    (x) => `<tr class="t-bench"><th scope="row">${escapeHtml(x.name)}<small>${escapeHtml(x.vehicle)}, speculative: ${escapeHtml(
+      FAMILY[x.forecast ?? ""] ?? x.forecast ?? "",
+    )}</small></th><td colspan="9" class="t-dim w">No backtest: ${escapeHtml(x.reason)}.</td></tr>`,
   );
+  const families = [...new Set((doc.excluded ?? []).map((x) => FAMILY[x.forecast ?? ""]).filter((f): f is string => !!f))];
   const candBlock =
     cand.length || excluded.length
       ? `<tr class="t-break"><th colspan="10" class="t-dim w">Candidates: the prudent book's rules on another market, forecast on its own price${
-          excluded.length ? "; the Oracle books take their direction from Kalshi's prediction markets and have no history to replay" : ""
+          families.length
+            ? `; the speculative books take their direction from ${escapeHtml(families.join(" or from "))}, which a replay cannot run on`
+            : ""
         }</th></tr>${cand.join("")}${excluded.join("")}`
       : "";
   return section(

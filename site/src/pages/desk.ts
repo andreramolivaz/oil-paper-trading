@@ -10,7 +10,9 @@ import { lineChart, lineLegend, type LineSeries } from "../charts/lines";
 import { load } from "../data";
 import type { Book, BookHistory, BookPosition, DeskDoc, FillRow, OptionStructure, PortfolioGroup } from "../desk";
 import {
+  ANALYST_MARKETS,
   GROUP_WORDS,
+  analystStatus,
   bookState,
   chevron,
   exposureBar,
@@ -232,6 +234,7 @@ function groupBlock(doc: DeskDoc, g: PortfolioGroup, ids: string[]): string {
       <div class="d-gfig">${figures}</div>
       ${g.note ? `<p class="d-gnote">${escapeHtml(g.note.charAt(0).toUpperCase() + g.note.slice(1))}.</p>` : ""}
       ${g.id === "kalshi" ? watchLine(doc) : ""}
+      ${g.id === "claude" ? analystLine(doc) : ""}
     </header>
     <div class="d-colhead" aria-hidden="true"><span>Book</span><span>Holding</span><span>Exposure</span><span>Equity</span><span>Since the start</span><span>Today</span><span></span></div>
     <ul class="d-list">${members.map(bookRow).join("")}</ul>
@@ -250,6 +253,25 @@ function watchLine(doc: DeskDoc): string {
   return `<p class="d-watch"><span class="t-dot warn">Unusual activity on Kalshi</span> ${alerts.length} alert${
     alerts.length === 1 ? "" : "s"
   } in the last week (${escapeHtml(topics)}): a large move on unusual volume, a footprint and never a verdict. ${link}.</p>`;
+}
+
+/** The Claude analyst in one line under the Claude books: what today's reading says of each book's market, or why
+ *  there is none, with the way to its reasons and sources. */
+function analystLine(doc: DeskDoc): string {
+  const a = doc.analyst;
+  if (!a) return "";
+  const link = `<a href="#/signals?at=claude">${a.reading ? "Its reasons and sources" : "How it works"}</a>`;
+  if (a.error) return `<p class="d-watch"><span class="t-dot warn">Analyst unreadable</span> The archive could not be read on this export. ${link}.</p>`;
+  const r = a.reading;
+  if (a.state === "on" && r && a.today && !a.today.stale) {
+    const parts = ANALYST_MARKETS.filter(([m]) => r.markets[m]).map(
+      ([m, , name]) => `${escapeHtml(name)} ${toneSpan(r.markets[m]!.forecast, signed(r.markets[m]!.forecast, 0))}`,
+    );
+    const age = a.today.age_days ?? 0;
+    const whenRead = age === 0 ? "today" : age === 1 ? "yesterday" : `${age} days ago`;
+    return `<p class="d-watch">The analyst's reading, ${escapeHtml(whenRead)}: ${parts.join(", ")}, each out of 20. ${link}.</p>`;
+  }
+  return `<p class="d-watch">${analystStatus(a)} ${link}.</p>`;
 }
 
 function filterBar(doc: DeskDoc, groups: PortfolioGroup[], current: string): string {
@@ -465,7 +487,7 @@ async function showAllFills(root: HTMLElement, doc: DeskDoc, button: HTMLButtonE
 
 function morePages(): string {
   return `<nav class="d-more" aria-label="More pages">
-    <a href="#/signals"><b>Signals</b><span>The market, the forecast every oil book reads, the Kalshi indices, the allocator and the prediction markets.</span></a>
+    <a href="#/signals"><b>Signals</b><span>The market, the forecast every oil book reads, the Kalshi indices, the Claude analyst, the allocator and the prediction markets.</span></a>
     <a href="#/backtest"><b>Backtest</b><span>The books replayed on decades of real prices with real costs, year by year.</span></a>
   </nav>`;
 }

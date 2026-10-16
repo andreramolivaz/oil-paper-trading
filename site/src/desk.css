@@ -265,3 +265,46 @@ tr[data-href]:hover > * { background: var(--surface-1); }
   .t-table .h-right .m-l { display: inline; margin-left: 4px; color: var(--text-muted); font-size: var(--t-micro); }
   .b-decisions .h-right .m-l { margin: 0 4px 0 0; }
 }
+
+/* ---------- the Claude analyst: the signals page's section and a Claude book's "Now" ---------- */
+.a-state { margin: 0 0 10px; font-size: var(--t-base); color: var(--text-primary); max-width: 80ch; text-wrap: pretty; }
+.a-state .t-dot { margin-right: 8px; font-weight: 600; }
+.a-reading th[scope="row"] { min-width: 15ch; }
+.a-reading td.a-f { white-space: nowrap; }
+.a-reading td.a-f b { font-size: var(--t-lg); font-weight: 650; }
+.a-reading td.w { min-width: 24ch; }
+.a-reasons { margin: 0; padding-left: 16px; }
+.a-reasons li { margin: 0 0 3px; }
+.a-reasons li:last-child { margin-bottom: 0; }
+.term .b-analyst { margin: 14px 0 4px; max-width: 80ch; color: var(--text-primary); text-wrap: pretty; }
+.bookpage .a-reasons { max-width: 78ch; margin: 2px 0 8px; color: var(--text-secondary); }
+.term .a-brief { max-width: 78ch; margin: 10px 0 0 17px; color: var(--text-secondary); }
+.term .a-brief p { margin: 0 0 8px; }
+.term .a-brief p.a-bh { margin-top: 14px; color: var(--text-primary); }
+.term .a-brief p.a-bh:first-child { margin-top: 0; }
+.a-brief ul, .a-brief ol { margin: 0 0 8px; padding-left: 18px; }
+.a-brief li { margin: 0 0 4px; }
+.a-brief-box .t-sub { margin-left: 17px; }
+.a-sources { margin: 0 0 0 17px; padding-left: 16px; max-width: 78ch; }
+.a-sources li { margin: 0 0 4px; overflow-wrap: anywhere; }
+.a-sources .t-dim { font-size: var(--t-xs); margin-left: 4px; }
+@media (max-width: 640px) {
+  /* one block per market: the name and the forecast across, then the reasons, the risk and the book */
+  .a-reading thead { display: none; }
+  .a-reading tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding: 10px 0;
+    grid-template-areas: "m f" "why why" "risk risk" "book book";
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  }
+  .a-reading th, .a-reading td { border: none !important; padding: 0; white-space: normal; text-align: left; }
+  .t-scroll .a-reading th[scope="row"] { position: static; grid-area: m; min-width: 0; }
+  .t-table.a-reading td.a-f { grid-area: f; text-align: right; }
+  .a-reading td.a-why { grid-area: why; min-width: 0; }
+  .a-reading td.a-risk { grid-area: risk; min-width: 0; }
+  .a-reading td.a-book { grid-area: book; }
+  .a-reading td[data-l]::before {
+    content: attr(data-l); display: block; font-size: var(--t-micro); color: var(--text-muted); line-height: 1.4;
+  }
+  .a-reading td.a-book::before { display: inline; margin-right: 6px; }
+  .a-reading td.a-book small { display: inline; margin-left: 6px; }
+}

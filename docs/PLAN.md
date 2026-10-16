@@ -87,6 +87,9 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
 3. Verificare che in Settings → Actions → General i workflow abbiano **permessi di lettura e scrittura**
    (servono per il branch `data`, le Issue automatiche e il keepalive).
 4. Fonti a pagamento: nessuna necessaria; opzionali per Dated Brent e curva completa (Platts/Argus/ICE Data).
+5. Facoltativo, dalla fase 17: il secret `ANTHROPIC_API_KEY` (la chiave dell'API di Anthropic) accende l'analista
+   Claude e i suoi quattro libri; senza, restano liquidi. Va aggiunto dal proprietario nelle impostazioni del
+   repository (Settings → Secrets and variables → Actions), mai incollato in una conversazione o in un file.
 
 ## Stato delle fasi
 
@@ -202,6 +205,21 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   aperto delle strutture e un file di storia per libro (`books/<id>.json`, `docs/SITE_DATA.md`); nessun numero di
   nessun libro cambia. Carattere Atkinson Hyperlegible Next, palette della sala nautica di notte, colori dei gruppi
   validati sui due temi.
+- [x] 17. L'analista Claude (16 ottobre 2026, su «ho chiamate API gratis Claude 200 $ con la University of Southern
+  California: come posso usarle per il progetto, e aprire e chiudere posizioni»; `docs/RESEARCH.md`, capitolo 12,
+  registrato prima della prima lettura). Una volta al giorno, nei giorni lavorativi americani dopo le 13:00 UTC, il
+  giro chiama l'API di Anthropic due volte (`engine/desk/analyst.py`, `config/analyst.yaml`): la prima cerca le
+  notizie sul web e scrive un riassunto dei fatti con le fonti, la seconda legge quel riassunto e dà al greggio,
+  all'oro, all'S&P 500 e ai Treasury lunghi una previsione da −20 a +20 per le cinque sedute successive. Quattro
+  libri candidati la comprano con le regole di sempre (`claude_oil` sul /MCL long e short; `claude_gold`,
+  `claude_equities`, `claude_bonds` su GLD, SPY e TLT solo long); nessun backtest, e nessuno può esistere (il
+  modello conosce i prezzi del passato); fuori dal replay e dall'impronta, mai promossi; prior di nessun vantaggio.
+  Ogni tentativo archiviato con il riassunto, le fonti, l'uso e il costo (`state/desk/claude-*.jsonl`), mai la
+  chiave; un tetto di 20 $ al mese. Sito: il gruppo «Claude books» sulla pagina «Desk», la sezione «Claude
+  analyst» sui «Signals» (la lettura per mercato con le ragioni e il rischio, il riassunto e le fonti, il costo), la
+  lettura del proprio mercato sulla pagina di ogni libro Claude. **Spento finché il proprietario non aggiunge il
+  segreto `ANTHROPIC_API_KEY`** (README): senza, i quattro libri restano liquidi e la pagina lo dice. I diciassette
+  libri di prima e il loro backtest sono identici prima e dopo (impronta b66ecbb82b75 invariata).
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

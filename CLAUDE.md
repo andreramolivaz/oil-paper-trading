@@ -23,8 +23,12 @@ There are two systems in this repository and it matters which one you are touchi
   the Fed path read off the FOMC meetings' outcome markets, the recession probability off the yearly NBER
   markets) and two more speculative books read them with a sign per sleeve, long only, on the S&P 500 and
   utilities funds (`oracle_equities`, `oracle_utilities`); two others (bonds, gold) were registered, measured a
-  negative Sharpe and do not exist. The desk page shows what every book holds, each book's own page its whole
-  history, the signals page what they read.
+  negative Sharpe and do not exist. Since phase 17 a CLAUDE ANALYST (`engine/desk/analyst.py`,
+  `config/analyst.yaml`, `forecast: claude`) reads the news once a day through the Anthropic API and four more
+  speculative candidates buy its view (`claude_oil` on /MCL long and short; `claude_gold`, `claude_equities`,
+  `claude_bonds` on GLD, SPY, TLT long only); it runs only with the repository secret `ANTHROPIC_API_KEY`, and no
+  backtest of it can exist. The desk page shows what every book holds, each book's own page its whole history, the
+  signals page what they read.
 * **The first system** (`engine/strategies`, `engine/portfolio`, `engine/backtest/session.py`, ...) is 21
   strategies on shadow accounts behind a seven-condition validation gate. Nothing passed, so its master account
   is flat by construction. It still runs daily (the tick runs its end of day) and is reachable from the site's
@@ -55,7 +59,7 @@ python -m engine.cli fetch --snapshot          # pull all sources, write point-i
 python -m engine.cli eod                       # first system, after ICE settlement (the tick calls it when due)
 python -m engine.cli weekly                    # COT, rig count, retrain, full backtest, validation report
 python -m engine.cli backtest --start 1990-01-01 --end 2026-10-01 --report out/backtest
-python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|...|clean|oracle|oracle_equities|oracle_utilities|all]
+python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|...|clean|oracle|oracle_equities|oracle_utilities|claude_oil|...|all]
 python -m engine.cli export-site               # site-data/: desk.json + books/<id>.json for the desk pages + the first system's files
 
 python -m engine.cli watch                     # the prediction markets alone (the weekend job): read, archive, judge
@@ -99,6 +103,14 @@ engine/desk/
                 sleeves WITH A SIGN (`sleeves` in books.yaml) and averages them; these books cannot be replayed
                 (no history in the desk's series), so they are out of the backtest, the tables and the
                 fingerprint (`report.replayed_books`) and the lifecycle never promotes them
+  analyst.py    the Claude analyst (phase 17): once a day, on a US business day, at the first tick after 13:00 UTC,
+                two calls to the Messages API - a web search turn that writes a brief of the facts with their
+                sources, then the brief alone in and a JSON forecast out (structured output: -20..+20 for oil, gold,
+                equities, bonds, five sessions) - archived attempt by attempt (desk/claude-YYYY-MM.jsonl, with usage
+                and cost; never the key); `due` (business day, start time, one ok reading a day, 3 attempts 30
+                minutes apart, the monthly budget), `forecast_on` (the newest ok reading on the decision day or up to
+                3 days before, never later; older: every market 0, the books close; none: no decision), `block` for
+                the page; `desk/claude_status.json` is the runner's own word on whether it HAS a key (yes/no)
   backfill.py   the archive's past (phase 14): Kalshi's daily candlesticks (bid, ask, last, volume, open
                 interest at midnight New York, since each market opened) as the records the tick would have
                 written, one per event and UTC day, `backfilled: true`; a day the tick read is never replaced;
@@ -116,10 +128,12 @@ engine/desk/
   report.py     desk-backtest payload with and without the allocator, attribution by sleeve and by source,
                 the rules' fingerprint (books, options, risk.yaml, allocator.yaml)
   export.py     site-data/desk.json (books with role/allocator/lifecycle, `allocator`, `prediction_markets`)
-config/books.yaml      the three linear books, the options book, the ten candidate books (role: candidate) and the
+config/books.yaml      the three linear books, the options book, the ten candidate books (role: candidate), the
                        speculative Kalshi books `oracle`, `oracle_equities`, `oracle_utilities` (role: candidate,
-                       forecast: kalshi, `sleeves` with a sign)
+                       forecast: kalshi, `sleeves` with a sign) and the Claude books `claude_oil`, `claude_gold`,
+                       `claude_equities`, `claude_bonds` (forecast: claude, one market each in `sleeves`)
 config/allocator.yaml  the allocator's four rules with their published parameters and on/off switches
+config/analyst.yaml    the Claude analyst: model, start time, searches, token limits, monthly budget, published prices
 engine/data/adapters/kalshi.py   the public Kalshi API, one call a second (429 after about thirty in a burst);
                                  `fetch_history`: every market of a series with its daily candlesticks (the
                                  live endpoint, else `/historical/...` for a market archived after settlement)
@@ -280,6 +294,17 @@ How a tick works (`engine/live/jobs.py::tick`, driven by `scripts/runner_loop.sh
   the same "evening before" as the tick's reading, three hours later); a day with a live reading is never
   overwritten, so `record_reading` and `apply_backfill` agree on the key `day|event`, and the backfilled
   records sit AFTER the live ones in the month's file: every reader sorts by day, none by line.
+- **The Claude analyst is a side call, and its key a secret.** The tick calls it before planning the downloads
+  (`jobs._analyst_step`), re-reads the clock only when it called the API, and never lets it cost the tick: every
+  attempt, failed or not, is one archived line with what was billed (`maybe_read`), errors carry the API's words and
+  never a header, and offline (tests, CI) nothing is called. The brief is what the model wrote after its last search
+  plus the passages before it that cite a source - its narration while searching is not - and only http(s) sources
+  are kept (the page links to them). A turn the API pauses is sent back as it is, at most three times and not after
+  `timeout_s`. The books on it get ONLY their entry of `book_forecasts` (`live.analyst_forecasts`), like the Kalshi
+  books; a market missing from a reading is no forecast for its book that day (position unchanged). Whether the key
+  is set is the runner's word (`claude_status.json`): the weekly and weekend jobs export without the key and must
+  not say "off" for the runner. The responses in the tests are SYNTHETIC in the documented shapes - no real reading
+  existed when they were written - and are labelled so; replace them with a real one once the runner has it.
 - **A backtest belongs to the rules it was computed with.** Changing a constant in `signals.py`, `data.py`,
   `backtest.py`, `book.py` or `options.py`, a book, a vehicle, an inverse fund or the account rules in
   `config/risk.yaml` changes `report.model_signature`; the next tick recomputes (and so does a table that was
@@ -349,7 +374,8 @@ First system: `state/account.json`, `state/positions.json`, `state/trades.jsonl`
 Desk: `state/desk/desk_state.json` (books' last decision days, roles changed by the lifecycle, the allocator's
 scales of the day), `state/desk/decisions-*.jsonl`, `state/desk/kalshi-*.jsonl` (the prediction markets, one
 record per event and day), `state/desk/kalshi_alerts-*.jsonl` and `kalshi_watch.json` (the unusual-activity
-alerts and the last reading judged), `state/desk/backtest.json`, and one folder per book (the linear books, core and
+alerts and the last reading judged), `state/desk/claude-*.jsonl` and `claude_status.json` (the Claude analyst's
+attempts, and the runner's word on whether it has a key), `state/desk/backtest.json`, and one folder per book (the linear books, core and
 candidate: the paper broker's `account.json`, `positions.json`, `trades`, `orders`, `equity` logs; `opzioni`:
 `book.json`, `monitor.json`, `trades`, `decisions`, `equity`, `smile`).
 Rotation: monthly rollover of jsonl files. Raw snapshots are trimmed by every tick (intraday tables keep one
@@ -380,6 +406,13 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   once against Carver's normalisation (mean |F| about 10) and touched only if off by a factor of two, as
   written before the check. A market past its close time is not a probability. The unusual-activity alert
   flags a footprint by a declared rule and says so; it never calls anyone an insider and never trades.
+- The Claude analyst (`forecast: claude`, phase 17) is a candidate family like Kalshi's: its rule is the one written
+  in `docs/RESEARCH.md` ch. 12 before the first reading (model, prompts, schema and searches fingerprinted as
+  `prompt_version` in every reading: changing any of them is a new rule, written there first); no backtest can exist
+  (a model trained on the past knows the prices a replay would ask for), so its books are out of the replay, the
+  tables and the fingerprint, never promoted, judged on live fills. The model never sees the books, their positions,
+  the desk's prices or its forecast, and never sizes or writes an order: the desk's rules do. A decision never reads
+  a reading taken after its day. The monthly budget is a hard stop, counted from the usage the API reports.
 - A fund book is short only through an inverse fund it BUYS with cash: that fund's notional never exceeds the
   equity, and the book's ceilings (weekend included) bind the oil exposure on both sides - at the decision,
   at the fill price and after every mark. A fund is never sold short: its sale is reduce-only.
@@ -411,7 +444,11 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
 - Approximations (synthetic options, curve proxies, GDELT gaps) are labelled `approx=true` in JSON and "≈" in the UI.
 - Tests are offline by default; fixtures under `tests/fixtures/` are small real snapshots (dated, sourced).
 - One commit per completed phase; messages `phase N: ...`.
-- Secrets only via GitHub Secrets: `EIA_API_KEY`, `FRED_API_KEY`, `ALPHAVANTAGE_API_KEY` (all optional; system degrades gracefully).
+- Secrets only via GitHub Secrets: `EIA_API_KEY`, `FRED_API_KEY`, `ALPHAVANTAGE_API_KEY`, `ANTHROPIC_API_KEY` (all
+  optional; system degrades gracefully). The Anthropic key reaches the runner alone (`runner.yml`), lives in
+  `Settings.anthropic_api_key` (`repr=False`) and in the transport's closure, and is never logged, archived,
+  exported or echoed in an error (`tests/test_desk_analyst.py` greps every file the tick wrote for it). Never ask
+  the owner to paste it anywhere: he adds the secret himself.
 - A parameter of a book is a published value or a stated rule of thumb, never the best cell of a grid. When a
   result depends on a choice, show the neighbours (`docs/RESEARCH.md` does) instead of picking the winner.
 - Site: the desk pages (`site/src/pages/desk.ts`, `book.ts`, `signals.ts`, helpers in `site/src/deskview.ts`)
@@ -421,8 +458,8 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   no ALL-CAPS labels; colour only for sign (green and red), state, and what can be clicked (magenta, `--accent`).
   The three group colours are the validated series slots 1-3 (`groupColor`), in the engine's fixed group order.
 
-## State of play (2026-10-13)
-Phases 1-13 of `docs/PLAN.md` are implemented. Phase 10 (8 October) added the desk after three days of a flat
+## State of play (2026-10-16)
+Phases 1-17 of `docs/PLAN.md` are implemented (17 waits for the owner's `ANTHROPIC_API_KEY` to take a reading). Phase 10 (8 October) added the desk after three days of a flat
 account with zero trades. The four causes, all fixed and pinned by `tests/test_tick_job.py`:
 1. nothing was promoted, so the master's weight was zero by construction (now: the desk books trade);
 2. the end of day ran after midnight London and asked for a date that had not settled (now: latest SETTLED date);
@@ -879,6 +916,34 @@ bars, no fill, no decision) and pushed. The public page renders the desk, a book
 options book on a phone), the signals and the backtest on the live JSON, in Los Angeles time, with no console error.
 Still NOT seen: a history file after a reset, a book page warned of a stale history file, a promoted book shown in
 the core group.
+
+Phase 17 (16 October, on the owner's "I have 200 $ of free Claude API calls through the University of Southern
+California: how can I use them for the project, and open and close positions"; `docs/RESEARCH.md` chapter 12,
+registered at 09:00 UTC before any reading). A language model reads the news and gives a direction; four paper books
+buy it under the desk's rules. Once a day on a US business day, at the first tick after 13:00 UTC, `analyst.py` makes
+two calls to the Messages API (`claude-sonnet-5-5`): a web search turn (`web_search_20250305`, at most 6 searches)
+that writes a brief of the last 48 hours' facts on crude, gold, US equities and Treasuries with dates and sources,
+then the brief alone in and a JSON object out (`output_config.format`, the schema in `analyst.SCHEMA`): an integer
+-20..+20 per market for the next five sessions, a confidence, up to three reasons and the main risk; two calls
+because structured output does not combine with the citations a search makes. A number off the scale is cut to +-20
+and marked `clamped`; a market missing, twice or not a number is no forecast that day; a refusal or a truncated
+answer is no reading. Each attempt is a line of `desk/claude-YYYY-MM.jsonl` with the brief, its sources, the
+forecast, every request's usage and the cost at the published prices (2 $ / 10 $ per million tokens, 0.01 $ a
+search); at most 3 attempts a day 30 minutes apart; a 20 $ monthly budget stops the calls. The books (`forecast:
+claude`, one market each in `sleeves`): `claude_oil` on /MCL long and short (10x, 3x before a closure), `claude_gold`,
+`claude_equities`, `claude_bonds` on GLD, SPY, TLT long only (2x, 1x), vol target 0.50, breaker 15 %, the allocator's
+`m` (the bubble switch halves MCL and GLD today). A decision of day D reads the newest ok reading taken on D or up to
+3 days before (Monday reads Friday's), never a later one; older, every market is 0 and the books close; none ever,
+no decision (cash). No backtest can exist (Glasserman and Lin 2023: a model knows the prices a replay would ask it
+to forecast); out of the replay, the tables and the fingerprint (`report.replayed_books`; `b66ecbb82b75` unchanged
+with the four books added, checked), never promoted; the prior is no edge. Site: the "Claude books" group on the
+desk (series slot 4, the four group colours validated on both themes) with the day's reading in one line, a "Claude
+analyst" section on the signals page (`?at=claude`: the state, each market's forecast, confidence, reasons and risk
+with its book, the brief and its sources folded away, the cost and the month's spend, the rule), and on a Claude
+book's page the reading of its own market. Every word the model writes is escaped; only http(s) sources are kept
+and linked (`rel="noopener noreferrer"`). OFF until the owner adds the repository secret `ANTHROPIC_API_KEY` (README
+"Accendere l'analista Claude"): the books then stay in cash and the page says why. The tests' API answers are
+SYNTHETIC, in the documented response shapes, and say so: no real reading existed when phase 17 was written.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

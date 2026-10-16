@@ -1,16 +1,17 @@
 /** Signals: what the books read, in one column of text.
  *
  * The desk page says what the books hold; this one says why. Top to bottom: what oil and the markets around it
- * are doing, the forecast the oil books read (seven sleeves from three sources), the Kalshi indices the
- * speculative books read, the allocator's scales, the options book's quotes, the prediction markets, the backtest
- * in one table, and whether the machine is alive. No number is computed here: the page formats what `desk.json`
- * carries and says "n/a" for what it does not.
+ * are doing, the forecast the oil books read (seven sleeves from three sources), the Kalshi indices and the Claude
+ * analyst the speculative books read, the allocator's scales, the options book's quotes, the prediction markets, the
+ * backtest in one table, and whether the machine is alive. No number is computed here: the page formats what
+ * `desk.json` carries and says "n/a" for what it does not.
  */
 import { repoUrl } from "../config";
 import { load } from "../data";
 import {
   bookColor,
   portfolios,
+  type AnalystBlock,
   type DeskDoc,
   type ForecastBlock,
   type OptionUnderlying,
@@ -20,8 +21,23 @@ import {
   type PredictionEvent,
   type Quote,
 } from "../desk";
-import { MINUS, section, span, statusLine, toneSpan } from "../deskview";
-import { EMPTY, clock, day, escapeHtml, leverage, num, percent, relative, signed, signedPercent, usd } from "../format";
+import { ANALYST_MARKETS, MINUS, analystMarketName, analystStatus, section, span, statusLine, toneSpan } from "../deskview";
+import {
+  EMPTY,
+  clock,
+  day,
+  escapeHtml,
+  leverage,
+  longDay,
+  num,
+  percent,
+  relative,
+  signed,
+  signedPercent,
+  usd,
+  when,
+  zoneName,
+} from "../format";
 
 // ---------------------------------------------------------------------------------------------- market
 function quoteCell(q: Quote | undefined): string {
@@ -230,6 +246,165 @@ function oracleIndexTable(o: OracleIndex): string {
     </tbody></table></div>
     <p>${escapeHtml(o.note.charAt(0).toUpperCase() + o.note.slice(1))}.</p>
     <p class="t-dim">${escapeHtml(o.rule.text)}</p>`;
+}
+
+// ---------------------------------------------------------------------------------------------- Claude analyst
+/** The brief in the model's words: escaped first, then only its headings, bullets and bold made into markup. */
+function briefHtml(text: string): string {
+  const inline = (s: string): string => s.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+  const out: string[] = [];
+  let list: string[] = [];
+  let kind: "ul" | "ol" = "ul";
+  let para: string[] = [];
+  const flush = (): void => {
+    if (para.length) out.push(`<p>${para.map(inline).join("<br>")}</p>`);
+    if (list.length) out.push(`<${kind}>${list.map((l) => `<li>${inline(l)}</li>`).join("")}</${kind}>`);
+    para = [];
+    list = [];
+  };
+  for (const raw of escapeHtml(text).split("\n")) {
+    const line = raw.trim();
+    const heading = /^#{1,6}\s+(.+)$/.exec(line);
+    const bullet = /^([-*•]|\d+[.)])\s+(.+)$/.exec(line);
+    if (!line) flush();
+    else if (heading) {
+      flush();
+      out.push(`<p class="a-bh"><b>${inline(heading[1]!.replace(/\*\*/g, ""))}</b></p>`);
+    } else if (bullet) {
+      const k = /\d/.test(bullet[1]!) ? "ol" : "ul";
+      if (para.length || (list.length && k !== kind)) flush();
+      kind = k;
+      list.push(bullet[2]!);
+    } else {
+      if (list.length) flush();
+      para.push(line);
+    }
+  }
+  flush();
+  return out.join("");
+}
+
+function webLink(url: string, title: string): string {
+  if (!/^https?:\/\//i.test(url)) return escapeHtml(title || url);
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return escapeHtml(title || url);
+  }
+  return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title || host)}</a> <span class="t-dim">${escapeHtml(host)}</span>`;
+}
+
+function analystReadingRows(a: AnalystBlock, readers: Map<string, { id: string; name: string; vehicle: string }>): string {
+  const r = a.reading!;
+  return ANALYST_MARKETS.map(([m, name, , hint]) => {
+    const x = r.markets[m];
+    const book = readers.get(m);
+    const bookCell = book
+      ? `<a href="#/book/${encodeURIComponent(book.id)}">${escapeHtml(book.name)}</a><small>${escapeHtml(book.vehicle === "MCL" ? "/MCL" : book.vehicle)}</small>`
+      : span("t-dim", "no book");
+    if (!x) {
+      return `<tr><th scope="row">${escapeHtml(name)}<small>${escapeHtml(hint)}</small></th>
+        <td class="n a-f">${span("t-dim", "none")}</td><td class="w a-why" colspan="2">${span(
+          "t-dim",
+          "The reading gave no forecast for this market: its book holds what it has.",
+        )}</td><td class="a-book" data-l="Book">${bookCell}</td></tr>`;
+    }
+    const reasons = x.reasons.length
+      ? `<ul class="a-reasons">${x.reasons.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>`
+      : span("t-dim", "no reason given");
+    return `<tr>
+      <th scope="row">${escapeHtml(name)}<small>${escapeHtml(hint)}</small></th>
+      <td class="n a-f"><b>${toneSpan(x.forecast, signed(x.forecast, 0))}</b><small>${
+        x.confidence ? `confidence ${escapeHtml(x.confidence)}` : "no confidence given"
+      }${x.clamped ? ", cut to the scale" : ""}</small></td>
+      <td class="w a-why" data-l="Why">${reasons}</td>
+      <td class="w a-risk" data-l="Main risk">${x.risk ? escapeHtml(x.risk) : span("t-dim", "none given")}</td>
+      <td class="a-book" data-l="Book">${bookCell}</td>
+    </tr>`;
+  }).join("");
+}
+
+/** The Claude analyst (phase 17): whether it runs, the reading the books read with each market's forecast, reasons and
+ *  risk, the brief and its sources folded away, what it cost, the rule. A separate forecast, never mixed with the
+ *  desk's. */
+function analystSection(doc: DeskDoc): string {
+  const a: AnalystBlock | null | undefined = doc.analyst;
+  if (!a) return "";
+  const note = "once a day a language model reads the news and gives four markets a direction; four speculative books buy it";
+  if (a.error) {
+    const names = (a.books ?? []).map((b) => escapeHtml(typeof b === "string" ? b : b.id)).join(", ");
+    return section(
+      "Claude analyst",
+      `<p class="warn">The analyst's archive could not be read on this export: ${escapeHtml(String(a.error))}.</p><p class="t-dim">The books on it (${names}) took no new decision on it; their positions and marks are on <a href="#/">the desk</a>.</p>`,
+      note,
+      "claude",
+    );
+  }
+  const readers = new Map<string, { id: string; name: string; vehicle: string }>();
+  for (const b of a.books) {
+    if (typeof b === "string") continue;
+    for (const m of Object.keys(b.sleeves ?? {})) readers.set(m, b);
+  }
+  const state = a.state ?? "off";
+  const lead = `<p class="a-state">${analystStatus(a)}</p>`;
+  const howOn =
+    state === "off"
+      ? `<p class="t-dim">To switch it on, add the API key as the repository secret <code>ANTHROPIC_API_KEY</code>, in the
+        repository's settings under Secrets and variables, Actions. The runner reads its secrets when it starts, so the key
+        takes effect with the next runner: at its hand-over, within about five hours, or at the next update of the engine;
+        to have it at once, cancel the runner in progress in Actions and start the runner workflow by hand. The first
+        reading then comes at the first tick after ${escapeHtml(a.rule?.start_utc ?? "13:00")} UTC on a US business
+        day.${a.checked_at ? ` The runner last looked ${escapeHtml(relative(a.checked_at))}.` : ""}</p>`
+      : "";
+  const failed =
+    a.last_attempt && a.last_attempt.status !== "ok"
+      ? `<p class="warn">The last attempt, ${escapeHtml(when(a.last_attempt.ts))}, failed${
+          a.last_attempt.error ? `: ${escapeHtml(a.last_attempt.error)}` : ""
+        }. A failed attempt is tried again after half an hour, at most ${a.rule?.max_attempts ?? 3} times a day.</p>`
+      : "";
+  const r = a.reading;
+  let reading = "";
+  if (r) {
+    const sources = r.sources.length
+      ? `<ul class="a-sources">${r.sources.map((s) => `<li>${webLink(s.url, s.title)}</li>`).join("")}</ul>${
+          (r.n_sources ?? r.sources.length) > r.sources.length
+            ? `<p class="t-dim">And ${(r.n_sources ?? 0) - r.sources.length} more in the archive.</p>`
+            : ""
+        }`
+      : `<p class="t-dim">No source on file for this reading.</p>`;
+    reading = `<div class="t-scroll"><table class="t-table t-log a-reading">
+        <thead><tr><th>Market</th><th class="n">Forecast</th><th>Why, in the model's words</th><th>Main risk</th><th>Book</th></tr></thead>
+        <tbody>${analystReadingRows(a, readers)}</tbody></table></div>
+      <p class="t-dim">Read ${escapeHtml(when(r.ts))} (${escapeHtml(zoneName())}) by ${escapeHtml(r.model)} after ${
+        r.searches === null || r.searches === undefined ? "its" : num(r.searches, 0)
+      } web search${r.searches === 1 ? "" : "es"}; it cost ${usd(r.cost_usd, 3)}. This month: ${usd(a.spent_month_usd, 2)} of
+      the ${usd(a.budget_usd, 0)} budget; ${a.readings ?? 0} reading${a.readings === 1 ? "" : "s"} since ${escapeHtml(
+        longDay(a.first_day),
+      )}. A forecast runs from ${MINUS}20 to +20 for the next five sessions; +10 is a normal conviction.</p>
+      <details class="t-details a-brief-box">
+        <summary><b>The brief</b> <span class="t-dim">the facts it gathered, which the forecast was read from, with ${
+          r.n_sources ?? r.sources.length
+        } source${(r.n_sources ?? r.sources.length) === 1 ? "" : "s"}</span></summary>
+        <div class="a-brief">${briefHtml(r.brief)}</div>
+        <h3 class="t-sub">Sources</h3>
+        ${sources}
+      </details>`;
+  } else if (state !== "off") {
+    reading = `<div class="t-empty">No reading on file yet.</div>`;
+  }
+  // the books are in the reading's table; without a reading, they are named here
+  const books = r
+    ? ""
+    : `Books: ${
+        [...readers.entries()]
+          .map(([m, b]) => `<a href="#/book/${encodeURIComponent(b.id)}">${escapeHtml(b.name)}</a> (${escapeHtml(analystMarketName(m))})`)
+          .join(", ") || "none"
+      }. `;
+  const body = `${lead}${howOn}${failed}${reading}
+    <p class="t-dim">${books}${escapeHtml(a.rule?.text ?? "")}${a.prompt_version ? ` Rule version ${escapeHtml(a.prompt_version)}.` : ""}</p>
+    <p class="t-dim">${escapeHtml(a.disclaimer ?? "")} <span class="warn">The prior written with the rule is that it has no edge.</span></p>`;
+  return section("Claude analyst", body, note, "claude");
 }
 
 // ---------------------------------------------------------------------------------------------- allocator
@@ -703,6 +878,14 @@ function howTo(): string {
     once on the archive (bonds and gold measured a negative Sharpe and do not start); there is no backtest in the replay;
     the prior is that none has an edge; the books are judged on live fills only, never promoted, and can wipe out their
     accounts.</p>
+    <p><b>The Claude books (speculative).</b> On the owner's request, four candidate books take their direction from a
+    language model. Once a day, on a US business day, in the New York morning, it searches the news of the last 48 hours and
+    writes a brief of the facts with their sources; a second call reads that brief alone and gives crude oil, gold, the
+    S&amp;P 500 and long Treasuries a forecast from ${MINUS}20 to +20 for the next five sessions. One book per market buys
+    it under the usual rules: the micro WTI future long and short, the three funds long only. A reading more than three
+    days old is no view and the books close. No backtest can exist: a model trained on the past knows the prices a
+    replay would ask it to forecast. The rule was written down before the first reading; the prior is that it has no
+    edge; a monthly budget caps what the calls cost.</p>
     <p><b>Execution.</b> An order fills at the open of the first 30-minute bar that starts after the decision, with the
     instrument's real spread and commissions. Never at the price that produced the signal.</p>
     <p><b>What is not here.</b> No intraday strategy: on the hourly bars of BNO, USO and the contracts, intraday momentum
@@ -733,12 +916,13 @@ export async function renderSignals(el: HTMLElement): Promise<void> {
     ${statusLine(doc, loaded.origin)}
     <header class="d-hero s-hero">
       <h1 class="d-headline s-headline">What the books read</h1>
-      <p class="d-lede">The market, the forecast behind the oil books, the Kalshi indices behind the speculative ones,
-      and the rules that scale them all. What each book holds is on <a href="#/">the desk</a>.</p>
+      <p class="d-lede">The market, the forecast behind the oil books, the Kalshi indices and the Claude analyst behind
+      the speculative ones, and the rules that scale them all. What each book holds is on <a href="#/">the desk</a>.</p>
     </header>
     ${market(doc)}
     ${forecastTable(doc)}
     ${oracleTable(doc)}
+    ${analystSection(doc)}
     ${allocator(doc)}
     ${options(doc)}
     ${predictionMarkets(doc)}

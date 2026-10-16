@@ -1,0 +1,1 @@
+{"generated_at": "2026-10-16T09:09:18.086006Z", "id": "claude_oil", "name": "Claude oil", "kind": "linear", "vehicle": "MCL", "unit": "barrels", "epoch": 1, "started_at": null, "curve": [], "fills": [], "decisions": [], "summary": {"n_fills": 0, "n_decisions": 0, "n_orders": 0, "realized_pnl": 0.0, "commission": 0.0}, "epochs": []}

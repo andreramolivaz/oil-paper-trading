@@ -19,8 +19,9 @@
 #   buffer                no trade while the target is within this fraction of a normal-size position
 #   daily_loss_breaker    loss on the day, as a fraction of the day's opening equity, that flattens the book
 #   forecast              which forecast the book reads: "desk" (default: the seven sleeves, replayed in the
-#                         backtest) or "kalshi" (the de-escalation index read on the prediction markets' archive,
-#                         engine/desk/oracle.py: one sleeve, no history, no backtest, candidate only)
+#                         backtest), "kalshi" (the indices read on the prediction markets' archive,
+#                         engine/desk/oracle.py) or "claude" (the Claude analyst's daily reading of the news,
+#                         engine/desk/analyst.py): no history, no backtest, candidate only
 books:
   - id: prudente
     name: Prudent
@@ -270,6 +271,78 @@ books:
       when the crowd's Fed path on Kalshi turns dovish over a week (utilities as bond proxies: a rule of thumb),
       in cash otherwise. The rule was written down before it was measured (Sharpe 1.7, standard error 2.7, on
       four months of archive); the prior is that it has no edge.
+
+  # Phase 17 (16 October 2026), on the owner's "I have 200 $ of free Claude API calls: how can I use them for the
+  # project, and open and close positions" (docs/RESEARCH.md, chapter 12, registered before the first reading). Once
+  # a day a language model searches the news and gives oil, gold, the S&P 500 and long Treasuries a forecast on the
+  # desk's scale (engine/desk/analyst.py, config/analyst.yaml); each book reads one market and sizes it like every
+  # book. Nothing runs without the repository secret ANTHROPIC_API_KEY: the books stay in cash. No backtest can exist
+  # (a model trained on the past knows the prices a replay would ask it to forecast); never promoted; the prior is
+  # that it has no edge.
+  - id: claude_oil
+    name: Claude oil
+    role: candidate
+    forecast: claude
+    sleeves: {oil: 1.0}
+    vehicle: MCL
+    vol_target: 0.50
+    max_leverage: 10.0
+    weekend_max_leverage: 3.0
+    long_only: false
+    daily_loss_breaker: 0.15
+    description: >-
+      Speculative, paper only, no backtest. Full Kelly on the micro WTI future, long and short, up to 10x, in the
+      direction the Claude analyst reads in the day's news: long when it expects crude to rise over the next five
+      sessions, short when it expects a fall. The rule was written down before the first reading; the prior is that
+      it has no edge. It can wipe out the account.
+
+  - id: claude_gold
+    name: Claude gold
+    role: candidate
+    forecast: claude
+    sleeves: {gold: 1.0}
+    vehicle: GLD
+    vol_target: 0.50
+    max_leverage: 2.0
+    weekend_max_leverage: 1.0
+    long_only: true
+    daily_loss_breaker: 0.15
+    description: >-
+      Speculative, paper only, no backtest. Full Kelly on the gold fund, long only, up to 2x on margin, long when the
+      Claude analyst reads the day's news as good for gold over the next five sessions, in cash otherwise. The prior
+      is that it has no edge.
+
+  - id: claude_equities
+    name: Claude equities
+    role: candidate
+    forecast: claude
+    sleeves: {equities: 1.0}
+    vehicle: SPY
+    vol_target: 0.50
+    max_leverage: 2.0
+    weekend_max_leverage: 1.0
+    long_only: true
+    daily_loss_breaker: 0.15
+    description: >-
+      Speculative, paper only, no backtest. Full Kelly on the S&P 500 fund, long only, up to 2x on margin, long when
+      the Claude analyst reads the day's news as good for US equities over the next five sessions, in cash
+      otherwise. The prior is that it has no edge.
+
+  - id: claude_bonds
+    name: Claude bonds
+    role: candidate
+    forecast: claude
+    sleeves: {bonds: 1.0}
+    vehicle: TLT
+    vol_target: 0.50
+    max_leverage: 2.0
+    weekend_max_leverage: 1.0
+    long_only: true
+    daily_loss_breaker: 0.15
+    description: >-
+      Speculative, paper only, no backtest. Full Kelly on the long Treasury fund, long only, up to 2x on margin, long
+      when the Claude analyst reads the day's news as good for Treasury prices (yields down) over the next five
+      sessions, in cash otherwise. The prior is that it has no edge.
 
 # The options book (engine/desk/options.py): put credit spreads sold below the market when the forecast is
 # long, priced on the real delayed bid and ask. Its replay is a model and is labelled approx everywhere; the

@@ -95,10 +95,21 @@ def sleeve_configs(
 
 def replayed_books(books: list[BookConfig]) -> list[BookConfig]:
     """The books the replay can run: those on the desk's forecast, which has a history. A book on the prediction
-    markets' index (phase 14) has none - no backtest, no row in the tables, no part in the fingerprint - and is
-    judged on its live record alone. Every caller that replays or fingerprints the books goes through here, so
-    the tick and the weekly job agree on what the backtest is about."""
+    markets' indices (phases 14-15) has none, and a book on the Claude analyst (phase 17) cannot have one (the model
+    knows the prices a replay would ask it for) - no backtest, no row in the tables, no part in the fingerprint -
+    and is judged on its live record alone. Every caller that replays or fingerprints the books goes through here,
+    so the tick and the weekly job agree on what the backtest is about."""
     return [b for b in books if b.forecast == FORECAST_DESK]
+
+
+# why a book is out of the replay, by the forecast it reads (the backtest page says it on the book's row)
+NOT_REPLAYED_REASON = {
+    "kalshi": "no history of the prediction markets to replay: judged on live fills only",
+    "claude": (
+        "a language model knows the prices a replay of the past would ask it to forecast (look-ahead), so none can "
+        "exist: judged on live fills only"
+    ),
+}
 
 
 MODEL_VERSION = 3  # bump when the replay changes in a way that the rules below do not show (3: distributions credited)
@@ -347,7 +358,7 @@ def desk_backtest_payload(
             "vehicle": b.vehicle,
             "role": b.role,
             "forecast": b.forecast,
-            "reason": "no history of the prediction markets to replay: judged on live fills only",
+            "reason": NOT_REPLAYED_REASON.get(b.forecast, "no history of its forecast to replay: judged on live fills"),
         }
         for b in excluded
     ]

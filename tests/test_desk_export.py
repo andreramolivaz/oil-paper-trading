@@ -44,12 +44,24 @@ def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_pat
     # the core books first, the options book among them, then the candidate books of phases 12 and 13
     candidates = ["gold", "copper", "agri", "bonds", "equities", "uranium", "utilities", "lithium", "semis", "clean"]
     kalshi = ["oracle", "oracle_equities", "oracle_utilities"]  # the speculative books of phases 14 and 15
-    assert [b["id"] for b in doc["books"]] == ["prudente", "dinamico", "spinto", "opzioni", *candidates, *kalshi]
-    assert [b["role"] for b in doc["books"]] == ["core"] * 4 + ["candidate"] * (len(candidates) + len(kalshi))
+    claude = ["claude_oil", "claude_gold", "claude_equities", "claude_bonds"]  # and of phase 17
+    assert [b["id"] for b in doc["books"]] == [
+        "prudente",
+        "dinamico",
+        "spinto",
+        "opzioni",
+        *candidates,
+        *kalshi,
+        *claude,
+    ]
+    assert [b["role"] for b in doc["books"]] == ["core"] * 4 + ["candidate"] * (len(candidates) + len(kalshi) + 4)
     assert all(b["equity"] == 10_000.0 and b["pnl_total"] == 0.0 for b in doc["books"])
     assert doc["total"] == {"equity": 40_000.0, "initial_capital": 40_000.0, "pnl": 0.0, "pnl_pct": 0.0, "n_books": 4}
-    assert doc["total_candidates"]["equity"] == 10_000.0 * (len(candidates) + len(kalshi))
-    assert doc["total_candidates"]["n_books"] == len(candidates) + len(kalshi)
+    assert doc["total_candidates"]["equity"] == 10_000.0 * (len(candidates) + len(kalshi) + len(claude))
+    assert doc["total_candidates"]["n_books"] == len(candidates) + len(kalshi) + len(claude)
+    # the Claude analyst's block is there with an empty archive and no key: off, no reading, the books on it
+    assert doc["analyst"]["configured"] is False and doc["analyst"]["reading"] is None
+    assert [b["id"] for b in doc["analyst"]["books"]] == claude and doc["analyst"]["spent_month_usd"] == 0.0
     # the Kalshi book (phase 14) says what it is on every row: speculative, no backtest, its own forecast
     by_id = {b["id"]: b for b in doc["books"]}
     assert by_id["oracle"]["forecast_family"] == "kalshi" and by_id["oracle"]["experimental"] is True
@@ -206,9 +218,10 @@ def test_the_desk_page_groups_the_books_and_sums_each_group(tmp_path, monkeypatc
     groups = {g["id"]: g for g in doc["portfolios"]}
     # three groups, in the page's order, and every book in exactly one of them: the group its forecast and its
     # configured role give it
-    assert [g["id"] for g in doc["portfolios"]] == ["core", "candidates", "kalshi"]
+    assert [g["id"] for g in doc["portfolios"]] == ["core", "candidates", "kalshi", "claude"]
     assert groups["core"]["books"] == ["prudente", "dinamico", "spinto", "opzioni"]
     assert groups["kalshi"]["books"] == ["oracle", "oracle_equities", "oracle_utilities"]
+    assert groups["claude"]["books"] == ["claude_oil", "claude_gold", "claude_equities", "claude_bonds"]
     assert sorted(i for g in doc["portfolios"] for i in g["books"]) == sorted(by_id)
     assert all(by_id[i]["group"] == gid for gid, g in groups.items() for i in g["books"])
     assert all(g["n_books"] == len(g["books"]) and g["label"] and g["note"] for g in doc["portfolios"])
@@ -260,10 +273,10 @@ def test_a_group_curve_sums_the_pnl_and_a_book_that_starts_later_joins_at_zero()
             pending=[{"symbol": "BNO", "units": 3.0}],
         ),
         book("c", "candidates", 10_000.0, []),
-        book("d", "claude", 10_000.0, [], structures=[{"id": "s"}]),  # a group the page does not know yet
+        book("d", "macro", 10_000.0, [], structures=[{"id": "s"}]),  # a group the page does not know yet
     ]
     out = ex.portfolios_block(books)
-    assert [g["id"] for g in out] == ["core", "candidates", "claude"]  # the known groups first, then the others
+    assert [g["id"] for g in out] == ["core", "candidates", "macro"]  # the known groups first, then the others
     core = out[0]
     # 8 Oct: only "a", flat ("b" has not started: it counts nothing); 9 Oct: "a" +10, "b" +5; 10 Oct: "a" +15 and
     # "b" keeps its +5 of the day before; 12 Oct: +20 and -10
@@ -277,7 +290,7 @@ def test_a_group_curve_sums_the_pnl_and_a_book_that_starts_later_joins_at_zero()
     assert core["equity"] == 20_010.0 and core["pnl"] == 10.0 and core["pnl_pct"] == pytest.approx(0.0005)
     assert core["pnl_day"] == 0.0 and core["pnl_day_pct"] == 0.0
     assert out[1]["curve"] == [] and out[1]["pnl"] == 0.0 and out[1]["holding"] == []
-    assert out[2]["label"] == "Claude" and out[2]["holding"] == ["d"]  # an options book holds structures
+    assert out[2]["label"] == "Macro" and out[2]["holding"] == ["d"]  # an options book holds structures
     # the group is the role the book has today (what `total` counts): a promoted candidate is judged with the core,
     # a retired book stays where its configured role put it, a Kalshi book is always apart
     assert (
