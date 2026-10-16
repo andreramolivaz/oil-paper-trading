@@ -967,6 +967,22 @@ whole runner job; a generic rationale for a Claude book without a forecast; long
 written: a request that times out may be billed unseen; a double pause resends the whole turn (to check on the first
 one); web search must be enabled for the owner's organisation.
 
+Phase 17 went live on 2026-10-16 at 10:23 UTC (PR #29, rebase-merged as f5dc3518; CI green on the branch and on
+main; Pages redeployed in the same minute), without the key. Checked on GitHub, on the data branch and on the public
+page, not assumed: the push cancelled the runner in progress (started 08:08) and started a new one; its first tick
+(10:24 UTC, off the slot, 14 downloads, none failed) wrote `claude_status.json` (`key_set: false`, `readers: true`,
+no step), created the four Claude books (10 000 $ each, group `claude`, `forecast_family: claude`), took their owed
+decisions as "No reading of the Claude analyst: no forecast. Position unchanged." with the allocator's scales on the
+record (MCL and GLD risk x0.5, weekend x0.5 with the strait at 1 % of normal), left the 17 books of before exactly
+where the 10:18 tick had them (equity, positions and queued orders identical; core +89.13 $) and recomputed no
+backtest (`meta.model` b66ecbb82b75); the 10:48 tick ran on its slot (3 bars, no decision, 15 downloads) and
+rewrote the status file. `desk.json` carries 21 books, the "claude" group and the `analyst` block in state `off`
+(`prompt_version` c7f32a52bfb5); the public page renders the Claude books group ("Off: the runner has no
+ANTHROPIC_API_KEY secret ..."), the signals section and a Claude book's page on a phone, with no console error.
+Still NOT seen: a real reading (it needs the owner's secret, then the first tick after 13:00 UTC on a US business
+day), its cost against the estimate, a Claude book deciding on a reading, the ledger putting an attempt back, a
+double pause, the backtest page listing the Claude books among the excluded (the weekly replay, Saturday).
+
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
 failure looked like a normal red cross. The giveaway: the run's name was the file path instead of `ci`.
