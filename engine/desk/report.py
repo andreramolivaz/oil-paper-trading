@@ -120,6 +120,12 @@ def canonical(value: Any) -> str:
     return repr(value)
 
 
+# constants of the sizing module that describe the Kalshi books' forecast family (the registry of indices,
+# phase 15): no number of the replay depends on them, so a new index must not cost a recomputation (found in
+# review: the phase-15 fingerprint had changed for this and not, as written, for the new books)
+NOT_REPLAYED = frozenset({"FORECAST_FAMILIES", "DEFAULT_WEIGHTS_OF"})
+
+
 def model_signature(
     books: list[BookConfig],
     options_cfg: Any | None = None,
@@ -150,7 +156,10 @@ def model_signature(
         return sorted(
             (n, canonical(v))
             for n, v in vars(module).items()
-            if n.isupper() and isinstance(v, plain) and not n.endswith(("_LABELS", "_LABEL", "_NOTE", "_NOTES"))
+            if n.isupper()
+            and isinstance(v, plain)
+            and not n.endswith(("_LABELS", "_LABEL", "_NOTE", "_NOTES"))
+            and n not in NOT_REPLAYED
         )
 
     def fields(obj: Any) -> list[tuple[str, Any]]:

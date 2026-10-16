@@ -213,7 +213,11 @@ def test_the_job_fills_the_archive_from_a_saved_history_and_runs_once_per_id(tmp
     (desk_dir / "kalshi-2026-10.jsonl").write_text(LIVE_LOG.read_text(encoding="utf-8"), encoding="utf-8")
     out = jobs.kalshi_backfill(runner, "bf-1", date(2026, 1, 1), HISTORY)
     assert out.status == "ok" and out.detail["applied"]["written"] == 508 and out.detail["applied"]["skipped"] == 6
-    assert out.detail["archive"]["first_day"] == "2026-01-09" and out.detail["archive"]["last_day"] == "2026-10-15"
+    archive = out.detail["archive"]
+    assert archive["first_day"] == "2026-01-09" and archive["days"] == 280  # every series, every day
+    assert archive["indices"]["deescalation"] == {"readings": 276, "first_day": "2026-01-13", "last_day": "2026-10-15"}
+    assert archive["indices"]["fedpath"]["readings"] == 0  # the history fixture has no FOMC series
+    assert "the archive now has 280 days" in out.message
     assert "records written" in out.message and str(out.detail["source"]).endswith("kalshi_history_2026-10-15.json")
     assert jobs.kalshi_backfill(runner, "bf-1", date(2026, 1, 1), HISTORY).status == "skipped"
     again = jobs.kalshi_backfill(runner, "bf-2", date(2026, 1, 1), HISTORY)

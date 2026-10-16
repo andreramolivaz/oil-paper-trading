@@ -248,16 +248,18 @@ misurato una volta sull'archivio ricostruito dalle candele; due libri su quattro
   recessione nel 20AA») come scala a scadenza, P(entro il 31 dicembre di Y) = 1 − Π(1 − p), letta a 365 giorni;
   manica = **+4 per punto**, positiva quando la probabilità sale, banda morta 1 punto. Le due scale erano
   dichiarate 1 e 2 e sono state portate a 2,5 e 4 con la regola scritta prima della misura (media di |F| fuori dal
-  10 di Carver per più di un fattore due: 3,8 e 4,8).
+  10 di Carver per più di un fattore due: 3,9 e 4,7). La variazione settimanale di recession si legge sugli anni
+  quotati in entrambe le letture, con la scala del riferimento rivalutata a oggi: un mercato annuale che nasce o
+  finisce non è una mossa.
 - **I libri.** Un libro legge le sue maniche con un **segno** (`sleeves` in `books.yaml`) e ne fa la media, senza
   moltiplicatore; se nessuna ha un valore non decide. `oracle_equities` su SPY: fedpath +1 (Bernanke-Kuttner),
   recession −1; `oracle_utilities` su XLU: fedpath +1 (le utility come quasi-obbligazioni). Obiettivo di
   volatilità 0,50, tetto 2x e 1x prima di una chiusura, stop giornaliero −15%, lotto una quota, `m`
   dell'allocatore. Una previsione negativa è liquidità.
 - **Quelli che non partono.** `oracle_bonds` (TLT: fedpath +1, recession +1) e `oracle_gold` (GLD: fedpath +1,
-  deescalation +1) hanno misurato uno Sharpe netto negativo (−1,8 e −1,7 con errore standard 1,8) e per il filtro
-  dichiarato non partono; non si tolgono maniche per farli passare.
-- **Quanto vale.** Equities Sharpe +1,7 (±1,8) su 197 sedute, utilities +1,7 (±2,7) su 82: entro un errore
+  deescalation +1) hanno misurato uno Sharpe netto negativo (−1,5 e −1,7 con errore standard 1,7-1,8) e per il
+  filtro dichiarato non partono; non si tolgono maniche per farli passare.
+- **Quanto vale.** Equities Sharpe +1,6 (±1,7) su 197 sedute, utilities +1,7 (±2,7) su 82: entro un errore
   standard da zero, due mesi che fanno l'anno. Il prior di nessun vantaggio resta; nessun backtest nel replay,
   mai promossi, giudicati sugli eseguiti veri; riesame delle scale a 60 letture vive per manica.
 - **Che cosa manca, scritto.** Nessun mercato Kalshi con storia per rame, semiconduttori, litio, energia pulita,

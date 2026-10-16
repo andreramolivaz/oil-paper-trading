@@ -251,7 +251,7 @@ books:
       Speculative, paper only, no backtest. Full Kelly on the S&P 500 fund, long only, up to 2x on margin, in the
       direction Kalshi's prediction markets point: long when the crowd's Fed path turns dovish over a week
       (Bernanke and Kuttner: a surprise cut lifts equities) or its odds of a recession within a year fall, in
-      cash otherwise. The rule was written down before it was measured (Sharpe 1.7, standard error 1.8, on nine
+      cash otherwise. The rule was written down before it was measured (Sharpe 1.6, standard error 1.7, on nine
       months of archive); the prior is that it has no edge.
 
   - id: oracle_utilities

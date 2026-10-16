@@ -78,7 +78,7 @@ function summary(doc: BacktestDoc, names: Names, roles: Roles): string {
   const candBlock =
     cand.length || excluded.length
       ? `<tr class="t-break"><th colspan="10" class="t-dim w">Candidates: the prudent book's rules on another market, forecast on its own price${
-          excluded.length ? "; the Oracle takes its direction from Kalshi's prediction markets and has no history to replay" : ""
+          excluded.length ? "; the Oracle books take their direction from Kalshi's prediction markets and have no history to replay" : ""
         }</th></tr>${cand.join("")}${excluded.join("")}`
       : "";
   return section(

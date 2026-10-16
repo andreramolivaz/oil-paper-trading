@@ -424,9 +424,9 @@ def kalshi_backfill(runner: LiveRunner, job_id: str, since: date, file: Path | N
     per event and UTC day the archive does not have. A reading the tick took is never replaced. ``file`` reads a
     history saved by the research fetch instead of downloading one (tests, a workspace without network). Runs
     once per job id; running it again adds only the days still missing."""
-    from engine.desk.backfill import apply_backfill, records_from_history
+    from engine.desk.backfill import apply_backfill, archive_days, records_from_history
     from engine.desk.live import desk_store
-    from engine.desk.oracle import ALL_SERIES, archive_readings
+    from engine.desk.oracle import ALL_SERIES, INDICES, archive_readings
 
     now = now_utc()
     rec = runner.start_run("kalshi_backfill", job_id, london_date(now))
@@ -448,19 +448,22 @@ def kalshi_backfill(runner: LiveRunner, job_id: str, since: date, file: Path | N
         detail["records"] = len(records)
         store = desk_store(runner.settings.state_dir)
         detail["applied"] = apply_backfill(store, records)
-        readings = archive_readings(store)
-        detail["archive"] = {
-            "readings": len(readings),
-            "first_day": readings[0].day.isoformat() if readings else None,
-            "last_day": readings[-1].day.isoformat() if readings else None,
-        }
+        n_days, first_day = archive_days(store)
+        detail["archive"] = {"days": n_days, "first_day": first_day, "indices": {}}
+        for spec in INDICES.values():
+            readings = [r for r in archive_readings(store, spec) if r.components]
+            detail["archive"]["indices"][spec.id] = {
+                "readings": len(readings),
+                "first_day": readings[0].day.isoformat() if readings else None,
+                "last_day": readings[-1].day.isoformat() if readings else None,
+            }
         applied = detail["applied"]
         msg = (
             f"{applied['written']} records written for {applied['days']} days "
             f"({applied['first_day']} to {applied['last_day']}), {applied['skipped']} already there; "
-            f"the archive now has {len(readings)} daily readings"
+            f"the archive now has {n_days} days"
             if applied["written"]
-            else f"nothing to add: {applied['skipped']} records already in the archive of {len(readings)} readings"
+            else f"nothing to add: {applied['skipped']} records already in the archive of {n_days} days"
         )
         runner.finish_run(rec, "ok", msg, detail)
         return JobOutcome("ok", msg, detail)

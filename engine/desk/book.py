@@ -680,10 +680,14 @@ class Book:
             text = oracle.lead_text(forecast)
             weights = self.cfg.sleeves
             if len(weights) > 1 or any(w != 1.0 for w in weights.values()):
-                signs = ", ".join(f"{name} {'+' if w > 0 else '-'}" for name, w in weights.items())
+                present = {n: w for n, w in weights.items() if forecast.get(n) is not None}
+                signs = ", ".join(f"{name} {'+' if w > 0 else '-'}" for name, w in present.items())
+                missing = [n for n in weights if n not in present]
                 text += (
-                    f"Forecast {_signed(forecast.get('combined'))} out of 20: the mean of the sleeves with the "
-                    f"book's signs ({signs}). "
+                    f"Forecast {_signed(forecast.get('combined'))} out of 20: the mean of the sleeves with a value "
+                    f"today, with the book's signs ({signs})"
+                    + (f"; without a value: {', '.join(missing)}" if missing else "")
+                    + ". "
                 )
         else:
             # the three sources of the forecast, each the average of its sleeves (the sleeves are in the table)
