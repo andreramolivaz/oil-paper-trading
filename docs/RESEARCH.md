@@ -1508,6 +1508,96 @@ restrittiva di +5,3 pb; recessione 0 dentro la banda morta). La prima decisione 
 riferimento è quella del 16 alle 15:00 di New York.
 
 
+## 12. Fase 17 (16 ottobre 2026, 09:00 UTC): un analista Claude che legge le notizie, registrato prima della prima lettura
+
+Il proprietario: «Ho chiamate API gratis Claude 200 $ con la University of Southern California: come posso usarle per
+il progetto, e aprire e chiudere posizioni». Letto così: un modello di linguaggio che ogni giorno legge le notizie e
+dà una direzione, e quattro libri di carta che la comprano con le regole di sempre. Questo capitolo è scritto prima
+della prima lettura: nessuna lettura esiste (la chiave non è ancora fra i segreti del repository) e nessun numero
+viene guardato prima di aver scritto le regole. Come per Kalshi, i libri sono **speculativi** e lo dicono ovunque.
+
+### A. Che cosa si può fare, e che cosa no
+
+Si può chiamare dal runner l'API di Claude (Messages API), una volta al giorno, con lo strumento di ricerca web
+dell'API (`web_search_20250305`: cerca, legge e cita le pagine; 10 $ ogni mille ricerche più i token) e con l'output
+strutturato (`output_config.format`, uno schema JSON che la risposta rispetta). Servono **due chiamate**: la prima
+cerca e scrive un riassunto dei fatti con le fonti; la seconda, senza strumenti, legge quel riassunto e risponde con
+una previsione per mercato. Non una sola, perché l'output strutturato non si combina con le citazioni che la ricerca
+produce (l'API risponde 400).
+
+Non si può fare un **backtest**. Un modello addestrato su testi fino a una certa data conosce i prezzi che una
+ricostruzione del passato gli chiederebbe di prevedere: è il look-ahead bias che Glasserman e Lin (2023) misurano
+sulle previsioni di rendimento ottenute da GPT, forte dentro il periodo di addestramento e assente fuori. Ogni replay
+sarebbe contaminato, quindi non se ne fa nessuno: i libri si giudicano sui soli eseguiti dal vivo, come quelli su
+Kalshi, e non entrano nel replay, nelle tabelle né nell'impronta.
+
+### B. L'ipotesi, e il prior
+
+L'ipotesi: le notizie del giorno, lette da un modello, inclinano le probabilità della settimana dopo. Lopez-Lira e
+Tang (2023) trovano che il giudizio di un modello sui titoli di una società prevede il rendimento del giorno dopo,
+con un effetto che si riduce negli anni, nei titoli grandi e con l'attenzione del pubblico. I mercati di questo desk
+(il greggio, l'oro, l'S&P 500, i Treasury lunghi) sono fra i più liquidi del mondo e incorporano una notizia in
+minuti, e la previsione qui guarda a cinque sedute, non a un giorno: il prior scritto qui è **nessun vantaggio**. Il
+valore del libro, se c'è, è misurare quanto vale un analista automatico che legge le stesse notizie di tutti; la
+misura chiede mesi, e la lettura di una settimana non dice nulla.
+
+### C. La regola (`engine/desk/analyst.py`, `config/analyst.yaml`: costanti e chiavi con lo stesso nome)
+
+- **Quando.** Una lettura per giorno UTC, nei giorni lavorativi americani, al primo giro dopo le **13:00 UTC** (le
+  9 di New York con l'ora legale, le 8 senza): prima dell'apertura e prima delle decisioni del giorno (14:35 e 15:00
+  di New York). Al massimo **3 tentativi** al giorno, a non meno di **30 minuti** l'uno dall'altro.
+- **Modello.** `claude-sonnet-5-5` (configurabile). Il modello, i due testi e lo schema fanno un'impronta,
+  `prompt_version`, scritta in ogni lettura: cambiarne uno è una regola nuova, da scrivere qui prima.
+- **Prima chiamata, le notizie.** Ricerca web, al massimo **6 ricerche**: i fatti delle ultime 48 ore sul greggio
+  (Brent, WTI, OPEC+, lo stretto di Hormuz e il conflitto con l'Iran, le scorte americane, la domanda), sull'oro,
+  sulle azioni americane (S&P 500) e sui Treasury e la Fed; un paragrafo per mercato, ogni fatto con la data e la
+  fonte; nessuna previsione e nessun consiglio.
+- **Seconda chiamata, la previsione.** Dal solo riassunto, per ognuno dei quattro mercati (`oil`, `gold`,
+  `equities`, `bonds`): una previsione **intera** per le cinque sedute successive sulla scala del desk, da −20 a
+  +20, dove +10 è una convinzione normale al rialzo, −10 al ribasso, 0 nessuna opinione e ±20 il massimo, raro; la
+  fiducia (`low`, `medium`, `high`); fino a tre ragioni tratte dal riassunto; il rischio principale per la tesi. Per
+  i Treasury, positivo vuol dire prezzi su, cioè rendimenti giù. Una previsione fuori scala è tagliata a ±20 e la
+  lettura lo segna (`clamped`); un mercato che manca nella risposta non ha previsione quel giorno.
+- **I libri** (`forecast: claude`, una manica per mercato letta con il segno +1):
+  `claude_oil` sul future micro WTI (/MCL), long e short, obiettivo di volatilità 0,50, tetto 10x e 3x prima di un
+  weekend, freno giornaliero 15% (le regole dell'Oracle); `claude_gold` (GLD), `claude_equities` (SPY) e
+  `claude_bonds` (TLT), **solo long**, tetto 2x (il margine di Robinhood su un fondo), obiettivo 0,50, freno 15%.
+  La taglia è quella di ogni libro, `previsione / 10 × obiettivo × m / volatilità`, con l'allocatore (oggi
+  l'interruttore della bolla dimezza MCL e GLD) e la fascia d'inerzia di Carver; la decisione è quella del veicolo,
+  alla sua ora.
+- **La lettura che una decisione legge.** La più recente presa nel giorno della decisione o nei **3 giorni** prima,
+  mai una presa dopo (la decisione del giorno D non legge una lettura del giorno D+1). Più vecchia di 3 giorni:
+  previsione 0, il libro si chiude. Nessuna lettura mai presa: nessuna decisione, il libro resta com'è (liquido).
+- **Il budget.** Un tetto di spesa di **20 $ al mese** (configurabile). Il costo di ogni chiamata si calcola da ciò
+  che l'API riporta (`usage`: token in ingresso, in uscita, in cache, ricerche) ai prezzi pubblicati per il modello
+  (Sonnet 5.5, dalla pagina dei prezzi letta il 16 ottobre 2026: 2 $ per milione di token in ingresso, 10 $ in
+  uscita, 2,50 $ la scrittura in cache, 0,10 $ la lettura dalla cache; 0,01 $ a ricerca) e si somma nel mese;
+  raggiunto il tetto, nessuna chiamata fino al mese dopo.
+  Stima prima di ogni lettura: 0,10-0,25 $ a lettura, 3-6 $ al mese: i 200 $ bastano per anni.
+- **Che cosa si archivia.** `state/desk/claude-YYYY-MM.jsonl`, una riga per tentativo: giorno, ora, modello,
+  `prompt_version`, stato, il riassunto con le fonti (URL e titolo), la previsione, l'uso e il costo di ciascuna
+  chiamata, l'errore se c'è. **Mai la chiave.**
+- **La scala.** Dopo 60 letture si controlla la normalizzazione di Carver (media di |F| intorno a 10 sui quattro
+  mercati); se è fuori di un fattore due, la scala si cambia di un numero tondo, una volta, scrivendolo qui: la
+  stessa regola dei capitoli 10 e 11.
+
+### D. Che cosa lo ferma, e che cosa non fa
+
+- Senza la chiave (`ANTHROPIC_API_KEY` fra i segreti del repository) il passo non parte e i quattro libri restano
+  liquidi: non c'è nulla da spegnere. Con la chiave, il tetto di spesa; un rifiuto del modello, una risposta
+  troncata o uno schema non rispettato non danno previsione quel giorno, e la lettura lo scrive.
+- Il riesame del proprietario dopo sei mesi (aprile 2027); mai promossi nel nucleo (la promozione chiede il
+  drawdown di un backtest che non esiste); il ritiro del ciclo di vita vale anche per loro (24 mesi con uno Sharpe
+  realizzato sotto −0,5).
+- Non legge i prezzi del desk né la previsione dei sette segnali (ne sarebbe un'eco); non decide le taglie (le
+  regole del desk le decidono); non scrive ordini; non vede le posizioni dei libri. Le sue parole sono una lettura
+  delle notizie, non un consiglio, e la pagina lo scrive.
+
+### E. Che cosa cambia nelle regole dure
+
+Una famiglia di previsione in più, `claude`, accanto a `desk` e `kalshi`: candidati speculativi, fuori dal replay,
+dalle tabelle e dall'impronta, giudicati sui soli eseguiti dal vivo, mai nel nucleo.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
@@ -1599,6 +1689,15 @@ Letteratura (letta per intero salvo dove indicato):
   reali); Baur e Lucey, *Is gold a hedge or a safe haven?*, Financial Review 2010 (ricordato);
   [Kalshi, API pubblica: i mercati di una serie](https://docs.kalshi.com/api-reference/market/get-markets) (la
   lista non elenca più i mercati regolati da qualche settimana: letto il 15 ottobre 2026 sulle riunioni del FOMC)
+- Sull'analista Claude (12): Lopez-Lira e Tang, [Can ChatGPT forecast stock price movements? Return
+  predictability and large language models](https://arxiv.org/abs/2304.07619) (arXiv 2304.07619); Glasserman e
+  Lin, [Assessing look-ahead bias in stock return predictions generated by GPT sentiment
+  analysis](https://arxiv.org/abs/2309.17322) (arXiv 2309.17322); Anthropic,
+  [lo strumento di ricerca web dell'API](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool)
+  e [l'output strutturato](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) (letti il 16
+  ottobre 2026: `web_search_20250305` senza esecuzione di codice, 10 $ ogni mille ricerche; `output_config.format`,
+  incompatibile con le citazioni); [i prezzi](https://platform.claude.com/docs/en/about-claude/pricing) (letti lo
+  stesso giorno)
 - Sull'allerta di attività anomala (9 F): Meulbroek, *An empirical analysis of illegal insider trading*, Journal
   of Finance 1992 (ricordato, non riletto); Rothschild e Sethi, *Trading strategies and market microstructure:
   evidence from a prediction market*, Journal of Prediction Markets 2016 (ricordato); i casi pubblici:
