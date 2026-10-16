@@ -1396,9 +1396,70 @@ ferma: come l'Oracle (capitolo 10 D): mai promossi dal ciclo di vita, ritirati a
 sotto −0,5, il proprietario li rivede a sei mesi; la scala si rimisura a 60 letture vive per manica e si tocca solo
 se fuori di un fattore due.
 
-### E. Risultati
+### E. Risultati (15 ottobre, 23:50 UTC - scritti dopo la misura, una volta)
 
-(scritti dopo la misura: vedi sotto)
+Lo scarico «con i mercati regolati chiesti per nome» non ha allungato la storia della Fed: l'API non elenca più
+le riunioni di gennaio-luglio 2026 nemmeno con `status=settled` (sessanta mercati, dodici riunioni da settembre
+2026 in avanti, come al primo scarico). La finestra di fedpath resta quindi dal 18 giugno (82 sedute, con una o
+due riunioni nei 90 giorni); recession dal 2 gennaio (197 sedute); deescalation dal 13 gennaio. Misura:
+`scripts/research_kalshi_books.py` sullo scarico delle 23:40 UTC (`research25`), l'archivio vivo del branch dati
+(537 record) e le serie dei fondi fino al 14 ottobre; il rendimento di D+1 è quello del 14 per l'ultima seduta.
+
+**Prima la scala, con la regola dichiarata al punto B.** Con le scale dichiarate (1 per punto base, 2 per punto)
+la media di |F| è **3,80** per fedpath (61 sedute su 82 fuori dalla banda morta) e **4,76** per recession: entrambe
+fuori dal 10 di Carver per più di un fattore due. Come scritto prima di misurare, la scala si tocca: fedpath
+**2,5 per punto base**, recession **4 per punto** (numeri tondi; medie di |F| 8,53 e 8,62 dopo), nel codice
+(`FORECAST_PER_BP`, `RECESSION_PER_POINT`) e qui. È la normalizzazione del segnale, non un parametro di
+rendimento: i vicini «scala ×2» sotto mostrano che la scala più alta dà uno Sharpe più basso, non più alto (la
+posizione sbatte più spesso sul tetto 2x). Il verdetto del filtro è lo stesso con le due scale.
+
+**I quattro libri, con le scale finali** (taglia continua, netto dei costi; a quote intere su 10 000 $; lo
+Sharpe della manica da sola, con il segno del libro; i vicini):
+
+| Libro | Sedute | Sharpe (es) | anno, vol | a quote intere | manica da sola | vicini |
+|---|---|---|---|---|---|---|
+| `oracle_bonds` TLT | 197 (2 gen - 14 ott) | **−1,79 (±1,8)** | −23%, 13% | −1 309 $ (−13,1%), 68 op. | fedpath −2,71; recession −2,43 | fedpath h60 −1,93, h180 −1,90, ×½ −1,84, ×2 −1,79; recession h180 −1,12, h730 −2,38, ×½ −1,90, ×2 −1,95 |
+| `oracle_equities` SPY | 197 | **+1,72 (±1,8)** | +24%, 14% | +1 710 $ (+17,1%), 57 op. | fedpath +1,60; recession(−) +1,45 | fedpath h60 +1,70, h180 +1,80, ×½ +1,61, ×2 +1,83; recession h180 +1,24, h730 +1,46, ×½ +2,05, ×2 +1,65 |
+| `oracle_gold` GLD | 190 (13 gen - 14 ott) | **−1,66 (±1,8)** | −29%, 17% | −2 227 $ (−22,3%), 70 op. | fedpath +1,89; deescalation −1,75 | fedpath h60 −1,76, h180 −1,43, ×½ −2,01, ×2 −1,75; deescalation ×½ −1,80, ×2 −1,44 |
+| `oracle_utilities` XLU | 82 (18 giu - 14 ott) | **+1,69 (±2,7)** | +31%, 19% | +866 $ (+8,7%), 22 op. | (una manica) | h60 +3,05, h180 +2,28, ×½ +2,51, ×2 +2,04 |
+
+(I vicini sono alle scale dichiarate; con le scale finali gli Sharpe dei libri erano −1,93 / +1,75 / −1,92 /
++2,53 prima del cambio di scala: stessi segni.) Nel mercato il 33-44% dei giorni, esposizione media 0,35-0,70x,
+massima 2x su tutti. Mese per mese: equities gen +2,1, feb −1,4, mar −1,2, **apr +10,5, mag +8,7**, giu −6,8,
+lug +0,3, ago +3,1, set −0,5, ott +3,5; utilities giu −3,5, lug +6,7, ago +0,3, set −2,7, **ott +9,4**; bonds
+mar −9,9 e poi quasi solo negativi; gold **giu −21,5** (il picco della de-escalation del 15 giugno letto come
+escalation nella seconda metà del mese, con l'oro che scendeva).
+
+**Il filtro, applicato come dichiarato**: `oracle_equities` e `oracle_utilities` partono (Sharpe netto
+positivo); `oracle_bonds` e `oracle_gold` **non partono** (negativo). Non si tolgono maniche per far passare un
+libro: su GLD la manica fedpath da sola avrebbe +1,89 e il libro com'era registrato −1,66, e resta fuori com'è
+registrato; se un giorno si vorrà un libro sull'oro con la sola Fed, sarà una registrazione nuova.
+
+Come leggerlo, prima di crederci: ogni errore standard è grande quanto lo Sharpe; due mesi su dieci fanno il
+risultato di equities e un mese su cinque quello di utilities; la stessa manica con lo stesso segno (fedpath +1)
+dà −2,7 sui Treasury e +1,6 / +1,9 / +1,7 su azioni, oro e utility nello stesso periodo - in un anno di guerra e
+inflazione la rilettura «accomodante» della Fed ha accompagnato le azioni e non i bond lunghi, e 82-197 sedute
+non distinguono un regime da un caso. Il prior di nessun vantaggio resta scritto; i due libri che partono sono
+candidati speculativi che si giudicano sugli eseguiti veri, e il riesame delle scale è a 60 letture vive per
+manica (fedpath intorno a metà gennaio 2027).
+
+**Che cosa non si è fatto, e perché**: nessun libro su rame, semiconduttori, litio, energia pulita, uranio,
+agricoltura (A: nessun mercato con storia); nessun lato short (B); nessuna manica sui dati mensili (A). Le scale
+dei fondi inversi (SH, TBF) e le stampe mensili restano in `docs/PLAN.md` come candidati da registrare.
+
+### F. Che cosa cambia nelle regole dure e nel motore
+
+«Un libro candidato dichiarato speculativo» (capitolo 10 E) diventa: i libri candidati con `forecast: kalshi`,
+ciascuno su una regola scritta qui prima della prima decisione e - da questa fase, perché l'archivio ora ha un
+passato - **misurata una volta sull'archivio prima di partire**, con il filtro del capitolo 8 A; mai promossi,
+senza backtest nel replay, giudicati sul record live. Il motore: `oracle.py` è un registro di indici (`INDICES`:
+`deescalation`, `fedpath`, `recession`, ciascuno con la propria lettura dell'archivio e la propria scala), un
+libro legge le maniche con il segno di `sleeves` e ne fa la media; il giro scarica e il backfill riempie ogni
+serie che un indice legge (`ALL_SERIES`: `KXFEDDECISION` e `KXRECSSNBER` si aggiungono alle tre dello stretto);
+la pagina mostra un blocco per indice con i libri che lo leggono e il segno. I tredici libri replicabili e il
+loro backtest non cambiano (verificato rieseguendo il replay con il codice di main e con questo sullo stesso
+archivio: identici byte per byte fuori dall'impronta, che cambia per i due libri nuovi in `books.yaml` e fa
+ricalcolare il backtest una volta al primo giro, con gli stessi numeri).
 
 ## Fonti
 
@@ -1483,6 +1544,14 @@ Letteratura (letta per intero salvo dove indicato):
   riletto: il comovimento entro minuti fra le probabilità dei mercati a eventi e i future azionari la notte
   delle elezioni del 2004); Wolfers e Zitzewitz, *Prediction markets*, Journal of Economic Perspectives 2004
   (ricordato); Carver, *Systematic Trading* (lo scalare della previsione stimato perché la media di |F| sia 10)
+- Sugli indici Kalshi degli altri mercati (11): Bernanke e Kuttner, *What explains the stock market's reaction to
+  Federal Reserve policy?*, Journal of Finance 2005 (ricordato, non riletto: una sorpresa di −25 pb vale circa
+  +1% sull'indice in giornata); Gürkaynak, Sack e Swanson, *Do actions speak louder than words? The response of
+  asset prices to monetary policy actions and statements*, International Journal of Central Banking 2005
+  (ricordato); Erb e Harvey, *The golden dilemma*, Financial Analysts Journal 2013 (ricordato: oro e tassi
+  reali); Baur e Lucey, *Is gold a hedge or a safe haven?*, Financial Review 2010 (ricordato);
+  [Kalshi, API pubblica: i mercati di una serie](https://docs.kalshi.com/api-reference/market/get-markets) (la
+  lista non elenca più i mercati regolati da qualche settimana: letto il 15 ottobre 2026 sulle riunioni del FOMC)
 - Sull'allerta di attività anomala (9 F): Meulbroek, *An empirical analysis of illegal insider trading*, Journal
   of Finance 1992 (ricordato, non riletto); Rothschild e Sethi, *Trading strategies and market microstructure:
   evidence from a prediction market*, Journal of Prediction Markets 2016 (ricordato); i casi pubblici:

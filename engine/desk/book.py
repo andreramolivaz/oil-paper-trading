@@ -46,8 +46,9 @@ from engine.desk.vehicles import INVERSE_FUNDS, InverseFund, Vehicle, get_invers
 HARD_CAP = 10.0
 BOOKS_CONFIG = "books"
 # Which forecast a book reads. "desk": the seven sleeves from three sources (signals.SOURCES), the forecast of
-# the desk, replayed in the backtest. "kalshi": the de-escalation index read on the prediction markets' archive
-# (oracle.py, phase 14): one sleeve, no history, no backtest - a book on it is judged on live fills alone.
+# the desk, replayed in the backtest. "kalshi": the indices read on the prediction markets' archive (oracle.py:
+# the de-escalation index of phase 14, the Fed path and the recession probability of phase 15), one sleeve each,
+# read with a sign per book; no replay, no backtest - a book on them is judged on live fills alone.
 FORECAST_DESK = "desk"
 FORECAST_FAMILIES: dict[str, tuple[str, ...]] = {FORECAST_DESK: sg.SLEEVES, oracle.FAMILY: oracle.SLEEVES}
 DEFAULT_WEIGHTS_OF: dict[str, dict[str, float]] = {
@@ -334,12 +335,21 @@ class Book:
 
     def combined_forecast(self, forecast: Mapping[str, float | None]) -> float | None:
         """Today's forecast for this book: the desk's sleeves combined with the book's own weights (the equal-weight
-        column of the data layer is not used), or - for a book on the Kalshi index - that one sleeve as it is."""
+        column of the data layer is not used), or - for a book on the Kalshi indices - the mean of its sleeves
+        with the SIGN each carries in ``sleeves`` (the de-escalation sleeve is positive for oil and for gold, the
+        recession sleeve positive for Treasuries and negative for equities), over the sleeves that have a value
+        today; None when none has one (the book then holds what it has). No diversification multiplier."""
         if self.cfg.forecast == oracle.FAMILY:
-            value = forecast.get(oracle.SLEEVE)
-            if value is None or not math.isfinite(value):
+            total, weight = 0.0, 0.0
+            for sleeve, w in self.cfg.sleeves.items():
+                value = forecast.get(sleeve)
+                if value is None or not math.isfinite(value) or w == 0:
+                    continue
+                total += w * value
+                weight += abs(w)
+            if weight == 0:
                 return None
-            return float(max(-sg.FORECAST_CAP, min(sg.FORECAST_CAP, value)))
+            return float(max(-sg.FORECAST_CAP, min(sg.FORECAST_CAP, total / weight)))
         return sg.combine_values(forecast, self.cfg.sleeves)
 
     def units(self, symbol: str) -> float:
@@ -588,6 +598,10 @@ class Book:
                 continue
             key = idempotency_key("desk", cfg.id, snap.epoch, day.isoformat(), instrument)
             push = units * direction  # positive: this order adds long oil exposure
+
+            def _signed(k: str) -> float:  # a sleeve's value with the sign the book reads it with (phase 15)
+                return (forecast.get(k) or 0.0) * (1.0 if self.cfg.sleeves.get(k, 1.0) >= 0 else -1.0)
+
             order = Order(
                 order_id=key[:16],
                 idempotency_key=key,
@@ -598,8 +612,8 @@ class Book:
                 order_type=OrderType.MARKET,
                 reason=OrderReason.SIGNAL if held == 0 else OrderReason.REBALANCE,
                 rationale=rationale,
-                strategies_for=[k for k in self.sleeve_names if (forecast.get(k) or 0.0) * push > 0],
-                strategies_against=[k for k in self.sleeve_names if (forecast.get(k) or 0.0) * push < 0],
+                strategies_for=[k for k in self.sleeve_names if _signed(k) * push > 0],
+                strategies_against=[k for k in self.sleeve_names if _signed(k) * push < 0],
                 leverage=levered,
                 # a fund cannot be short: its sale closes what is there when it fills, never more
                 reduce_only=units < 0 and not shortable,
@@ -661,8 +675,16 @@ class Book:
     ) -> str:
         v = self.vehicle
         if self.cfg.forecast == oracle.FAMILY:
-            # the prediction markets' index: what the three ladders say today and a week ago, and the change
+            # the prediction markets' indices: what each one's components say today and a week ago, the change
+            # and the sleeve; then the book's forecast when it is not that one sleeve as it is
             text = oracle.lead_text(forecast)
+            weights = self.cfg.sleeves
+            if len(weights) > 1 or any(w != 1.0 for w in weights.values()):
+                signs = ", ".join(f"{name} {'+' if w > 0 else '-'}" for name, w in weights.items())
+                text += (
+                    f"Forecast {_signed(forecast.get('combined'))} out of 20: the mean of the sleeves with the "
+                    f"book's signs ({signs}). "
+                )
         else:
             # the three sources of the forecast, each the average of its sleeves (the sleeves are in the table)
             sources = sg.source_values(forecast, self.cfg.sleeves)

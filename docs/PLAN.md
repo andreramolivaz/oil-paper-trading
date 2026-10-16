@@ -173,6 +173,22 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   riempiono i giorni prima che il desk leggesse quei mercati, le letture vive restano; la regola misurata una
   volta sulla storia (capitolo 10 H: Sharpe 1,19 ± 1,7 su 143 sedute, un mese che fa il risultato, la scala
   dichiarata regge) e lasciata com'è; il riesame della scala si ripete a dicembre sul record live.
+- [x] 15. Kalshi come riferimento sugli altri mercati (15 ottobre 2026, sera, su «improve su altri mercati e anche
+  speculative kalshi sempre come riferimento»; `docs/RESEARCH.md`, capitolo 11, registrato prima di misurare). Il
+  catalogo cercato per tema e scaricato dal runner (quattro scarichi di candele): esistono con una storia due
+  indici a evento utili agli altri mercati - il percorso della Fed (`KXFEDDECISION`: la variazione attesa del tasso
+  sulle riunioni entro 90 giorni, in punti base) e la probabilità di recessione (`KXRECSSNBER`, i mercati annuali
+  come scala a 365 giorni) - e nessuno con storia per rame, chip, litio, energia pulita, uranio, agricoltura.
+  `oracle.py` è diventato un registro di indici con la stessa regola (lettura, riferimento a una settimana,
+  componenti comuni, banda morta, tetto); un libro legge le maniche con un segno e ne fa la media. Quattro libri
+  registrati e misurati una volta (solo long, 2x, obiettivo 0,50): equities (SPY) +1,7 ± 1,8 e utilities (XLU)
+  +1,7 ± 2,7 partono; bonds (TLT) −1,8 e gold (GLD) −1,7 non partono, per il filtro dichiarato. Le scale di
+  fedpath e recession portate da 1 e 2 a 2,5 e 4 con la regola di normalizzazione scritta prima (|F| medio 3,8 e
+  4,8 contro 10). Il giro scarica e il backfill riempie le due serie nuove; la pagina mostra un blocco per indice
+  con i libri e il segno; i tredici libri replicabili e il backtest sono identici byte per byte. Rimandato,
+  con il motivo: il lato short (SH, TBF: fondi inversi non qualificati), le scale sulle stampe mensili (CPI, buste
+  paga: un altro tipo di indice, da registrare a parte), un libro sull'oro con la sola Fed (la manica da sola
+  misura +1,9, ma il libro registrato era con la de-escalation e non si tolgono maniche dopo aver guardato).
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

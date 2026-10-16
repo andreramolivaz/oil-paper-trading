@@ -420,19 +420,19 @@ def watch(runner: LiveRunner, job_id: str) -> JobOutcome:
 
 def kalshi_backfill(runner: LiveRunner, job_id: str, since: date, file: Path | None = None) -> JobOutcome:
     """Fill the prediction markets' archive from Kalshi's daily candlesticks (``engine/desk/backfill.py``): every
-    market of the series the speculative book's index reads (``oracle.COMPONENTS``), from ``since``, one record
+    market of the series the speculative books' indices read (``oracle.ALL_SERIES``), from ``since``, one record
     per event and UTC day the archive does not have. A reading the tick took is never replaced. ``file`` reads a
     history saved by the research fetch instead of downloading one (tests, a workspace without network). Runs
     once per job id; running it again adds only the days still missing."""
     from engine.desk.backfill import apply_backfill, records_from_history
     from engine.desk.live import desk_store
-    from engine.desk.oracle import COMPONENTS, archive_readings
+    from engine.desk.oracle import ALL_SERIES, archive_readings
 
     now = now_utc()
     rec = runner.start_run("kalshi_backfill", job_id, london_date(now))
     if rec is None:
         return JobOutcome("skipped", "run già completata con questo job id", {"job_id": job_id})
-    detail: dict[str, Any] = {"since": since.isoformat(), "series": list(COMPONENTS)}
+    detail: dict[str, Any] = {"since": since.isoformat(), "series": list(ALL_SERIES)}
     try:
         if file is not None:
             history = json.loads(Path(file).read_text(encoding="utf-8"))
@@ -441,10 +441,10 @@ def kalshi_backfill(runner: LiveRunner, job_id: str, since: date, file: Path | N
             from engine.data.adapters.kalshi import KalshiAdapter
 
             start = int(datetime(since.year, since.month, since.day, tzinfo=UTC).timestamp())
-            history = KalshiAdapter().fetch_history(list(COMPONENTS), start)
+            history = KalshiAdapter().fetch_history(list(ALL_SERIES), start)
             detail["source"] = "kalshi candlesticks (downloaded)"
             detail["failed_downloads"] = history.get("failed") or {}
-        records = [r for r in records_from_history(history) if str(r.get("series")) in COMPONENTS]
+        records = [r for r in records_from_history(history) if str(r.get("series")) in ALL_SERIES]
         detail["records"] = len(records)
         store = desk_store(runner.settings.state_dir)
         detail["applied"] = apply_backfill(store, records)

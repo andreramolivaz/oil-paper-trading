@@ -59,6 +59,7 @@ DEFAULT_SERIES = (
     "KXCLOSEHORMUZ", "KXHORMUZRETURN", "KXHORMUZNORM", "KXHORMUZWEEKLY", "KXMAXSHIPSHORMUZ",  # the strait
     "KXUSAIRANAGREEMENT", "KXUSIRANMEETING",  # the talks
     "KXOPECCUTS", "KXEIACRUDEW", "KXSAUDICRUDE",  # supply
+    "KXFEDDECISION", "KXRECSSNBER",  # the FOMC meetings and the yearly recession markets (phase 15)
 )  # fmt: skip
 COLUMNS = [
     "series_ticker", "event_ticker", "ticker", "title", "subtitle", "strike_type", "floor_strike", "cap_strike",

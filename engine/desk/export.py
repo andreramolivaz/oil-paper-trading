@@ -33,7 +33,7 @@ from engine.desk.allocator import (
     runup_state,
     transit_ratios,
 )
-from engine.desk.backfill import backfilled_days
+from engine.desk.backfill import archive_days, backfilled_days
 from engine.desk.book import Book, is_pre_closure
 from engine.desk.data import MACRO_MAX_AGE_DAYS, DeskData, _latest, build_desk_data, held_contract, hormuz_summary
 from engine.desk.engine import DECISIONS_LOG, Desk, _clean
@@ -234,28 +234,58 @@ def forecast_block(data: DeskData) -> dict[str, Any]:
 
 
 def oracle_block(desk: Desk, state_dir: Path, now: datetime) -> dict[str, Any] | None:
-    """The Kalshi index the speculative book reads (``engine/desk/oracle.py``): today's reading, the reference
-    a week ago, the change and the forecast it makes, with the rule. None when no book is on that forecast."""
+    """The Kalshi indices the speculative books read (``engine/desk/oracle.py``): for each index a book names,
+    today's reading, the reference a week ago, the change and the sleeve it makes, with the rule; and which books
+    read it with which sign. None when no book is on that forecast."""
     books = [b for b in desk.books.values() if not b.replayable]
     if not books:
         return None
-    day = decision_day(books[0].vehicle, now)
     store = desk_store(state_dir)
-    readings = oracle.archive_readings(store)
-    verdict = oracle.forecast_on(readings, day)
+    indices = []
+    for spec in oracle.INDICES.values():
+        readers = [b for b in books if spec.id in b.cfg.sleeves]
+        if not readers:
+            continue
+        day = decision_day(readers[0].vehicle, now)
+        readings = oracle.archive_readings(store, spec)
+        verdict = oracle.forecast_on(readings, day, spec)
+        indices.append(
+            {
+                **verdict.to_dict(),
+                "books": [
+                    {"id": b.id, "vehicle": b.cfg.vehicle, "sign": 1 if b.cfg.sleeves[spec.id] > 0 else -1}
+                    for b in readers
+                ],
+                "archive_days": len(readings),
+                "archive_first_day": readings[0].day.isoformat() if readings else None,
+            }
+        )
+    n_days, first_day = archive_days(store)
+    first = indices[0] if indices else {}
     return {
-        **verdict.to_dict(),
-        "books": [b.id for b in books],
-        "archive_days": len(readings),
-        "archive_first_day": readings[0].day.isoformat() if readings else None,
-        # the days filled from Kalshi's daily candlesticks (phase 14, engine/desk/backfill.py): the archive's
+        # the de-escalation index's fields at the top level as the first version of the page read them (phase 14)
+        **{k: v for k, v in first.items() if k not in ("books", "archive_days", "archive_first_day")},
+        "indices": indices,
+        "books": [
+            {
+                "id": b.id,
+                "name": b.cfg.name,
+                "vehicle": b.cfg.vehicle,
+                "sleeves": {s: (1 if w > 0 else -1) for s, w in b.cfg.sleeves.items()},
+            }
+            for b in books
+        ],
+        "archive_days": n_days,
+        "archive_first_day": first_day,
+        # the days filled from Kalshi's daily candlesticks alone (phase 14, engine/desk/backfill.py): the archive's
         # past before the desk read these markets itself; the tick's own readings are the rest
         "archive_backfilled_days": backfilled_days(store),
         "source": "Kalshi (public trade API), the desk's own daily archive (state/desk/kalshi-*.jsonl)",
-        # ``note`` (from the verdict) says what the index did today; this says what the book is
+        # ``note`` (from the verdict) says what an index did today; this says what the books are
         "disclaimer": (
             "The reading of a UTC day is the first of that day, about 00:20 UTC - the previous evening in New York: "
-            "the book reads last night's prices, as the macro sleeves read yesterday's close."
+            "the books read last night's prices, as the macro sleeves read yesterday's close. A book's forecast is "
+            "the mean of its sleeves with the sign shown; long-only fund books stay in cash on a negative one."
         ),
     }
 

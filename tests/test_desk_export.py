@@ -37,26 +37,34 @@ def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_pat
     doc = json.loads(text)
     # the core books first, the options book among them, then the candidate books of phases 12 and 13
     candidates = ["gold", "copper", "agri", "bonds", "equities", "uranium", "utilities", "lithium", "semis", "clean"]
-    assert [b["id"] for b in doc["books"]] == ["prudente", "dinamico", "spinto", "opzioni", *candidates, "oracle"]
-    assert [b["role"] for b in doc["books"]] == ["core"] * 4 + ["candidate"] * (len(candidates) + 1)
+    kalshi = ["oracle", "oracle_equities", "oracle_utilities"]  # the speculative books of phases 14 and 15
+    assert [b["id"] for b in doc["books"]] == ["prudente", "dinamico", "spinto", "opzioni", *candidates, *kalshi]
+    assert [b["role"] for b in doc["books"]] == ["core"] * 4 + ["candidate"] * (len(candidates) + len(kalshi))
     assert all(b["equity"] == 10_000.0 and b["pnl_total"] == 0.0 for b in doc["books"])
     assert doc["total"] == {"equity": 40_000.0, "initial_capital": 40_000.0, "pnl": 0.0, "pnl_pct": 0.0, "n_books": 4}
-    assert doc["total_candidates"]["equity"] == 10_000.0 * (len(candidates) + 1)
-    assert doc["total_candidates"]["n_books"] == len(candidates) + 1
+    assert doc["total_candidates"]["equity"] == 10_000.0 * (len(candidates) + len(kalshi))
+    assert doc["total_candidates"]["n_books"] == len(candidates) + len(kalshi)
     # the Kalshi book (phase 14) says what it is on every row: speculative, no backtest, its own forecast
     by_id = {b["id"]: b for b in doc["books"]}
     assert by_id["oracle"]["forecast_family"] == "kalshi" and by_id["oracle"]["experimental"] is True
     assert by_id["oracle"]["backtested"] is False and by_id["spinto"]["backtested"] is True
     assert by_id["spinto"]["forecast_family"] == "desk" and by_id["spinto"]["experimental"] is False
     # and its index block is there even with an empty archive: no reading, no forecast, the rule written out
-    assert doc["oracle"]["books"] == ["oracle"] and doc["oracle"]["archive_days"] == 0
+    assert [b["id"] for b in doc["oracle"]["books"]] == kalshi and doc["oracle"]["archive_days"] == 0
+    assert doc["oracle"]["books"][0]["sleeves"] == {"deescalation": 1}
+    assert doc["oracle"]["books"][1]["sleeves"] == {"fedpath": 1, "recession": -1}
+    assert [i["id"] for i in doc["oracle"]["indices"]] == ["deescalation", "fedpath", "recession"]
+    assert [b["id"] for b in doc["oracle"]["indices"][1]["books"]] == ["oracle_equities", "oracle_utilities"]
+    assert doc["oracle"]["indices"][2]["books"] == [{"id": "oracle_equities", "vehicle": "SPY", "sign": -1}]
     assert doc["oracle"]["forecast"] is None and doc["oracle"]["index"] is None
     assert doc["oracle"]["rule"]["horizon_days"] == 90 and "never promoted" in doc["oracle"]["rule"]["text"]
     # a Kalshi archive that cannot be read costs the page its oracle block, never the page (found by review)
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(ex.oracle, "archive_readings", lambda store: (_ for _ in ()).throw(RuntimeError("boom")))
+        patch.setattr(
+            ex.oracle, "archive_readings", lambda store, spec=None: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         broken = ex.build_desk_payload(settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir))
-    assert broken["oracle"] == {"error": "RuntimeError: boom", "books": ["oracle"]}
+    assert broken["oracle"] == {"error": "RuntimeError: boom", "books": kalshi}
     assert [b["id"] for b in broken["books"]] == [b["id"] for b in doc["books"]]
     # a book with nothing in it loses nothing on any gap
     assert doc["books"][0]["stress"] == {"-30%": 0.0, "-20%": 0.0, "-10%": 0.0, "+10%": 0.0, "+20%": 0.0}
