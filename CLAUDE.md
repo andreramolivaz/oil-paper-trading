@@ -19,7 +19,11 @@ There are two systems in this repository and it matters which one you are touchi
   the tick archives Kalshi's prediction markets (`engine/desk/prediction.py`) that no core book trades on.
   Since phase 14 ONE candidate book, `oracle` (`forecast: kalshi`, `engine/desk/oracle.py`), trades the micro
   WTI future in the direction of a de-escalation index read on that archive: speculative, no backtest, judged
-  on live fills only, never promoted. The terminal page shows all of it.
+  on live fills only, never promoted. Since phase 15 `oracle.py` is a REGISTRY of three indices (de-escalation,
+  the Fed path read off the FOMC meetings' outcome markets, the recession probability off the yearly NBER
+  markets) and two more speculative books read them with a sign per sleeve, long only, on the S&P 500 and
+  utilities funds (`oracle_equities`, `oracle_utilities`); two others (bonds, gold) were registered, measured a
+  negative Sharpe and do not exist. The terminal page shows all of it.
 * **The first system** (`engine/strategies`, `engine/portfolio`, `engine/backtest/session.py`, ...) is 21
   strategies on shadow accounts behind a seven-condition validation gate. Nothing passed, so its master account
   is flat by construction. It still runs daily (the tick runs its end of day) and is reachable from the site's
@@ -50,7 +54,7 @@ python -m engine.cli fetch --snapshot          # pull all sources, write point-i
 python -m engine.cli eod                       # first system, after ICE settlement (the tick calls it when due)
 python -m engine.cli weekly                    # COT, rig count, retrain, full backtest, validation report
 python -m engine.cli backtest --start 1990-01-01 --end 2026-10-01 --report out/backtest
-python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|...|clean|oracle|all]
+python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|...|clean|oracle|oracle_equities|oracle_utilities|all]
 python -m engine.cli export-site               # site-data/: desk.json for the terminal + the first system's files
 
 python -m engine.cli watch                     # the prediction markets alone (the weekend job): read, archive, judge
@@ -83,11 +87,17 @@ engine/desk/
   prediction.py Kalshi's markets: the daily archive (desk/kalshi-YYYY-MM.jsonl, one record per event and day)
                 and the terminal block (price ladders against the desk's quote and the options' lognormal twin,
                 deadline and threshold ladders beside what the desk measures). No book reads it.
-  oracle.py     the speculative Kalshi book's forecast (phase 14): the de-escalation index (P within 90 days
-                that the strait is normal, the US and Iran meet, a deal is signed; three deadline ladders read
-                off the daily archive at a constant horizon), its change over a week, -2 per point, +-20; the
-                book cannot be replayed (no history), so it is out of the backtest, the tables and the
-                fingerprint (`report.replayed_books`) and the lifecycle never promotes it
+  oracle.py     the speculative Kalshi books' forecasts: a registry of indices (`INDICES`), each a sleeve read
+                on the daily archive with one rule (today's reading against the one a week before, the change
+                over the components both have, deadband, cap +-20). `deescalation` (phase 14: P within 90 days
+                that the strait is normal, the US and Iran meet, a deal is signed; three deadline ladders at a
+                constant horizon; -2 per point), `fedpath` (phase 15: the expected change of the Fed's target
+                rate over the FOMC meetings within 90 days, each meeting's five outcome markets weighted by
+                their odds, summed in bp; -2.5 per bp, dovish = positive), `recession` (phase 15: the yearly
+                NBER markets as one ladder by year end, P within 365 days; +4 per point). A book names its
+                sleeves WITH A SIGN (`sleeves` in books.yaml) and averages them; these books cannot be replayed
+                (no history in the desk's series), so they are out of the backtest, the tables and the
+                fingerprint (`report.replayed_books`) and the lifecycle never promotes them
   backfill.py   the archive's past (phase 14): Kalshi's daily candlesticks (bid, ask, last, volume, open
                 interest at midnight New York, since each market opened) as the records the tick would have
                 written, one per event and UTC day, `backfilled: true`; a day the tick read is never replaced;
@@ -106,7 +116,8 @@ engine/desk/
                 the rules' fingerprint (books, options, risk.yaml, allocator.yaml)
   export.py     site-data/desk.json (books with role/allocator/lifecycle, `allocator`, `prediction_markets`)
 config/books.yaml      the three linear books, the options book, the ten candidate books (role: candidate) and the
-                       speculative `oracle` book (role: candidate, forecast: kalshi)
+                       speculative Kalshi books `oracle`, `oracle_equities`, `oracle_utilities` (role: candidate,
+                       forecast: kalshi, `sleeves` with a sign)
 config/allocator.yaml  the allocator's four rules with their published parameters and on/off switches
 engine/data/adapters/kalshi.py   the public Kalshi API, one call a second (429 after about thirty in a burst);
                                  `fetch_history`: every market of a series with its daily candlesticks (the
@@ -189,6 +200,11 @@ How a tick works (`engine/live/jobs.py::tick`, driven by `scripts/runner_loop.sh
 - **A source going red must cost only what reads it.** `critical_sources` (config) is the only list that can
   turn the overall status red; `DESK_REQUIRES` (jobs.py) is what each vehicle needs for NEW decisions. Bars,
   stops, rolls and marks never wait for a download.
+- **Kalshi's market listing forgets settled markets.** `/markets?series_ticker=` stops listing a market a few
+  weeks after it settles (read 2026-10-15: the September 2026 FOMC markets were there, July's were not, and
+  `status=settled` returned the same sixty): a series' history starts where the listing does, so the Fed-path
+  index has a past from 18 June 2026 only, and `fetch_history` asks for the settled markets by name anyway. The
+  research download takes any series (`research_fetch.py --only kalshi-history --series A,B --since`).
 - **The runner checks the code out once.** It restarts on a push to main that touches engine, config or
   scripts (`runner.yml`); a change merged without such a push is not live until the next hand-over. A loop
   that ends in under fifteen minutes is restarted at once three times, then the chain stops and the scheduled
@@ -250,8 +266,11 @@ How a tick works (`engine/live/jobs.py::tick`, driven by `scripts/runner_loop.sh
   holes included. The multiplier is a straight line in the number of sleeves present out of SEVEN, so a book
   given a subset (the attribution tables) is not over-scaled.
 - **A book that reads another forecast never reads the desk's.** `BookConfig.forecast` names the family
-  (`desk`: the seven sleeves; `kalshi`: `oracle.SLEEVES`). `Desk.decide` hands a non-desk book ONLY its entry
-  of `book_forecasts` (the live tick builds it from the archive, `live.oracle_forecasts`) and `{}` otherwise,
+  (`desk`: the seven sleeves; `kalshi`: `oracle.SLEEVES`, one per index, read with the sign the book gives it in
+  `sleeves`: the recession sleeve is +1 for a bond book and -1 for an equity book, and `combined_forecast` is the
+  signed mean over the sleeves with a value, None when none has one). `Desk.decide` hands a non-desk book ONLY
+  its entry of `book_forecasts` (the live tick builds it from the archive, `live.oracle_forecasts`, each index
+  read once for every book on it) and `{}` otherwise,
   which is "missing data: position unchanged"; the replay skips such books; `report.replayed_books` is what the
   backtest, the fingerprint (tick and weekly job alike) and the attribution tables see. The reading of UTC day
   D is the first of the day (about 00:20 UTC, the evening before in New York): the book reads last night's
@@ -348,12 +367,16 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   switched on only after it was measured on the replay (`docs/RESEARCH.md` ch. 9 B), and the backtest always
   reports the books with and without it (`without_allocator`).
 - The prediction markets (Kalshi) are archived and shown, and no CORE book reads them until there is a year of
-  archive to test a rule on. One CANDIDATE book declared speculative (`oracle`, phase 14, on the owner's
-  explicit request) trades a rule written in `docs/RESEARCH.md` ch. 10 before its first decision, on the daily
-  archive alone: it has no backtest (there is no history), no row in the replay's tables, no part in the
-  fingerprint, and the lifecycle never promotes it (a promotion needs a backtest drawdown to compare with -
-  for every book). A market past its close time is not a probability. The unusual-activity alert flags a
-  footprint by a declared rule and says so; it never calls anyone an insider and never trades.
+  archive to test a rule on. CANDIDATE books declared speculative (`forecast: kalshi`: `oracle`, phase 14, on
+  the owner's explicit request; `oracle_equities` and `oracle_utilities`, phase 15) each trade a rule written in
+  `docs/RESEARCH.md` (ch. 10, ch. 11) before its first decision, on the daily archive alone, and - since the
+  archive has a past - measured ONCE on it before the book starts, with the declared filter (a negative
+  after-cost Sharpe does not start: bonds and gold did not). They have no backtest in the desk's replay, no row
+  in its tables, no part in the fingerprint, and the lifecycle never promotes them (a promotion needs a
+  backtest drawdown to compare with - for every book). A sleeve's scale is a declared round number checked
+  once against Carver's normalisation (mean |F| about 10) and touched only if off by a factor of two, as
+  written before the check. A market past its close time is not a probability. The unusual-activity alert
+  flags a footprint by a declared rule and says so; it never calls anyone an insider and never trades.
 - A fund book is short only through an inverse fund it BUYS with cash: that fund's notional never exceeds the
   equity, and the book's ceilings (weekend included) bind the oil exposure on both sides - at the decision,
   at the fill price and after every mark. A fund is never sold short: its sale is reduce-only.
@@ -731,6 +754,39 @@ manual job that pushes the data branch costs the runner the tick it overlaps. St
 first order and fill (the forecast must reach about 15 at the halved target and 38 % volatility for one lot),
 a day on which its reading is a fallback (a weekend), the scale's re-measurement on the live record (late
 December).
+
+Phase 15 (15 October, evening, on the owner's "improve on the other markets, and speculative Kalshi as the
+reference"; `docs/RESEARCH.md` chapter 11, registered before any measurement). The catalogue (15 011 series) was
+searched by theme and the plausible series downloaded with their daily candlesticks by the runner (`research-data`,
+`kalshi-history --series`, four downloads, ~60 series): what exists with a readable history is the FOMC meeting
+markets (`KXFEDDECISION`: five outcomes per meeting, quoted at one or two cents on the near meetings; the API's
+listing has forgotten the January-July 2026 meetings, so the history starts on 18 June, when September's meeting
+entered the 90-day window) and the yearly recession markets (`KXRECSSNBER-26/-27`, one-cent spreads, since
+January); the trade, chips, energy-policy, Ukraine, agriculture and Taiwan series have one market, a few weeks of
+history or deadlines years away; price ladders and monthly data releases were excluded by construction. Two
+indices were registered beside the de-escalation one (the Fed path in bp over the meetings within 90 days, the
+recession probability within 365 days), four books (TLT: fedpath +, recession +; SPY: fedpath +, recession -; GLD:
+fedpath +, deescalation +; XLU: fedpath +), long only, 2x, vol target 0.50, with the phase-12 filter (a negative
+after-cost Sharpe does not start) and Carver's normalisation check written down first. Measured once
+(`scripts/research_kalshi_books.py`, the candles through 14 October, the live archive winning, the funds' own
+series): mean |F| 3.8 (fedpath) and 4.8 (recession) against the 10 the rule asks for - off by more than two, so
+the scales went from 1 and 2 to 2.5 and 4 as declared (the x2 neighbours show a LOWER Sharpe, not a higher one);
+equities +1.72 (SE 1.78, 197 sessions, April and May making the year) and utilities +1.69 (SE 2.73, 82 sessions)
+start, bonds -1.79 and gold -1.66 do not (the same fedpath sleeve measures -2.7 on Treasuries and +1.6/+1.9/+1.7
+on equities, gold and utilities over the same days: a regime or a coincidence, 82-197 sessions cannot tell; gold's
+fedpath sleeve alone would be +1.9, and the book stays out as registered: no sleeve is dropped after looking).
+Engine: `oracle.py` as a registry (`IndexSpec`, `INDICES`, `ALL_SERIES`; the forecast keys are namespaced
+`<index>:index`, `<index>:change`, `<index>:c:<component>`, `<index>:r:<component>`), `Book.combined_forecast`
+as the signed mean, `live.oracle_forecasts` per sleeve, `export.oracle_block` with `indices` and `books` (the
+first index's fields repeated at the top level), the tick's hourly download and the backfill job covering
+`ALL_SERIES`, `prediction.GROUPS` with "Federal Reserve" and "US economy"; `fetch_history` merges the settled
+listing. Tests: `tests/test_desk_kalshi_indices.py` (fixture `tests/fixtures/kalshi_history_2026-10-15_macro.json`,
+the runner's own download trimmed; the Fed-path expectation and the recession ladder worked out by hand in the
+test). Site: one table per index with the books and their signs. Checked before shipping: the replay of the
+thirteen replayable books on a copy of the data branch is byte-identical with main's code (1000bfd5) and with
+this branch's (spinto 0.68, `all` 1.23; the payload differs only in `excluded` and in the fingerprint,
+62d61be3e097 -> 5dc548c4ffa2 for the two new books in `books.yaml`: the first tick after the deploy recomputes
+the backtest once, same numbers).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

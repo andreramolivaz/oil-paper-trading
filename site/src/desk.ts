@@ -381,9 +381,13 @@ export interface ExcludedBook {
   reason: string;
 }
 
-/** The prediction markets' de-escalation index the speculative book reads (phase 14, engine/desk/oracle.py):
- *  today's reading, the reference a week before, the change and the forecast it makes, with the rule. */
-export interface OracleBlock {
+/** One Kalshi index the speculative books read (phases 14 and 15, engine/desk/oracle.py): today's reading, the
+ *  reference a week before, the change and the sleeve it makes, with the rule and the books on it. The components
+ *  are probabilities (unit "points") or basis points ("bp", the Fed path). */
+export interface OracleIndex {
+  id: string;
+  label: string;
+  unit: "points" | "bp";
   day: string;
   forecast: Num;
   index: Num;
@@ -399,6 +403,11 @@ export interface OracleBlock {
   components: { series: string; label: string; p: Num; p_reference: Num }[];
   note: string;
   rule: {
+    id?: string;
+    label?: string;
+    kind?: string;
+    unit?: string;
+    aggregate?: string;
     components: { series: string; label: string }[];
     horizon_days: number;
     lookback_days: number;
@@ -406,10 +415,21 @@ export interface OracleBlock {
     stale_days: number;
     max_spread: number;
     deadband: number;
-    forecast_per_point: number;
+    per_unit?: number;
+    forecast_per_point: number | null;
     text: string;
   };
-  books: string[];
+  /** The books that read this index and the sign they read it with. */
+  books?: { id: string; vehicle: string; sign: 1 | -1 }[];
+  archive_days?: number;
+  archive_first_day?: string | null;
+}
+
+/** The Kalshi block: every index a speculative book reads (`indices`), the books with their sleeves and signs,
+ *  the archive. The first index's fields are repeated at the top level, as the first version of the page read them. */
+export interface OracleBlock extends Omit<OracleIndex, "books"> {
+  indices?: OracleIndex[];
+  books: { id: string; name: string; vehicle: string; sleeves: Record<string, 1 | -1> }[] | string[];
   archive_days: number;
   archive_first_day: string | null;
   /** The days filled from Kalshi's daily candlesticks (the archive's past before the desk read these markets). */

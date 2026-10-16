@@ -170,14 +170,14 @@ def _kalshi_history(out: Path, series_arg: str | None = None, since_arg: str = "
     ``--series`` (a comma-separated list of series tickers) downloads other series instead - phase 15 looked at
     the Fed, recession, trade and energy-policy series this way, before registering any rule on them."""
     from engine.data.adapters.kalshi import KalshiAdapter
-    from engine.desk.oracle import COMPONENTS
+    from engine.desk.oracle import ALL_SERIES
 
     out.mkdir(parents=True, exist_ok=True)
     if series_arg:
         series = [s.strip().upper() for s in series_arg.split(",") if s.strip()]
     else:
         others = ["KXCLOSEHORMUZ", "KXHORMUZRETURN", "KXHORMUZWEEKLY", "KXMAXSHIPSHORMUZ", "KXOPECCUTS", "KXSAUDICRUDE"]
-        series = [*COMPONENTS, *others]
+        series = [*ALL_SERIES, *others]
     since = int(datetime.combine(date.fromisoformat(since_arg), datetime.min.time(), tzinfo=UTC).timestamp())
     history = KalshiAdapter().fetch_history(series, since)
     (out / "history.json").write_text(json.dumps(history, indent=0))

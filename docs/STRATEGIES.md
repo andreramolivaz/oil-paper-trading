@@ -231,6 +231,39 @@ prima della prima decisione, perché non c'è una storia su cui provarlo: l'arch
   143 sedute, +27,7% a lotti interi, un mese su otto che fa il risultato. Non distingue nulla da zero; la scala
   dichiarata (media di |F| = 9,8) regge; il prior resta.
 
+### Gli altri libri «Oracle» (`engine/desk/oracle.py`, fase 15) — speculativi, senza backtest
+
+Il proprietario, il 15 ottobre: «improve su altri mercati e anche speculative kalshi sempre come riferimento».
+Lo stesso schema sui fondi che il desk già tiene: un indice Kalshi dà la direzione, il fondo dà la leva (2x, il
+margine di Robinhood su un fondo), solo long. Registrato in `docs/RESEARCH.md`, capitolo 11, prima di misurare;
+misurato una volta sull'archivio ricostruito dalle candele; due libri su quattro partono.
+
+- **Gli indici.** `oracle.py` è un registro (`INDICES`): `deescalation` com'è sopra; **`fedpath`**, il percorso
+  della Fed: le riunioni del FOMC con decisione entro 90 giorni (`KXFEDDECISION-AAMMM`), ciascuna valutata come
+  variazione attesa del tasso in punti base sui cinque esiti quotati a due lati (taglio di oltre 25 = −50, taglio
+  25, invariato, rialzo 25, rialzo di oltre 25 = +50; leggibile con almeno due esiti e l'80% della massa),
+  sommate; la variazione settimanale sulle riunioni presenti in entrambe le letture (la sorpresa della riunione
+  stessa non c'è: il giorno dopo non ha più un mercato); manica = **−2,5 per punto base**, positiva quando le
+  attese si fanno accomodanti, banda morta 1 pb. **`recession`**: i mercati annuali `KXRECSSNBER-AA` («una
+  recessione nel 20AA») come scala a scadenza, P(entro il 31 dicembre di Y) = 1 − Π(1 − p), letta a 365 giorni;
+  manica = **+4 per punto**, positiva quando la probabilità sale, banda morta 1 punto. Le due scale erano
+  dichiarate 1 e 2 e sono state portate a 2,5 e 4 con la regola scritta prima della misura (media di |F| fuori dal
+  10 di Carver per più di un fattore due: 3,8 e 4,8).
+- **I libri.** Un libro legge le sue maniche con un **segno** (`sleeves` in `books.yaml`) e ne fa la media, senza
+  moltiplicatore; se nessuna ha un valore non decide. `oracle_equities` su SPY: fedpath +1 (Bernanke-Kuttner),
+  recession −1; `oracle_utilities` su XLU: fedpath +1 (le utility come quasi-obbligazioni). Obiettivo di
+  volatilità 0,50, tetto 2x e 1x prima di una chiusura, stop giornaliero −15%, lotto una quota, `m`
+  dell'allocatore. Una previsione negativa è liquidità.
+- **Quelli che non partono.** `oracle_bonds` (TLT: fedpath +1, recession +1) e `oracle_gold` (GLD: fedpath +1,
+  deescalation +1) hanno misurato uno Sharpe netto negativo (−1,8 e −1,7 con errore standard 1,8) e per il filtro
+  dichiarato non partono; non si tolgono maniche per farli passare.
+- **Quanto vale.** Equities Sharpe +1,7 (±1,8) su 197 sedute, utilities +1,7 (±2,7) su 82: entro un errore
+  standard da zero, due mesi che fanno l'anno. Il prior di nessun vantaggio resta; nessun backtest nel replay,
+  mai promossi, giudicati sugli eseguiti veri; riesame delle scale a 60 letture vive per manica.
+- **Che cosa manca, scritto.** Nessun mercato Kalshi con storia per rame, semiconduttori, litio, energia pulita,
+  uranio, agricoltura; nessun lato short (nessun fondo inverso qualificato per questi mercati); le scale sulle
+  stampe mensili (CPI, buste paga) sono un candidato per un'altra registrazione.
+
 ### Il libro delle opzioni (`engine/desk/options.py`) — sperimentale
 
 Vende uno **spread di put a credito** sotto il mercato quando la previsione (la stessa dei libri lineari, con i

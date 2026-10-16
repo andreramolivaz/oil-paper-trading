@@ -50,7 +50,15 @@ def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap
         "bonds": "TLT", "equities": "SPY", "uranium": "URA", "utilities": "XLU",  # phase 13
         "lithium": "LIT", "semis": "SMH", "clean": "ICLN",
     }  # fmt: skip
-    assert list(books) == ["prudente", "dinamico", "spinto", *satellites, "oracle"]
+    assert list(books) == [
+        "prudente",
+        "dinamico",
+        "spinto",
+        *satellites,
+        "oracle",
+        "oracle_equities",
+        "oracle_utilities",
+    ]
     assert [b.id for b in books.values() if b.role == "core"] == ["prudente", "dinamico", "spinto"]
     assert books["prudente"].max_leverage == 1.0 and books["prudente"].long_only
     assert books["dinamico"].max_leverage == 2.0 and books["dinamico"].weekend_max_leverage == 1.5
@@ -235,7 +243,9 @@ def test_a_book_uses_its_own_sleeve_weights():
         if cfg.role == "core":
             assert cfg.sleeves == pytest.approx(third), cfg.id  # no core book on file overrides the mix
         elif cfg.forecast == "kalshi":
-            assert cfg.sleeves == {"deescalation": 1.0}, cfg.id  # the Kalshi book reads the index, nothing else
+            # a Kalshi book reads one or more indices, each with a sign of its own, and nothing of the desk's
+            assert set(cfg.sleeves) <= {"deescalation", "fedpath", "recession"}, cfg.id
+            assert all(w in (1.0, -1.0) for w in cfg.sleeves.values()), cfg.id
         else:
             assert set(cfg.sleeves) == {"trend", "accel", "skew"}, cfg.id  # a satellite reads its price alone
 

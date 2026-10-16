@@ -226,6 +226,51 @@ books:
       when it falls the book is long. The rule was written down before the first decision and is judged on live
       fills alone; the prior is that it has no edge. It can wipe out the account.
 
+  # Phase 15 (15 October 2026), on the owner's "improve on the other markets, and speculative Kalshi as the
+  # reference" (docs/RESEARCH.md, chapter 11, registered before any measurement). The same pattern on the funds
+  # the desk already holds: a Kalshi index gives the direction, the fund the leverage (2x, the margin Robinhood
+  # gives on a fund), long only. Two indices beside the de-escalation one: the Fed path (the expected change of
+  # the target rate over the FOMC meetings within 90 days, read off each meeting's outcome markets; the week's
+  # change turning dovish is a positive sleeve) and the recession probability (the yearly NBER markets as one
+  # ladder, within 365 days; the odds rising is a positive sleeve). A book reads its sleeves with a sign and
+  # averages them. Four books were registered and measured once on the archive (chapter 11 E): bonds (TLT) and
+  # gold (GLD) measured a negative after-cost Sharpe and do not start, by the declared filter; equities and
+  # utilities start. No backtest in the replay, never promoted, judged on live fills only; the prior is no edge.
+  - id: oracle_equities
+    name: Oracle equities
+    role: candidate
+    forecast: kalshi
+    sleeves: {fedpath: 1.0, recession: -1.0}
+    vehicle: SPY
+    vol_target: 0.50
+    max_leverage: 2.0
+    weekend_max_leverage: 1.0
+    long_only: true
+    daily_loss_breaker: 0.15
+    description: >-
+      Speculative, paper only, no backtest. Full Kelly on the S&P 500 fund, long only, up to 2x on margin, in the
+      direction Kalshi's prediction markets point: long when the crowd's Fed path turns dovish over a week
+      (Bernanke and Kuttner: a surprise cut lifts equities) or its odds of a recession within a year fall, in
+      cash otherwise. The rule was written down before it was measured (Sharpe 1.7, standard error 1.8, on nine
+      months of archive); the prior is that it has no edge.
+
+  - id: oracle_utilities
+    name: Oracle utilities
+    role: candidate
+    forecast: kalshi
+    sleeves: {fedpath: 1.0}
+    vehicle: XLU
+    vol_target: 0.50
+    max_leverage: 2.0
+    weekend_max_leverage: 1.0
+    long_only: true
+    daily_loss_breaker: 0.15
+    description: >-
+      Speculative, paper only, no backtest. Full Kelly on the utilities fund, long only, up to 2x on margin, long
+      when the crowd's Fed path on Kalshi turns dovish over a week (utilities as bond proxies: a rule of thumb),
+      in cash otherwise. The rule was written down before it was measured (Sharpe 1.7, standard error 2.7, on
+      four months of archive); the prior is that it has no edge.
+
 # The options book (engine/desk/options.py): put credit spreads sold below the market when the forecast is
 # long, priced on the real delayed bid and ask. Its replay is a model and is labelled approx everywhere; the
 # book exists to measure the idea on real quotes. Every number here is a rule of the book, not a fitted value:

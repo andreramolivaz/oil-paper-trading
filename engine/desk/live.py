@@ -354,25 +354,35 @@ def review_lifecycle(desk: Desk, today: date, backtest_drawdowns: dict[str, floa
 def oracle_forecasts(
     desk: Desk, books: list[Book], day: date, report: TickReport
 ) -> dict[str, dict[str, float | None]]:
-    """The forecast of each book on the Kalshi index (``BookConfig.forecast == "kalshi"``) for the decision of
-    ``day``, read on the desk's own archive of the prediction markets (``engine/desk/oracle.py``). One reading
-    serves every such book. A book left out of the answer has no forecast today and holds what it has."""
+    """The forecast of each book on the Kalshi indices (``BookConfig.forecast == "kalshi"``) for the decision of
+    ``day``, read on the desk's own archive of the prediction markets (``engine/desk/oracle.py``): every sleeve
+    the book names in ``sleeves``, each index read once and handed to every book that reads it. A book left out
+    of the answer has no forecast today and holds what it has; an index that cannot be read costs the books on
+    it that sleeve and nothing else."""
     out: dict[str, dict[str, float | None]] = {}
     if not books:
         return out
     if desk.store is None:
         report.notes.append(f"{', '.join(b.id for b in books)}: no desk store, the Kalshi archive cannot be read")
         return out
-    try:
-        verdict = oracle.forecast_for(desk.store, day)
-    except Exception as exc:  # the archive is on the side of the books: a bad line must not cost the tick
-        log.exception("kalshi forecast failed")
-        report.notes.append(f"{', '.join(b.id for b in books)}: Kalshi forecast failed ({type(exc).__name__}: {exc})")
-        return out
-    forecast = verdict.as_forecast()
+    verdicts: dict[str, oracle.OracleForecast | None] = {}
     for book in books:
-        out[book.id] = dict(forecast)
-        report.notes.append(f"{book.id}: {verdict.note}")
+        own: dict[str, float | None] = {}
+        for sleeve in book.cfg.sleeves:
+            if sleeve not in verdicts:
+                try:
+                    verdicts[sleeve] = oracle.forecast_for(desk.store, day, oracle.spec_of(sleeve))
+                except Exception as exc:  # the archive is on the side of the books: a bad line must not cost the tick
+                    log.exception("kalshi forecast %s failed", sleeve)
+                    report.notes.append(f"Kalshi {sleeve}: forecast failed ({type(exc).__name__}: {exc})")
+                    verdicts[sleeve] = None
+            verdict = verdicts[sleeve]
+            if verdict is None:
+                continue
+            own.update(verdict.as_forecast())
+            report.notes.append(f"{book.id}: {verdict.note}")
+        if own:
+            out[book.id] = own
     return out
 
 

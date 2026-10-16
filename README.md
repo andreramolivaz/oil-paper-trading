@@ -95,6 +95,19 @@ sulla storia così ricostruita la regola è stata misurata una volta, com'è scr
 standard di 1,7 su 143 sedute, un mese su otto che fa il risultato - nulla che si distingua da zero
 (`docs/RESEARCH.md`, capitolo 10 H).
 
+**Kalshi come riferimento sugli altri mercati** (fase 15, 15 ottobre 2026, sera, su «improve su altri mercati e
+anche speculative kalshi sempre come riferimento»). Lo stesso schema sui fondi che il desk già tiene, solo long,
+fino a 2x: un indice Kalshi dà la direzione. Due indici oltre alla de-escalation, gli unici con una storia nel
+catalogo: il **percorso della Fed** (la variazione attesa del tasso sulle riunioni del FOMC entro 90 giorni, letta
+sui mercati degli esiti di ogni riunione; una rilettura accomodante in una settimana è un segnale positivo) e la
+**probabilità di recessione** (i mercati annuali come scala a 365 giorni). Quattro libri registrati prima di
+misurare e misurati una volta sull'archivio ricostruito dalle candele: **Oracle equities** (SPY: Fed +, recessione
+−) e **Oracle utilities** (XLU: Fed +) partono con Sharpe +1,7 (errore standard 1,8 e 2,7); bonds e gold hanno
+misurato uno Sharpe negativo e non partono, per il filtro dichiarato. Per rame, chip, litio, energia pulita,
+uranio e agricoltura Kalshi non ha oggi un mercato con storia, e il sistema lo dice invece di inventare un
+segnale (`docs/RESEARCH.md`, capitolo 11). Stesse regole dell'Oracle: nessun backtest, mai promossi, giudicati
+sugli eseguiti veri, prior di nessun vantaggio.
+
 Il primo sistema (21 strategie su conti ombra, regimi, previsioni di prezzo) continua a girare ogni giorno e
 resta consultabile dalla pagina **Archive** del sito, una pagina sola: nessuna sua strategia ha superato la
 validazione, quindi il suo conto è fermo per costruzione.

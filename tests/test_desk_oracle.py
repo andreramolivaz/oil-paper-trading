@@ -140,7 +140,7 @@ def test_the_forecast_is_minus_two_per_point_of_weekly_change_capped_with_a_dead
     out = forecast_on([ref, today], date(2026, 10, 21))
     assert out.reading is today and out.reference is ref and out.common == tuple(COMPONENTS)
     assert out.change == pytest.approx(0.05) and out.forecast == pytest.approx(-10.0)  # a normal short
-    assert "+5.0 points -> forecast -10.0" in out.note
+    assert "+5.0 points -> sleeve -10.0 (-2 per point)" in out.note
     # escalation: long; a move of ten points saturates; half a point is inside the spread
     escal = _reading(date(2026, 10, 21), **{k: v - 0.025 for k, v in BASE.items()})
     assert forecast_on([ref, escal], date(2026, 10, 21)).forecast == pytest.approx(5.0)
@@ -151,13 +151,14 @@ def test_the_forecast_is_minus_two_per_point_of_weekly_change_capped_with_a_dead
     assert flat.forecast == 0.0 and "deadband" in flat.note
     # the forecast dict carries every input of the decision, as numbers, so that the rule can be replayed
     fc = out.as_forecast()
-    assert fc["deescalation"] == pytest.approx(-10.0) and fc["kalshi_change"] == pytest.approx(0.05)
-    assert fc["kalshi_index"] == pytest.approx(today.value) and fc["kalshi_components"] == 3.0
-    assert fc["kalshi_age_days"] == 0.0 and fc["kalshi_ref_age_days"] == 7.0
-    assert fc["kalshi:KXHORMUZNORM"] == pytest.approx(0.116) and fc["kalshi_ref:KXHORMUZNORM"] == pytest.approx(0.066)
+    assert fc["deescalation"] == pytest.approx(-10.0) and fc["deescalation:change"] == pytest.approx(0.05)
+    assert fc["deescalation:index"] == pytest.approx(today.value) and fc["deescalation:common"] == 3.0
+    assert fc["deescalation:age_days"] == 0.0 and fc["deescalation:ref_age_days"] == 7.0
+    assert fc["deescalation:c:KXHORMUZNORM"] == pytest.approx(0.116)
+    assert fc["deescalation:r:KXHORMUZNORM"] == pytest.approx(0.066)
     text = lead_text(fc)
     assert text.startswith("Kalshi, within 90 days: the strait back to normal 11.6 % (a week ago 6.6 %)")
-    assert "+5.0 points in a week: forecast -10.0 out of 20." in text
+    assert "+5.0 points in a week: sleeve -10.0 out of 20." in text
     doc = out.to_dict()
     assert (
         doc["change"] == pytest.approx(0.05)
@@ -173,14 +174,13 @@ def test_the_forecast_is_minus_two_per_point_of_weekly_change_capped_with_a_dead
 def test_without_a_reading_a_reference_or_a_recent_reading_the_book_waits_or_goes_flat():
     readings = index_readings(_records())  # the 14th and the 15th of October: a two-day archive
     nothing = forecast_on([], D15)
-    assert nothing.forecast is None and nothing.reading is None and "cannot decide" in nothing.note
+    assert nothing.forecast is None and nothing.reading is None and "no value" in nothing.note
     # the first week: a reading but no reference -> no decision (the book holds what it has: nothing)
     waits = forecast_on(readings, D15)
     assert waits.forecast is None and waits.reading is not None and waits.reference is None
     assert "waits for a week of archive" in waits.note
-    assert waits.as_forecast()["deescalation"] is None and waits.as_forecast()["kalshi_index"] == pytest.approx(
-        0.213, abs=5e-4
-    )
+    assert waits.as_forecast()["deescalation"] is None
+    assert waits.as_forecast()["deescalation:index"] == pytest.approx(0.213, abs=5e-4)
     # the 21st reads the 14th as its reference, but the newest reading is six days old: no view, flat
     stale = forecast_on(readings, date(2026, 10, 21))
     assert stale.forecast == 0.0 and "6 days old" in stale.note
@@ -204,10 +204,10 @@ def test_a_ladder_that_appears_or_resolves_is_not_a_move():
     assert out.common == ("KXHORMUZNORM", "KXUSAIRANAGREEMENT") and out.change == 0.0 and out.forecast == 0.0
     assert "2 of 3 components in both" in out.note
     fc = out.as_forecast()
-    assert fc["kalshi_components"] == 2.0 and "kalshi_ref:KXUSIRANMEETING" not in fc
-    assert fc["kalshi:KXUSIRANMEETING"] == 0.80  # today's reading is still reported whole
+    assert fc["deescalation:common"] == 2.0 and "deescalation:r:KXUSIRANMEETING" not in fc
+    assert fc["deescalation:c:KXUSIRANMEETING"] == 0.80  # today's reading is still reported whole
     # the index shown is over what is present today; the change only over what both readings have
-    assert fc["kalshi_index"] == pytest.approx((0.066 + 0.117 + 0.80) / 3)
+    assert fc["deescalation:index"] == pytest.approx((0.066 + 0.117 + 0.80) / 3)
     gone = forecast_on([ref, _reading(date(2026, 10, 21), KXUSIRANMEETING=0.5)], date(2026, 10, 21))
     assert gone.forecast == 0.0 and "no component present in both" in gone.note
     # a day whose markets could not be read at all is not a reading: the newest readable one within three days
@@ -239,7 +239,7 @@ def test_the_oracle_book_trades_the_kalshi_sleeve_as_it_is_and_says_what_it_read
     assert dec.forecast["combined"] == -20.0 and dec.exposure_raw == pytest.approx(-2.2727, abs=1e-3)
     assert order is not None and order.qty_bbl == -200.0 and dec.target_units == -200.0
     assert dec.rationale.startswith("Kalshi, within 90 days: the strait back to normal 16.6 % (a week ago 6.6 %)")
-    assert "forecast -20.0 out of 20. Volatility 44% against a target of 50%: exposure 2.27x" in dec.rationale
+    assert "sleeve -20.0 out of 20. Volatility 44% against a target of 50%: exposure 2.27x" in dec.rationale
     assert "Sell 200 barrels of CLZ26: target 200 (short" in dec.rationale
     assert order.strategies_for == ["deescalation"] and order.strategies_against == []  # the sleeve wants the short
     # the sleeve is read as it is: no source average, no diversification multiplier
@@ -247,12 +247,14 @@ def test_the_oracle_book_trades_the_kalshi_sleeve_as_it_is_and_says_what_it_read
         book.combined_forecast({"deescalation": 7.5}) == 7.5 and book.combined_forecast({"deescalation": None}) is None
     )
     assert book.combined_forecast({"deescalation": 35.0}) == 20.0 and book.combined_forecast({}) is None
-    assert not book.replayable and book.sleeve_names == ("deescalation",)
+    assert not book.replayable and book.sleeve_names == ("deescalation", "fedpath", "recession")
     # the desk's forecast means nothing to it, and a book without a forecast holds what it has
     dec2, order2 = book.decide(ts, date(2026, 10, 22), "CLZ26", 91.0, dict(DESK_LONG), 0.44)
     assert order2 is None and dec2.limited_by == "missing data" and dec2.forecast["combined"] is None
     # flat on purpose (no view) is a forecast of zero, not missing data: the position is closed
-    dec3, _ = book.decide(ts, date(2026, 10, 22), "CLZ26", 91.0, {"deescalation": 0.0, "kalshi_index": 0.21}, 0.44)
+    dec3, _ = book.decide(
+        ts, date(2026, 10, 22), "CLZ26", 91.0, {"deescalation": 0.0, "deescalation:index": 0.21}, 0.44
+    )
     assert dec3.exposure == 0.0 and dec3.limited_by == "no forecast" and "No position" in dec3.rationale
 
 
@@ -309,8 +311,8 @@ def test_on_the_live_path_the_oracle_decides_on_the_archive_and_the_other_books_
     assert by_book["oracle"]["forecast"]["combined"] == -20.0 and by_book["oracle"]["target_units"] < 0
     assert by_book["oracle"]["rationale"].startswith("Kalshi, within 90 days")
     assert (
-        by_book["oracle"]["forecast"]["kalshi_age_days"] == 0.0
-        and by_book["oracle"]["forecast"]["kalshi_ref_age_days"] == 7.0
+        by_book["oracle"]["forecast"]["deescalation:age_days"] == 0.0
+        and by_book["oracle"]["forecast"]["deescalation:ref_age_days"] == 7.0
     )
     assert any(n.startswith("oracle: de-escalation index") for n in report.notes)
     assert "deescalation" not in by_book["spinto"]["forecast"] and by_book["spinto"]["rationale"].startswith("Price ")
@@ -351,17 +353,19 @@ def test_on_the_live_path_the_oracle_decides_on_the_archive_and_the_other_books_
     report4 = live_tick(desk4, data, now)
     books4 = {d["book"]: d for d in report4.decisions}
     assert books4["oracle"]["limited_by"] == "missing data" and books4["oracle"]["n_orders"] == 0
-    assert any("no Kalshi reading in the archive" in n for n in report4.notes) and report4.failed == []
+    assert any("no Kalshi reading of the de-escalation index in the archive" in n for n in report4.notes)
+    assert report4.failed == []
     # a forecast that raises (anything but a bad line) costs the oracle its decision and nothing else
     desk5 = build_desk(tmp_path / "f", RISK, [SPINTO, ORACLE])
     _archive_for(day, desk5.store, bump=0.30)
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(oracle, "archive_readings", lambda store: (_ for _ in ()).throw(RuntimeError("boom")))
+        patch.setattr(oracle, "archive_readings", lambda store, spec=None: (_ for _ in ()).throw(RuntimeError("boom")))
         report5 = live_tick(desk5, data, now)
     books5 = {d["book"]: d for d in report5.decisions}
     assert books5["spinto"]["target_units"] == by_book["spinto"]["target_units"]
     assert books5["oracle"]["limited_by"] == "missing data"
-    assert any("Kalshi forecast failed (RuntimeError: boom)" in n for n in report5.notes) and report5.failed == []
+    assert any("Kalshi deescalation: forecast failed (RuntimeError: boom)" in n for n in report5.notes)
+    assert report5.failed == []
 
 
 # --------------------------------------------------------------------------------------------- the replay
@@ -397,4 +401,13 @@ def test_the_rule_on_file_is_the_registered_one():
     assert list(COMPONENTS) == ["KXHORMUZNORM", "KXUSIRANMEETING", "KXUSAIRANAGREEMENT"]
     assert [c["series"] for c in rule["components"]] == list(COMPONENTS)
     assert "No backtest" in rule["text"] and "never promoted" in rule["text"]
-    assert oracle.SLEEVES == ("deescalation",) and oracle.DEFAULT_WEIGHTS == {"deescalation": 1.0}
+    # phase 15 added two indices beside the de-escalation one; a kalshi book without `sleeves` is still the oil book
+    assert oracle.SLEEVES == ("deescalation", "fedpath", "recession") and oracle.DEFAULT_WEIGHTS == {
+        "deescalation": 1.0
+    }
+    assert oracle.DEESCALATION.per_unit == -2.0 and oracle.FEDPATH.per_unit == -2.5 and oracle.RECESSION.per_unit == 4.0
+    assert (oracle.FEDPATH.horizon_days, oracle.FEDPATH.deadband, oracle.FEDPATH.aggregate) == (90, 1.0, "sum")
+    assert (oracle.RECESSION.horizon_days, oracle.RECESSION.deadband) == (365, 0.01)
+    assert oracle.MEETING_OUTCOMES_BP == {"C26": -50.0, "C25": -25.0, "H0": 0.0, "H25": 25.0, "H26": 50.0}
+    assert (oracle.MIN_OUTCOME_MASS, oracle.MIN_OUTCOMES) == (0.80, 2)
+    assert (*COMPONENTS, "KXFEDDECISION", "KXRECSSNBER") == oracle.ALL_SERIES

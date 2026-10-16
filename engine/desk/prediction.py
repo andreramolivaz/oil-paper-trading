@@ -78,6 +78,9 @@ GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ),
     ("iran", "US-Iran", ("KXUSAIRANAGREEMENT", "KXUSIRANMEETING")),
     ("supply", "Supply", ("KXEIACRUDEW", "KXOPECCUTS", "KXSAUDICRUDE", "KXIRANCRUDE")),
+    # phase 15: the series the speculative books on the other markets read
+    ("fed", "Federal Reserve", ("KXFEDDECISION",)),
+    ("economy", "US economy", ("KXRECSSNBER",)),
 )
 # the price ladders: which of the desk's quotes is their reference and which fund's options speak about them
 PRICE_SERIES: dict[str, tuple[str, str]] = {

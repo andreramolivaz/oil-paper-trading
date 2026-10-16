@@ -126,12 +126,15 @@ desk:
   bab_el_mandeb:
     - {adapter: portwatch, chokepoint: "Bab el-Mandeb Strait"}
   # Kalshi, the prediction market (phase 13): the open markets of the series below, prices = probabilities.
-  # Once a day; archived in state/desk/kalshi-*.jsonl by the tick; no book trades on it (no history yet).
+  # Hourly; archived in state/desk/kalshi-*.jsonl by the tick (one record per event and UTC day). No core book
+  # reads it; the speculative candidate books read their indices on the archive (engine/desk/oracle.py): the
+  # strait and US-Iran ladders (phase 14), the FOMC meetings and the yearly recession markets (phase 15).
   kalshi:
     - adapter: kalshi
       series: [KXBRENTD, KXBRENTW, KXBRENTMON, KXWTI, KXWTIW, KXWTIMONTHLY,
                KXCLOSEHORMUZ, KXHORMUZRETURN, KXHORMUZNORM, KXHORMUZWEEKLY, KXMAXSHIPSHORMUZ,
-               KXUSAIRANAGREEMENT, KXUSIRANMEETING, KXOPECCUTS, KXEIACRUDEW, KXSAUDICRUDE]
+               KXUSAIRANAGREEMENT, KXUSIRANMEETING, KXOPECCUTS, KXEIACRUDEW, KXSAUDICRUDE,
+               KXFEDDECISION, KXRECSSNBER]
 
 # Refreshed on every tick: what the paper brokers fill and mark against.
 desk_intraday:

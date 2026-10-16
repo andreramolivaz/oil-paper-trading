@@ -138,8 +138,19 @@ def _row_dict(rec: Mapping[str, Any], row: list[Any]) -> dict[str, Any]:
 
 
 def backfilled_days(store: StateStore) -> int:
-    """How many days of the archive come from the candlesticks rather than from the tick's own readings."""
-    return len({str(r.get("day")) for r in store.iter_jsonl(KALSHI_LOG, skip_bad=True) if r.get("backfilled")})
+    """How many days of the archive come from the candlesticks alone: days with a backfilled record and none the
+    tick read itself (a day the tick read, filled only for a series it did not ask for yet, is the tick's)."""
+    filled: set[str] = set()
+    live: set[str] = set()
+    for r in store.iter_jsonl(KALSHI_LOG, skip_bad=True):
+        (filled if r.get("backfilled") else live).add(str(r.get("day")))
+    return len(filled - live)
+
+
+def archive_days(store: StateStore) -> tuple[int, str | None]:
+    """How many UTC days the archive holds a reading of any series for, and the first of them."""
+    days = {str(r.get("day")) for r in store.iter_jsonl(KALSHI_LOG, skip_bad=True) if r.get("day")}
+    return len(days), (min(days) if days else None)
 
 
 def apply_backfill(store: StateStore, records: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
