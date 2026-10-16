@@ -23,7 +23,7 @@ from engine.core.config import RiskConfig, Settings
 from engine.core.store import StateStore, dumps
 from engine.core.timeutil import ensure_utc, iso, parse_iso
 from engine.data.raw_store import RawStore
-from engine.desk import oracle
+from engine.desk import analyst, oracle
 from engine.desk import signals as sg
 from engine.desk.allocator import (
     AllocatorConfig,
@@ -79,6 +79,11 @@ GROUPS: tuple[tuple[str, str, str], ...] = (
         "kalshi",
         "Kalshi books",
         "speculative: their direction comes from Kalshi's prediction markets, and no backtest exists",
+    ),
+    (
+        "claude",
+        "Claude books",
+        "speculative: their direction comes from a language model reading the day's news, and no backtest can exist",
     ),
 )
 STRESS_MOVES = (-0.30, -0.20, -0.10, 0.10, 0.20)  # gaps of the vehicle's price the books are revalued on
@@ -152,9 +157,10 @@ def _current_epoch(rows: list[dict[str, Any]], epoch: int) -> list[dict[str, Any
 
 
 def book_group(role: str | None, configured_role: str | None, forecast: str | None) -> str:
-    """The group (``GROUPS``) a book is shown in. The Kalshi books apart (the lifecycle never promotes them); then
-    the role the book has TODAY, the one `total` counts it under - a candidate the lifecycle promoted is judged
-    with the core and is shown there - except a retired book, which stays in the group of its configured role."""
+    """The group (``GROUPS``) a book is shown in. The books on another forecast apart, one group per family - the
+    Kalshi books, the Claude books - (the lifecycle never promotes them); then the role the book has TODAY, the one
+    `total` counts it under - a candidate the lifecycle promoted is judged with the core and is shown there - except
+    a retired book, which stays in the group of its configured role."""
     if forecast == oracle.FAMILY:
         return "kalshi"
     if forecast and forecast != FORECAST_DESK:
@@ -346,7 +352,7 @@ def oracle_block(desk: Desk, state_dir: Path, now: datetime) -> dict[str, Any] |
     """The Kalshi indices the speculative books read (``engine/desk/oracle.py``): for each index a book names,
     today's reading, the reference a week ago, the change and the sleeve it makes, with the rule; and which books
     read it with which sign. None when no book is on that forecast."""
-    books = [b for b in desk.books.values() if not b.replayable]
+    books = [b for b in desk.books.values() if b.cfg.forecast == oracle.FAMILY]
     if not books:
         return None
     store = desk_store(state_dir)
@@ -462,10 +468,11 @@ def book_block(book: Book, desk: Desk, state_dir: Path, now: datetime) -> dict[s
         # the group of the page (GROUPS): core desk, candidates, the Kalshi books
         "group": book_group(desk.role_of(book), cfg.role, cfg.forecast),
         "role_change": desk.state.roles.get(cfg.id),
-        # which forecast the book reads: "desk" (the seven sleeves, replayed in the backtest) or "kalshi" (the
-        # prediction markets' de-escalation index, phase 14: no history, no backtest, live fills only)
+        # which forecast the book reads: "desk" (the seven sleeves, replayed in the backtest), "kalshi" (the
+        # prediction markets' indices, phases 14-15) or "claude" (the Claude analyst, phase 17): the last two have
+        # no backtest and are judged on live fills only
         "forecast_family": cfg.forecast,
-        # the Kalshi books: which indices the book reads and with which sign (the page says so on the row)
+        # the books on another forecast: which sleeves the book reads and with which sign (the page says so)
         "sleeves": {s: (1 if w > 0 else -1) for s, w in cfg.sleeves.items()} if cfg.forecast != FORECAST_DESK else None,
         "backtested": book.replayable,
         "experimental": not book.replayable,
@@ -934,7 +941,8 @@ def backtest_summary(state_dir: Path) -> dict[str, Any] | None:
         "generated_at": (payload.get("meta") or {}).get("generated_at"),
         "fill_rule": (payload.get("meta") or {}).get("fill_rule"),
         "books": books,
-        # the books on file the replay cannot run (the Kalshi book): listed with the reason, never with numbers
+        # the books on file the replay cannot run (the Kalshi and Claude books): listed with the reason, never with
+        # numbers; as of the replay on file (a book added since appears with the next replay, the weekly job's)
         "excluded": payload.get("excluded") or [],
         "portfolio": payload.get("portfolio") or {},
         "benchmarks": {
@@ -1013,6 +1021,8 @@ def build_desk_payload(
         "allocator": allocator_block(desk, data, allocator_cfg, today),
         # the prediction markets' index the speculative book reads (phase 14), null without such a book
         "oracle": _oracle_or_error(desk, settings.state_dir, now),
+        # the Claude analyst's reading the books on it read (phase 17), null without such a book
+        "analyst": _analyst_or_error(desk, settings, now),
         "prediction_markets": prediction_block(
             latest_reading(raw),
             now,
@@ -1035,7 +1045,38 @@ def _oracle_or_error(desk: Desk, state_dir: Path, now: datetime) -> dict[str, An
         return oracle_block(desk, state_dir, now)
     except Exception as exc:  # the archive is read on the side: a bad file is reported, not fatal
         log.warning("oracle block skipped: %s", exc)
-        books = [b.id for b in desk.books.values() if not b.replayable]
+        books = [b.id for b in desk.books.values() if b.cfg.forecast == oracle.FAMILY]
+        return {"error": f"{type(exc).__name__}: {str(exc)[:160]}", "books": books}
+
+
+def analyst_block(desk: Desk, settings: Settings, now: datetime) -> dict[str, Any] | None:
+    """The Claude analyst (``engine/desk/analyst.py``): whether it runs, today's reading with each market's forecast,
+    reasons, risk and the sources, the month's spend against the budget, the books on it. None without such a book.
+    Whether a key is set is the runner's own word (``desk/claude_status.json``, written by every tick), else this
+    export's environment - a job without the key must not say "off" for the runner; the key itself never appears."""
+    books = [b for b in desk.books.values() if b.cfg.forecast == analyst.FAMILY]
+    if not books:
+        return None
+    cfg = analyst.AnalystConfig.load(settings.config_dir)
+    rows = [
+        {
+            "id": b.id,
+            "name": b.cfg.name,
+            "vehicle": b.cfg.vehicle,
+            "sleeves": {m: 1 if w > 0 else -1 for m, w in b.cfg.sleeves.items()},
+        }
+        for b in books
+    ]
+    return analyst.block(desk_store(settings.state_dir), cfg, now.date(), rows, bool(settings.anthropic_api_key))
+
+
+def _analyst_or_error(desk: Desk, settings: Settings, now: datetime) -> dict[str, Any] | None:
+    """``analyst_block``, or a block that says what went wrong: a side block must never cost the page."""
+    try:
+        return analyst_block(desk, settings, now)
+    except Exception as exc:
+        log.warning("analyst block skipped: %s", exc)
+        books = [b.id for b in desk.books.values() if b.cfg.forecast == analyst.FAMILY]
         return {"error": f"{type(exc).__name__}: {str(exc)[:160]}", "books": books}
 
 

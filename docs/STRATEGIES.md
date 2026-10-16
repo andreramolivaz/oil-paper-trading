@@ -266,6 +266,44 @@ misurato una volta sull'archivio ricostruito dalle candele; due libri su quattro
   uranio, agricoltura; nessun lato short (nessun fondo inverso qualificato per questi mercati); le scale sulle
   stampe mensili (CPI, buste paga) sono un candidato per un'altra registrazione.
 
+### I libri «Claude» (`engine/desk/analyst.py`, `config/analyst.yaml`, fase 17) — speculativi, senza backtest
+
+Il proprietario, il 16 ottobre: «ho chiamate API gratis Claude 200 $ con la University of Southern California:
+come posso usarle per il progetto, e aprire e chiudere posizioni». Letto così: un modello di linguaggio legge le
+notizie ogni giorno e dà una direzione, quattro libri di carta la comprano con le regole di sempre. Registrato in
+`docs/RESEARCH.md`, capitolo 12, prima della prima lettura.
+
+- **La lettura.** Una al giorno, nei giorni lavorativi americani, al primo giro dopo le 13:00 UTC (la mattina di
+  New York), due chiamate all'API Messages di Anthropic: la prima cerca sul web (al massimo 6 ricerche) e scrive un
+  riassunto dei fatti delle ultime 48 ore su greggio, oro, azioni americane e Treasury, ogni fatto con data e
+  fonte; la seconda, senza strumenti, legge quel riassunto e risponde con uno schema JSON: per ognuno dei quattro
+  mercati una previsione intera da −20 a +20 per le cinque sedute successive, la fiducia, fino a tre ragioni e il
+  rischio principale. Due chiamate perché l'output strutturato non si combina con le citazioni della ricerca. Al
+  massimo tre tentativi al giorno, a mezz'ora l'uno dall'altro.
+- **I libri.** `claude_oil` sul future micro WTI (/MCL), long e short, tetto 10x e 3x prima di una chiusura;
+  `claude_gold` (GLD), `claude_equities` (SPY), `claude_bonds` (TLT), solo long, tetto 2x e 1x prima di una
+  chiusura. Tutti con obiettivo di volatilità 0,50, stop giornaliero −15%, la regola di taglia di ogni libro
+  (`previsione/10 × obiettivo × m / volatilità`, con l'allocatore e la fascia d'inerzia), una manica ciascuno
+  (`sleeves` in `books.yaml`).
+- **Che cosa legge una decisione.** La lettura più recente presa nel giorno della decisione o nei tre giorni prima,
+  mai una presa dopo; più vecchia, previsione 0 e il libro si chiude; nessuna lettura mai presa, nessuna
+  decisione (il libro resta liquido). Il lunedì legge quella del venerdì.
+- **Che cosa costa, e che cosa lo ferma.** Senza il segreto `ANTHROPIC_API_KEY` nel repository nulla parte e i
+  libri restano liquidi. Con la chiave, un tetto di 20 $ al mese calcolato dall'uso che l'API riporta ai prezzi
+  pubblicati (Sonnet 5.5: 2 $ e 10 $ per milione di token in ingresso e in uscita, 0,01 $ a ricerca): stimato
+  0,10-0,25 $ a lettura, 3-6 $ al mese. Ogni tentativo è una riga di `state/desk/claude-AAAA-MM.jsonl` con il
+  riassunto, le fonti, la previsione, l'uso e il costo; la chiave non c'è mai. Un rifiuto, una risposta troncata o
+  uno schema non rispettato non danno previsione quel giorno.
+- **Che cos'è e che cosa non è.** Candidati speculativi (`forecast: claude`), ciascuno un conto a sé nel totale dei
+  candidati, nel gruppo «Claude books» della pagina. Nessun backtest, e nessuno può esistere: un modello
+  addestrato sul passato conosce i prezzi che un replay gli chiederebbe di prevedere (Glasserman e Lin, 2023).
+  Fuori dal replay, dalle tabelle e dall'impronta; mai promossi; ritirati come ogni libro dopo 24 mesi con uno
+  Sharpe sotto −0,5. Il modello non vede le posizioni, i prezzi del desk né la previsione dei sette segnali, e non
+  decide taglie: le regole del desk lo fanno.
+- **Il prior.** Nessun vantaggio: sono fra i mercati più liquidi del mondo e una notizia vi entra in minuti. Il
+  valore, se c'è, è misurare quanto vale un analista automatico che legge le stesse notizie di tutti; servono mesi.
+  Dopo 60 letture si controlla la scala (media di |F| intorno a 10) come per Kalshi.
+
 ### Il libro delle opzioni (`engine/desk/options.py`) — sperimentale
 
 Vende uno **spread di put a credito** sotto il mercato quando la previsione (la stessa dei libri lineari, con i

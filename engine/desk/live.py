@@ -34,7 +34,7 @@ from engine.core.events import Bar
 from engine.core.store import StateStore
 from engine.core.timeutil import ensure_utc, iso
 from engine.data.raw_store import OBSERVED_AT_COLUMN
-from engine.desk import oracle
+from engine.desk import analyst, oracle
 from engine.desk import signals as sg
 from engine.desk.allocator import (
     AllocatorConfig,
@@ -386,6 +386,36 @@ def oracle_forecasts(
     return out
 
 
+def analyst_forecasts(
+    desk: Desk, books: list[Book], day: date, report: TickReport
+) -> dict[str, dict[str, float | None]]:
+    """The forecast of each book on the Claude analyst (``BookConfig.forecast == "claude"``, phase 17) for the
+    decision of ``day``: the newest reading on file taken that day or up to ``analyst.STALE_DAYS`` before, never a
+    later one (``engine/desk/analyst.py``), read once for every book on it. A book left out of the answer (no
+    reading ever taken: no key, or not yet) has no forecast and holds what it has; an archive that cannot be read
+    costs those books their decision and nothing else."""
+    out: dict[str, dict[str, float | None]] = {}
+    if not books:
+        return out
+    if desk.store is None:
+        report.notes.append(f"{', '.join(b.id for b in books)}: no desk store, the analyst's archive cannot be read")
+        return out
+    try:
+        reading = analyst.forecast_for(desk.store, day)
+    except Exception as exc:  # the archive is on the side of the books: a bad line must not cost the tick
+        log.exception("analyst forecast failed")
+        report.notes.append(f"Claude analyst: forecast failed ({type(exc).__name__}: {exc})")
+        return out
+    if reading is None:
+        report.notes.append(f"{', '.join(b.id for b in books)}: no reading of the Claude analyst yet: no forecast")
+        return out
+    values = reading.as_forecast()
+    for book in books:
+        out[book.id] = dict(values)
+        report.notes.append(f"{book.id}: {reading.note}")
+    return out
+
+
 def live_tick(
     desk: Desk,
     data: DeskData,
@@ -581,7 +611,11 @@ def _tick_vehicle(
                 # their forecast comes from the desk's own archive, for this decision day, and never from the
                 # vehicle's series. A failure there costs those books their decision and nothing else.
                 deciding = [b for b in pending if not b.replayable and not b.other_contract_positions(symbol)]
-                own = oracle_forecasts(desk, deciding, day, report)
+                own = oracle_forecasts(desk, [b for b in deciding if b.cfg.forecast == oracle.FAMILY], day, report)
+                # the Claude analyst's books (phase 17): their forecast is the analyst's reading on file
+                own.update(
+                    analyst_forecasts(desk, [b for b in deciding if b.cfg.forecast == analyst.FAMILY], day, report)
+                )
                 decided = desk.decide(
                     vehicle_id, now, day, symbol, price, forecast, vol, leg_prices=leg_prices, book_forecasts=own
                 )

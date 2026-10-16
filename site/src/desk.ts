@@ -217,15 +217,17 @@ export interface Book {
   role?: "core" | "candidate" | "retired";
   /** The role in config/books.yaml; `role` differs when the lifecycle rule changed it (`role_change` says why). */
   configured_role?: string;
-  /** The group of the desk page (`DeskDoc.portfolios`): "core", "candidates", "kalshi". */
+  /** The group of the desk page (`DeskDoc.portfolios`): "core", "candidates", "kalshi", "claude". */
   group?: string;
   role_change?: RoleChange | null;
   allocator?: AllocatorScale | null;
   lifecycle?: LifecycleRecord | null;
-  /** Which forecast the book reads: "desk" (the seven sleeves, replayed in the backtest) or "kalshi" (the
-   *  prediction markets' de-escalation index, phase 14: no history, no backtest, live fills only). */
-  forecast_family?: "desk" | "kalshi";
-  /** A Kalshi book's indices and the sign it reads each with (phase 15); null for a book on the desk's forecast. */
+  /** Which forecast the book reads: "desk" (the seven sleeves, replayed in the backtest), "kalshi" (the prediction
+   *  markets' indices, phases 14-15) or "claude" (the Claude analyst's reading of the news, phase 17); the last two
+   *  have no backtest and are judged on live fills only. */
+  forecast_family?: "desk" | "kalshi" | "claude";
+  /** The sleeves of a book on another forecast and the sign it reads each with: a Kalshi book's indices (phase 15),
+   *  a Claude book's market (phase 17); null for a book on the desk's forecast. */
   sleeves?: Record<string, 1 | -1> | null;
   /** False for a book the replay cannot run: it has no row in the backtest, by construction. */
   backtested?: boolean;
@@ -626,6 +628,65 @@ export interface DeskDoc {
   prediction_markets?: PredictionBlock;
   /** The index the speculative Kalshi book reads (phase 14); null when no book is on it. */
   oracle?: OracleBlock | null;
+  /** The Claude analyst the Claude books read (phase 17); null when no book is on it. */
+  analyst?: AnalystBlock | null;
+}
+
+/** One market of a Claude analyst's reading: the forecast (-20..+20 for the next five sessions), its confidence, up to
+ *  three reasons taken from the brief and the main risk to the view, all in the model's words. */
+export interface AnalystMarket {
+  forecast: number;
+  confidence: "low" | "medium" | "high" | null;
+  reasons: string[];
+  risk: string;
+  /** True when the model gave a number off the scale and it was cut to +-20. */
+  clamped?: boolean;
+}
+
+/** The Claude analyst (phase 17, engine/desk/analyst.py): whether it runs (the runner's own word on the key, never the
+ *  key), what the books read today, the newest reading with its brief and sources, the month's spend, the rule. */
+export interface AnalystBlock {
+  /** Set, with `books`, when the archive could not be read: every other field is then absent. */
+  error?: string;
+  books: { id: string; name: string; vehicle: string; sleeves: Record<string, 1 | -1> }[] | string[];
+  configured?: boolean;
+  key_set?: boolean;
+  /** When the runner last looked (its tick's clock). */
+  checked_at?: string | null;
+  state?: "off" | "waiting" | "on" | "stale" | "budget" | "disabled";
+  /** The state in one sentence, the engine's words. */
+  state_text?: string;
+  enabled?: boolean;
+  model?: string;
+  prompt_version?: string;
+  budget_usd?: number;
+  spent_month_usd?: number;
+  readings?: number;
+  first_day?: string | null;
+  /** What a book deciding today reads: the reading's day, its age, whether it is too old (every market then 0). */
+  today?: {
+    day: string;
+    reading_day: string | null;
+    age_days: number | null;
+    stale: boolean;
+    values: Record<string, number>;
+  } | null;
+  reading?: {
+    day: string;
+    ts: string;
+    model: string;
+    prompt_version: string;
+    markets: Record<string, AnalystMarket>;
+    sources: { url: string; title: string }[];
+    n_sources?: number;
+    searches?: number | null;
+    brief: string;
+    cost_usd: number | null;
+  } | null;
+  /** The last attempt, when it is not the reading above (it failed). */
+  last_attempt?: { day: string; ts: string; status: string; error: string | null } | null;
+  rule?: { start_utc: string; max_searches: number; stale_days: number; max_attempts: number; text: string };
+  disclaimer?: string;
 }
 
 /** The full backtest payload (`desk_backtest.json`): what the backtest page draws. */

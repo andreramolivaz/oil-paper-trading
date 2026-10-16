@@ -58,6 +58,10 @@ def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap
         "oracle",
         "oracle_equities",
         "oracle_utilities",
+        "claude_oil",
+        "claude_gold",
+        "claude_equities",
+        "claude_bonds",
     ]
     assert [b.id for b in books.values() if b.role == "core"] == ["prudente", "dinamico", "spinto"]
     assert books["prudente"].max_leverage == 1.0 and books["prudente"].long_only
@@ -78,6 +82,17 @@ def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap
     assert (oracle_book.vol_target, oracle_book.max_leverage, oracle_book.weekend_max_leverage) == (0.5, 10.0, 3.0)
     assert not oracle_book.long_only and oracle_book.short_via is None and oracle_book.sleeves == {"deescalation": 1.0}
     assert [b.id for b in books.values() if b.forecast == "desk"] == ["prudente", "dinamico", "spinto", *satellites]
+    # the Claude analyst's books (phase 17): one market each, the Oracle's ceilings on the future, long-only 2x funds
+    claude = {b.id: b for b in books.values() if b.forecast == "claude"}
+    assert {i: (b.vehicle, b.sleeves) for i, b in claude.items()} == {
+        "claude_oil": ("MCL", {"oil": 1.0}),
+        "claude_gold": ("GLD", {"gold": 1.0}),
+        "claude_equities": ("SPY", {"equities": 1.0}),
+        "claude_bonds": ("TLT", {"bonds": 1.0}),
+    }
+    assert all(b.role == "candidate" and b.vol_target == 0.5 and b.daily_loss_breaker == 0.15 for b in claude.values())
+    assert not claude["claude_oil"].long_only and claude["claude_oil"].max_leverage == 10.0
+    assert all(b.long_only and b.max_leverage == 2.0 for i, b in claude.items() if i != "claude_oil")
     for b in books.values():
         assert 0 < b.max_leverage <= HARD_CAP
         assert b.max_leverage <= get_vehicle(b.vehicle).max_leverage + 1e-9  # the broker's margin allows it
@@ -96,6 +111,8 @@ def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap
         {"forecast": "kalshi", "sleeves": {"trend": 1.0}},  # the desk's sleeves do not belong to that forecast
         {"forecast": "kalshi", "sleeves": {"deescalation": 1.0}, "role": "core"},  # no backtest: never core
         {"forecast": "desk", "sleeves": {"deescalation": 1.0}},  # and the Kalshi sleeve is not one of the seven
+        {"forecast": "claude", "sleeves": {"copper": 1.0}},  # the analyst reads four markets, copper is not one
+        {"forecast": "claude", "sleeves": {"oil": 1.0}, "role": "core"},  # no backtest can exist: never core
     ],
 )
 def test_a_book_that_breaks_a_rule_cannot_be_configured(bad):
@@ -246,6 +263,10 @@ def test_a_book_uses_its_own_sleeve_weights():
             # a Kalshi book reads one or more indices, each with a sign of its own, and nothing of the desk's
             assert set(cfg.sleeves) <= {"deescalation", "fedpath", "recession"}, cfg.id
             assert all(w in (1.0, -1.0) for w in cfg.sleeves.values()), cfg.id
+        elif cfg.forecast == "claude":
+            # a Claude book reads the analyst's forecast of one market, with the sign +1
+            assert len(cfg.sleeves) == 1 and set(cfg.sleeves) <= {"oil", "gold", "equities", "bonds"}, cfg.id
+            assert list(cfg.sleeves.values()) == [1.0], cfg.id
         else:
             assert set(cfg.sleeves) == {"trend", "accel", "skew"}, cfg.id  # a satellite reads its price alone
 

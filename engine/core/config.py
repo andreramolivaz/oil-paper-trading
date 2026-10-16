@@ -23,6 +23,8 @@ class Settings:
     github_repo: str
     offline: bool  # True in tests / CI unit stage: adapters must not touch the network
     alphavantage_api_key: str | None = None  # optional: only the weekly insider table needs it
+    # optional: the Claude analyst (engine/desk/analyst.py) runs only with it; never logged, never archived
+    anthropic_api_key: str | None = field(default=None, repr=False)
 
     @staticmethod
     def from_env() -> Settings:
@@ -34,6 +36,7 @@ class Settings:
             github_repo=os.environ.get("GITHUB_REPOSITORY", "andreramolivaz/oil-paper-trading"),
             offline=os.environ.get("OPT_OFFLINE", "0") == "1",
             alphavantage_api_key=os.environ.get("ALPHAVANTAGE_API_KEY") or None,
+            anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
         )
 
 

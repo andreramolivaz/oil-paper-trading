@@ -491,6 +491,12 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         desk = build_desk(
             runner.settings.state_dir, runner.risk, allocator=AllocatorConfig.load(runner.settings.config_dir)
         )
+        # The Claude analyst's daily reading (phase 17) comes first: it reads the web, not the desk's tables, and can
+        # take a minute or two; when it called the API, what to download is planned on the clock read after it.
+        step = _analyst_step(runner, desk, now)
+        detail.update(step)
+        if step and (step.get("analyst") or {}).get("status") != "not due":
+            now = now_utc()
         groups = list(TICK_GROUPS)
         entries, why = _desk_daily_entries(runner, desk, now)
         if entries:
@@ -564,6 +570,34 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         log.exception("tick failed")
         runner.finish_run(rec, "failed", str(exc), detail)
         return JobOutcome("failed", str(exc), detail)
+
+
+def _analyst_step(runner: LiveRunner, desk: Any, now: Any) -> dict[str, Any]:
+    """The Claude analyst's reading of the day when it is due (``engine/desk/analyst.py``): nothing offline, no call
+    without the key or when no book reads it; the tick's own word on it (whether it had a key - never the key) goes
+    to ``desk/claude_status.json`` for the page. Whatever goes wrong is written in the archive and the tick's log
+    and never costs the tick."""
+    if runner.settings.offline:
+        return {}
+    try:
+        from engine.desk import analyst
+        from engine.desk.live import desk_store
+
+        cfg = analyst.AnalystConfig.load(runner.settings.config_dir)
+        key = runner.settings.anthropic_api_key
+        send = analyst.http_transport(key, cfg.timeout_s) if key else None
+        readers = any(b.cfg.forecast == analyst.FAMILY for b in desk.books.values())
+        store = desk_store(runner.settings.state_dir)
+        out = analyst.maybe_read(store, cfg, now, send, readers)
+        analyst.write_status(store, now, key_set=send is not None, readers=readers, outcome=out)
+        return {"analyst": out} if out else {}
+    except Exception as exc:  # the reading is on the side: the books, bars and marks never wait for it
+        text = str(exc)[:160]
+        key = runner.settings.anthropic_api_key
+        if key:  # belt and braces: no message of this step may carry the key
+            text = text.replace(key, "***")
+        log.warning("analyst skipped: %s: %s", type(exc).__name__, text)
+        return {"analyst": {"status": f"failed: {type(exc).__name__}: {text}"}}
 
 
 def _overtaken_by_the_clock(desk: Any, planned_at: Any, now: Any) -> dict[str, str]:

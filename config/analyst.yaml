@@ -1,0 +1,24 @@
+# The Claude analyst (engine/desk/analyst.py; docs/RESEARCH.md, chapter 12, registered before the first reading).
+#
+# Once a day, on a US business day, at the first tick after `start_utc`, a language model searches the news (the
+# Messages API's web search tool) and writes a brief of the facts with their sources; a second call reads that
+# brief alone and gives oil, gold, equities and bonds a forecast on the desk's -20..+20 scale (structured output).
+# The four books with `forecast: claude` in books.yaml buy it under the usual rules. Nothing runs without the
+# repository secret ANTHROPIC_API_KEY: the books then stay in cash.
+#
+# Changing the model, the prompts or the schema changes `prompt_version`, written in every reading: it is a new
+# rule, to be written in docs/RESEARCH.md before it runs.
+enabled: true
+model: claude-sonnet-5-5
+start_utc: "13:00"             # 9:00 New York in summer: before the open and before the books' decisions
+max_searches: 6                # web searches per reading (the tool's max_uses)
+max_tokens_brief: 6000
+max_tokens_forecast: 3000
+monthly_budget_usd: 20.0       # no call once the month's spend reaches it (the spend of each call from its usage)
+# published prices of the model, read on 2026-10-16 (platform.claude.com/docs/en/about-claude/pricing), USD
+price_input_per_mtok: 2.0
+price_output_per_mtok: 10.0
+price_cache_write_per_mtok: 2.5
+price_cache_read_per_mtok: 0.10
+price_per_search: 0.01         # 10 $ per 1,000 searches
+timeout_s: 300

@@ -39,7 +39,7 @@ from engine.core.config import RiskConfig, load_config
 from engine.core.events import Order, OrderReason, OrderType
 from engine.core.ids import idempotency_key
 from engine.core.store import StateStore
-from engine.desk import oracle
+from engine.desk import analyst, oracle
 from engine.desk import signals as sg
 from engine.desk.vehicles import INVERSE_FUNDS, InverseFund, Vehicle, get_inverse_fund, get_vehicle
 
@@ -48,12 +48,18 @@ BOOKS_CONFIG = "books"
 # Which forecast a book reads. "desk": the seven sleeves from three sources (signals.SOURCES), the forecast of
 # the desk, replayed in the backtest. "kalshi": the indices read on the prediction markets' archive (oracle.py:
 # the de-escalation index of phase 14, the Fed path and the recession probability of phase 15), one sleeve each,
-# read with a sign per book; no replay, no backtest - a book on them is judged on live fills alone.
+# read with a sign per book; no replay, no backtest - a book on them is judged on live fills alone. "claude": the
+# Claude analyst's daily reading of the news (analyst.py, phase 17), one sleeve per market; no backtest can exist.
 FORECAST_DESK = "desk"
-FORECAST_FAMILIES: dict[str, tuple[str, ...]] = {FORECAST_DESK: sg.SLEEVES, oracle.FAMILY: oracle.SLEEVES}
+FORECAST_FAMILIES: dict[str, tuple[str, ...]] = {
+    FORECAST_DESK: sg.SLEEVES,
+    oracle.FAMILY: oracle.SLEEVES,
+    analyst.FAMILY: analyst.SLEEVES,
+}
 DEFAULT_WEIGHTS_OF: dict[str, dict[str, float]] = {
     FORECAST_DESK: sg.DEFAULT_WEIGHTS,
     oracle.FAMILY: oracle.DEFAULT_WEIGHTS,
+    analyst.FAMILY: analyst.DEFAULT_WEIGHTS,
 }
 
 
@@ -338,8 +344,9 @@ class Book:
         column of the data layer is not used), or - for a book on the Kalshi indices - the mean of its sleeves
         with the SIGN each carries in ``sleeves`` (the de-escalation sleeve is positive for oil and for gold, the
         recession sleeve positive for Treasuries and negative for equities), over the sleeves that have a value
-        today; None when none has one (the book then holds what it has). No diversification multiplier."""
-        if self.cfg.forecast == oracle.FAMILY:
+        today; None when none has one (the book then holds what it has). No diversification multiplier. The
+        Claude analyst's books (one market each) read it the same way."""
+        if self.cfg.forecast != FORECAST_DESK:
             total, weight = 0.0, 0.0
             for sleeve, w in self.cfg.sleeves.items():
                 value = forecast.get(sleeve)
@@ -674,7 +681,10 @@ class Book:
         fresh: bool = True,
     ) -> str:
         v = self.vehicle
-        if self.cfg.forecast == oracle.FAMILY:
+        if self.cfg.forecast == analyst.FAMILY:
+            # the analyst's reading: how old it is, and what it says of the book's market with its confidence
+            text = analyst.lead_text(forecast, self.cfg.sleeves)
+        elif self.cfg.forecast == oracle.FAMILY:
             # the prediction markets' indices: what each one's components say today and a week ago, the change
             # and the sleeve; then the book's forecast when it is not that one sleeve as it is
             text = oracle.lead_text(forecast)
