@@ -6,14 +6,17 @@
 # The four books with `forecast: claude` in books.yaml buy it under the usual rules. Nothing runs without the
 # repository secret ANTHROPIC_API_KEY: the books then stay in cash.
 #
-# Changing the model, the prompts or the schema changes `prompt_version`, written in every reading: it is a new
-# rule, to be written in docs/RESEARCH.md before it runs.
+# Changing the model, the prompts, the schema, the searches or the token limits changes `prompt_version`, written in
+# every reading: it is a new rule, to be written in docs/RESEARCH.md before it runs.
 enabled: true
 model: claude-sonnet-5-5
 start_utc: "13:00"             # 9:00 New York in summer: before the open and before the books' decisions
-max_searches: 6                # web searches per reading (the tool's max_uses)
-max_tokens_brief: 6000
-max_tokens_forecast: 3000
+max_searches: 6                # web searches for the whole reading (each request gets what is left as max_uses)
+# The model thinks before it answers (adaptive thinking: its default, at its default effort, high) and the thinking
+# counts toward max_tokens: the limits leave room for it. Only the tokens generated are billed. An answer cut short
+# is no reading.
+max_tokens_brief: 16000
+max_tokens_forecast: 16000
 monthly_budget_usd: 20.0       # no call once the month's spend reaches it (the spend of each call from its usage)
 # published prices of the model, read on 2026-10-16 (platform.claude.com/docs/en/about-claude/pricing), USD
 price_input_per_mtok: 2.0
@@ -21,4 +24,4 @@ price_output_per_mtok: 10.0
 price_cache_write_per_mtok: 2.5
 price_cache_read_per_mtok: 0.10
 price_per_search: 0.01         # 10 $ per 1,000 searches
-timeout_s: 300
+timeout_s: 420                 # seconds for the whole reading, both calls: the tick waits for it

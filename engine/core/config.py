@@ -25,6 +25,9 @@ class Settings:
     alphavantage_api_key: str | None = None  # optional: only the weekly insider table needs it
     # optional: the Claude analyst (engine/desk/analyst.py) runs only with it; never logged, never archived
     anthropic_api_key: str | None = field(default=None, repr=False)
+    # the analyst's ledger, OUTSIDE the data branch's working tree (the runner's workspace): an attempt a failed tick
+    # discarded from the archive is put back from it, so it is never paid twice. None: no ledger (tests, local runs)
+    analyst_ledger: Path | None = None
 
     @staticmethod
     def from_env() -> Settings:
@@ -37,6 +40,7 @@ class Settings:
             offline=os.environ.get("OPT_OFFLINE", "0") == "1",
             alphavantage_api_key=os.environ.get("ALPHAVANTAGE_API_KEY") or None,
             anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
+            analyst_ledger=Path(os.environ["OPT_ANALYST_LEDGER"]) if os.environ.get("OPT_ANALYST_LEDGER") else None,
         )
 
 

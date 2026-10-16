@@ -4,17 +4,22 @@ The owner asked how to use his Claude API credits "to open and close positions".
 ``docs/RESEARCH.md`` (chapter 12) before the first reading. Once a day, on a US business day, at the first tick after
 ``start_utc``, two calls to the Messages API:
 
-1. the BRIEF: the model searches the web (``web_search_20250305``, at most ``max_searches`` searches) and writes the
-   facts of the last 48 hours that matter for crude oil, gold, US equities and US Treasuries, each with its date and
-   source; no forecast;
+1. the BRIEF: the model searches the web (``web_search_20250305``, at most ``max_searches`` searches for the whole
+   reading) and writes the facts since the previous US business day's morning - at least 48 hours - that matter for
+   crude oil, gold, US equities and US Treasuries, each with its date and source; no forecast;
 2. the FORECAST: the model reads that brief alone and answers with a JSON object (``output_config.format``): for
-   each market (``MARKETS``) an integer from -20 to +20 for the next five sessions (+10 a normal conviction that it
-   rises), a confidence, up to three reasons and the main risk.
+   each market (``MARKETS``, all four required) an integer from -20 to +20 for the next five sessions (+10 a normal
+   conviction that it rises), a confidence, up to three reasons and the main risk.
+
+The model thinks before it answers (adaptive thinking is the default of the model, at its default effort): the
+thinking counts toward ``max_tokens``, so the limits leave room for it; an answer cut short is no reading.
 
 Two calls, not one, because structured output does not combine with the citations a search produces. Every attempt
 is one line of ``state/desk/claude-YYYY-MM.jsonl`` - the brief with its sources, the forecast, the usage and the cost
 of each call - and the key never is. Without ``ANTHROPIC_API_KEY`` nothing runs and the books stay in cash; a monthly
-budget stops the calls when it is spent.
+budget stops the calls when it is spent. The same line also goes to a ledger outside the data branch's working tree
+(``OPT_ANALYST_LEDGER``, the runner's workspace): a tick that fails, or a push that does not land, discards the tree,
+and an attempt lost with it would be paid again; the next tick puts it back (``restore_from_ledger``).
 
 The four candidate books with ``forecast: claude`` read one market each (``sleeves`` in ``config/books.yaml``) and
 size it like every book: ``forecast / 10 x target x m / vol``. The decision of day D reads the newest reading taken on
@@ -31,6 +36,7 @@ import hashlib
 import json
 import logging
 import math
+import os
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
@@ -42,7 +48,7 @@ import requests
 
 from engine.core.calendar import is_business_day
 from engine.core.config import CONFIG_DIR, load_config
-from engine.core.store import StateStore
+from engine.core.store import StateStore, dumps
 from engine.core.timeutil import ensure_utc, iso, parse_iso
 
 log = logging.getLogger(__name__)
@@ -63,6 +69,7 @@ STALE_DAYS = 3
 MAX_ATTEMPTS = 3  # per UTC day
 RETRY_AFTER = timedelta(minutes=30)
 MAX_CONTINUATIONS = 3  # a long search turn the API pauses ("pause_turn") is sent back at most this many times
+MIN_SECONDS_LEFT = 20.0  # a request is not started with less than this left of the reading's time
 MAX_SOURCES = 20
 MAX_TEXT = 300  # characters of one reason or risk kept
 KEY_AGE = "claude:age_days"  # the forecast's extra keys, beside the markets' values
@@ -77,7 +84,7 @@ MARKET_WORDS = {
 
 BRIEF_SYSTEM = (
     "You are the news researcher of a paper-trading study: simulated accounts, no real money, no advice to anyone. "
-    "Today is {today} ({weekday}), {clock} UTC. Search the web for the news of the last 48 hours that matter for four "
+    "Today is {today} ({weekday}), {clock} UTC. Search the web for the news since {since} that matter for four "
     "markets: crude oil (Brent and WTI: OPEC+, the Strait of Hormuz and the conflict with Iran, US inventories, "
     "demand), gold, US equities (the S&P 500), and US Treasuries with the Federal Reserve. Use at most {searches} "
     "searches. Then write a factual brief: one short section per market, the most important facts first, each with "
@@ -96,33 +103,31 @@ FORECAST_SYSTEM = (
     "three reasons taken from the brief, and the main risk to the view."
 )
 FORECAST_USER = "Today's brief ({today}):\n\n{brief}"
-SCHEMA: dict[str, Any] = {
+MARKET_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "markets": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "market": {"type": "string", "enum": list(MARKETS)},
-                    "forecast": {
-                        "type": "integer",
-                        "description": "from -20 to +20 for the next five sessions; +10 a normal conviction it rises",
-                    },
-                    "confidence": {"type": "string", "enum": list(CONFIDENCE_LEVELS)},
-                    "reasons": {"type": "array", "items": {"type": "string"}, "description": "up to three"},
-                    "risk": {"type": "string"},
-                },
-                "required": ["market", "forecast", "confidence", "reasons", "risk"],
-                "additionalProperties": False,
-            },
-        }
+        "forecast": {
+            "type": "integer",
+            "description": "from -20 to +20 for the next five sessions; +10 a normal conviction that it rises",
+        },
+        "confidence": {"type": "string", "enum": list(CONFIDENCE_LEVELS)},
+        "reasons": {"type": "array", "items": {"type": "string"}, "description": "up to three, from the brief"},
+        "risk": {"type": "string", "description": "the main risk to the view"},
     },
-    "required": ["markets"],
+    "required": ["forecast", "confidence", "reasons", "risk"],
+    "additionalProperties": False,
+}
+# one entry per market, all four required: a market can never be left out of a reading (a book whose market went
+# missing day after day would hold its position for ever - found in review)
+SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": dict.fromkeys(MARKETS, MARKET_SCHEMA),
+    "required": list(MARKETS),
     "additionalProperties": False,
 }
 
-Transport = Callable[[dict[str, Any]], dict[str, Any]]
+# one request to the Messages API: the payload and the seconds it may take; the JSON answer, or AnalystError
+Transport = Callable[[dict[str, Any], float], dict[str, Any]]
 
 
 class AnalystError(RuntimeError):
@@ -135,15 +140,16 @@ class AnalystConfig:
     model: str = "claude-sonnet-5-5"
     start_utc: time = time(13, 0)
     max_searches: int = 6
-    max_tokens_brief: int = 6000
-    max_tokens_forecast: int = 3000
+    # the model thinks before it answers and the thinking counts toward max_tokens: room for both (found in review)
+    max_tokens_brief: int = 16000
+    max_tokens_forecast: int = 16000
     monthly_budget_usd: float = 20.0
     price_input_per_mtok: float = 2.0
     price_output_per_mtok: float = 10.0
     price_cache_write_per_mtok: float = 2.5
     price_cache_read_per_mtok: float = 0.10
     price_per_search: float = 0.01
-    timeout_s: float = 300.0
+    timeout_s: float = 420.0  # the whole reading, both calls: the tick waits for it
 
     @staticmethod
     def load(config_dir: Path | None = None) -> AnalystConfig:
@@ -157,21 +163,21 @@ class AnalystConfig:
             model=str(raw.get("model", "claude-sonnet-5-5")),
             start_utc=time(int(hh), int(mm)),
             max_searches=int(raw.get("max_searches", 6)),
-            max_tokens_brief=int(raw.get("max_tokens_brief", 6000)),
-            max_tokens_forecast=int(raw.get("max_tokens_forecast", 3000)),
+            max_tokens_brief=int(raw.get("max_tokens_brief", 16000)),
+            max_tokens_forecast=int(raw.get("max_tokens_forecast", 16000)),
             monthly_budget_usd=float(raw.get("monthly_budget_usd", 20.0)),
             price_input_per_mtok=float(raw.get("price_input_per_mtok", 2.0)),
             price_output_per_mtok=float(raw.get("price_output_per_mtok", 10.0)),
             price_cache_write_per_mtok=float(raw.get("price_cache_write_per_mtok", 2.5)),
             price_cache_read_per_mtok=float(raw.get("price_cache_read_per_mtok", 0.10)),
             price_per_search=float(raw.get("price_per_search", 0.01)),
-            timeout_s=float(raw.get("timeout_s", 300)),
+            timeout_s=float(raw.get("timeout_s", 420)),
         )
 
 
 def prompt_version(cfg: AnalystConfig) -> str:
-    """The fingerprint of the rule: the model, the texts, the schema and the number of searches. A reading carries
-    it, so a change of any of them is visible in the archive - and is a new rule, registered first."""
+    """The fingerprint of the rule: the model, the texts, the schema, the number of searches and the token limits. A
+    reading carries it, so a change of any of them is visible in the archive - and is a new rule, registered first."""
     payload = {
         "model": cfg.model,
         "brief": [BRIEF_SYSTEM, BRIEF_USER],
@@ -179,21 +185,23 @@ def prompt_version(cfg: AnalystConfig) -> str:
         "schema": SCHEMA,
         "tool": SEARCH_TOOL,
         "searches": cfg.max_searches,
+        "max_tokens": [cfg.max_tokens_brief, cfg.max_tokens_forecast],
     }
     return hashlib.sha1(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def http_transport(api_key: str, timeout: float = 300.0) -> Transport:
-    """A function that sends one request to the Messages API and returns its JSON. Errors say what the API said and
-    never repeat a header: the key stays out of every log line and of the archive."""
+def http_transport(api_key: str, timeout: float = 420.0) -> Transport:
+    """A function that sends one request to the Messages API and returns its JSON, waiting at most the seconds it is
+    given (never more than ``timeout``). Errors say what the API said and never repeat a header: the key stays out
+    of every log line and of the archive."""
     session = requests.Session()
 
-    def send(payload: dict[str, Any]) -> dict[str, Any]:
+    def send(payload: dict[str, Any], seconds: float) -> dict[str, Any]:
         try:
             response = session.post(
                 API_URL,
                 json=payload,
-                timeout=timeout,
+                timeout=max(1.0, min(timeout, seconds)),
                 headers={"x-api-key": api_key, "anthropic-version": API_VERSION, "content-type": "application/json"},
             )
         except requests.RequestException as exc:
@@ -205,7 +213,10 @@ def http_transport(api_key: str, timeout: float = 300.0) -> Transport:
             except ValueError:
                 what = response.text[:200]
             raise AnalystError(f"HTTP {response.status_code} {what}"[:300])
-        body = response.json()
+        try:
+            body = response.json()
+        except ValueError:
+            raise AnalystError("the API answered something that is not JSON") from None
         if not isinstance(body, dict):
             raise AnalystError("the API answered something that is not a JSON object")
         return body
@@ -288,31 +299,78 @@ def _brief_text(responses: list[list[dict[str, Any]]]) -> str:
     return joined(kept) or joined(passages)
 
 
-def brief_call(send: Transport, cfg: AnalystConfig, now: datetime, usages: list[dict[str, Any]]) -> dict[str, Any]:
-    """The first call: search and write the facts. ``usages`` receives each request's usage as it comes, so that a
-    failure later still leaves the cost of what was billed. A turn the API pauses is sent back at most
-    ``MAX_CONTINUATIONS`` times, and not once ``timeout_s`` has passed since the first request: the tick waits for
-    this call, and its bars and marks must not wait long."""
+WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+
+def news_since(now: datetime) -> datetime:
+    """Where the brief's news start: the morning (``13:00 UTC``) of the previous US business day, and at least 48
+    hours back - on a Monday, Friday morning, so the week's last session is in the brief (found in review: "the last
+    48 hours" on a Monday began on Saturday)."""
     now = ensure_utc(now)
+    prev = now.date() - timedelta(days=1)
+    while not is_business_day(prev, "US"):
+        prev -= timedelta(days=1)
+    return min(now - timedelta(hours=48), datetime.combine(prev, time(13, 0), tzinfo=UTC))
+
+
+def _when_words(t: datetime) -> str:
+    """'Friday 16 October, 13:00 UTC', whatever the locale of the runner."""
+    return f"{WEEKDAYS[t.weekday()]} {_long_day(t.date())}, {t:%H:%M} UTC"
+
+
+class Deadline:
+    """The reading's time: every request gets what is left of ``seconds``, and none starts with less than
+    ``MIN_SECONDS_LEFT`` - the tick waits for the reading, and its bars, fills and decisions must not wait long."""
+
+    def __init__(self, seconds: float):
+        self.end = monotonic() + seconds
+        self.seconds = seconds
+
+    def left(self, what: str) -> float:
+        left = self.end - monotonic()
+        if left < MIN_SECONDS_LEFT:
+            raise AnalystError(f"no time left for {what}: the reading has {self.seconds:.0f} seconds in all")
+        return left
+
+
+def _searches(usages: Iterable[Mapping[str, Any]]) -> int:
+    return sum(int(((u.get("server_tool_use") or {}).get("web_search_requests")) or 0) for u in usages)
+
+
+def brief_call(
+    send: Transport, cfg: AnalystConfig, now: datetime, usages: list[dict[str, Any]], deadline: Deadline | None = None
+) -> dict[str, Any]:
+    """The first call: search and write the facts. ``usages`` receives each request's usage as it comes, so that a
+    failure later still leaves the cost of what was billed. A turn the API pauses is sent back as it is, at most
+    ``MAX_CONTINUATIONS`` times, with the searches the reading has left (``max_searches`` is for the whole reading,
+    not for each request); a brief cut short (``max_tokens``) or refused is no brief."""
+    now = ensure_utc(now)
+    deadline = deadline or Deadline(cfg.timeout_s)
     system = BRIEF_SYSTEM.format(
-        today=now.date().isoformat(), weekday=now.strftime("%A"), clock=now.strftime("%H:%M"), searches=cfg.max_searches
+        today=now.date().isoformat(),
+        weekday=WEEKDAYS[now.weekday()],
+        clock=now.strftime("%H:%M"),
+        since=_when_words(news_since(now)),
+        searches=cfg.max_searches,
     )
+    first = len(usages)
     messages: list[dict[str, Any]] = [{"role": "user", "content": BRIEF_USER}]
     content: list[dict[str, Any]] = []
     responses: list[list[dict[str, Any]]] = []
     stop = None
-    started = monotonic()
-    for attempt in range(1 + MAX_CONTINUATIONS):
-        if attempt and monotonic() - started > cfg.timeout_s:
-            raise AnalystError(f"the search was still going after {cfg.timeout_s:.0f} seconds")
+    for _ in range(1 + MAX_CONTINUATIONS):
+        left = cfg.max_searches - _searches(usages[first:])
+        if left < 1:
+            raise AnalystError(f"the search was paused after all {cfg.max_searches} searches of the reading")
         response = send(
             {
                 "model": cfg.model,
                 "max_tokens": cfg.max_tokens_brief,
                 "system": system,
                 "messages": messages,
-                "tools": [{"type": SEARCH_TOOL, "name": "web_search", "max_uses": cfg.max_searches}],
-            }
+                "tools": [{"type": SEARCH_TOOL, "name": "web_search", "max_uses": left}],
+            },
+            deadline.left("the search"),
         )
         usages.append(dict(response.get("usage") or {}))
         responses.append([b for b in response.get("content") or [] if isinstance(b, dict)])
@@ -324,40 +382,39 @@ def brief_call(send: Transport, cfg: AnalystConfig, now: datetime, usages: list[
         messages = [messages[0], {"role": "assistant", "content": content}]
     if stop == "refusal":
         raise AnalystError("the brief was refused")
+    if stop in ("max_tokens", "model_context_window_exceeded"):
+        raise AnalystError(f"the brief was cut short ({stop})")
     if stop == "pause_turn":
         raise AnalystError(f"the search was still paused after {MAX_CONTINUATIONS} continuations")
     text = _brief_text(responses)
     if not text:
         raise AnalystError(f"the brief has no text (stop: {stop})")
-    searches = sum(int(((u.get("server_tool_use") or {}).get("web_search_requests")) or 0) for u in usages)
-    return {"text": text, "sources": _sources(content), "stop": stop, "searches": searches}
+    return {"text": text, "sources": _sources(content), "stop": stop, "searches": _searches(usages[first:])}
 
 
 def parse_forecast(text: str) -> dict[str, dict[str, Any]]:
-    """The forecast call's JSON -> {market: {forecast, confidence, reasons, risk, clamped}}. A market that is not one
-    of ``MARKETS``, appears twice, or has no finite number is left out: no forecast for it that day. A number out of
-    the scale is cut to +-20 and says so."""
+    """The forecast call's JSON (``SCHEMA``: one entry per market) -> {market: {forecast, confidence, reasons, risk,
+    clamped}}. A market missing or without a finite number is left out: no forecast for it that day (the schema
+    requires all four, so this is the answer of a model that broke it). A number off the scale is cut to +-20 and
+    says so."""
     try:
         data = json.loads(text)
     except ValueError as exc:
         raise AnalystError(f"the forecast is not JSON ({exc})") from None
-    items = data.get("markets") if isinstance(data, dict) else None
-    if not isinstance(items, list):
-        raise AnalystError("the forecast has no list of markets")
+    if not isinstance(data, dict):
+        raise AnalystError("the forecast is not a JSON object")
     out: dict[str, dict[str, Any]] = {}
-    for item in items:
+    for market in MARKETS:
+        item = data.get(market)
         if not isinstance(item, dict):
             continue
-        market = item.get("market")
         value = item.get("forecast")
-        if market not in MARKETS or market in out or isinstance(value, bool):
-            continue
-        if not isinstance(value, int | float) or not math.isfinite(value):
+        if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
             continue
         cut = max(-FORECAST_CAP, min(FORECAST_CAP, float(value)))
         confidence = item.get("confidence")
         reasons = [str(r)[:MAX_TEXT] for r in item.get("reasons") or [] if isinstance(r, str) and r.strip()][:3]
-        out[str(market)] = {
+        out[market] = {
             "forecast": cut,
             "confidence": confidence if confidence in CONFIDENCE_LEVELS else None,
             "reasons": reasons,
@@ -368,9 +425,16 @@ def parse_forecast(text: str) -> dict[str, dict[str, Any]]:
 
 
 def forecast_call(
-    send: Transport, cfg: AnalystConfig, brief: str, now: datetime, usages: list[dict[str, Any]]
+    send: Transport,
+    cfg: AnalystConfig,
+    brief: str,
+    now: datetime,
+    usages: list[dict[str, Any]],
+    deadline: Deadline | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """The second call: the brief alone in, one JSON object out (structured output: no tools, no citations)."""
+    """The second call: the brief alone in, one JSON object out (structured output: no tools, no citations). An
+    answer cut short may not match the schema: no forecast."""
+    deadline = deadline or Deadline(cfg.timeout_s)
     response = send(
         {
             "model": cfg.model,
@@ -380,11 +444,12 @@ def forecast_call(
                 {"role": "user", "content": FORECAST_USER.format(today=ensure_utc(now).date().isoformat(), brief=brief)}
             ],
             "output_config": {"format": {"type": "json_schema", "schema": SCHEMA}},
-        }
+        },
+        deadline.left("the forecast"),
     )
     usages.append(dict(response.get("usage") or {}))
     stop = response.get("stop_reason")
-    if stop in ("refusal", "max_tokens"):
+    if stop in ("refusal", "max_tokens", "model_context_window_exceeded"):
         raise AnalystError(f"the forecast stopped early ({stop}): its JSON may not match the schema")
     text = next((str(b.get("text", "")) for b in response.get("content") or [] if b.get("type") == "text"), "")
     return parse_forecast(text)
@@ -439,18 +504,78 @@ def due(rows: list[dict[str, Any]], cfg: AnalystConfig, now: datetime, readers: 
     return True, "due"
 
 
+def scrub(text: str, secret: str | None, limit: int = MAX_TEXT) -> str:
+    """A message for the archive or a log: the secret replaced FIRST, then the text cut to ``limit`` - cut first, a
+    key split by the cut would survive the replacement (found in review)."""
+    if secret:
+        text = text.replace(secret, "***")
+    return text[:limit]
+
+
+def ledger_rows(path: Path | None) -> list[dict[str, Any]]:
+    """The attempts written to the ledger, oldest first; a line cut short is skipped."""
+    if path is None or not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            row = json.loads(line) if line.strip() else None
+        except ValueError:
+            continue
+        if isinstance(row, dict) and row.get("day") and row.get("ts"):
+            rows.append(row)
+    return rows
+
+
+def _append_ledger(path: Path, record: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(dumps(record) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+
+
+def restore_from_ledger(store: StateStore, path: Path | None) -> int:
+    """Put back into the archive every attempt of the ledger the archive does not have - a tick that failed after the
+    call, or a push that never landed, discarded the data branch's working tree with the line in it. The attempt was
+    paid: the attempt cap and the budget must see it, and an ok reading must not be bought twice. Returns how many
+    lines were put back, each in the month file of its own day."""
+    have = {(str(r.get("day")), str(r.get("ts"))) for r in records(store)}
+    restored = 0
+    for row in ledger_rows(path):
+        key = (str(row["day"]), str(row["ts"]))
+        if key in have:
+            continue
+        store.append_jsonl(LOG, row, ts=_when(row["ts"]) or datetime.combine(date.fromisoformat(key[0]), time(12), UTC))
+        have.add(key)
+        restored += 1
+    return restored
+
+
 def maybe_read(
-    store: StateStore, cfg: AnalystConfig, now: datetime, send: Transport | None, readers: bool
+    store: StateStore,
+    cfg: AnalystConfig,
+    now: datetime,
+    send: Transport | None,
+    readers: bool,
+    ledger: Path | None = None,
+    secret: str | None = None,
 ) -> dict[str, Any] | None:
-    """The tick's step: take the day's reading when it is due and archive the attempt, whatever happened. None
-    without a key (nothing runs, nothing is written); otherwise a short summary for the tick's log."""
+    """The tick's step: take the day's reading when it is due and archive the attempt, whatever happened - in the
+    archive and in the ``ledger`` (outside the data branch's working tree, which a failed tick discards), whose lines
+    the archive lacks are put back first. None without a key (nothing runs, nothing is written); otherwise a short
+    summary for the tick's log. ``secret`` is scrubbed from every message written."""
+    restored = restore_from_ledger(store, ledger) if ledger is not None else 0
     if send is None:
         return None
     now = ensure_utc(now)
     rows = records(store)
     ok, why = due(rows, cfg, now, readers)
     if not ok:
-        return {"status": "not due", "why": why}
+        out: dict[str, Any] = {"status": "not due", "why": why}
+        if restored:
+            out["restored"] = restored
+        return out
     usages: list[dict[str, Any]] = []
     record: dict[str, Any] = {
         "day": now.date().isoformat(),
@@ -463,31 +588,40 @@ def maybe_read(
         "sources": [],
         "markets": {},
     }
+    deadline = Deadline(cfg.timeout_s)
     try:
-        brief = brief_call(send, cfg, now, usages)
+        brief = brief_call(send, cfg, now, usages, deadline)
         record.update(
             brief=brief["text"], sources=brief["sources"], brief_stop=brief["stop"], searches=brief["searches"]
         )
-        markets = forecast_call(send, cfg, brief["text"], now, usages)
+        markets = forecast_call(send, cfg, brief["text"], now, usages, deadline)
         record["markets"] = markets
         if markets:
             record["status"] = "ok"
         else:
             record["error"] = "the forecast named no market of the four"
     except AnalystError as exc:
-        record["error"] = str(exc)
+        record["error"] = scrub(str(exc), secret)
     except Exception as exc:  # the reading is on the side of the books: whatever broke is written, never raised
-        log.exception("analyst reading failed")
-        record["error"] = f"{type(exc).__name__}: {str(exc)[:240]}"
+        record["error"] = scrub(f"{type(exc).__name__}: {exc}", secret)
+        log.error("analyst reading failed: %s", record["error"])
     record["usage"] = usages
     record["cost_usd"] = round(sum(call_cost(u, cfg) for u in usages), 4)
     store.append_jsonl(LOG, record, ts=now)
-    return {
+    if ledger is not None:
+        try:
+            _append_ledger(ledger, record)
+        except OSError as exc:  # the archive has it; the ledger only guards against losing the archive's line
+            log.warning("analyst ledger not written: %s", exc)
+    summary: dict[str, Any] = {
         "status": record["status"],
         "error": record["error"],
         "markets": {m: v["forecast"] for m, v in record["markets"].items()},
         "cost_usd": record["cost_usd"],
     }
+    if restored:
+        summary["restored"] = restored
+    return summary
 
 
 def write_status(
@@ -713,12 +847,13 @@ def block(store: StateStore, cfg: AnalystConfig, day: date, books: list[dict[str
             "max_attempts": MAX_ATTEMPTS,
             "text": (
                 f"Once a day on a US business day, after {cfg.start_utc.strftime('%H:%M')} UTC: {cfg.model} searches "
-                f"the news of the last 48 hours (at most {cfg.max_searches} searches) and writes a brief of the facts "
-                "with their sources; a second call reads the brief alone and gives oil, gold, the S&P 500 and long "
-                "Treasuries a forecast from -20 to +20 for the next five sessions. A book reads the newest reading of "
-                f"its decision day or the {STALE_DAYS} days before; older, it closes. No backtest can exist: a model "
-                "trained on the past knows the prices a replay would ask it to forecast. Paper only; the prior is "
-                "that it has no edge; never promoted."
+                "the news since the previous business day's morning, at least 48 hours back (at most "
+                f"{cfg.max_searches} searches), and writes a brief of the facts with their sources; a second call "
+                "reads the brief alone and gives oil, gold, the S&P 500 and long Treasuries a forecast from \u221220 "
+                "to +20 for the next five sessions. A book reads the newest reading of its decision day or the "
+                f"{STALE_DAYS} days before; older, it closes. No backtest can exist: a model trained on the past knows "
+                "the prices a replay would ask it to forecast. Paper only; the prior is that it has no edge; never "
+                "promoted."
             ),
         },
         "disclaimer": "A language model's reading of the news for a paper-trading study: not advice, not a verdict.",

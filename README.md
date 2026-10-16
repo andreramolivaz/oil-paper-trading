@@ -187,7 +187,9 @@ stato complessivo giallo, senza alcun crash (dettagli in `docs/DATA_SOURCES.md`)
 ## Accendere l'analista Claude
 
 1. Nella console di Anthropic (<https://console.anthropic.com/>), nell'organizzazione o nello spazio di lavoro che
-   ha i crediti, creare una chiave API (la voce «API keys»).
+   ha i crediti, creare una chiave API (la voce «API keys»). La lettura usa la ricerca web dell'API: deve essere
+   abilitata per quell'organizzazione (un amministratore può spegnerla; spenta, ogni lettura fallisce e la pagina
+   mostra l'errore dell'API).
 2. Su GitHub, nel repository: Settings → Secrets and variables → Actions → **New repository secret**, nome
    `ANTHROPIC_API_KEY`, valore la chiave. **La chiave va solo lì**: mai in un file, in un messaggio o in una issue.
    Il motore non la scrive mai: né nell'archivio, né nei log, né sul sito.
@@ -199,8 +201,8 @@ stato complessivo giallo, senza alcun crash (dettagli in `docs/DATA_SOURCES.md`)
    «Off»), mostra la lettura per mercato con le ragioni, il riassunto con le fonti e quanto è costata.
 
 Quanto costa: ogni lettura sono due chiamate a Claude Sonnet 5.5 (2 $ e 10 $ per milione di token in ingresso e in
-uscita) più fino a sei ricerche web (0,01 $ l'una); stimato 0,10-0,25 $ a lettura, 3-6 $ al mese, una lettura per
-giorno lavorativo. Un tetto in `config/analyst.yaml` (`monthly_budget_usd: 20`) ferma le chiamate quando la spesa del
+uscita; il modello pensa prima di rispondere e il pensiero si paga come uscita) più fino a sei ricerche web (0,01 $
+l'una); stimato 0,10-0,25 $ a lettura, 3-6 $ al mese, una lettura per giorno lavorativo. Un tetto in `config/analyst.yaml` (`monthly_budget_usd: 20`) ferma le chiamate quando la spesa del
 mese, calcolata dall'uso che l'API riporta, lo raggiunge. Con 200 $ di crediti sono anni. Per spegnerlo basta
 togliere il segreto (o `enabled: false` nel file): i libri leggono l'ultima lettura per tre giorni, poi si chiudono.
 

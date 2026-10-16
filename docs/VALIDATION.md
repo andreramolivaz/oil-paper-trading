@@ -190,6 +190,27 @@ posto delle chiusure, il −2 del fondo inverso tolto dall'esposizione, gli eseg
 eseguiti dal più vecchio, il gruppo dal ruolo configurato, l'ultima decisione della vita precedente): per tutti e
 nove un test di `tests/test_desk_export.py` fallisce.
 
+**L'analista Claude (fase 17, 16 ottobre 2026).** Prima della prima lettura, un agente che non aveva visto scrivere il
+codice lo ha confrontato con la documentazione dell'API di Anthropic e lo ha attaccato con simulatori suoi: giri veri
+con un trasporto finto, lo script del ramo dati contro un remoto locale, la pagina in Playwright su un `desk.json`
+avvelenato. Le richieste sono quelle che la documentazione chiede; la chiave non è in nessuno dei 41 file che
+quattro giri e un'esportazione scrivono (fra i casi, un errore di `requests` che la conteneva nel messaggio); i
+diciassette libri di prima hanno barre, eseguiti, marcature ed equity identici a `main` e l'impronta del backtest
+non cambia. Che cosa ha trovato, tutto corretto prima della prima lettura (`docs/RESEARCH.md` 12 F): un tentativo
+pagato che un giro fallito o un push mancato cancellava insieme all'albero del ramo dati (otto giri, sedici
+richieste pagate, nessuna in archivio: ora un registro fuori dall'albero lo rimette); i limiti di token di un modello
+che non pensa; un riassunto troncato accettato; sei ricerche per richiesta invece che per lettura; il tempo del passo
+senza un tetto vero; un mercato che poteva mancare per sempre; le 48 ore che il lunedì cominciavano sabato; la
+chiave tolta da un messaggio dopo averlo tagliato; la chiave data a tutto il job del runner; la motivazione generica
+di un libro senza previsione; parole lunghe che allargavano la pagina su un telefono. Quattordici difetti sono poi
+stati rimessi nel codice uno alla volta (il registro mai riletto, la chiave tolta dopo il taglio, il riassunto
+troncato accettato, sei ricerche per richiesta, una decisione che legge una lettura successiva, una lettura vecchia
+ancora letta, nessun taglio alla scala, ogni indirizzo preso per una fonte, nessuna scadenza per una richiesta, lo
+schema che permette di omettere un mercato, i tentativi falliti non contati, il budget che ignora i fallimenti, la
+narrazione dentro il riassunto, la chiave nel file di stato): tredici fanno fallire un test di
+`tests/test_desk_analyst.py`; il quattordicesimo è innocuo, perché il file di stato scrive comunque un sì o un no
+(`bool`), e tolta anche quella protezione il test lo trova.
+
 ---
 
 ## Il primo sistema: ciclo di vita e risultati
