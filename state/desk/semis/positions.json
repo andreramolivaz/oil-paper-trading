@@ -1,0 +1,20 @@
+[
+  {
+    "instrument": "SMH",
+    "qty_bbl": 2.0,
+    "avg_price": 566.6680467920095,
+    "opened_ts": "2026-10-14T20:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 568.02001953125,
+    "low_water": 539.0750122070312,
+    "strategies": [
+      "trend",
+      "accel",
+      "skew"
+    ],
+    "last_price": 539.7899780273438,
+    "last_ts": "2026-10-16T22:18:19.947017Z"
+  }
+]

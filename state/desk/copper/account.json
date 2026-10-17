@@ -1,0 +1,62 @@
+{
+  "account_id": "desk-copper",
+  "epoch": 1,
+  "cash": 10000.0,
+  "positions": {
+    "CPER": {
+      "instrument": "CPER",
+      "qty_bbl": 123.0,
+      "avg_price": 40.24266426327834,
+      "opened_ts": "2026-10-14T14:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 40.31999969482422,
+      "low_water": 39.20000076293945,
+      "strategies": [
+        "trend",
+        "skew"
+      ],
+      "last_price": 39.5,
+      "last_ts": "2026-10-16T22:18:19.947017Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10000.902295616765,
+  "day_start_equity": 9902.502389458317,
+  "day_start_date": "2026-10-16",
+  "last_mark_ts": "2026-10-16T22:18:19.947017Z",
+  "last_prices": {
+    "CPER": 39.5
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-16T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "6e2ad8413e839cb30f65d04d75fb3725026d520f"
+  ],
+  "n_fills": 1,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-13T21:47:30.904489Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9882.822408226628,
+  "epoch_n_fills": 1,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 0.0,
+  "total_slippage_usd": 4.017816993099614,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "CPER": 123.0
+  },
+  "distributions_seen": {},
+  "last_equity": 9908.652295616765,
+  "last_bar_ts": {
+    "CPER|30m": "2026-10-16T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

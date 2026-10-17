@@ -1,0 +1,66 @@
+{
+  "account_id": "desk-semis",
+  "epoch": 1,
+  "cash": 9977.307887847217,
+  "positions": {
+    "SMH": {
+      "instrument": "SMH",
+      "qty_bbl": 2.0,
+      "avg_price": 566.6680467920095,
+      "opened_ts": "2026-10-14T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 568.02001953125,
+      "low_water": 539.0750122070312,
+      "strategies": [
+        "trend",
+        "accel",
+        "skew"
+      ],
+      "last_price": 539.7899780273438,
+      "last_ts": "2026-10-16T22:18:19.947017Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10000.0,
+  "day_start_equity": 9976.515940190378,
+  "day_start_date": "2026-10-16",
+  "last_mark_ts": "2026-10-16T22:18:19.947017Z",
+  "last_prices": {
+    "SMH": 539.7899780273438
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-16T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "06b93b3e0c7c0a40d57149350b14550f14bba3d2",
+    "63244d55488e718b67b1c9bcbb5f6461daef174e"
+  ],
+  "n_fills": 2,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-14T01:22:57.606296Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9921.406137944285,
+  "epoch_n_fills": 2,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": -22.692112152783352,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.3081129633650143,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "SMH": 3.0
+  },
+  "distributions_seen": {
+    "SMH": "2026-10-16"
+  },
+  "last_equity": 9923.551750317885,
+  "last_bar_ts": {
+    "SMH|30m": "2026-10-16T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

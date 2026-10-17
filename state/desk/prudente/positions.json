@@ -1,0 +1,23 @@
+[
+  {
+    "instrument": "BNO",
+    "qty_bbl": 28.0,
+    "avg_price": 64.8510539148328,
+    "opened_ts": "2026-10-09T14:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 67.48989868164062,
+    "low_water": 63.33000183105469,
+    "strategies": [
+      "trend",
+      "carry",
+      "accel",
+      "skew",
+      "copper",
+      "carry_momentum"
+    ],
+    "last_price": 67.19000244140625,
+    "last_ts": "2026-10-16T22:18:19.947017Z"
+  }
+]

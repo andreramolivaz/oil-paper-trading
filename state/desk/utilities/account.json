@@ -1,0 +1,61 @@
+{
+  "account_id": "desk-utilities",
+  "epoch": 1,
+  "cash": 10000.0,
+  "positions": {
+    "XLU": {
+      "instrument": "XLU",
+      "qty_bbl": 17.0,
+      "avg_price": 42.14428886021822,
+      "opened_ts": "2026-10-16T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 42.290000915527344,
+      "low_water": 42.1349983215332,
+      "strategies": [
+        "skew"
+      ],
+      "last_price": 42.209999084472656,
+      "last_ts": "2026-10-16T22:18:19.947017Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10001.202091970285,
+  "day_start_equity": 10000.0,
+  "day_start_date": "2026-10-16",
+  "last_mark_ts": "2026-10-16T22:18:19.947017Z",
+  "last_prices": {
+    "XLU": 42.209999084472656
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-16T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "fafad43cc74f8271642403c6dce34141ea45abde"
+  ],
+  "n_fills": 1,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-14T01:22:57.606296Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 10000.0,
+  "epoch_n_fills": 1,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.07292099968623665,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {},
+  "distributions_seen": {
+    "XLU": "2026-10-16"
+  },
+  "last_equity": 10001.117073812326,
+  "last_bar_ts": {
+    "XLU|30m": "2026-10-16T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}
