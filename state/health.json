@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T09:12:51.058914Z",
+  "checked_at": "2026-10-17T13:38:49.600022Z",
   "sources": [
     {
       "source": "bab_el_mandeb",
@@ -367,10 +367,10 @@
     {
       "source": "kalshi",
       "status": "green",
-      "checked_at": "2026-10-17T09:12:51.058914Z",
-      "last_success_at": "2026-10-17T09:13:08.112042Z",
-      "data_asof": "2026-10-17T09:12:51.061249Z",
-      "latency_ms": 17053,
+      "checked_at": "2026-10-17T13:38:49.600022Z",
+      "last_success_at": "2026-10-17T13:39:06.668477Z",
+      "data_asof": "2026-10-17T13:38:49.604026Z",
+      "latency_ms": 17068,
       "message": "adapter kalshi",
       "fallback_used": null,
       "rows": 368
