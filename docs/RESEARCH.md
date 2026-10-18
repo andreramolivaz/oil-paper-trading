@@ -1641,7 +1641,7 @@ della prima lettura** (nessuna lettura esiste, quindi nessun risultato è stato 
   capiterà nell'archivio dirà se è giusto (con 6 ricerche è improbabile); la ricerca web deve essere abilitata per
   l'organizzazione che ha i crediti, altrimenti ogni lettura fallisce con l'errore dell'API scritto in pagina.
 
-## 13. Fase 18 (18 ottobre 2026, 03:30 UTC): punti di svolta e regimi di volatilità, registrati prima di misurare
+## 13. Fase 18 (18 ottobre 2026, 02:30 UTC): punti di svolta e regimi di volatilità, registrati prima di misurare
 
 La domanda del proprietario (16-17 ottobre): «rendere il Dinamico più forte». La risposta del 16, dopo la letteratura
 recente, era che nessun ritocco del segnale porta lontano (Sepp e Lucic, luglio 2026: tre modi di seguire il trend su
@@ -1765,6 +1765,51 @@ media a 7 giorni dei transiti riportati da IMF PortWatch sopra 60»): è una sco
 traffico. Che cosa cambia: le parole (ogni decisione dirà «transiti di petroliere visibili sull'AIS»), il commento
 dell'adattatore e `docs/DATA_SOURCES.md`; la regola resta com'è stata dichiarata finché il proprietario non decide se
 tenerla, toglierla o cambiarle la misura.
+
+### F. Risultati (18 ottobre, 02:50 UTC: scritti dopo la misura)
+
+La registrazione qui sopra è il commit 231d504d, spinto alle 02:31 UTC prima che lo script girasse (il titolo diceva
+03:30 per errore: l'ora è corretta qui, il resto del testo è quello del commit). Lo script è
+`scripts/research_phase18.py`. Prima dei numeri, tre controlli: tagliare i dati a sei date a caso su BNO, WTI, GLD e
+SPY non cambia nessun valore precedente delle due regole (nessuno sguardo al futuro); il replay del desk com'è
+riproduce il backtest pubblicato (0,78 i tre del greggio, 1,23 i tredici, 0,80 il Dinamico); la manica nuova ha la
+scala della vecchia (media di |F| fra 8,3 e 10,0 contro 7,3-10,8 delle quattro EWMAC, correlazione fra le due
+0,48-0,69) e l'attenuazione divisa per 1,25 vale in media fra 0,91 e 1,08 secondo il veicolo.
+
+Sharpe; i tre del greggio dall'11 agosto 2011 al 16 ottobre 2026 (metà al 14 marzo 2019), i tredici dal 31 gennaio
+2013 (metà al 9 dicembre 2019):
+
+| Variante | 3 greggio | 1ª metà | 2ª metà | 13 libri | 1ª metà | 2ª metà | Dinamico |
+|---|---|---|---|---|---|---|---|
+| Il desk com'è | 0,78 | 0,78 | 0,78 | 1,23 | 1,02 | 1,42 | 0,80 |
+| **A**, punti di svolta come registrati | 0,83 | 0,89 | 0,78 | 1,27 | 1,16 | **1,38** | 0,82 |
+| A.a, il veloce a 1 mese | 0,82 | 0,84 | 0,81 | 1,27 | 1,12 | 1,41 | 0,84 |
+| A.b, BNO sulla serie del fondo | 0,83 | 0,91 | 0,77 | 1,27 | 1,17 | 1,36 | 0,83 |
+| A.c, solo il segno del trend a 12 mesi | 0,82 | 0,86 | 0,79 | 1,27 | 1,15 | 1,39 | 0,84 |
+| A.d, stima ogni 12 / ogni 60 mesi | 0,83 / 0,83 | 0,88 / 0,88 | 0,78 / 0,78 | 1,27 / 1,27 | 1,16 / 1,15 | 1,37 / 1,37 | 0,82 / 0,82 |
+| **B**, attenuazione come registrata | 0,76 | 0,77 | 0,74 | **1,17** | 1,02 | **1,30** | 0,83 |
+| B.a, senza la divisione per 1,25 | 0,79 | 0,80 | 0,78 | 1,20 | 1,05 | 1,34 | 0,87 |
+| B.b, solo la manica trend | 0,79 | 0,81 | 0,77 | 1,23 | 1,06 | 1,39 | 0,83 |
+| B.c, BNO con la volatilità del fondo | 0,72 | 0,72 | 0,73 | 1,14 | 0,97 | 1,28 | 0,73 |
+| A / B / il desk, a costi doppi | 0,79 / 0,71 / 0,73 | | | 1,23 / 1,11 / 1,17 | | | 0,81 / 0,81 / 0,76 |
+
+I verdetti, con la regola del punto D:
+
+- **A non entra.** Sui tredici libri +0,04 sull'intera finestra, ma tutto nella prima metà (+0,14): nella seconda
+  −0,04, sotto il +0,05 richiesto. I tre del greggio +0,05 (+0,11 e +0,00); a costi doppi i tredici +0,06. E il
+  meccanismo dell'articolo non c'entra: il solo segno del trend a 12 mesi (il vicino c, la base dell'articolo) fa lo
+  stesso, e la differenza fra la regola e la sua base, che nell'articolo vale +0,16 su 43 future, qui è +0,01 sul
+  greggio, −0,00 sui tredici e −0,02 sul Dinamico. Quello che sposta i numeri è sostituire le quattro EWMAC giornaliere
+  con un trend mensile più lento, e quel guadagno sta nel 2011-2019: nel 2019-2026 è nullo sul greggio e negativo sui
+  tredici. È un'osservazione fatta dopo aver guardato, non una regola; se mai la si volesse, andrebbe registrata da sé.
+- **B non entra.** I tredici libri −0,06 (+0,00 e −0,12), il greggio −0,02, a costi doppi −0,06; la perdita massima
+  dei tredici passa dal 10% al 12%. Il Dinamico da solo sale (0,83, e 0,87 senza la divisione per 1,25), ma è un libro
+  su tredici e i tre del greggio insieme scendono: guardato dopo, non conta. Leggere il regime sul fondo (B.c)
+  peggiora tutto; la sola manica trend (B.b) non cambia nulla.
+- La perdita massima del Dinamico peggiora con tutte e due (−44% con A, −49% con B, contro −41%).
+- Il prior era scritto così, ed è andata così: nessuna delle due passa. Nessun libro cambia e l'impronta del
+  backtest resta b66ecbb82b75. Le leve che restano sono quelle del 16 ottobre: più mercati nello stesso conto e gli
+  interessi sulla liquidità.
 
 ## Fonti
 

@@ -14,7 +14,9 @@ The rules, from ``config/allocator.yaml`` (measured in ``docs/RESEARCH.md``, cha
   Off by default: it cuts the maximum loss by a third at the price of 0.05-0.14 of Sharpe, which a lower risk
   target achieves for free. The owner's lever.
 * **A closed Strait of Hormuz**: tanker transits below a tenth of their normal halve the weekend ceilings. A
-  policy, not a measurement.
+  policy, not a measurement. The count is IMF PortWatch's, from AIS, so it sees only the ships that cross with
+  their transponder on: since March 2026 most of them do not (Kpler, Drewry), and 1% of normal there is a lower
+  bound of the traffic, not the traffic (docs/RESEARCH.md 13 E).
 * **Promotion and retirement**, on a book's own live record: a candidate with twelve months of fills, a
   positive realised Sharpe and a drawdown within its backtest's becomes core; any book with twenty-four months
   and a realised Sharpe below -0.5 is retired (scale 0: flat, no new risk) until the owner reopens it.
@@ -290,7 +292,10 @@ def describe(cfg: AllocatorConfig) -> dict[str, Any]:
         f"risk x {cfg.runup_scale:g} for {cfg.runup_horizon_days} trading days"
     )
     drawdown = f"risk x max({cfg.drawdown_floor:g}, 1 - drawdown / {cfg.drawdown_max:.0%}), per book"
-    hormuz = f"transits below {cfg.hormuz_closed_share:.0%} of normal: weekend ceilings x {cfg.hormuz_weekend_scale:g}"
+    hormuz = (
+        f"AIS-visible tanker transits below {cfg.hormuz_closed_share:.0%} of normal: "
+        f"weekend ceilings x {cfg.hormuz_weekend_scale:g}"
+    )
     lifecycle = (
         f"core after {cfg.promote_after_months} months live with Sharpe > {cfg.promote_min_sharpe:g} and the "
         f"drawdown within the backtest's (a book without a backtest is never promoted); retired after "

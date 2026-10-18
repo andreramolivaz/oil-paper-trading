@@ -134,7 +134,8 @@ class Desk:
                 if weekend < 1.0:
                     scale.weekend = weekend
                     scale.reasons.append(
-                        f"Hormuz transits at {hormuz_ratio:.0%} of normal: weekend ceiling x {weekend:g}"
+                        f"AIS-visible tanker transits through Hormuz at {hormuz_ratio:.0%} of normal: "
+                        f"weekend ceiling x {weekend:g}"
                     )
                 if self.role_of(book) == ROLE_RETIRED:
                     scale.risk = 0.0

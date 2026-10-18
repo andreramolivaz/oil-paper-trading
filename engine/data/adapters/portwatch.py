@@ -6,9 +6,12 @@ Strait of Hormuz series runs from 2019-01-01, is updated on Tuesdays with data u
 shows tanker transits falling from about 50 a day to about 1 a day after 2026-02-28.
 
 Why the engine reads it: in the 2026 regime the price of Brent is a bet on whether this strait is open, and
-this is the one free series that measures the thing itself rather than headlines about it. It is shown on the
-terminal as context and NO rule reads it: there is exactly one closure in the sample, and nothing can be
-validated on one episode.
+this is the one free series that counts ships rather than headlines. It counts the ships that cross with their
+AIS transponder on, and since March 2026 most do not: Kpler counted 40.6% of the crossings of March-May with
+AIS off, Drewry "the majority" by late August, and UKMTO's 254 transits in the week to 16 October are many
+times PortWatch's 3-4 a day. The series is therefore a lower bound of the traffic (docs/RESEARCH.md 13 E). The
+allocator's weekend rule reads it as a declared policy (chapter 9 D4 ii; one closure in the sample, nothing to
+validate), and Kalshi's "strait back to normal" market resolves on its count of all transit calls.
 
 Frame contract: index ``date`` (tz-naive midnight), columns ``portid``, ``portname``, ``n_tanker``, ``n_cargo``,
 ``n_total``, ``capacity_tanker``, ``capacity`` and ``published_at``.

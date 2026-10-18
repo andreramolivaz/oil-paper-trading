@@ -469,7 +469,8 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   The three group colours are the validated series slots 1-3 (`groupColor`), in the engine's fixed group order.
 
 ## State of play (2026-10-16)
-Phases 1-17 of `docs/PLAN.md` are implemented (17 waits for the owner's `ANTHROPIC_API_KEY` to take a reading). Phase 10 (8 October) added the desk after three days of a flat
+Phases 1-18 of `docs/PLAN.md` are implemented (17 waits for the owner's `ANTHROPIC_API_KEY` to take a reading; 18 was
+research and changed no book). Phase 10 (8 October) added the desk after three days of a flat
 account with zero trades. The four causes, all fixed and pinned by `tests/test_tick_job.py`:
 1. nothing was promoted, so the master's weight was zero by construction (now: the desk books trade);
 2. the end of day ran after midnight London and asked for a date that had not settled (now: latest SETTLED date);
@@ -982,6 +983,19 @@ ANTHROPIC_API_KEY secret ..."), the signals section and a Claude book's page on 
 Still NOT seen: a real reading (it needs the owner's secret, then the first tick after 13:00 UTC on a US business
 day), its cost against the estimate, a Claude book deciding on a reading, the ledger putting an attempt back, a
 double pause, the backtest page listing the Claude books among the excluded (the weekly replay, Saturday).
+
+Phase 18 (17-18 October, on the owner's "make the Dynamic stronger"; `docs/RESEARCH.md` chapter 13, registered and
+pushed as 231d504d before a number was computed) measured two published rules once on the desk's own replay
+(`scripts/research_phase18.py`, the data branch at d53517d5): Goulding, Harvey and Mazzoleni's turning points in place
+of the trend sleeve, and Carver's vol attenuation of every sleeve. Neither enters, as the prior said: the turning
+points add +0.14 of Sharpe to the thirteen books in 2013-2019 and -0.04 in 2019-2026 (Dynamic 0.80 -> 0.82), and the
+paper's own mechanism is worth zero here (the plain 12-month sign does the same); the attenuation costs the thirteen
+books 0.06 and the oil books 0.02. No book changed, the fingerprint is still b66ecbb82b75. Checked on the way: the
+strait rule reads PortWatch's AIS-visible tankers, and since March most ships cross with AIS off (Kpler 40.6% of
+March-May crossings, Drewry "the majority" by late August, UKMTO 254 transits in the week to 16 October against
+PortWatch's 3-4 a day): the 1% of normal is a lower bound of the traffic. The words now say so (decisions, the
+allocator's rule text, the signals page); the rule itself is unchanged until the owner decides. Kalshi's "strait back
+to normal" market resolves on the same AIS count.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

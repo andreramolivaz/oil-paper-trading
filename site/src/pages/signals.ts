@@ -79,7 +79,7 @@ function market(doc: DeskDoc): string {
   if (m.hormuz) {
     const h = m.hormuz;
     cells.push(`<div class="t-quote">
-      <div class="k">Hormuz <span class="t-dim">tankers/day</span></div>
+      <div class="k">Hormuz <span class="t-dim">tankers/day on AIS</span></div>
       <div class="v">${num(h.tankers_7d, 1)} ${span(h.closed ? "down" : "", `${percent(h.ratio, 0)} of normal`)}</div>
       <div class="s">7-day mean to ${escapeHtml(day(h.asof))} · normal ${num(h.baseline, 0)}</div>
     </div>`);
@@ -87,7 +87,7 @@ function market(doc: DeskDoc): string {
   return section(
     "Market",
     `<div class="t-quotes">${cells.join("")}</div>`,
-    "Yahoo prices, 10-15 minutes late; copper and dollar: daily closes; Hormuz: IMF PortWatch (AIS), weekly",
+    "Yahoo prices, 10-15 minutes late; copper and dollar: daily closes; Hormuz: IMF PortWatch, weekly, only the ships with AIS on (most now cross without)",
     "market",
   );
 }
@@ -425,7 +425,7 @@ function allocator(doc: DeskDoc): string {
   const strait =
     h.transit_ratio === null || h.transit_ratio === undefined
       ? "no transit reading recent enough: ceilings unchanged"
-      : `transits at ${percent(h.transit_ratio, 0)} of normal → ${
+      : `AIS-visible tanker transits at ${percent(h.transit_ratio, 0)} of normal → ${
           h.closed ? `weekend ceilings × ${num(h.weekend_scale, 1)}` : "ceilings unchanged"
         }`;
   const live = doc.books
@@ -549,7 +549,7 @@ function measuredLine(e: PredictionEvent): string {
     return `<p class="t-dim">The desk's own reading, IMF PortWatch to ${escapeHtml(day(m.asof as string))}: ${num(
       m.tankers_7d as number,
       1,
-    )} tankers a day, ${ratio === null ? EMPTY : percent(ratio, 0)} of normal. The market counts every transit call against its own threshold; the two are not the same number.</p>`;
+    )} tankers a day with AIS on, ${ratio === null ? EMPTY : percent(ratio, 0)} of normal. The market counts every transit call PortWatch sees against its own threshold; the two are not the same number, and neither sees the ships that cross with AIS off, most of them since March.</p>`;
   }
   if ("crude_stocks_mmbbl" in m) {
     return `<p class="t-dim">Last EIA figure: ${num(m.crude_stocks_mmbbl as number, 1)} million barrels, week ending ${escapeHtml(
@@ -858,7 +858,8 @@ function howTo(): string {
     <p><b>The allocator.</b> The desk recalibrates itself "depending on how it goes" by published rules, each measured on
     the replay before it was switched on and shown on this page. The bubble switch (Greenwood, Shleifer and You): after a
     vehicle's price has doubled in two years, its books run at half their volatility target for a year. The strait rule:
-    with tanker transits below a tenth of normal, the ceilings before a weekend are halved. The lifecycle: a candidate
+    with the tanker transits visible on AIS below a tenth of normal, the ceilings before a weekend are halved (a lower
+    bound of the traffic: since March most ships cross with AIS off). The lifecycle: a candidate
     becomes core after twelve months live with a positive realised Sharpe and a drawdown within its backtest's; any book
     is retired, flat, after twenty-four months with a realised Sharpe below ${MINUS}0.5. Drawdown control was measured and
     left off. Nothing in it ever raises a position above a book's own rules.</p>
