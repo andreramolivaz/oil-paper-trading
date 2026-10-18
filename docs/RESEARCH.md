@@ -1641,6 +1641,131 @@ della prima lettura** (nessuna lettura esiste, quindi nessun risultato è stato 
   capiterà nell'archivio dirà se è giusto (con 6 ricerche è improbabile); la ricerca web deve essere abilitata per
   l'organizzazione che ha i crediti, altrimenti ogni lettura fallisce con l'errore dell'API scritto in pagina.
 
+## 13. Fase 18 (18 ottobre 2026, 03:30 UTC): punti di svolta e regimi di volatilità, registrati prima di misurare
+
+La domanda del proprietario (16-17 ottobre): «rendere il Dinamico più forte». La risposta del 16, dopo la letteratura
+recente, era che nessun ritocco del segnale porta lontano (Sepp e Lucic, luglio 2026: tre modi di seguire il trend su
+84 future, 1999-2026, 0,47-0,55 di Sharpe netto, come l'indice dei fondi trend; Valeyre, luglio 2026: un solo filtro
+fa quanto un insieme complicato, circa 0,2 su un mercato e 1,24 su settanta) e che le leve vere sono più mercati e
+gli interessi sulla liquidità (capitolo 8 D). Fra le idee sul segnale il proprietario ne ha scelte due, scritte qui
+**prima di calcolare un solo numero sui nostri dati**: i punti di svolta di Goulding, Harvey e Mazzoleni (A) e
+l'attenuazione per regime di volatilità di Carver (B). La parte E è un controllo dei dati dello stretto, non una
+regola.
+
+### A. Punti di svolta (Goulding, Harvey e Mazzoleni, *Breaking Bad Trends*, Financial Analysts Journal 2023)
+
+Che cosa fa l'articolo: su 43 future (11 indici azionari, 8 obbligazionari, 24 materie prime), con dati mensili dal
+1990 al 2022, un trend lento (la media dei 12 rendimenti mensili precedenti) e uno veloce (gli ultimi 2). Quando hanno
+lo stesso segno (toro, orso) la posizione è quella del trend a 12 mesi; quando non sono d'accordo (correzione: lento
+positivo e veloce negativo; rimbalzo: il contrario) la posizione mescola i due con pesi stimati sulla storia della
+stessa attività dopo ciascuno stato. Lo Sharpe passa da 0,64 a 0,80 sul 1990-2022 e da 0,06 a 0,22 dopo il 2009, la
+rotazione da 229% a 399% l'anno, e la regola resta meglio del trend statico finché i costi stanno sotto 29 pb.
+
+La regola come la misuro (`scripts/research_phase18.py`):
+
+1. Rendimenti mensili (dall'ultima chiusura di un mese all'ultima del successivo) della serie su cui la manica legge:
+   per i libri sul greggio (BNO e /MCL) la serie investibile lunga del WTI, quella da cui la manica dell'asimmetria è
+   già letta (il fondo Brent ha sedici anni, pochi per stimare i pesi); per ogni satellite il suo fondo.
+2. All'inizio del mese m: lento = media dei 12 rendimenti mensili prima di m, veloce = media dei 2 prima di m. Stato:
+   toro (lento ≥ 0 e veloce ≥ 0), orso (tutti e due < 0), correzione (lento ≥ 0, veloce < 0), rimbalzo (lento < 0,
+   veloce ≥ 0).
+3. Posizione: toro +1, orso −1; in correzione e in rimbalzo w_s = MEDIA[r|s] / (C · MEDIA[r²|s]), limitata a
+   [−1, 1], con C = (f_toro · MEDIA[r|toro] − f_orso · MEDIA[r|orso]) / MEDIA[r²|toro o orso] e f la frequenza di
+   ciascuno dei due stati fra i mesi toro o orso. Sono le equazioni (8)-(10) dell'articolo scritte come posizioni:
+   w_Co = 1 − 2a_Co e w_Re = 2a_Re − 1, sicché limitare a in [0, 1] è limitare w in [−1, 1]; il secondo momento al
+   denominatore è il restringimento verso la posizione senza informazione (a = ½, w = 0) che l'articolo descrive. Con
+   C ≤ 0 (il trend non ha mai pagato nei mesi toro e orso di quell'attività) w = 0.
+4. I pesi si stimano ogni 30 mesi, contati dal primo mese che ha uno stato, su tutti i mesi completi prima, e solo
+   con almeno 12 mesi in ciascuno dei quattro stati; prima di allora la posizione è quella statica (correzione +1,
+   rimbalzo −1: il segno del trend a 12 mesi).
+5. Previsione = 10 × posizione (10 è la previsione media della scala di Carver), ferma per tutto il mese m, dalla
+   decisione del primo giorno di borsa di m.
+6. Prende il posto della manica `trend` (le quattro EWMAC) in ogni libro che si rigioca; il resto è identico (le altre
+   maniche, i pesi, i moltiplicatori, il rischio, l'allocatore).
+
+Vicini riportati, che non decidono: (a) il veloce a 1 mese (appendice D dell'articolo); (b) i libri su BNO con la
+serie del fondo; (c) il solo segno del trend a 12 mesi al posto della manica: è la base dell'articolo, e la
+differenza fra la regola e questo vicino è l'effetto che l'articolo misura, sui nostri libri; (d) la stima ogni 12 e
+ogni 60 mesi.
+
+### B. Attenuazione per regime di volatilità (Carver, *Advanced Futures Trading Strategies*, 2023, strategia 13)
+
+Che cosa fa il libro: la previsione di trend e di carry di ogni strumento si moltiplica per un numero fra 0,5 e 2,
+alto quando la volatilità dello strumento è bassa rispetto alla sua storia e basso quando è alta, perché il trend
+rende meno nei regimi agitati. Una ricostruzione indipendente (QuantConnect, luglio 2020 - luglio 2023) passa da 0,75
+a 0,94 di Sharpe; Goulding e colleghi, sopra, non trovano legame fra la volatilità e la resa del trend.
+
+La regola come la misuro:
+
+1. σ_t: la volatilità del desk (deviazione esponenziale dei rendimenti giornalieri, span 35, annualizzata), senza il
+   pavimento del 10% che serve al dimensionamento.
+2. σ%_t = 0,3 × (media di σ sugli ultimi 2 500 giorni) + 0,7 × σ_t; V_t = σ%_t / (media di σ% sugli ultimi 2 500
+   giorni); medie mobili semplici con almeno 10 osservazioni, come nel codice di Carver (*The state of vol*, 2023).
+3. Q_t = la quota dei valori passati di V che stanno sotto V_t (0 per il più basso mai visto, quasi 1 per il più
+   alto); M_t = media esponenziale con span 10 di (2 − 1,5 × Q_t).
+4. M_t diviso 1,25, il suo valore atteso (con Q uniforme la media di 2 − 1,5Q è 1,25): il metodo di Carver fissa gli
+   scalari perché la previsione media resti 10, e dopo l'attenuazione il suo libro dà infatti al carry uno scalare
+   nuovo (23); dividere per 1,25 fa lo stesso senza stimare nulla. Intervallo finale 0,4-1,6.
+5. Si applica a ogni manica del libro (alle sette, o alle tre dei satelliti), sul valore che il desk calcola, poi di
+   nuovo limitato a ±20. Il regime dei libri sul greggio si legge sul WTI lungo (come l'asimmetria), quello di ogni
+   satellite sul suo fondo; nei giorni in cui M non esiste ancora, M = 1.
+
+Vicini riportati, che non decidono: (a) M senza la divisione per 1,25 (il moltiplicatore com'è pubblicato); (b) la
+sola manica `trend`; (c) i libri su BNO con la volatilità del fondo.
+
+### C. Il prior, scritto prima
+
+- A: il guadagno dell'articolo è contro il segno di un trend a 12 mesi; la manica del desk mescola già quattro
+  velocità (da due settimane a un anno) e quella dell'accelerazione legge proprio un trend che rallenta; su un mercato
+  solo i pesi si stimano male. Mi aspetto da −0,05 a +0,05 di Sharpe contro la manica attuale, sui tredici libri come
+  sui tre del greggio; contro il solo segno a 12 mesi (vicino c) il verso dell'articolo, da +0,05 a +0,15.
+- B: Carver lo misura su un centinaio di future; Goulding e colleghi non vedono il legame; sul greggio gli anni calmi
+  2023-2025 sono stati quelli in perdita. Mi aspetto da −0,05 a +0,05.
+- Nessuna delle due, credo, passa la regola di decisione qui sotto.
+
+### D. La misura e la regola di decisione
+
+- Il replay del desk (`engine.desk.backtest.run_backtest`: costi veri, esecuzione all'apertura dopo la decisione,
+  l'allocatore acceso) sui tredici libri che si rigiocano, con e senza la regola, tutto il resto identico; i dati del
+  ramo `data` al commit d53517d5 (18 ottobre, 00:53 UTC), il codice di `main` 8f68a215 più lo script.
+- Due portafogli a capitale uguale (`report.portfolio_stats`): i tre libri del greggio (prudente, dinamico, spinto) e
+  tutti e tredici, ciascuno sulla sua finestra comune, tagliata a metà per le due metà. Si riportano anche i tredici
+  libri uno per uno, il dinamico per primo.
+- **Una regola entra** (per tutti i libri, perché le maniche sono comuni) se lo Sharpe dei tredici libri sale di
+  almeno 0,05 in entrambe le metà, se quello dei tre del greggio non scende di più di 0,05 in nessuna delle due, e se
+  a costi doppi il guadagno sui tredici resta positivo sull'intera finestra. Altrimenti non entra. I vicini si
+  riportano e non cambiano il verdetto. Se entrano tutte e due, si misurano insieme, ed entrano insieme solo se così
+  fanno meglio di ciascuna da sola.
+- In questa fase nessuna regola cambia i libri dal vivo: una che passa si propone al proprietario e si accende in un
+  passo a parte, con i test e una revisione.
+
+### E. Che cosa misura la regola dello stretto (controllo dei dati, 17-18 ottobre)
+
+La regola dello stretto (capitolo 9, D4 ii: transiti sotto il 10% del normale, tetti del fine settimana dimezzati)
+legge `n_tanker` di IMF PortWatch, cioè le petroliere che attraversano lo stretto **con il transponder AIS acceso**:
+in ottobre 0,4 al giorno contro 48 nella media del 2025 (tutte le navi: 3,5 contro 85), da cui l'1,15% del normale
+che ogni decisione cita. Gli altri conteggi dicono altro:
+
+- Kpler (26 giugno): 895 attraversamenti fra il 1° marzo e il 19 maggio, circa 11 al giorno, il 40,6% con l'AIS
+  spento e il 53% sul corridoio definito dall'Iran; interferenze sul GNSS fino a 3 000 navi in un giorno.
+- Lloyd's List: circa 12 al giorno a fine agosto (navi da carico sopra le 10 000 tonnellate), con dati «incompleti per
+  il ritardo nell'identificare i transiti al buio»; Drewry: a fine agosto la maggioranza degli attraversamenti era «al
+  buio» o di rotta ignota (Al Jazeera, 3 settembre).
+- UKMTO: 254 transiti nei sette giorni al 16 ottobre, soprattutto rinfusiere; CENTCOM: 400 navi e 100 milioni di
+  barili nella stessa settimana; Kpler: 11,6 milioni di barili al giorno nella settimana al 13 ottobre, il 68% dei 17,1
+  di prima della guerra (Al Jazeera, 17 ottobre). Gli Stati Uniti hanno motivi per dire di più, l'Iran per dire di
+  meno.
+
+Conclusione: l'1% è la quota delle petroliere **visibili**, non delle petroliere. Con gli altri conteggi lo stretto
+porta fra il 10 e il 40% del traffico normale di navi e forse più di metà del petrolio: la soglia del 10% non è su ciò
+che la serie misura. Oggi il tetto dimezzato non tocca nessun libro (le esposizioni più alte sono lo 0,40x del
+dinamico contro un tetto di 0,75x e un lotto di /MCL dello spinto contro 1,5x). Il mercato Kalshi «lo stretto torna
+normale», una delle tre componenti dell'indice di de-escalation (capitolo 10), si risolve sulla stessa serie («la
+media a 7 giorni dei transiti riportati da IMF PortWatch sopra 60»): è una scommessa sul conteggio AIS, non sul
+traffico. Che cosa cambia: le parole (ogni decisione dirà «transiti di petroliere visibili sull'AIS»), il commento
+dell'adattatore e `docs/DATA_SOURCES.md`; la regola resta com'è stata dichiarata finché il proprietario non decide se
+tenerla, toglierla o cambiarle la misura.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
@@ -1746,3 +1871,19 @@ Letteratura (letta per intero salvo dove indicato):
   evidence from a prediction market*, Journal of Prediction Markets 2016 (ricordato); i casi pubblici:
   [The Block, 28 febbraio 2026: sei portafogli nuovi guadagnano un milione su Polymarket poche ore prima dei raid sull'Iran (Bubblemaps)](https://www.theblock.co/post/391650/fresh-accounts-netted-1-million-on-polymarket-hours-before-us-airstrikes-on-iran-bubblemaps) ·
   [Israele incrimina due persone per le scommesse su Polymarket sulle operazioni militari del giugno 2025](https://www.yahoo.com/news/articles/israel-indicts-two-over-secret-222721126.html)
+- Sui punti di svolta e sull'attenuazione (13): Goulding, Harvey e Mazzoleni,
+  [Breaking bad trends](https://people.duke.edu/~charvey/Research/Published_Papers/P167_Breaking_bad_trends.pdf),
+  Financial Analysts Journal 2023 (letto il 17 ottobre 2026; nel testo estratto dal PDF le equazioni (8)-(10) hanno i
+  segni rovinati, e al punto 13 A.3 sono riscritte come posizioni); Carver, *Advanced Futures Trading Strategies*,
+  Harriman House 2023, strategia 13 (non riletto: la regola viene dalla
+  [ricostruzione di QuantConnect](https://www.quantconnect.com/research/15989/futures-trend-following-and-carry-in-different-risk-regimes/),
+  che cita le pagine del libro, e dal codice di Carver in
+  [The state of vol](https://qoppac.blogspot.com/2023/10/the-state-of-vol.html)); Sepp e Lucic,
+  [The science and practice of trend-following systems](https://arxiv.org/abs/2607.19497) (luglio 2026); Valeyre,
+  [Breaking the trend: how to avoid cherry-picked signals](https://arxiv.org/html/2504.10914v13) (luglio 2026);
+  Moskowitz, Sabbatucci, Tamoni e Uhl,
+  [Nonlinear time series momentum](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5933974) (SSRN, rivisto a
+  settembre 2026: letto il solo riassunto, la forma della non linearità non è nel testo accessibile; non provato)
+- Sullo stretto (13 E): [Kpler, 26 giugno 2026](https://www.kpler.com/blog/hormuz-transits-are-now-outside-the-imo-lane-what-that-means-for-risk-assessment) ·
+  [Al Jazeera, 3 settembre 2026](https://www.aljazeera.com/news/2026/9/3/how-much-oil-is-going-through-hormuz-how-data-doesnt-match-us-claims) ·
+  [Al Jazeera, 17 ottobre 2026](https://www.aljazeera.com/news-analysis/2026/10/17/us-and-iran-both-claim-control-of-strait-of-hormuz-amid-attacks-on-vessels)
