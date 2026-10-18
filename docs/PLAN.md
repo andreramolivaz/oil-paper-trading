@@ -224,6 +224,17 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   fallito cancellava (ora un registro fuori dal ramo dati lo rimette), i limiti di token di un modello che non
   pensa, un riassunto troncato accettato, le ricerche e il tempo senza un tetto per lettura, un mercato che poteva
   mancare per sempre, il lunedì senza la seduta di venerdì: tutto corretto prima della prima lettura.
+- [x] 18. Due regole pubblicate per «rendere il Dinamico più forte», misurate una volta (17-18 ottobre 2026;
+  `docs/RESEARCH.md`, capitolo 13, registrato e spinto prima di calcolare un numero). I punti di svolta di Goulding,
+  Harvey e Mazzoleni (2023) al posto della manica di trend: sui tredici libri +0,14 di Sharpe nella prima metà e
+  −0,04 nella seconda, il Dinamico da 0,80 a 0,82, e il meccanismo dell'articolo vale zero (il solo segno del trend
+  a 12 mesi fa lo stesso): **non entra**. L'attenuazione per regime di volatilità di Carver (2023): i tredici libri
+  −0,06, il greggio −0,02: **non entra**. Era il prior scritto prima. Nessun libro cambia; lo script è
+  `scripts/research_phase18.py`. Controllata anche la regola dello stretto: PortWatch conta solo le navi con l'AIS
+  acceso, e da marzo la maggior parte attraversa senza (Kpler, Drewry, UKMTO), quindi l'1% del normale è un limite
+  inferiore del traffico; oggi il tetto dimezzato non tocca nessun libro. Cambiano le parole sul sito e nelle
+  decisioni («transiti di petroliere visibili sull'AIS»), non la regola: tenerla, toglierla o misurarla altrimenti è
+  una decisione del proprietario.
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 
