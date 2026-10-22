@@ -2083,6 +2083,28 @@ soglia ±10: 0,57; i contratti interi: 0,83 con il 65% delle finestre ferme).
 compra frazioni): 10x 1,2% (2,7% con il traguardo), 2x 7,6%, metà o meno 16%, ferme a non poter scommettere 40%,
 mediana 0,68, 3,3 scommesse per finestra; sulle due metà 3,5% e 1,8% di tocco.
 
+### H. La regola del traguardo (registrazione del 22 ottobre, 21:45 UTC, prima della prima decisione del libro)
+
+Ciò che entra dalla misura G, con la regola di decisione di F, è una sola cosa, e si registra qui prima che il libro
+prenda la sua prima decisione (è ancora sul ramo `phase-19`, non ha mai deciso):
+
+- **Il traguardo.** A ogni decisione (una al giorno, al primo giro dopo le 15:00 di New York), se il conto vale
+  almeno **dieci volte il capitale della vita** - l'opzione aperta contata al denaro più un quarto dello spread, come
+  ogni vendita - l'opzione si vende a quel prezzo e la vita finisce «traguardo raggiunto» (`status: target`,
+  `end_reason: target` nell'archivio delle vite). Nessuna scommessa nuova finché il proprietario non apre una vita
+  nuova con il pulsante. Un conto in contanti che vale dieci volte il capitale (una scadenza pagata in pieno) finisce
+  allo stesso modo alla decisione successiva. Nient'altro cambia: le regole 14 A valgono come sono.
+- **Le probabilità sulla pagina** diventano quelle del libro vero, contratti interi al prezzo di oggi e traguardo
+  (G, rifatte con la regola del traguardo: una vita che tocca il 10x finisce lì): su 812 finestre di tre mesi dal
+  2011, **22 a 10x (2,7%)**, 40 raddoppiate senza arrivarci (4,9%), 620 fra metà e il doppio (76,4%), 130 a metà o
+  meno (16,0%); mediana 0,68; sulle due metà 3,5% e 1,8%; i 10x partono dall'autunno 2014, dall'estate e dal novembre
+  2015, dall'inizio del 2020 e dal gennaio 2026 (la guerra di fine febbraio); il 40% delle finestre finisce senza
+  poter più scommettere. Il modello resta un modello (≈) e lo dice.
+- **Che cosa NON entra, e perché, detto al proprietario**: il gioco audace (un morto ogni cinque vite), il filtro di
+  volatilità (toglie proprio i crolli che fanno il 10x), le opzioni lunghe e il rinnovo sul vincente (non alzano il
+  tocco). La soglia ±10 e la previsione del WTI restano scritte in G come scelte sue: la prima perde un terzo di
+  quanto perde la regola a parità di 10x, la seconda passa il filtro per quattro finestre su ottocento.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
