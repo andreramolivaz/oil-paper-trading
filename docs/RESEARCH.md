@@ -1811,6 +1811,86 @@ I verdetti, con la regola del punto D:
   backtest resta b66ecbb82b75. Le leve che restano sono quelle del 16 ottobre: più mercati nello stesso conto e gli
   interessi sulla liquidità.
 
+## 14. Fase 19 (22 ottobre 2026, 19:19 UTC): un conto da 1 000 $ che punta a 10x in tre mesi, registrato prima di misurare
+
+**La richiesta del proprietario** (22 ottobre): «un altro conto che parte da 1 000 dollari e ha come obiettivo circa
+10 000 in 3 mesi, super aggressivo, super con leva, che si può riattivare con un click», con cose che si possono
+fare su Robinhood, la direzione del Dinamico più Kalshi, e le regole di rischio del progetto sospese per lui solo.
+
+**La risposta onesta, data prima di scrivere una riga** (e misurata sul replay del Dinamico, approssimata, prima di
+questo capitolo: i rendimenti giornalieri del dinamico moltiplicati per k, la leva mai sopra 10x, 751 finestre di
+tre mesi dal 2011): a 8 volte il rischio di oggi il 10x arriva nel 4,4% delle finestre, tutte in cinque episodi di
+grandi trend (autunno 2014, 2015, fine 2020, fine 2021, inizio 2026); il risultato mediano è −24% e il 29% delle
+finestre perde più di metà; a 20 volte il 10x scende all'1,6%, metà delle finestre perde più di metà e una su dieci
+si azzera. Nessuna strategia fa 10x in tre mesi in modo affidabile: a questo rischio decide la fortuna del periodo.
+
+**Perché le opzioni comprate su USO.** Con 1 000 $ Robinhood non presta (il margine chiede almeno 2 000 $, regola
+FINRA); un /MCL vale dieci volte il conto e il suo margine (7-10% del contratto) se lo prende quasi tutto, quindi una
+mossa contraria del 3-7% chiude il conto; un ETF a leva 2x (UCO, SCO) arriva al massimo a due volte il petrolio, e a
+quella leva il 10x in tre mesi nella storia quasi non si vede (lo 0,1% delle finestre già a 4 volte il rischio di
+oggi); i contratti a evento chiederebbero un simulatore che il desk non ha. Un'opzione comprata ha la perdita massima nel premio e un guadagno convesso: è l'unico strumento con cui
+1 000 $ possono fare 10x. USO ha opzioni con scadenze settimanali e strike di un dollaro, il desk ne scarica già le
+quotazioni reali Cboe ogni ora, e il libro si replica su Robinhood e su Alpaca (le opzioni comprate sono il livello
+2; sul conto di prova di Alpaca sono attive di serie e l'API è gratuita).
+
+### A. La regola (`engine/desk/rocket.py`, `rocket_book` in `config/books.yaml`: costanti e chiavi con lo stesso nome)
+
+1. **Il conto.** 1 000 $ a ogni vita. A 50 $ o meno (il 5%, come ogni conto) il libro è morto e si ferma; un
+   pulsante (il workflow `rocket-reset`) lo fa ripartire da 1 000 $ in una vita nuova, e le vite di prima restano.
+2. **Quando.** Una volta per seduta americana, al primo giro dopo le 15:00 di New York con una catena di USO meno
+   vecchia di 45 minuti (come il libro delle opzioni).
+3. **Il segnale, letto per il giorno D.** Il Dinamico: la previsione combinata del fondo Brent (BNO) come la legge il
+   dinamico (le sette maniche, i pesi del desk); direzione long se ≥ +5, short se ≤ −5, nessuna altrimenti (5 è metà
+   della convinzione normale, la soglia del libro delle opzioni). Kalshi: la variazione settimanale dell'indice di
+   de-escalation come la legge l'oracle (la lettura del giorno UTC D contro quella di 7-10 giorni prima,
+   `oracle.forecast_for`): è d'accordo con un long quando la variazione è sotto zero (le probabilità di distensione
+   scendono: il petrolio sale), con uno short quando è sopra; zero o illeggibile, nessun accordo. La sua ampiezza non
+   conta (la fascia morta dell'oracle è per la sua manica). **Una scommessa nuova si apre solo con una direzione del
+   Dinamico e l'accordo di Kalshi.**
+4. **La scommessa.** Long: call su USO; short: put su USO. La scadenza quotata più vicina a 30 giorni fra 21 e 45.
+   Lo strike: fra le opzioni quotate non più larghe del 25% del loro prezzo medio, quella con il delta più vicino a
+   0,30 il cui costo sta in metà del conto; se a 0,30 non ci sta, la successiva più lontana dal prezzo, fino a delta
+   0,10; nessuna ci sta, nessuna scommessa (la pagina dice perché). I contratti: quanti ne stanno in metà del conto al
+   prezzo di esecuzione (l'ask meno un quarto dello spread) più 0,05 $ di commissioni a contratto, e mai un nozionale
+   in delta (delta × 100 × contratti × prezzo) sopra 10 volte il conto all'apertura (la regola dei 10x di ogni
+   conto). Una posizione alla volta.
+5. **Tenere e uscire, a ogni decisione.** Si vende (al bid più un quarto dello spread) quando la direzione del
+   Dinamico non è più quella della scommessa (|previsione| sotto 5 o segno opposto): Kalshi decide solo l'entrata.
+   Con 7 giorni o meno alla scadenza si vende e, se le condizioni dell'entrata ci sono, si compra la successiva con
+   la regola 4 lo stesso giorno. Nessun obiettivo di guadagno: un 10x viene solo da un vincente lasciato correre.
+   Un'opzione non venduta entro la scadenza (nessuna quotazione fresca) si regola al valore intrinseco sulla
+   chiusura ufficiale, come nel libro delle opzioni.
+
+### B. Che cosa è sospeso per questo libro, e che cosa no
+
+Sospesi, per decisione del proprietario del 22 ottobre: il 5% di perdita massima per struttura e le due strutture
+del libro delle opzioni (qui metà del conto per scommessa, una alla volta) e, nello spirito, il tetto di rischio
+dell'obiettivo di volatilità al 50% (questo libro non ne ha, e il suo rischio è molto sopra quello di qualunque
+altro). Restano: quotazioni vere di meno di 45 minuti, mai un prezzo che il flusso non ha quotato, il nozionale in
+delta entro 10 volte il conto, il pavimento del 5%, le esecuzioni dal lato sfavorevole dello spread. È fuori dai
+totali del desk e da quelli dei candidati, in un gruppo suo («Lottery»), non viene mai promosso e non ha righe nelle
+tabelle del backtest.
+
+### C. La misura (una volta, su un modello: decide nulla)
+
+`scripts/research_rocket.py`: il modello del replay del libro delle opzioni (Black-Scholes a tasso zero sull'OVX;
+per le put lo smile della catena dell'8 ottobre 2026, per le call la volatilità at the money, perché uno smile delle
+call non c'è; spread quotato = 6% del prezzo medio + 2 pb del sottostante; esecuzione a un quarto dello spread dal
+lato sfavorevole; contratti frazionari; 21 sedute alla scadenza all'entrata, si rinnova a 5), sul prezzo rettificato
+di USO e la previsione combinata di BNO. Due periodi: (a) dal 2011 con il solo Dinamico (prima del 18 marzo 2026
+l'indice Kalshi non esiste: è il vicino «senza Kalshi»), (b) dal 18 marzo al 16 ottobre 2026 con l'accordo di Kalshi
+letto sull'archivio (la regola registrata, sette mesi). Per ciascuno, finestre di 63 sedute (tre mesi) che partono
+da 1 000 $ ogni 5 sedute: la quota che arriva a 10x, a 2x, che perde metà, che muore, e la mediana. Vicini: metà del
+conto sostituita da un quarto e dal tutto; delta 0,15 e 0,50; costi doppi. **Nessun numero cambia la regola**: il
+libro è chiesto come una lotteria, e i suoi numeri vanno nella sua descrizione e sulla sua pagina, con il segno ≈.
+
+### D. Il prior, scritto prima
+
+Un 10x in tre mesi in pochi per cento delle finestre, solo dentro grandi trend; il risultato mediano di tre mesi una
+perdita fra il 40 e il 70%; la morte (sotto il 5%) fra il 20 e il 40% delle finestre; il filtro di Kalshi dimezza le
+scommesse e in sette mesi non cambia le probabilità in modo misurabile. In media le opzioni sul petrolio comprate
+perdono (capitolo 4): questo libro paga il premio per la possibilità di un 10x, e lo paga quasi sempre.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
