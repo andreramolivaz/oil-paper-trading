@@ -2021,6 +2021,68 @@ mettono «troppo piccolo per scommettere» al posto dei morti. Sui contratti a e
 supera il vantaggio del Dinamico sotto i 15 ¢ e fra 15 e 70 ¢ il rendimento atteso è intorno a zero: nessun lato
 Kalshi entra.
 
+### G. Risultati sulle opzioni (22 ottobre, 21:05 UTC: scritti dopo la misura, un modello ≈)
+
+La registrazione F è il commit fca2eaa8, spinto prima che lo script girasse. `scripts/research_rocket_variants.py`
+sul ramo `data` al commit 0d27af4f (4 122 sedute, 3 giugno 2010 - 21 ottobre 2026; OVX − volatilità realizzata del
+WTI: mediana +3,9 punti). Finestre di tre mesi da 1 000 $ ogni cinque sedute, 812 in tutto, 432 fino al 2018 e 380
+dal 2019; «tocco» è la quota di finestre in cui il conto è arrivato a 10x anche una sola volta (il valore con cui si
+sarebbe potuto vendere), «metà» quella che chiude a metà o meno, «fermo» quella che non può più scommettere
+(contratti interi: nessuna opzione ammessa sta in metà del conto).
+
+| Variante | 10x | tocco 10x | 2x | metà | morte | fermo | mediana | la migliore | scommesse |
+|---|---|---|---|---|---|---|---|---|---|
+| **La regola 14 A** (frazioni di contratto, come in E) | 1,8% | **3,6%** (4,2 / 2,9) | 10,5% | 50,0% | 0% | 0% | 0,50 | 37x | 4,5 |
+| **Contratti interi al prezzo di oggi** (il libro vero) | 1,2% | **2,7%** (3,5 / 1,8) | 7,6% | 16,0% | 0% | **40,2%** | 0,68 | 33x | 3,3 |
+| Gioco audace: tutto il conto | 2,2% | 6,5% (6,7 / 6,3) | 9,5% | 65,8% | 18,1% | 0% | 0,34 | 65x | 4,3 |
+| Gioco audace, contratti interi | 1,7% | 5,3% (5,8 / 4,7) | 7,3% | 53,0% | 0,7% | 45,4% | 0,48 | 56x | 3,3 |
+| Opzioni solo se costano poco: OVX − RV < 0 | 0,1% | 0,1% (0,2 / 0,0) | 6,5% | 18,6% | 0% | 0% | 0,97 | 12x | 1,6 |
+| ‒ vicino: OVX − RV < +5 | 0,2% | 0,4% (0,7 / 0,0) | 7,6% | 36,7% | 0% | 0% | 0,62 | 19x | 3,4 |
+| ‒ vicino: OVX − RV < −5 | 0% | 0% | 5,1% | 10,7% | 0% | 0% | 1,00 | 9x | 0,7 |
+| Soglia ±10 | 1,6% | 3,5% (4,2 / 2,6) | 11,1% | **16,6%** | 0% | 0% | **0,86** | 21x | 2,6 |
+| ‒ vicino: soglia ±15 | 1,4% | 2,1% (2,1 / 2,1) | 10,0% | 2,2% | 0% | 0% | 1,00 | 25x | 1,1 |
+| Opzioni a 60 giorni (42 sedute, rinnovo a 10) | 1,2% | 2,0% (1,4 / 2,6) | 11,8% | 28,8% | 0% | 0% | 0,65 | 20x | 3,7 |
+| ‒ vicino: 90 giorni (63, rinnovo a 15) | 0,7% | 1,2% (0,7 / 1,8) | 10,8% | 16,6% | 0% | 0% | 0,73 | 13x | 3,5 |
+| Rinnovo sul vincente a delta 0,70 | 1,7% | 3,5% (3,9 / 2,9) | 10,0% | 48,4% | 0% | 0% | 0,52 | 43x | 4,8 |
+| ‒ vicino: a delta 0,80 | 2,0% | 3,7% (3,9 / 3,4) | 10,3% | 48,6% | 0% | 0% | 0,51 | 31x | 4,7 |
+| La previsione del WTI (serie MCL) | 1,8% | **4,1%** (4,9 / 3,2) | 11,7% | 53,3% | 0% | 0% | 0,47 | 37x | 4,7 |
+| Rinnovo 0,70 + gioco audace | 2,1% | 6,7% (6,5 / 6,8) | 7,6% | 66,4% | 19,7% | 0% | 0,34 | 97x | 4,5 |
+| Rinnovo 0,70 + 60 giorni | 1,1% | 1,8% (1,4 / 2,4) | 11,3% | 28,2% | 0% | 0% | 0,68 | 32x | 3,9 |
+
+Con l'accordo di Kalshi, sulle 17 finestre del 2026, nessuna variante arriva a 2x (la regola: mediana 0,33; la
+soglia ±10: 0,57; i contratti interi: 0,83 con il 65% delle finestre ferme).
+
+**Che cosa dice, letto con la regola di decisione di F:**
+
+- **Il traguardo entra.** Fermarsi al tocco del 10x raddoppia la probabilità di finire a 10x, da 1,8% a 3,6% (in
+  entrambe le metà: 2,3 → 4,2 e 1,3 → 2,9; con i contratti interi 1,2 → 2,7), senza toccare il resto della
+  distribuzione: 14 delle 29 finestre che hanno toccato il 10x lo hanno poi restituito. È la regola di Dubins e
+  Savage (al traguardo ci si ferma) ed è l'obiettivo dichiarato del proprietario. **Registrazione 14 H**: alla
+  prima decisione in cui il conto vale almeno dieci volte il capitale della vita (al denaro più un quarto dello
+  spread, come ogni vendita), l'opzione si vende e la vita finisce «traguardo raggiunto»; la successiva parte con il
+  pulsante, da 1 000 $.
+- **La previsione del WTI passa il filtro ed è dentro il rumore.** Tocco 4,1% contro 3,6%: 33 finestre contro 29 su
+  812 che si sovrappongono (circa 65 indipendenti); 10x identico (15 e 15), metà +3 punti. Passa (a), (b) e (c) alla
+  lettera, ma quattro finestre su ottocento non sono una differenza che questi dati sappiano distinguere dal caso, e
+  il proprietario ha chiesto «il Dinamico». Non si cambia da soli: è una scelta sua, scritta qui con i numeri.
+- **Il gioco audace** alza il tocco a 6,5% (nelle due metà) e la morte al 18%, la metà al 66% (+16 punti: fuori dal
+  filtro b). Con i contratti interi: tocco 5,3%, ferme 45%, metà 53% contro 16% del libro vero. È esattamente la
+  forma che il tetto di F prevede: più coda alta, molta più coda bassa, nessun vantaggio in più. Non entra.
+- **Il filtro di volatilità uccide il 10x** (0,1%): tutte le finestre vincenti sono crolli comprati con le put quando
+  la volatilità implicita era già alta. Comprare «solo quando costa poco» compra nei mesi calmi, e lì il 10x non
+  c'è. Non entra; il suo valore (mediana 0,97, metà 19%) è quello di una regola che quasi non scommette.
+- **La soglia ±10 non alza il tocco** (3,5%: pari nella prima metà, sotto nella seconda) e non entra per la regola
+  dichiarata. Ma è il risultato da leggere: lo stesso 10x (13 finestre contro 15) con **un terzo delle perdite**
+  (metà 16,6% contro 50%, mediana 0,86 contro 0,50) e metà delle scommesse. Visto dopo aver guardato, scritto come
+  tale: se il proprietario preferisce perdere meno a parità di 10x, è un numero e non un parametro ottimizzato (il
+  ±10 è la convinzione normale della scala di Carver). A ±15 la regola quasi non scommette.
+- **Le opzioni lunghe** e **il rinnovo sul vincente** non alzano il tocco; il rinnovo con il gioco audace produce la
+  finestra migliore di tutte (97x) e un morto su cinque. Non entrano.
+
+**Le probabilità vere del libro, con i contratti interi** (quelle che la pagina deve mostrare al posto di E, che
+compra frazioni): 10x 1,2% (2,7% con il traguardo), 2x 7,6%, metà o meno 16%, ferme a non poter scommettere 40%,
+mediana 0,68, 3,3 scommesse per finestra; sulle due metà 3,5% e 1,8% di tocco.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
