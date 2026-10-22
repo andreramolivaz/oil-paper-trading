@@ -407,7 +407,7 @@ rocket_book:
   description: >-
     A lottery, not a strategy: 1 000 dollars that try for 10 000 in three months by buying USO calls when the
     Dynamic is long and USO puts when it is short, half the account on each bet, opened only when Kalshi's odds of
-    a de-escalation moved over the week the way that bet needs (down for a call, up for a put). A model of the rule
-    since 2011 reached 10x in fewer than two windows of three months out of a hundred, all in oil crashes, and ended
-    at half the account in the typical one. Out of every total, never promoted; a reset starts a new life at 1 000
-    dollars.
+    a de-escalation moved over the week the way that bet needs (down for a call, up for a put). The life ends at the
+    target, ten times its start. A model of the rule since 2011 reached it in fewer than three windows of three
+    months out of a hundred, almost all in oil crashes; the typical window ended at two thirds of the account and
+    four in ten too small to bet. Out of every total, never promoted; a reset starts a new life at 1 000 dollars.
