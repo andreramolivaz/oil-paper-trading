@@ -1891,6 +1891,51 @@ perdita fra il 40 e il 70%; la morte (sotto il 5%) fra il 20 e il 40% delle fine
 scommesse e in sette mesi non cambia le probabilità in modo misurabile. In media le opzioni sul petrolio comprate
 perdono (capitolo 4): questo libro paga il premio per la possibilità di un 10x, e lo paga quasi sempre.
 
+### E. Risultati (22 ottobre, 19:40 UTC: scritti dopo la misura, che è un modello ≈)
+
+La registrazione qui sopra è il commit 55ccdfce, spinto alle 19:19 UTC prima che lo script girasse. I dati: il ramo
+`data` al commit d53517d5, 4 118 sedute di USO, OVX e previsione di BNO fino al 15 ottobre, 147 letture Kalshi.
+Finestre di tre mesi da 1 000 $:
+
+| Variante | Periodo | Finestre | 10x | 2x | perde metà | muore | mediana | la migliore |
+|---|---|---|---|---|---|---|---|---|
+| **La regola** (metà del conto, delta 0,30) | 2011-2026, solo Dinamico | 811 | **1,8%** | 10,5% | 50,1% | 0% | **0,50** | 37x |
+| | 2026, con Kalshi | 17 | 0% | 0% | 64,7% | 0% | 0,33 | 1,3x |
+| | 2026, solo Dinamico | 17 | 0% | 0% | 64,7% | 0% | 0,31 | 1,3x |
+| Un quarto del conto | 2011-2026 | 811 | 0,2% | 7,8% | 10,2% | 0% | 0,73 | 11x |
+| Tutto il conto | 2011-2026 | 811 | 2,2% | 9,5% | 65,7% | 18,1% | 0,34 | 65x |
+| | 2026, con Kalshi | 17 | 0% | 0% | 88,2% | 70,6% | 0,00 | 0,8x |
+| Delta 0,15 | 2011-2026 | 811 | 2,2% | 8,4% | 63,9% | 0,4% | 0,38 | 52x |
+| Delta 0,50 | 2011-2026 | 811 | 1,0% | 12,0% | 31,7% | 0% | 0,62 | 18x |
+| Costi doppi | 2011-2026 | 811 | 1,8% | 9,9% | 53,6% | 0% | 0,47 | 34x |
+
+Come leggerlo:
+
+- **Il 10x arriva in meno di due finestre su cento, e solo nei crolli**: tutte le finestre che ci arrivano partono
+  fra settembre e novembre 2014, a fine maggio 2015 e fra gennaio e febbraio 2020. Sono put comprate in tre crolli
+  del petrolio: la convessità paga quando il prezzo cade di colpo e la volatilità implicita, già alta, non basta a
+  prezzarlo.
+- **Il risultato tipico è la metà del conto in tre mesi**, e metà delle finestre perde più di metà. Morire sotto il 5%
+  in tre mesi è raro con metà del conto per scommessa (il prior diceva 20-40%: sbagliato, una perdita dimezza il conto
+  e non lo azzera), ma tutto il conto per scommessa muore in una finestra su cinque.
+- **Nel 2026 nessuna delle 17 finestre arriva a 2x**: dopo il 18 marzo il petrolio è salito e sceso di decine di dollari
+  con una volatilità implicita intorno al 50%, e le opzioni costavano quanto il movimento che poi c'è stato. Kalshi
+  non ha dimezzato le scommesse (3,4 per finestra con e senza): ritarda l'entrata di qualche giorno, non la toglie.
+- I vicini dicono la stessa cosa: più rischio per scommessa alza di poco la probabilità del 10x e molto quella di
+  perdere tutto; un quarto del conto tiene la mediana a 0,73 e il 10x quasi sparisce.
+- **Il modello compra contratti frazionari, il libro vero contratti interi.** Sulla catena vera di USO del 16 ottobre
+  (fondo a 161,78, volatilità implicita a 30 giorni 46%, scadenza scelta il 13 novembre, 28 giorni) con 1 000 $ la
+  regola compra una call 175 a delta 0,31 per 418,80 $ con le commissioni, o una put 152,5 a delta 0,30 per 392,55 $:
+  il 39-42% del conto, non la metà. Con 600 $ scende a delta 0,20-0,23 (249-290 $), con 400 $ a delta 0,16-0,17
+  (195-197 $). Il contratto più economico che la regola ammette quel giorno (la put 138 quotata 1,07-1,23, delta 0,11)
+  costa 119,05 $: sotto i 238 $ nessuna opzione sta in metà del conto e il libro non può più scommettere, anche se non
+  è "morto" per la regola del 5%. La sua pagina lo dice (`monitor.stuck`) e una vita nuova si apre con il pulsante. Il
+  pavimento pratico è quindi intorno a un quarto del capitale, non al 5%, e lo 0% di morti del modello va letto così:
+  con contratti interi il conto non si azzera, si ferma prima.
+
+Il verdetto è quello dichiarato: la misura non decide nulla. Il libro parte com'è registrato, e la sua pagina dice
+queste probabilità con il segno ≈.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
