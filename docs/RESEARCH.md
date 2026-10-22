@@ -1936,6 +1936,91 @@ Come leggerlo:
 Il verdetto è quello dichiarato: la misura non decide nulla. Il libro parte com'è registrato, e la sua pagina dice
 queste probabilità con il segno ≈.
 
+### F. Più probabilità di 10x? Registrazione del 22 ottobre (20:45 UTC), prima di misurare
+
+**La richiesta del proprietario** (22 ottobre, 13:26 e 13:28 Los Angeles): «study improvements to make it work better,
+more chances», e «focus e leva anche su mercati stile Kalshi o Polymarket».
+
+**Il tetto, prima di ogni variante.** In un gioco EQUO (atteso zero) la probabilità di portare una posta a N volte è
+al più 1/N, con qualsiasi strategia (il patrimonio è una martingala e il teorema di arresto la inchioda: Dubins e
+Savage, *How to Gamble If You Must*, 1965; esercizi 8 e 32 della dispensa di Hannig sul casinò: timido o audace,
+P = x/a); in un gioco SFAVOREVOLE è meno, e la strategia migliore è quella audace, bold play (teorema 3 della stessa
+dispensa; da metà dell'obiettivo si arriva con probabilità p, la probabilità di vincere una mano). Da 1 000 a 10 000:
+**al più il 10% senza vantaggio**, e la mediana a 0,50x in tre mesi di 14 E dice che la regola è sfavorevole dopo i
+costi. Solo un vantaggio NETTO positivo (il Dinamico meno il premio delle opzioni e lo spread) alza quel tetto: le
+varianti che aggiungono rischio spostano probabilità dal centro alle code, non oltre il 10%; solo quelle che cambiano
+il vantaggio (comprare quando le opzioni costano poco, scommettere sui segnali forti) possono.
+
+**Le varianti registrate, ciascuna con l'autore e il parametro pubblicato** (una misura per variante; i vicini si
+mostrano, non si scelgono):
+
+1. **Gioco audace e traguardo** (Dubins e Savage 1965): tutto il conto per scommessa (già in 14 E come vicino) e
+   **fermarsi al tocco del 10x**: per ogni variante si misura anche P(tocco del 10x durante la finestra), che è la
+   probabilità di chi si ferma al traguardo, con il "bank at 10x" come regola (al tocco la vita finisce).
+2. **Comprare solo quando le opzioni costano poco** (Goyal e Saretto, *Cross-section of option returns and
+   volatility*, JFE 2009: le opzioni con volatilità implicita sotto quella realizzata rendono di più, quelle sopra
+   perdono): nuova scommessa solo se OVX − volatilità realizzata del WTI (la serie del desk, EWMA di Carver) è sotto
+   zero; vicini +5 e −5 punti.
+3. **Soglia del segnale**: ±10, la "convinzione normale" della scala di Carver, al posto di ±5; vicino ±15.
+4. **Opzioni più lunghe** (Dao, Nguyen, Deremble, Lempérière, Bouchaud e Potters, *Tail protection for long
+   investors: trend convexity at work*, 2016: il trend following ha il profilo di uno straddle con scadenza pari
+   all'orizzonte del trend; le maniche del Dinamico vanno da 8/32 a 64/256 giorni): 42 sedute (~60 giorni) con
+   rinnovo a 10; vicino 63 sedute (~90 giorni) con rinnovo a 15.
+5. **Rinnovo sul vincente** (rolling up; la piramide delle regole dei Turtle, Faith 2007): quando il delta
+   dell'opzione supera 0,70 (in the money, regola pratica) si vende e si ricompra a delta 0,30 nella stessa
+   direzione con la regola della posta, senza chiedere l'accordo di Kalshi (è una continuazione); vicino 0,80.
+6. **La previsione del WTI al posto del Brent**: USO segue il WTI; la previsione combinata della serie MCL (quella
+   del libro spinto) al posto di BNO. Stesse sette maniche, stessi pesi.
+7. **Contratti interi al prezzo di oggi**: il modello di 14 E compra frazioni di contratto; ogni variante si misura
+   anche con contratti interi, il prezzo di USO riportato a quello di oggi (162,66 $) all'inizio di ogni finestra,
+   a lettera meno un quarto dello spread per 100 azioni più 0,05 $ a contratto.
+
+**I mercati a eventi (Kalshi; Polymarket).** I fatti, prima della misura:
+
+- Un contratto a 10 centesimi paga 10x se si avvera: la convessità sta nel prezzo, non c'è margine (Kalshi e
+  Robinhood chiedono tutto il collaterale). Kalshi è legale negli USA (CFTC) e Robinhood la offre; **Polymarket
+  non è aperto agli utenti americani** (29 aprile 2026: chiede alla CFTC di riaprire; «Polymarket US» su QCEX,
+  dicembre 2025, solo sport e lista d'attesa): il proprietario non può replicarlo, e i suoi mercati sul petrolio
+  non aggiungono nulla a quelli di Kalshi. Per il libro resta Kalshi.
+- I costi: commissione taker di Kalshi = round up(0,07 × C × P × (1 − P)): a 10 ¢ sono 0,63 ¢ a contratto, il 6,3%
+  del premio, a 50 ¢ l'1,75 ¢, il 3,5%; lo spread sui mercati liquidi 1-3 ¢, cioè il **10-30% del premio a 10 ¢**;
+  su Robinhood dal 1° giugno 2026 la commissione è il 10% di k × P × (1 − P) × C (5% con Gold) più 1 ¢ a contratto
+  per lato sui contratti di Kalshi. Le opzioni su USO costano il 5% dello spread più 0,05 $: **un contratto a
+  evento a 10 ¢ costa da due a sei volte un'opzione, per dollaro di premio.**
+- La distorsione favorito-sfavorito: su circa 300 000 contratti scambiati su Kalshi (Whelan, gennaio 2026) i
+  contratti sotto i 10 ¢ si avverano meno spesso di quanto serve per pareggiare, con perdite medie grandi, peggio
+  per chi prende l'offerta; i prezzi più alti vanno meglio. È la stessa distorsione delle scommesse ippiche (Thaler
+  e Ziemba 1988). **Comprare i contratti a 10 ¢ "per fare 10x" è il lato sistematicamente perdente**, più di quanto
+  lo siano le opzioni comprate.
+- L'unica tesi con un vantaggio misurato è quella del Rocket: la direzione del Dinamico sul prezzo del petrolio. Le
+  scale di prezzo di Kalshi (WTI e Brent per giorno, settimana e mese) sono contratti binari sul petrolio: «WTI
+  sopra X il giorno D». Comprarli nella direzione del Dinamico è l'unica variante a eventi con una ragione.
+
+**La misura registrata sui contratti a eventi** (sui candlestick giornalieri scaricati dal runner, `research-data`
+`kalshi-history`: KXBRENTW, KXWTIW, KXBRENTMON, KXWTIMONTHLY dal 1° gennaio 2026; poi KXBRENTD e KXWTI dal 1°
+luglio, le serie giornaliere): per ogni mercato risolto e ogni giorno di lettura con il Dinamico che ha una
+direzione (±5), comprare il contratto nella direzione del segnale (YES di «sopra X» per un long, NO per uno short,
+alla lettera più la commissione taker) e tenerlo alla risoluzione. Si riportano, per fasce di prezzo (≤ 15 ¢,
+15-40 ¢, 40-70 ¢, > 70 ¢): il numero di scommesse, la quota che si avvera, il rendimento medio per dollaro, il
+moltiplicatore medio e, da 1 000 $ con metà del conto per scommessa, quante finestre di tre mesi arrivano a 10x.
+Il confronto: lo stesso senza segnale (ogni giorno, entrambe le direzioni), che misura la distorsione
+favorito-sfavorito su questi stessi dati.
+
+**La regola di decisione, dichiarata.** Una variante delle opzioni entra nella regola del Rocket (prima della sua
+prima decisione, come registrazione 14 H) solo se (a) alza P(tocco del 10x) in ENTRAMBE le metà della storia
+(2011-2018 e 2019-2026), (b) non alza di oltre 10 punti la quota di finestre che perde metà o più sull'intera
+storia, (c) è il parametro pubblicato, non il vicino migliore. Un lato Kalshi del Rocket si registra solo se le
+scommesse nella direzione del Dinamico sui contratti fra 15 e 70 ¢ hanno un rendimento atteso positivo dopo
+commissioni e spread su almeno 100 scommesse risolte; altrimenti non si fa, e si scrive perché.
+
+**Il prior, scritto prima.** Il gioco audace e il traguardo al tocco alzano P(10x) di circa la metà del suo valore,
+con un morto ogni cinque vite; il filtro di volatilità toglie un terzo delle scommesse e muove poco; la soglia ±10
+abbassa P(10x) (meno scommesse); le opzioni più lunghe rendono la mediana meno brutta e il 10x simile; il rinnovo
+sul vincente alza le due code; la previsione del WTI dà lo stesso del Brent; i contratti interi abbassano il 10x e
+mettono «troppo piccolo per scommettere» al posto dei morti. Sui contratti a eventi la distorsione favorito-sfavorito
+supera il vantaggio del Dinamico sotto i 15 ¢ e fra 15 e 70 ¢ il rendimento atteso è intorno a zero: nessun lato
+Kalshi entra.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
@@ -2057,3 +2142,21 @@ Letteratura (letta per intero salvo dove indicato):
 - Sullo stretto (13 E): [Kpler, 26 giugno 2026](https://www.kpler.com/blog/hormuz-transits-are-now-outside-the-imo-lane-what-that-means-for-risk-assessment) ·
   [Al Jazeera, 3 settembre 2026](https://www.aljazeera.com/news/2026/9/3/how-much-oil-is-going-through-hormuz-how-data-doesnt-match-us-claims) ·
   [Al Jazeera, 17 ottobre 2026](https://www.aljazeera.com/news-analysis/2026/10/17/us-and-iran-both-claim-control-of-strait-of-hormuz-amid-attacks-on-vessels)
+- Sul Rocket (14): Dubins e Savage, *How to Gamble If You Must: Inequalities for Stochastic Processes* (1965;
+  ricordato) e la dispensa di Hannig, [Casino](https://hannig.cloudapps.unc.edu/STOR054/handouts/Casino.pdf) (teorema
+  3: il gioco audace è ottimo nel gioco sfavorevole; esercizi 8 e 32: nel gioco equo P = x/a con il gioco timido e
+  con quello audace; F(1/2) = p); Goyal e Saretto, *Cross-section of option returns and volatility*, Journal of
+  Financial Economics 2009 (ricordato: il rendimento delle opzioni decresce nella differenza fra volatilità
+  implicita e realizzata); Dao, Nguyen, Deremble, Lempérière, Bouchaud e Potters, *Tail protection for long
+  investors: trend convexity at work* (2016; ricordato); Faith, *Way of the Turtle* (2007; ricordato: la piramide
+  sul vincente); Thaler e Ziemba, *Anomalies: parimutuel betting markets*, Journal of Economic Perspectives 1988
+  (ricordato: la distorsione favorito-sfavorito); [Whelan, *Makers and Takers: The Economics of the Kalshi
+  Prediction Market*, 27 gennaio 2026](https://www.karlwhelan.com/?p=2402) (circa 300 000 contratti: sotto i 10 ¢
+  si avverano meno di quanto serve a pareggiare, peggio per chi prende); le commissioni di Kalshi
+  [calcolate con la tabella del 10 ottobre 2026](https://chudi.dev/blog/kalshi-fees) (taker round up(0,07 × C × P ×
+  (1 − P)), maker 0,0175) e [Finder, Kalshi contro Robinhood, 29 settembre 2026](https://www.finder.com/investments/kalshi-vs-robinhood)
+  (Robinhood dal 1° giugno 2026: 10% di k × P × (1 − P) × C, 5% con Gold, più 1 ¢ a contratto per lato su Kalshi;
+  tre sedi: Kalshi, ForecastEx, Rothera); [Cointelegraph, 29 aprile 2026](https://cointelegraph.com/news/polymarket-cftc-approval-main-platform-us-report)
+  (Polymarket chiede alla CFTC di riaprire agli americani; «Polymarket US» su QCEX dal dicembre 2025, solo sport,
+  lista d'attesa); [Alpaca, opzioni](https://docs.alpaca.markets/docs/options-trading) (sul conto di prova le
+  opzioni sono attive di serie; livello 2: comprare call e put; `time_in_force` `day` o `gtc`).
