@@ -1058,6 +1058,22 @@ helpers (`session_close_ny`, `settle_after_ny`); an expiry settles only on a clo
 and repairs an unreadable state; a sale needs a bid; the site escapes every rule figure and hard-codes the
 reset workflow (`ROCKET_RESET_WORKFLOW`). The page's odds are the whole-contract ones with the target (MODEL_ODDS).
 
+Phase 19 went live on 2026-10-22 at 22:08 UTC (PR #36, rebase-merged as 3232baff; CI green on the branch; Pages
+redeployed at 22:09). Checked on GitHub, on the data branch and on the public page, not assumed: the push cancelled
+the runner in progress and started a new one; its first tick (22:09-22:10 UTC, 14 downloads of the half-hour group,
+none failed, no backtest recomputed: `meta.model` b66ecbb82b75) created the Rocket at 1 000 $ (`state/desk/rocket/`:
+`book.json` life 1, `monitor.json`, the equity log) with no decision - the chain on file was 112 minutes old, read
+at 20:17 UTC at the end of the session - and the monitor says what the rule would have bought that afternoon (one
+USO call at strike 180 expiring 20 November, 408.80 $, 41 % of the account) and why it would not have (the Dynamic
++14.8 long, Kalshi's de-escalation index +2.4 points in a week: no agreement); the 21 books of before were left
+where the previous runner had them (core +447.63 $, candidates -260.07 $, Kalshi +64.57 $, Claude 0); `desk.json`
+carries 22 books, the "lottery" group and `total_candidates` with 17 books; the public desk page and the Rocket's
+page render on the live JSON on desktop and on a phone with no console error and no overflow. Still NOT seen: the
+Rocket's first decision (the 23rd at 15:18 New York, the 19:18 UTC tick, which downloads the chain with every
+strike for the first time), its first bet (it needs Kalshi's agreement: a fall of the de-escalation odds over the
+week with the Dynamic long), a sale, a roll, an expiry, a life ended at the target or at the floor, the button
+pressed by the owner, an early-close day (27 November).
+
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
 failure looked like a normal red cross. The giveaway: the run's name was the file path instead of `ci`.
