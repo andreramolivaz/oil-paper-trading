@@ -114,11 +114,16 @@ function hero(doc: DeskDoc, groups: PortfolioGroup[]): string {
     ? ` ${queued === 1 ? "One order waits" : `${queued} orders wait`} for the next half-hour bar to fill.`
     : "";
   const capital = doc.books[0]?.initial_capital;
+  // a book that starts with another capital (the lottery's 1 000 $) is named beside the usual one
+  const others = doc.books.filter((b) => capital && b.initial_capital !== capital);
+  const apart = others.length
+    ? ` (${listWords(others.map((b) => `the ${escapeHtml(b.name)} with ${usd(b.initial_capital, 0)}`))})`
+    : "";
   return `<header class="d-hero">
     <h1 class="d-headline">${escapeHtml(headline)}</h1>
     <p class="d-lede">${lede.charAt(0).toUpperCase()}${lede.slice(1)}.${waiting}</p>
     <p class="d-fine">Each book is its own paper account${
-      capital ? `, started with ${usd(capital, 0)}` : ""
+      capital ? `, started with ${usd(capital, 0)}${apart}` : ""
     }, trading real prices with real costs. No real money, no broker.</p>
   </header>`;
 }
@@ -129,9 +134,15 @@ function bookCell(b: Book): string {
 }
 
 function positionRow(b: Book, p: BookPosition): string {
+  const detail =
+    p.unit === "contract"
+      ? `paid ${num(p.avg_price, 2)} a share, now ${num(p.last_price, 2)}${p.mark_stale ? " (a stale mark)" : ""}${
+          p.days_left === null || p.days_left === undefined ? "" : `, ${p.days_left} day${p.days_left === 1 ? "" : "s"} left`
+        }${p.awaiting_close ? ", expired: waiting for the official close" : ""}`
+      : `average ${num(p.avg_price, 2)}, last ${num(p.last_price, 2)}`;
   return `<tr data-href="${bookHref(b.id)}">
     ${bookCell(b)}
-    <td class="w" data-l="Position">${escapeHtml(positionWords(p))}<small>average ${num(p.avg_price, 2)}, last ${num(p.last_price, 2)}</small></td>
+    <td class="w" data-l="Position">${escapeHtml(positionWords(p))}<small>${detail}</small></td>
     <td class="n d-exp" data-l="Exposure"><span class="xwrap">${exposureBar(p.exposure)}<span>${escapeHtml(exposureWords(p.exposure))}</span></span></td>
     <td class="n" data-l="Value">${usd(p.notional, 0)}</td>
     <td class="n" data-l="Open P&amp;L">${toneSpan(p.unrealized, signedUsd(p.unrealized, 2))}</td>
@@ -181,7 +192,7 @@ function openPositions(doc: DeskDoc): string {
   return section(
     "Open positions",
     `${table}${orders}`,
-    "exposure: what the position is worth as a multiple of its book's account (the bar is full at 1x), an inverse fund counted twice",
+    "exposure: what the position is worth as a multiple of its book's account (the bar is full at 1x), an inverse fund counted twice, an option by its delta",
     "positions",
   );
 }
@@ -235,6 +246,7 @@ function groupBlock(doc: DeskDoc, g: PortfolioGroup, ids: string[]): string {
       ${g.note ? `<p class="d-gnote">${escapeHtml(g.note.charAt(0).toUpperCase() + g.note.slice(1))}.</p>` : ""}
       ${g.id === "kalshi" ? watchLine(doc) : ""}
       ${g.id === "claude" ? analystLine(doc) : ""}
+      ${g.id === "lottery" ? lotteryLine(members) : ""}
     </header>
     <div class="d-colhead" aria-hidden="true"><span>Book</span><span>Holding</span><span>Exposure</span><span>Equity</span><span>Since the start</span><span>Today</span><span></span></div>
     <ul class="d-list">${members.map(bookRow).join("")}</ul>
@@ -272,6 +284,26 @@ function analystLine(doc: DeskDoc): string {
     return `<p class="d-watch">The analyst's reading, ${escapeHtml(whenRead)}: ${parts.join(", ")}, each out of 20. ${link}.</p>`;
   }
   return `<p class="d-watch">${analystStatus(a)} ${link}.</p>`;
+}
+
+/** The lottery in one line under its group: where this life stands against its start, and the model's odds. */
+function lotteryLine(members: Book[]): string {
+  return members
+    .filter((b) => b.kind === "lottery")
+    .map((b) => {
+      const o = b.odds;
+      const odds = o
+        ? ` A model of its rule since 2011 reached 10x in ${num(o.p_10x * 100, 1)} of 100 three-month windows and lost half or more in ${num(
+            o.p_lose_half * 100,
+            0,
+          )} (≈).`
+        : "";
+      const life = `${escapeHtml(b.name)}, life ${b.epoch}: ${num(b.multiple ?? null, 2)}x of its ${usd(b.initial_capital, 0)}${
+        b.started_at ? ` since ${escapeHtml(longDay(b.started_at))}` : ""
+      }.`;
+      return `<p class="d-watch">${life}${odds} <a href="${bookHref(b.id)}">Its page, its odds and its reset</a>.</p>`;
+    })
+    .join("");
 }
 
 function filterBar(doc: DeskDoc, groups: PortfolioGroup[], current: string): string {
@@ -388,7 +420,7 @@ function drawPnl(root: HTMLElement, groups: PortfolioGroup[]): void {
     readoutFmt: (v) => signedUsd(v, 2),
     dateFmt,
     readoutDate: (t) => longDay(new Date(t).toISOString().slice(0, 10)),
-    endLabels: series.filter((s) => s.points.length >= 2).length <= 4,
+    endLabels: series.filter((s) => s.points.length >= 2).length <= 5,
   });
   legend.innerHTML = lineLegend(series, (v) => signedUsd(v, 2));
 }

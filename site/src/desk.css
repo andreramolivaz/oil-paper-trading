@@ -310,3 +310,74 @@ tr[data-href]:hover > * { background: var(--surface-1); }
   .a-reading td.a-book::before { display: inline; margin-right: 6px; }
   .a-reading td.a-book small { display: inline; margin-left: 6px; }
 }
+
+/* ---------- the Rocket (phase 19): a lottery's page ---------- */
+/* the rail: where this life stands between its end (0.05x) and the 10x it plays for, on a log scale */
+.r-rail-box { grid-column: 1 / -1; margin: 6px 0 0; }
+.r-rail-box figcaption { font-size: var(--t-sm); color: var(--text-secondary); margin-bottom: 30px; max-width: 80ch; }
+.r-rail-box figcaption b { color: var(--text-primary); font-weight: 650; }
+.r-rail {
+  position: relative; block-size: 6px; border-radius: 3px; margin: 0 6px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+}
+.r-zone {
+  position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px 0 0 3px;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--warning) 55%, transparent) 0 3px, transparent 3px 6px);
+}
+.r-tick { position: absolute; top: -5px; bottom: -5px; inline-size: 1px; background: var(--text-muted); }
+.r-tick span {
+  position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+  font-size: var(--t-micro); color: var(--text-muted); white-space: nowrap;
+}
+.r-tick.end span { left: auto; right: 0; transform: none; }
+.r-now {
+  position: absolute; top: 50%; inline-size: 14px; block-size: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
+  background: var(--text-primary); box-shadow: 0 0 0 3px var(--surface-0);
+}
+.r-now span {
+  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+  font-size: var(--t-sm); font-weight: 650; color: var(--text-primary); white-space: nowrap;
+}
+.r-scale {
+  display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 30px 6px 0;
+  font-size: var(--t-micro); color: var(--text-muted);
+}
+.r-zl { display: inline-flex; align-items: center; gap: 6px; color: var(--warning-ink); }
+.r-zkey {
+  inline-size: 16px; block-size: 6px; border-radius: 2px;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--warning) 55%, transparent) 0 3px, transparent 3px 6px);
+}
+
+/* the order to copy: Alpaca's JSON wraps, the page never scrolls sideways */
+.r-copy { margin-top: 12px; max-width: 84ch; }
+.term .r-copy p { margin: 8px 0 0; }
+.r-json {
+  margin: 6px 0 0; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface-1);
+  border: 1px solid var(--border); font-size: var(--t-xs); line-height: 1.5; color: var(--text-primary);
+  white-space: pre-wrap; overflow-wrap: anywhere; font-variant-numeric: tabular-nums;
+}
+
+/* a new life: the button, its result */
+.term .r-lead { max-width: 80ch; color: var(--text-primary); }
+.r-reset { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 12px 0 0; }
+.term .r-result { min-block-size: 1.4em; margin: 10px 0 0; color: var(--text-secondary); font-size: var(--t-sm); }
+.term .r-result:empty { margin: 0; min-block-size: 0; }
+
+/* the odds: one bar of how the model's lives ended, worst on the left; loss red, gains green, the middle grey */
+.r-odds { margin: 2px 0 12px; max-width: 72ch; }
+.r-odds figcaption { font-size: var(--t-sm); color: var(--text-secondary); margin-bottom: 8px; }
+.r-bar { display: flex; gap: 2px; block-size: 14px; }
+.r-seg { flex-basis: 0; min-inline-size: 3px; }
+.r-seg:first-child { border-radius: 3px 0 0 3px; }
+.r-seg:last-child { border-radius: 0 3px 3px 0; }
+.r-lost_half { background: var(--neg); }
+.r-between { background: var(--border-strong); }
+.r-doubled { background: color-mix(in srgb, var(--pos) 55%, var(--surface-1)); }
+.r-ten_x { background: var(--pos); }
+.r-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 8px 0 0; padding: 0; font-size: var(--t-sm); color: var(--text-secondary); }
+.r-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.r-legend b { color: var(--text-primary); font-weight: 650; font-variant-numeric: tabular-nums; }
+.r-key { inline-size: 10px; block-size: 10px; border-radius: 2px; flex-shrink: 0; }
+@media (forced-colors: active) {
+  .r-seg, .r-key { forced-color-adjust: none; }
+}

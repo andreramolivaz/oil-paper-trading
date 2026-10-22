@@ -5,7 +5,7 @@
  * workflow (never a browser action), the button stays disabled until the field holds exactly RESET, and
  * without a token it opens the workflow page instead of inventing a shortcut.
  */
-import { config, dispatchUrl, workflowUrl } from "../config";
+import { TOKEN_KEY, config, dispatchUrl, readToken, workflowUrl } from "../config";
 import { load } from "../data";
 import {
   DASH,
@@ -25,7 +25,6 @@ import { card, empty, originBanner, pageTitle, src, stat } from "../components/u
 import type { DeskDoc } from "../desk";
 import type { EpochRow, EpochsDoc, SummaryDoc } from "../types";
 
-const TOKEN_KEY = "opt_gh_token";
 /** The confirmation text is a constant of the workflow, not a parameter of the interface. */
 const CONFIRM = "RESET";
 
@@ -84,7 +83,14 @@ export async function renderReset(el: HTMLElement): Promise<void> {
       <label class="label" for="book">What to bring back to ${notional(initial)}</label>
       <select id="book">
         <option value="all">Everything: every book and the first system's account</option>
-        ${books.map((b) => `<option value="${escapeHtml(b.id)}">Only the ${escapeHtml(b.name)} book (${escapeHtml(b.vehicle)})</option>`).join("")}
+        ${books
+          .map(
+            (b) =>
+              `<option value="${escapeHtml(b.id)}">Only the ${escapeHtml(b.name)} book (${escapeHtml(b.vehicle)})${
+                b.initial_capital !== initial ? `, back to its own ${notional(b.initial_capital)}` : ""
+              }</option>`,
+          )
+          .join("")}
       </select>
       <label class="label" for="confirm" style="margin-top:8px">Type ${CONFIRM} to confirm</label>
       <p class="muted" style="margin:0">The button stays disabled until the field holds exactly <code>${CONFIRM}</code>.</p>
@@ -192,7 +198,9 @@ function bookTable(books: DeskDoc["books"]): string {
   const body = books
     .map(
       (b) => `<tr>
-        <td><a href="#/book/${encodeURIComponent(b.id)}">${escapeHtml(b.name)}</a>${b.role === "candidate" ? ' <span class="muted">candidate</span>' : ""}</td>
+        <td><a href="#/book/${encodeURIComponent(b.id)}">${escapeHtml(b.name)}</a>${
+          b.role === "candidate" ? ' <span class="muted">candidate</span>' : b.role === "lottery" ? ' <span class="muted">lottery</span>' : ""
+        }</td>
         <td>${escapeHtml(b.vehicle)}</td>
         <td class="num">${cell(num(b.equity))}</td>
         <td class="num ${tone(b.pnl_total)}">${cell(signedUsd(b.pnl_total))}</td>
@@ -258,16 +266,8 @@ function paintTokenChip(chip: HTMLElement | null, saved: boolean): void {
   chip.textContent = saved ? "token saved" : "no token";
 }
 
-/** localStorage can throw (Safari in private browsing): an unreachable token counts as absent, and in that
- *  case the button opens GitHub instead of failing silently. */
-function readToken(): string {
-  try {
-    return localStorage.getItem(TOKEN_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
+/** localStorage can throw (Safari in private browsing): an unreachable token counts as absent (`readToken`), and in
+ *  that case the button opens GitHub instead of failing silently. */
 function writeToken(value: string | null): void {
   try {
     if (value === null) localStorage.removeItem(TOKEN_KEY);

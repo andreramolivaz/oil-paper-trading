@@ -6,8 +6,22 @@
  * through them.
  */
 import { lineChart } from "../charts/lines";
+import { readToken, workflowDispatch, workflowPage } from "../config";
 import { load } from "../data";
-import type { Book, BookHistory, BookLife, DeskDoc, FillRow, HistoryDecision, OptionStructure } from "../desk";
+import {
+  rocketMonitor,
+  type Book,
+  type BookHistory,
+  type BookLife,
+  type BookPosition,
+  type DeskDoc,
+  type FillRow,
+  type HistoryDecision,
+  type OptionStructure,
+  type Replicate,
+  type RocketCandidate,
+  type RocketMonitor,
+} from "../desk";
 import {
   MINUS,
   allocatorLine,
@@ -36,7 +50,9 @@ import {
 } from "../deskview";
 import {
   EMPTY,
+  day,
   escapeHtml,
+  leverage,
   longDay,
   num,
   percent,
@@ -55,7 +71,8 @@ const PAGE = 25;
 function head(b: Book): string {
   const st = bookState(b);
   const tags = [groupLabel(groupOf(b))];
-  if (isSpeculative(b)) tags.push("Speculative: no backtest");
+  if (b.kind === "lottery") tags.push("Risk rules suspended");
+  else if (isSpeculative(b)) tags.push("Speculative: no backtest");
   else if (b.experimental) tags.push("Experimental");
   if (b.role_change) tags.push(`${b.role_change.role} since ${longDay(b.role_change.since)}`);
   return `<header class="b-head">
@@ -67,6 +84,7 @@ function head(b: Book): string {
 }
 
 function figures(b: Book): string {
+  if (b.kind === "lottery") return lotteryFigures(b);
   const options = b.kind === "options";
   const exposure = options
     ? `${b.max_loss_open ? `at most ${usd(b.max_loss_open, 0)} more to lose` : "nothing at risk"}<small>${percent(b.max_loss_open_pct ?? null, 1)} of the account, from today's marks</small>`
@@ -83,6 +101,267 @@ function figures(b: Book): string {
       ${options ? "" : `<div><dt>On a 20% gap down</dt><dd>${stressText(b)}<small>at today's position, before any stop</small></dd></div>`}
     </dl>
   </div>`;
+}
+
+// ---------------------------------------------------------------------------------------------- the lottery
+/** The rail of the multiple a life can reach, on a log scale from 0.05x (the life is over) to the 10x it plays for. */
+const RAIL_LO = 0.05;
+const RAIL_HI = 10;
+const railAt = (x: number): string =>
+  ((Math.log(Math.min(RAIL_HI, Math.max(RAIL_LO, x)) / RAIL_LO) / Math.log(RAIL_HI / RAIL_LO)) * 100).toFixed(2);
+
+function lotteryFigures(b: Book): string {
+  const since = b.started_at ? `since ${escapeHtml(longDay(b.started_at))}` : "since the start";
+  return `<div class="b-figs">
+    <div class="b-eq"><span class="k">Equity</span><span class="v">${usd(b.equity, 2)}</span>
+      <span class="s">life ${b.epoch}, started with ${usd(b.initial_capital, 0)}</span></div>
+    <dl class="b-kv">
+      <div><dt>Profit and loss</dt><dd>${toneSpan(b.pnl_total, signedUsd(b.pnl_total, 2))}<small>${signedPercent(b.pnl_total_pct, 2)} ${since}</small></dd></div>
+      <div><dt>Today</dt><dd>${toneSpan(b.pnl_day, signedUsd(b.pnl_day, 2))}<small>${signedPercent(b.pnl_day_pct, 2)}</small></dd></div>
+      <div><dt>From its peak</dt><dd>${b.drawdown ? `${MINUS}${percent(b.drawdown, 2)}` : "at its peak"}</dd></div>
+      <div><dt>Exposure</dt><dd class="b-exp">${exposureBar(b.exposure)} ${escapeHtml(exposureWords(b.exposure))}<small>the option's delta, at most ${capText(b)}</small></dd></div>
+    </dl>
+    ${rail(b, rocketMonitor(b))}
+  </div>`;
+}
+
+/** Where this life stands between the end of it and the 10x it plays for: the one picture the page is for. */
+function rail(b: Book, m: RocketMonitor | null): string {
+  const now = b.multiple;
+  if (now === null || now === undefined || !Number.isFinite(now)) return "";
+  const floor = m?.bet_floor_multiple;
+  const zone =
+    floor !== null && floor !== undefined && floor > RAIL_LO
+      ? `<span class="r-zone" style="width:${railAt(floor)}%"></span>`
+      : "";
+  const ticks: [number, string][] = [
+    [1, "start"],
+    [2, "2x"],
+    [RAIL_HI, "10x"],
+  ];
+  const beyond = now > RAIL_HI ? ", past the 10x" : "";
+  const zoneWords =
+    floor !== null && floor !== undefined && m?.bet_floor
+      ? ` Below ${usd(m.bet_floor, 0)} (${num(floor, 2)}x) no option the rule admits fits in half the account.`
+      : "";
+  return `<figure class="r-rail-box">
+    <figcaption>This life on the way to 10x: <b>${num(now, 2)}x</b> of its start${beyond}.${zoneWords}</figcaption>
+    <div class="r-rail" aria-hidden="true">
+      ${zone}
+      ${ticks.map(([x, label]) => `<span class="r-tick${x === RAIL_HI ? " end" : ""}" style="left:${railAt(x)}%"><span>${label}</span></span>`).join("")}
+      <span class="r-now" style="left:${railAt(now)}%"><span>${num(now, 2)}x</span></span>
+    </div>
+    <div class="r-scale" aria-hidden="true"><span>0.05x: the life is over</span>${
+      zone ? `<span class="r-zl"><span class="r-zkey"></span>too small to bet</span>` : ""
+    }</div>
+  </figure>`;
+}
+
+function candidateWords(c: RocketCandidate): string {
+  return `${num(c.contracts, 0)} USO ${c.right === "C" ? "call" : "put"}${c.contracts === 1 ? "" : "s"}, strike ${num(
+    c.strike,
+    Number.isInteger(c.strike) ? 0 : 1,
+  )}, expiring ${day(c.expiry)} (${c.dte} days, delta ${num(Math.abs(c.delta), 2)}), at ${num(c.fill, 2)} a share: ${usd(
+    c.cost,
+    2,
+  )}, ${percent(c.share_of_equity ?? null, 0)} of the account`;
+}
+
+/** The same order on a real account: Alpaca's API (its paper account is free) and Robinhood's form. */
+function copyBlock(r: Replicate | null | undefined, what: string): string {
+  if (!r) return "";
+  return `<details class="t-details r-copy">
+    <summary><b>${escapeHtml(what)}</b> <span class="t-dim">the paper book's order, as Alpaca's API and Robinhood's form take it</span></summary>
+    <p>Alpaca, options level 2 (its paper account and API are free): <code>POST /v2/orders</code> with</p>
+    <pre class="r-json">${escapeHtml(JSON.stringify(r.alpaca, null, 1))}</pre>
+    <p>Robinhood, options level 2: ${escapeHtml(r.robinhood)}.</p>
+    <p class="t-dim">The limit is where the paper book filled, a quarter of the spread inside a quote that is fifteen minutes late:
+    a real order can fill elsewhere or not at all. A study on paper, not advice.</p>
+  </details>`;
+}
+
+function positionLine(p: BookPosition): string {
+  const delta = p.delta === null || p.delta === undefined ? null : Math.abs(p.delta);
+  const left = p.days_left === null || p.days_left === undefined ? "" : ` (${p.days_left} day${p.days_left === 1 ? "" : "s"} left)`;
+  const moves =
+    delta === null || p.exposure === null || p.exposure === undefined
+      ? ""
+      : ` With a delta of ${num(delta, 2)} it moves like ${leverage(Math.abs(p.exposure))} the account held ${
+          p.exposure >= 0 ? "long" : "short"
+        } in USO.`;
+  return `<li>${escapeHtml(positionWords(p))}${left}: paid ${num(p.avg_price, 2)} a share, ${usd(p.cost, 2)} with the fees; now
+    ${num(p.last_price, 2)}${p.mark_stale ? " (a stale mark)" : ""}, worth ${usd(p.notional, 2)}: ${toneSpan(
+      p.unrealized,
+      signedUsd(p.unrealized, 2),
+    )} open.${moves}${p.awaiting_close ? " Expired: it is settled on the fund's official close." : ""}</li>`;
+}
+
+function lotteryNow(b: Book, h: BookHistory | null): string {
+  const m = rocketMonitor(b);
+  const lines: string[] = [];
+  const held = b.positions ?? [];
+  for (const p of held) lines.push(positionLine(p));
+  if (held.length) {
+    const side = held[0]!.side === "short" ? "short" : "long";
+    lines.push(`<li class="t-dim">It is sold when the Dynamic stops pointing ${side}, or with ${String(
+      b.rules.roll_days ?? 7,
+    )} days left, then replaced if the signal still holds. There is no profit target: a 10x can only come from a bet left to run.</li>`);
+  } else {
+    lines.push(`<li>No option open: the account is ${usd(b.equity, 2)} in cash.</li>`);
+  }
+  if (b.status === "dead") {
+    lines.push(`<li class="warn">The life is over: at ${usd(b.equity, 2)} the account is at or below ${percent(
+      (b.rules.floor as number | undefined) ?? 0.05,
+      0,
+    )} of its start, and no bet opens until a new life.</li>`);
+  } else if (m) {
+    lines.push(`<li>Today's signal: ${escapeHtml(m.signal.text)}</li>`);
+    if (!held.length && m.stuck) {
+      lines.push(`<li class="warn">The account is too small to bet: the cheapest option the rule admits costs ${usd(
+        m.cheapest_cost,
+        2,
+      )}, more than half of ${usd(b.equity, 2)}. A new life starts it again at ${usd(b.initial_capital, 0)}.</li>`);
+    } else if (!held.length && m.candidate) {
+      lines.push(
+        m.candidate_needs_kalshi
+          ? `<li>On the latest quotes the rule would buy ${escapeHtml(candidateWords(m.candidate))}, if Kalshi agreed: today it does not, so no bet opens.</li>`
+          : `<li>On the latest quotes the rule would buy ${escapeHtml(candidateWords(m.candidate))}.</li>`,
+      );
+    } else if (!held.length && m.no_candidate_reason) {
+      lines.push(`<li>Nothing to buy: ${escapeHtml(m.no_candidate_reason)}.</li>`);
+    }
+  }
+  const last = b.last_decision
+    ? { ts: b.last_decision.ts, text: b.last_decision.rationale ?? "" }
+    : h?.decisions[0]
+      ? { ts: h.decisions[0].ts, text: h.decisions[0].text }
+      : null;
+  const quote = last
+    ? `<figure class="b-quote"><figcaption>The last decision, ${escapeHtml(when(last.ts))} (${escapeHtml(zoneName())})</figcaption>
+        <blockquote>${escapeHtml(last.text)}</blockquote></figure>`
+    : `<p class="t-dim">No decision yet.</p>`;
+  const timing = `<p class="t-dim">It decides once a day, at the first tick after ${escapeHtml(
+    String(b.rules.decision_time_ny ?? "15:00"),
+  )} New York, on USO quotes less than ${String(b.rules.max_quote_age_minutes ?? 45)} minutes old${
+    m?.quote_ts ? `; the latest are from ${escapeHtml(when(m.quote_ts))}` : ""
+  }.</p>`;
+  const copy = held.length ? copyBlock(held[0]!.replicate, "Copy this bet on a real account") : m?.candidate ? copyBlock(m.candidate.replicate, "Copy the bet the rule would place") : "";
+  return section("Now", `<ul class="b-now">${lines.join("")}</ul>${copy}${quote}${timing}`, "", "now");
+}
+
+/** The button that starts a new life (the rocket-reset workflow). One press when the life is over; two otherwise,
+ *  so a stray tap does not archive a life that is still running. */
+function newLifeSection(b: Book): string {
+  const m = rocketMonitor(b);
+  const over = b.status === "dead" || !!m?.stuck;
+  const lead =
+    b.status === "dead"
+      ? `This life is over: ${usd(b.equity, 2)} is at or below ${percent((b.rules.floor as number | undefined) ?? 0.05, 0)} of its start.`
+      : m?.stuck
+        ? `This life cannot bet any more: it is at ${num(b.multiple ?? null, 2)}x of its start.`
+        : `This life is at ${num(b.multiple ?? null, 2)}x of its start. A new one archives it as it stands${
+            (b.positions?.length ?? 0) > 0 ? " (the option it holds is abandoned, as in any reset)" : ""
+          } and starts again.`;
+  const file = b.reset_workflow ?? "rocket-reset.yml";
+  return section(
+    "A new life",
+    `<p class="r-lead">${lead} Every life before stays in the history below.</p>
+    <div class="r-reset">
+      <button type="button" class="btn${over ? "" : " secondary"}" data-new-life data-over="${over ? 1 : 0}">Start a new life at ${usd(
+        b.initial_capital,
+        0,
+      )}</button>
+      <a class="btn secondary sm" href="${escapeHtml(workflowPage(file))}" target="_blank" rel="noopener noreferrer">The workflow on GitHub</a>
+    </div>
+    <p class="r-result" role="status" aria-live="polite"></p>
+    <p class="t-dim">With the token saved on the <a href="#/reset">Reset page</a>, the button starts the workflow from here.
+    Without one it opens the workflow on GitHub, where "Run workflow" starts it. The new life shows here a few minutes later.</p>`,
+    "",
+    "newlife",
+  );
+}
+
+function wireNewLife(root: HTMLElement, b: Book): void {
+  const button = root.querySelector<HTMLButtonElement>("[data-new-life]");
+  const result = root.querySelector<HTMLElement>(".r-result");
+  if (!button || !result) return;
+  const file = b.reset_workflow ?? "rocket-reset.yml";
+  const label = button.textContent ?? "";
+  let armed = button.dataset.over === "1";
+  button.addEventListener("click", async () => {
+    if (!armed) {
+      armed = true;
+      button.textContent = `Press again: archive this life at ${usd(b.equity, 2)}`;
+      result.textContent = "A second press starts the new life.";
+      return;
+    }
+    const token = readToken();
+    if (!token) {
+      window.open(workflowPage(file), "_blank", "noopener");
+      result.textContent =
+        'No token is saved in this browser: the workflow is open on GitHub, where "Run workflow" starts the new life.';
+      return;
+    }
+    button.disabled = true;
+    result.textContent = "Starting the workflow…";
+    try {
+      const res = await fetch(workflowDispatch(file), {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${token}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ref: "main" }),
+      });
+      if (res.status === 204) {
+        button.textContent = "New life started";
+        result.textContent = "Started. The workflow archives this life and pushes the new one: it shows here in a few minutes.";
+        return;
+      }
+      const text = await res.text();
+      result.textContent = `GitHub answered ${res.status}: ${text.slice(0, 200)}`;
+    } catch (err) {
+      result.textContent = `The request did not go through: ${err instanceof Error ? err.message : String(err)}`;
+    }
+    button.disabled = false;
+    armed = button.dataset.over === "1";
+    button.textContent = label;
+  });
+}
+
+/** What a model of the rule gives a life: how 811 three-month windows since 2011 ended, as one bar. */
+function oddsSection(b: Book): string {
+  const o = b.odds;
+  if (!o || !o.outcomes?.length) return "";
+  const segs = o.outcomes
+    .map((x) => `<span class="r-seg r-${escapeHtml(x.id)}" style="flex-grow:${Number(x.share) || 0}"></span>`)
+    .join("");
+  const legend = o.outcomes
+    .map(
+      (x) =>
+        `<li><span class="r-key r-${escapeHtml(x.id)}" aria-hidden="true"></span><b>${percent(x.share, 1)}</b> ${escapeHtml(x.label)}</li>`,
+    )
+    .join("");
+  const label = o.outcomes.map((x) => `${percent(x.share, 1)} ${x.label}`).join(", ");
+  return section(
+    "The odds",
+    `<figure class="r-odds">
+      <figcaption>How ${num(o.windows, 0)} three-month lives ended in a model of this rule, ${escapeHtml(o.span)} (≈)</figcaption>
+      <div class="r-bar" role="img" aria-label="${escapeHtml(label)}">${segs}</div>
+      <ul class="r-legend">${legend}</ul>
+    </figure>
+    <p>Every 10x began in an oil crash bought with puts: ${escapeHtml(o.ten_x_episodes.join(", "))}. The typical life ended at
+    ${num(o.median_multiple, 2)}x of its start, the best at ${num(o.best_multiple, 0)}x. In 2026, none of the ${num(
+      o.windows_2026,
+      0,
+    )} windows doubled (median ${num(o.median_multiple_2026, 2)}x): the options cost about as much as the moves that came.</p>
+    <p class="t-dim">≈ A model, not a record: ${escapeHtml(o.source)}. The real book buys whole contracts, so its bets are
+    lumpier than the model's and a small account stops betting before it is wiped out.</p>`,
+    "a model of the rule, approximate",
+    "odds",
+  );
 }
 
 // ---------------------------------------------------------------------------------------------- now
@@ -124,6 +403,7 @@ function analystView(b: Book, doc: DeskDoc): string {
 }
 
 function nowSection(b: Book, h: BookHistory | null, doc: DeskDoc): string {
+  if (b.kind === "lottery") return lotteryNow(b, h);
   const lines: string[] = [];
   for (const p of b.positions ?? []) {
     lines.push(`<li>${escapeHtml(positionWords(p))}, bought at ${num(p.avg_price, 2)} on average${
@@ -249,7 +529,13 @@ function orderText(d: HistoryDecision): string {
   return signed(d.order_units, 0);
 }
 
-function decisionsPanel(decisions: HistoryDecision[], unit: string | undefined, partial: boolean): string {
+function kalshiWords(d: HistoryDecision): string {
+  if (d.kalshi_change === null || d.kalshi_change === undefined) return EMPTY;
+  const move = `${signed(d.kalshi_change * 100, 1)} pt`;
+  return d.agree ? `${move}, agrees` : move;
+}
+
+function decisionsPanel(decisions: HistoryDecision[], unit: string | undefined, partial: boolean, lottery = false): string {
   if (!decisions.length) return `<div class="t-empty">No decision yet in this life of the book.</div>`;
   const orders = decisions.filter((d) => d.order_units).length;
   const rows = decisions
@@ -260,10 +546,16 @@ function decisionsPanel(decisions: HistoryDecision[], unit: string | undefined, 
       return `<tr data-order="${acted ? 1 : 0}"${i >= PAGE ? " hidden" : ""}>
         <td class="t-nowrap h-when">${escapeHtml(when(d.ts))}</td>
         <td class="n h-a" data-l="Forecast">${toneSpan(d.forecast, signed(d.forecast, 1))}</td>
-        <td class="n h-b" data-l="Wanted">${escapeHtml(exposureWords(d.exposure))}${
-          d.risk_scale !== null && d.risk_scale !== undefined && d.risk_scale < 1 ? `<small>risk ×${num(d.risk_scale, 2).replace(/\.?0+$/, "")}</small>` : ""
-        }</td>
-        <td class="n h-c" data-l="Position">${escapeHtml(positionChange(d, unit))}</td>
+        ${
+          lottery
+            ? `<td class="n h-b" data-l="Kalshi">${escapeHtml(kalshiWords(d))}</td>`
+            : `<td class="n h-b" data-l="Wanted">${escapeHtml(exposureWords(d.exposure))}${
+                d.risk_scale !== null && d.risk_scale !== undefined && d.risk_scale < 1
+                  ? `<small>risk ×${num(d.risk_scale, 2).replace(/\.?0+$/, "")}</small>`
+                  : ""
+              }</td>`
+        }
+        <td class="n h-c" data-l="Position">${lottery ? escapeHtml(d.status === "none" ? "held" : (d.status ?? "")) : escapeHtml(positionChange(d, unit))}</td>
         <td class="n h-right"><span class="m-l">order</span>${order}</td>
         <td class="w h-what">${escapeHtml(d.text ?? "")}</td>
       </tr>`;
@@ -271,13 +563,17 @@ function decisionsPanel(decisions: HistoryDecision[], unit: string | undefined, 
     .join("");
   return `<label class="b-check"><input type="checkbox" data-only-orders /> Only the ${orders} decision${orders === 1 ? "" : "s"} that sent an order</label>
     <div class="t-scroll"><table class="t-table t-log b-decisions" data-rows="decisions">
-      <thead><tr><th>When</th><th class="n">Forecast</th><th class="n">Wanted</th><th class="n">Position</th><th class="n">Order</th><th>In the book's words</th></tr></thead>
+      <thead><tr><th>When</th><th class="n">Forecast</th><th class="n">${lottery ? "Kalshi" : "Wanted"}</th><th class="n">${
+        lottery ? "Action" : "Position"
+      }</th><th class="n">Order</th><th>In the book's words</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     ${more("decisions", decisions.length)}
     <p class="t-dim">One decision a day, written whether or not an order follows. The forecast runs from ${MINUS}20 to +20
-    (+10 is a normal conviction); "wanted" is the exposure the book's rule asks for, as a multiple of the account.${
-      partial ? " Only the desk's latest decisions: the book's full history is not published yet." : ""
-    }</p>`;
+    (+10 is a normal conviction); ${
+      lottery
+        ? `it is the Dynamic's, and "Kalshi" is the week's change of the de-escalation index in points, with whether it agreed.`
+        : `"wanted" is the exposure the book's rule asks for, as a multiple of the account.`
+    }${partial ? " Only the desk's latest decisions: the book's full history is not published yet." : ""}</p>`;
 }
 
 const END_WORDS: Record<string, string> = {
@@ -334,7 +630,7 @@ function historySection(b: Book, h: BookHistory | null, doc: DeskDoc, warning: s
   const since = h?.started_at ?? b.started_at;
   const panels: Record<string, string> = {
     fills: fillsPanel(fills, partial),
-    decisions: decisionsPanel(decisions, unit, partial),
+    decisions: decisionsPanel(decisions, unit, partial, b.kind === "lottery"),
     lives: livesPanel(b, h),
   };
   const body = `${warning ? `<p class="warn">${escapeHtml(warning)}</p>` : ""}<div class="tabs" role="tablist" aria-label="History">${tabs
@@ -450,9 +746,16 @@ function rulesSection(b: Book): string {
         ? `<a href="#/signals?at=claude">The Claude analyst it reads</a>`
         : b.kind === "options"
           ? `<a href="#/signals?at=options">The option quotes it reads</a>`
-          : `<a href="#/signals?at=forecast">The forecast it reads</a>`;
+          : b.kind === "lottery"
+            ? `<a href="#/signals?at=forecast">The Dynamic's forecast</a> and <a href="#/signals?at=kalshi">the Kalshi index</a> it reads`
+            : `<a href="#/signals?at=forecast">The forecast it reads</a>`;
   const backtest =
-    b.forecast_family === "claude"
+    b.kind === "lottery"
+      ? `It has no backtest of real quotes, and none can exist: no free history of option quotes does. The odds on this page are a model's (≈). It is out of every total and is never promoted. Fees so far: ${usd(
+          b.fees ?? null,
+          2,
+        )}.`
+      : b.forecast_family === "claude"
       ? "It has no backtest, and none can exist: a language model knows the prices a replay of the past would ask it to forecast."
       : b.backtested === false || isSpeculative(b)
         ? "It has no backtest: its signal has no history the replay could run on."
@@ -519,11 +822,13 @@ export async function renderBook(el: HTMLElement, id: string): Promise<void> {
     ${head(b)}
     ${figures(b)}
     ${nowSection(b, h, doc)}
+    ${b.kind === "lottery" ? `${newLifeSection(b)}${oddsSection(b)}` : ""}
     ${chartSection(b, h)}
     ${historySection(b, h, doc, warning)}
     ${rulesSection(b)}
   </div>`;
   const root = el.querySelector<HTMLElement>(".bookpage")!;
   wireHistory(root);
+  if (b.kind === "lottery") wireNewLife(root, b);
   drawEquity(root, b, h);
 }

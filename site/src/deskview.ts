@@ -4,7 +4,7 @@
  * Everything here formats what `desk.json` and `books/<id>.json` carry. The only arithmetic is counting rows:
  * every figure - an exposure, a P&L, a group's total - comes from the engine with its own rounding.
  */
-import type { AnalystBlock, Book, BookPosition, DeskDoc, FillRow, OptionStructure } from "./desk";
+import { rocketMonitor, type AnalystBlock, type Book, type BookPosition, type DeskDoc, type FillRow, type OptionStructure } from "./desk";
 import {
   EMPTY,
   clock,
@@ -90,6 +90,9 @@ const STATUS: Record<string, { cls: string; text: string }> = {
 /** A book's state in words. `quiet` is true for the ordinary state, which a row does not need to repeat. */
 export function bookState(b: Book): { cls: string; text: string; quiet: boolean } {
   if (b.role === "retired") return { cls: "dim", text: "Retired by the lifecycle rule", quiet: false };
+  if (b.status === "active" && rocketMonitor(b)?.stuck) {
+    return { cls: "warn", text: "Too small to bet: a new life starts it again", quiet: false };
+  }
   const s = STATUS[b.status];
   if (!s) return { cls: "dim", text: b.status, quiet: false };
   return { ...s, quiet: b.status === "active" };
@@ -101,8 +104,11 @@ export const GROUP_WORDS: Record<string, { label: string; noun: string; verb: st
   candidates: { label: "Candidates", noun: "the candidates", verb: "are" },
   kalshi: { label: "Kalshi books", noun: "the Kalshi books", verb: "are" },
   claude: { label: "Claude books", noun: "the Claude books", verb: "are" },
+  lottery: { label: "Lottery", noun: "the lottery", verb: "is" },
 };
-const KNOWN_GROUPS = ["core", "candidates", "kalshi", "claude"];
+/** Each group's series slot (styles.css `--series-N`), in the engine's fixed order. The lottery skips slot 5, a pink
+ *  too close to the magenta that marks what can be clicked; the five were validated on both themes. */
+const GROUP_SLOTS: Record<string, number> = { core: 1, candidates: 2, kalshi: 3, claude: 4, lottery: 6 };
 
 export function groupOf(b: Book): string {
   if (b.group) return b.group;
@@ -143,29 +149,38 @@ export function groupLabel(id: string): string {
   return GROUP_WORDS[id]?.label ?? id.charAt(0).toUpperCase() + id.slice(1);
 }
 
-/** One colour per group in the engine's fixed order (core, candidates, Kalshi, Claude, then any group added later), so
- *  the colour follows the group: a filter that hides one never repaints another. The four validated on both themes. */
+/** One colour per group in the engine's fixed order (core, candidates, Kalshi, Claude, the lottery, then any group
+ *  added later), so the colour follows the group: a filter that hides one never repaints another. */
 export function groupColor(id: string, all: string[]): string {
-  const known = KNOWN_GROUPS.indexOf(id);
-  const extra = all.filter((g) => !KNOWN_GROUPS.includes(g)).indexOf(id);
-  const slot = known >= 0 ? known : KNOWN_GROUPS.length + Math.max(0, extra);
-  return `var(--series-${Math.min(7, slot + 1)})`;
+  const known = GROUP_SLOTS[id];
+  if (known) return `var(--series-${known})`;
+  const extra = all.filter((g) => !GROUP_SLOTS[g]).indexOf(id);
+  return `var(--series-${Math.min(7, 7 + Math.max(0, extra))})`;
 }
 
 export const strike = (x: number): string => num(x, Number.isInteger(x) ? 0 : 1);
 
-/** "19 BNO shares", "100 barrels of MCLZ26", "2 spreads of BNO put 57/55". */
+/** "19 BNO shares", "100 barrels of MCLZ26", "2 spreads of BNO put 57/55", "1 USO call 175 2026-11-13". */
 export function quantity(n: number, unit: string | undefined, symbol: string): string {
   const q = num(Math.abs(n), 0);
   const one = Math.abs(n) === 1;
   if (unit === "shares") return `${q} ${symbol} share${one ? "" : "s"}`;
   if (unit === "barrels") return `${q} barrel${one ? "" : "s"} of ${symbol}`;
   if (unit === "spread") return `${q} spread${one ? "" : "s"}, ${symbol}`;
+  if (unit === "contract") return `${q} contract${one ? "" : "s"}, ${symbol}`;
   return `${q} ${unit ?? "units"} of ${symbol}`;
+}
+
+/** The Rocket's option in words: "1 USO call, strike 175, expiring 13 Nov 2026". */
+export function optionWords(p: BookPosition): string {
+  const n = Math.abs(p.units);
+  const what = `${p.underlying ?? ""} ${p.kind ?? "option"}${n === 1 ? "" : "s"}`.trim();
+  return `${num(n, 0)} ${what}, strike ${p.strike === null || p.strike === undefined ? EMPTY : strike(p.strike)}, expiring ${day(p.expiry ?? null)}`;
 }
 
 /** A position in words: the side of the OIL (or fund) exposure first. An inverse fund is held long and is short oil. */
 export function positionWords(p: BookPosition): string {
+  if (p.unit === "contract") return `Bought ${optionWords(p)}`;
   const what = quantity(p.units, p.unit, p.symbol);
   if ((p.multiplier ?? 1) < 0) return `Short through ${what}`;
   return `${p.side === "short" ? "Short" : "Long"} ${what}`;
@@ -221,6 +236,7 @@ const REASON: Record<string, string> = {
   stop_loss: "stop",
   reset: "reset",
   open: "opened",
+  sell: "exit",
   expiry: "expiry",
   apertura: "opened",
   scadenza: "expiry",
@@ -231,6 +247,10 @@ export const reasonWords = (r: string | null | undefined): string => (r ? (REASO
 
 /** A fill's trade without its price: "Bought 7 BNO shares", "Sold 2 spreads, BNO put 57/55 2026-11-20". */
 export function tradeWords(f: FillRow): string {
+  if (f.unit === "contract") {
+    const what = quantity(f.units, "contract", f.symbol);
+    return f.reason === "open" ? `Bought ${what}` : f.reason === "expiry" ? `Expired ${what}` : `Sold ${what}`;
+  }
   if (f.unit === "spread") {
     const opened = f.reason === "open" || f.reason === "apertura";
     return `${opened ? "Sold" : "Settled"} ${quantity(f.units, "spread", f.symbol)}`;
@@ -240,6 +260,7 @@ export function tradeWords(f: FillRow): string {
 
 /** A fill in words: "Bought 7 BNO shares at 65.08", "Sold 2 spreads, BNO put 57/55 2026-11-20, for 0.25". */
 export function fillWords(f: FillRow): string {
+  if (f.unit === "contract") return `${tradeWords(f)} at ${num(f.price, 2)} a share`;
   if (f.unit === "spread") {
     const what = quantity(f.units, "spread", f.symbol);
     return f.reason === "open" || f.reason === "apertura"
@@ -252,6 +273,7 @@ export function fillWords(f: FillRow): string {
 // ---------------------------------------------------------------------------------------------- rules
 export function capText(b: Book): string {
   if (b.kind === "options") return "defined risk";
+  if (b.kind === "lottery") return `${leverage((b.rules.max_delta_leverage as number | undefined) ?? 10)} on the delta`;
   const cap = b.cap_today ?? (b.rules.max_leverage as number | undefined) ?? null;
   const risk = b.allocator?.risk;
   const scaled =
@@ -265,6 +287,7 @@ export function capText(b: Book): string {
 
 export function stressText(b: Book): string {
   if (b.kind === "options") return span("t-dim", "by structure");
+  if (b.kind === "lottery") return span("t-dim", "at most the premium");
   const v = b.stress?.["-20%"];
   if (v === null || v === undefined) return EMPTY;
   return toneSpan(v, signedPercent(v, 1));
@@ -297,6 +320,25 @@ export function analystSleevesText(sleeves: Record<string, 1 | -1> | null | unde
 
 export function ruleLine(b: Book): string {
   const r = b.rules;
+  if (b.kind === "lottery") {
+    const dte = (r.dte as number[] | undefined) ?? [];
+    return `Each life starts at ${usd(r.initial_capital as number, 0)}. Once a day at ${escapeHtml(String(r.decision_time_ny ?? "15:00"))} New York:
+    with the Dynamic at +${num(r.forecast_threshold as number, 0)} or more it buys calls on USO, at ${MINUS}${num(
+      r.forecast_threshold as number,
+      0,
+    )} or less puts, and only when Kalshi's odds of a de-escalation moved over the week the way the bet needs (down
+    for calls, up for puts). The option: the listed expiry closest to ${dte[1] ?? 30} days (between ${dte[0] ?? 21} and ${
+      dte[2] ?? 45
+    }), delta nearest ${num(r.target_delta as number, 2)} if it fits in ${percent(r.stake as number, 0)} of the account, else further
+    from the price down to delta ${num(r.min_delta as number, 2)}; whole contracts, never more than ${leverage(
+      r.max_delta_leverage as number,
+    )} the account in delta; quoted within ${percent(r.max_leg_spread as number, 0)} of its price, bought a quarter of the
+    spread from the ask, ${usd(r.fee_per_contract as number, 2)} a contract. One bet at a time, sold when the Dynamic stops
+    pointing its way or with ${r.roll_days ?? 7} days left (then replaced if the signal holds); no profit target. At ${percent(
+      r.floor as number,
+      0,
+    )} of its capital the life is over. The options book's limits and the volatility targets are suspended for this book alone.`;
+  }
   if (b.kind === "options") {
     const dte = (r.dte as number[] | undefined) ?? [];
     return `Sells one put spread only with a forecast of at least +${num(r.forecast_threshold as number, 0)}; the put sold at

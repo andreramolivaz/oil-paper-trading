@@ -535,11 +535,14 @@ def test_cross_source_divergence_turns_the_entry_red(tmp_path):
     store = RawStore(cfg.state_dir)
     _save(store, "brent_spot", "eia_xls", daily_frame([119.97, 113.96], dates=DATES[:2]))
     _save(store, "brent_spot", "fred_csv", daily_frame([119.97, 113.96], dates=DATES[:2]))
-    md = build_market_data(store, cfg)
+    # read on the day the snapshots were taken: on the wall clock the series ages past twice its 240 h limit (from
+    # 19 October 2026) and turns red for staleness, which is not what this test is about
+    asof = NOW + timedelta(hours=1)
+    md = build_market_data(store, cfg, asof=asof)
     assert next(h for h in md.health if h.source == "brent_spot").status is Health.YELLOW  # only the fallback flag
 
     _save(store, "brent_spot", "fred_csv", daily_frame([119.97, 111.10], dates=DATES[:2]))
-    md = build_market_data(store, cfg)
+    md = build_market_data(store, cfg, asof=asof)
     health = next(h for h in md.health if h.source == "brent_spot")
     assert health.status is Health.RED
     assert "eia_xls 113.9600 vs fred_csv 111.1000" in health.message

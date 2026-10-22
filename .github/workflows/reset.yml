@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       book:
-        description: "Which book: all, prudente, dinamico, spinto, opzioni, gold, copper, agri, bonds, equities, uranium, utilities, lithium, semis, clean, oracle, oracle_equities, oracle_utilities, claude_oil, claude_gold, claude_equities, claude_bonds"
+        description: "Which book: all, prudente, dinamico, spinto, opzioni, gold, copper, agri, bonds, equities, uranium, utilities, lithium, semis, clean, oracle, oracle_equities, oracle_utilities, claude_oil, claude_gold, claude_equities, claude_bonds, rocket (back to its own 1 000 $)"
         required: false
         default: "all"
         type: string

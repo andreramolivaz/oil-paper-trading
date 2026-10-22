@@ -333,6 +333,39 @@ ribassista (spread di call) non ha mostrato margine nella simulazione e non vien
 
 Numeri, sensibilità e ciò che è stato scartato: `docs/RESEARCH.md` e la pagina **Backtest** del sito.
 
+### Il «Rocket» (`engine/desk/rocket.py`, `rocket_book` in `config/books.yaml`, fase 19) — una lotteria
+
+Chiesto dal proprietario il 22 ottobre 2026: un conto da **1 000 $** che punta a 10 000 in tre mesi, a leva, che si
+fa ripartire con un click. È una lotteria e lo dice ovunque: le regole di rischio del progetto sono sospese per lui
+solo, per decisione del proprietario, e i suoi numeri non entrano in nessun totale. La regola, registrata prima di
+misurare (`docs/RESEARCH.md`, capitolo 14 A):
+
+- **Il segnale.** La direzione del Dinamico (la previsione combinata del fondo Brent: long da +5, short da −5) e
+  l'accordo di Kalshi (la variazione in una settimana dell'indice di de-escalation: in discesa per un long, in
+  salita per uno short; la sua ampiezza non conta). Una scommessa nuova vuole tutti e due.
+- **La scommessa.** Long: call su USO; short: put su USO. La scadenza quotata più vicina a 30 giorni fra 21 e 45; fra
+  le opzioni di quella scadenza fuori dal denaro e quotate entro il 25% del loro prezzo, quella con il delta più
+  vicino a 0,30 se costa meno di metà del conto, altrimenti la successiva più lontana dal prezzo, fino a delta 0,10.
+  Contratti interi, quanti ne stanno in metà del conto (a lettera meno un quarto dello spread, 0,05 $ a contratto),
+  mai un nozionale in delta sopra 10 volte il conto. Una alla volta.
+- **L'uscita.** Venduta (a denaro più un quarto dello spread) quando il Dinamico non punta più nella sua direzione;
+  con 7 giorni o meno alla scadenza venduta e sostituita lo stesso giorno se il segnale tiene. Nessun obiettivo di
+  guadagno. Non venduta entro la scadenza: regolata al valore intrinseco sulla chiusura ufficiale.
+- **La vita.** A 50 $ (il 5%) il conto è morto; ma con contratti interi smette di poter scommettere prima, quando il
+  contratto più economico ammesso costa più di metà del conto (circa 240 $ sulla catena del 16 ottobre): la pagina
+  lo dice. Il pulsante «Start a new life» della sua pagina avvia il workflow `rocket-reset.yml`, che archivia la vita
+  com'è e riparte da 1 000 $.
+
+- **Tesi.** Nessun vantaggio oltre a quello del Dinamico: le opzioni comprate sul petrolio costano in media più del
+  movimento che segue (capitolo 4). Il libro paga quel premio per la possibilità di un 10x, che viene solo da un
+  crollo o da un'impennata che la volatilità implicita non aveva prezzato.
+- **Le probabilità (un modello ≈, capitolo 14 E).** Su 811 finestre di tre mesi dal 2011: 10x nell'1,8%, tutte in tre
+  crolli comprati con le put (autunno 2014, maggio 2015, inizio 2020); raddoppio nel 10,5%; metà del conto o più
+  persa nel 50,1%; la mediana finisce a 0,50x. Nel 2026 nessuna delle 17 finestre è arrivata a 2x.
+- **Replicabile.** Opzioni comprate su USO: livello 2 su Robinhood e su Alpaca (il conto di prova di Alpaca e la sua
+  API sono gratuiti). La pagina del libro mostra l'ordine esatto nei due formati: il simbolo OCC, la quantità e il
+  limite per l'API di Alpaca, i passi del modulo di Robinhood.
+
 ---
 
 # Universo delle strategie del primo sistema

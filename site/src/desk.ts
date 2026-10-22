@@ -86,6 +86,98 @@ export interface BookPosition {
   /** The signed exposure of this position as a multiple of the book's equity (an inverse fund counts −2x). */
   exposure?: Num;
   opened_at?: string | null;
+  // the Rocket's option (unit "contract"): what it is, what it cost, its mark, how to copy it
+  label?: string;
+  kind?: "call" | "put";
+  underlying?: string;
+  strike?: Num;
+  expiry?: string;
+  days_left?: number | null;
+  cost?: Num;
+  delta?: Num;
+  delta_notional?: Num;
+  marked_at?: string | null;
+  mark_stale?: boolean;
+  awaiting_close?: boolean;
+  underlying_at_entry?: Num;
+  underlying_last?: Num;
+  replicate?: Replicate | null;
+}
+
+/** The same order on a real account, as each broker takes it (engine: `rocket.replicate`). Paper figures. */
+export interface Replicate {
+  alpaca: { symbol: string; qty: number; side: string; type: string; limit_price: number; time_in_force: string };
+  robinhood: string;
+}
+
+/** The Rocket's signal of the day (engine: `rocket.RocketSignal.to_dict`). */
+export interface RocketSignal {
+  day: string;
+  forecast: Num;
+  direction: number;
+  kalshi_change: Num;
+  kalshi_index: Num;
+  kalshi_note: string;
+  agree: boolean;
+  text: string;
+}
+
+/** What the Rocket would buy now (engine: `rocket.select`). */
+export interface RocketCandidate {
+  option: string;
+  right: "C" | "P";
+  strike: number;
+  expiry: string;
+  dte: number;
+  contracts: number;
+  fill: number;
+  bid: number;
+  ask: number;
+  delta: number;
+  cost: number;
+  share_of_equity: Num;
+  delta_notional: number;
+  underlying_price: number;
+  quote_ts: string;
+  replicate?: Replicate;
+}
+
+export interface RocketMonitor {
+  generated_at: string;
+  session_open?: boolean;
+  quote_ts: string | null;
+  quote_age_minutes: Num;
+  underlying_price: Num;
+  signal: RocketSignal;
+  candidate: RocketCandidate | null;
+  /** True when the candidate is shown although Kalshi does not agree today: no bet would open on it. */
+  candidate_needs_kalshi?: boolean;
+  no_candidate_reason: string;
+  cheapest_cost: Num;
+  /** The equity below which no option the rule admits fits in the stake, and that as a multiple of the start. */
+  bet_floor: Num;
+  bet_floor_multiple?: Num;
+  stuck: boolean;
+  rules: Record<string, unknown>;
+}
+
+/** The model's odds for the Rocket (engine: `rocket.MODEL_ODDS`), approximate by construction. */
+export interface RocketOdds {
+  approx: boolean;
+  span: string;
+  windows: number;
+  p_10x: number;
+  p_2x: number;
+  p_lose_half: number;
+  p_dead: number;
+  median_multiple: number;
+  best_multiple: number;
+  ten_x_episodes: string[];
+  outcomes: { id: string; label: string; share: number }[];
+  windows_2026: number;
+  p_2x_2026: number;
+  median_multiple_2026: number;
+  source: string;
 }
 
 export interface OptionLeg {
@@ -211,10 +303,11 @@ export interface RoleChange {
 
 export interface Book {
   id: string;
-  kind: "linear" | "options";
+  /** "lottery": the Rocket (phase 19), bought options on 1 000 $ with the risk rules suspended. */
+  kind: "linear" | "options" | "lottery";
   /** "core": one of the books the desk is judged on; "candidate": a paper book run beside them (phase 12);
-   *  "retired": flat by the lifecycle rule, reopened only by the owner. */
-  role?: "core" | "candidate" | "retired";
+   *  "retired": flat by the lifecycle rule, reopened only by the owner; "lottery": in no total. */
+  role?: "core" | "candidate" | "retired" | "lottery";
   /** The role in config/books.yaml; `role` differs when the lifecycle rule changed it (`role_change` says why). */
   configured_role?: string;
   /** The group of the desk page (`DeskDoc.portfolios`): "core", "candidates", "kalshi", "claude". */
@@ -284,7 +377,19 @@ export interface Book {
     underlyings: OptionUnderlying[];
     rules: Record<string, unknown>;
   } | null;
+  // the Rocket (kind "lottery")
+  /** Equity as a multiple of the life's starting capital. */
+  multiple?: Num;
+  lives?: number;
+  fees?: Num;
+  odds?: RocketOdds;
+  reset_workflow?: string;
+  last_decision_day?: string | null;
 }
+
+/** The Rocket's monitor: its `monitor` field read with the lottery's shape. */
+export const rocketMonitor = (b: Book): RocketMonitor | null =>
+  b.kind === "lottery" && b.monitor ? (b.monitor as unknown as RocketMonitor) : null;
 
 export interface DecisionRow {
   ts: string;
@@ -313,6 +418,10 @@ export interface FillRow {
   realized_pnl: Num;
   decided_at?: string | null;
   leverage_after: Num;
+  /** The Rocket's sale or expiry: what came back as a multiple of what the option cost. */
+  multiple?: Num;
+  /** Settled on the last price on file rather than the official close (the expiry's close never came). */
+  approx?: boolean;
 }
 
 export interface Stats {
@@ -807,7 +916,7 @@ export interface BookHistory {
   generated_at: string;
   id: string;
   name: string;
-  kind: "linear" | "options";
+  kind: "linear" | "options" | "lottery";
   vehicle: string;
   unit: string;
   epoch: number;
@@ -830,6 +939,8 @@ export interface BookLife {
   /** "reset_manual" (the owner's reset) or "dead" (equity at or below 5% of the start). */
   end_reason: string | null;
   n_trades: number | null;
+  /** The Rocket's lives also keep their highest equity. */
+  peak_equity?: Num;
 }
 
 export interface HistoryDecision extends DecisionRow {
@@ -842,4 +953,7 @@ export interface HistoryDecision extends DecisionRow {
   held?: { symbol: string | null; from: Num; to: Num }[];
   /** Every order the decision queued, with its instrument (a change of side is a sale and a purchase). */
   orders?: { symbol: string | null; units: Num }[];
+  /** The Rocket: the de-escalation index's change over the week, and whether it agreed with the Dynamic. */
+  kalshi_change?: Num;
+  agree?: boolean | null;
 }
