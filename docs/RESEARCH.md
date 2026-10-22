@@ -2105,6 +2105,53 @@ prenda la sua prima decisione (è ancora sul ramo `phase-19`, non ha mai deciso)
   tocco). La soglia ±10 e la previsione del WTI restano scritte in G come scelte sue: la prima perde un terzo di
   quanto perde la regola a parità di 10x, la seconda passa il filtro per quattro finestre su ottocento.
 
+### I. Risultati sui contratti a eventi (22 ottobre, 22:10 UTC: scritti dopo la misura, sui candlestick veri)
+
+**I dati, e il loro limite.** Il runner ha scaricato (`research-data`, `kalshi-history`, corse 39849536041 e
+39855330358) le serie settimanali e mensili del Brent e del WTI e la giornaliera del Brent; la giornaliera del WTI
+(KXWTI, venti scaglioni al giorno) non sta nei trenta minuti del job a una chiamata al secondo ed è rimasta fuori;
+KXWTIMONTHLY non esiste più con quel nome. L'elenco dei mercati di Kalshi dimentica i mercati regolati dopo poche
+settimane (10 H), quindi la storia parte da metà agosto 2026 anche chiedendola da gennaio: **1 023 mercati «sopra X»
+regolati, 49 eventi (38 giornate del Brent, 9 settimane, 2 mesi), 3 685 giorni quotati dal 2 agosto al 22 ottobre**,
+cioè due mesi e mezzo di un solo regime, con il Dinamico quasi sempre long. Non sono i cento scommesse indipendenti
+della regola di F: sono 49 esiti, e quelli giornalieri si muovono con lo stesso prezzo.
+
+**Per dollaro scommesso, alla lettera più la commissione, tenuto alla risoluzione** (`scripts/research_rocket_kalshi.py`):
+
+| Prezzo del contratto | Nella direzione del Dinamico: scommesse, vinte, rendimento per $ (e.s.) | Senza segnale, i due lati: scommesse, vinte, rendimento per $ (e.s.) |
+|---|---|---|
+| fino a 15 ¢ | 824, 2,8%, **−0,67** (0,08) | 2 355, 1,6%, **−0,80** (0,04) |
+| 15-40 ¢ | 324, 23,5%, −0,19 (0,09) | 1 003, 17,2%, −0,42 (0,04) |
+| 40-70 ¢ | 288, 62,2%, +0,08 (0,05) | 908, 55,3%, −0,04 (0,03) |
+| oltre 70 ¢ | 824, 97,9%, +0,07 (0,01) | 2 395, 94,6%, +0,04 (0,01) |
+
+Sulla sola giornaliera del Brent (38 eventi) i numeri sono meno brutti (nella direzione del Dinamico: fino a 15 ¢
++0,09 con un errore standard di 0,28; 15-40 ¢ +0,15 ± 0,15; 40-70 ¢ +0,03 ± 0,08; senza segnale −0,30, −0,13,
+−0,05, −0,01): due mesi in cui il petrolio è salito e il Dinamico diceva long.
+
+**Che cosa dice:**
+
+- **La distorsione favorito-sfavorito c'è anche qui, ed è grande**: i contratti sotto i 15 ¢, gli unici che pagano
+  10x, rendono −80% per dollaro senza segnale e −67% con il segnale del Dinamico. Chi compra la coda paga il
+  sogno; il segnale lo sconta di un terzo e non lo cambia. Sopra i 70 ¢ il rendimento è positivo: è l'altro lato
+  della stessa distorsione.
+- **Il segnale del Dinamico vale qualcosa**: in ogni fascia la sua direzione rende 15-40 punti più dei due lati senza
+  segnale. È lo stesso vantaggio che il Rocket compra con le opzioni, e qui costa di più.
+- **La regola di F**: fra 15 e 70 ¢ nella direzione del Dinamico, 612 scommesse su 364 mercati, **−0,06 per dollaro
+  dopo le commissioni**: negativo. **Nessun lato Kalshi entra nel Rocket**, come il prior diceva. La sola fascia che
+  rende (40-70 ¢, +0,08 ± 0,05) paga 1,7 volte la posta, non 10: per arrivare a 10x con quei contratti servono cinque
+  vincite di fila con tutto il conto (il gioco audace, 0,62^5 ≈ 9% se quel 62% fosse vero, con il 91% di morti) -
+  il tetto di F, di nuovo, e con due mesi di dati.
+- Le vite di trenta giorni (otto finestre che si sovrappongono: tre mesi di dati non ci sono) sui contratti più
+  vicini a 25 ¢ finiscono in mediana a 0,60 (0,05 sul solo Brent giornaliero, metà delle vite morte); quelle sui
+  contratti a 55 ¢ a 1,92 con nessuna morta - otto finestre di un trend favorevole, non una misura.
+
+**In una riga per il proprietario**: su Kalshi la leva c'è, ma è la leva del lotto: i contratti che pagano 10x
+perdono due terzi di ogni dollaro anche con il segnale giusto; quelli su cui il Dinamico mostra un vantaggio pagano
+1,7x. La convessità delle opzioni comprate costa meno e non ha un tetto a 1 $. Polymarket non è aperto agli
+americani. Il Rocket resta sulle opzioni; i contratti a eventi si continuano ad archiviare e a leggere (le allerte,
+gli indici), e si rimisurano quando l'archivio avrà un anno (la regola di fase 13).
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
