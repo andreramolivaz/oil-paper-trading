@@ -211,6 +211,32 @@ narrazione dentro il riassunto, la chiave nel file di stato): tredici fanno fall
 `tests/test_desk_analyst.py`; il quattordicesimo è innocuo, perché il file di stato scrive comunque un sì o un no
 (`bool`), e tolta anche quella protezione il test lo trova.
 
+**Il Rocket (fase 19, 22 ottobre 2026).** Prima della sua prima decisione, un agente che non lo aveva visto scrivere lo
+ha attaccato con simulatori suoi (dodici semi per circa 3 700 giri ciascuno: riavvii a qualunque secondo, giri
+ripetuti e annullati, catene mancanti o parziali, l'opzione tenuta sparita dalla catena, le feste americane, il
+cambio dell'ora del 1° novembre; i ventun libri di prima a confronto con `main` su due copie dello stato, quindici
+orologi fermi), con la pagina in Playwright su un `desk.json` avvelenato, e con il workflow del reset contro un
+remoto locale in cui un push del runner si infila in mezzo. I ventun libri di prima sono identici byte per byte e
+l'impronta del backtest non cambia; nessuna violazione di cassa, esecuzioni dentro denaro e lettera, nozionale in
+delta, una decisione per seduta. Undici difetti, tutti riprodotti e tutti corretti prima della messa in linea
+(`tests/test_desk_rocket.py` ne fissa ciascuno): il libro leggeva la previsione del giorno PRIMA quando la tabella
+del fondo mancava o l'ora di decisione passava durante gli scaricamenti, e scommetteva mentre il Dinamico
+giustamente aspettava (ora legge la sola riga del giorno, e aspetta quando il Dinamico aspetta); una previsione
+mancante vendeva l'opzione (ora nulla si decide e la posizione resta); in un crollo l'opzione vincente usciva dalla
+finestra di prezzi che l'archivio conserva e restava a un prezzo vecchio - proprio nelle finestre da cui vengono
+tutti i 10x del modello (ora l'archivio tiene tutta la catena, e un'opzione oltre gli strike archiviati si valuta e
+si vende al valore intrinseco, con il segno ≈); il giorno dopo il Ringraziamento e la vigilia di Natale le opzioni
+chiudono alle 13 e la decisione delle 15 cadeva su quotazioni di un mercato chiuso, con il bollo del file che le
+faceva passare per fresche (ora il calendario ha le chiusure anticipate, anche per il libro delle opzioni); un file
+del Rocket danneggiato fermava la scrittura di `desk.json` e quindi tutto il sito (ora costa solo la sua riga); dopo
+un reset la pagina mostrava «troppo piccolo per scommettere» della vita vecchia fino al giro successivo (ora il
+monitor si riscrive al reset); la riga del giorno di scadenza scaricata durante la seduta regolava l'opzione come
+se fosse la chiusura ufficiale (ora conta solo una chiusura che lo scaricamento poteva aver visto, per entrambi i
+libri); una vendita si registrava contro un denaro a zero; cinque valori delle regole finivano nella pagina come
+HTML grezzo e l'indirizzo del workflow a cui la pagina manda il token era letto dai dati (ora è una costante del
+sito); «held» per ogni decisione senza scommessa e una maiuscola sbagliata. Nella stessa messa in linea è entrata
+la regola del traguardo (`docs/RESEARCH.md` 14 H): la vita finisce a dieci volte il capitale.
+
 ---
 
 ## Il primo sistema: ciclo di vita e risultati

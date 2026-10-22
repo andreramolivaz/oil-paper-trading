@@ -32,8 +32,10 @@ def _payload(symbol: str) -> dict:
     return json.loads((FIXTURES / f"{symbol.lower()}_20261008.json").read_text())
 
 
-def _store(tmp_path: Path, closes: dict[str, float] | None = None) -> RawStore:
-    """A raw store holding the two real chains and (optionally) SYNTHETIC daily closes of USO."""
+def _store(tmp_path: Path, closes: dict[str, float] | None = None, closes_seen: datetime | None = None) -> RawStore:
+    """A raw store holding the two real chains and (optionally) SYNTHETIC daily closes of USO, downloaded at
+    ``closes_seen`` (the evening after the last close by default: a row is official only once its session has
+    closed before the download)."""
     store = RawStore(tmp_path)
     for symbol in ("USO", "BNO"):
         frame = parse_chain(_payload(symbol))
@@ -45,7 +47,9 @@ def _store(tmp_path: Path, closes: dict[str, float] | None = None) -> RawStore:
         daily = pd.DataFrame(
             {"close": list(closes.values()), "published_at": pd.Timestamp("2026-10-08", tz="UTC")}, index=idx
         )
-        store.save("uso_daily", "sintetico", FetchResult("sintetico", daily, datetime(2026, 10, 8, tzinfo=UTC)))
+        last = idx.max().to_pydatetime()
+        seen = closes_seen or datetime(last.year, last.month, last.day, 21, 30, tzinfo=UTC)  # 16:30/17:30 New York
+        store.save("uso_daily", "sintetico", FetchResult("sintetico", daily, seen))
     return store
 
 
@@ -282,9 +286,15 @@ def test_a_structure_is_settled_by_the_tick_on_the_official_close(tmp_path):
     book = op.OptionsBook.load(CFG, RISK, op.options_store(state, CFG))
     s = book.structures[0]
     closes = {s["expiry"]: s["short"]["strike"] + 10.0}  # SYNTHETIC close, above the short strike
-    store2 = _store(tmp_path / "raw2", closes)
     expiry = pd.Timestamp(s["expiry"])
+    # the expiry day's row downloaded DURING the session is the running price, not the close: no settlement on it
+    # (found in review), and the structure waits for the official close
+    running = _store(tmp_path / "raw1", closes, datetime(expiry.year, expiry.month, expiry.day, 18, 48, tzinfo=UTC))
     after = datetime(expiry.year, expiry.month, expiry.day, 22, 0, tzinfo=UTC)  # 17:00 New York (EST)
+    early = op.options_tick(state, RISK, _data(1.0), running, after, CFG)
+    assert early["settled"] == 0 and early["open"] == 1
+    assert op.OptionsBook.load(CFG, RISK, op.options_store(state, CFG)).structures[0]["awaiting_close"] is True
+    store2 = _store(tmp_path / "raw2", closes)  # the same row read after the close: official
     report = op.options_tick(state, RISK, _data(1.0), store2, after, CFG)
     assert report["settled"] == 1 and report["open"] == 0
     assert report["equity"] == pytest.approx(10_000 + s["credit"] * 100 - 0.10)

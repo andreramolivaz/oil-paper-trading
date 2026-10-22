@@ -385,7 +385,10 @@ class Fetcher:
             listed = entry.get("series")
             return "fetch", {"series": [str(x) for x in listed] if isinstance(listed, list) else None}
         if name == "cboe_chain":
-            return "fetch_chain", {"symbol": str(entry.get("symbol", "BNO"))}
+            chain_kwargs: dict[str, Any] = {"symbol": str(entry.get("symbol", "BNO"))}
+            if entry.get("moneyness") is not None:
+                chain_kwargs["moneyness"] = float(entry["moneyness"])
+            return "fetch_chain", chain_kwargs
         if name == "alphavantage_insider":
             return "fetch", {}
         if name == "eia":

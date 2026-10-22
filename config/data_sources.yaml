@@ -171,10 +171,14 @@ desk_intraday:
 
 # Real option chains with bid and ask (Cboe delayed quotes, 15 minutes, no key).
 options:
+  # moneyness: the strikes kept, as a fraction of the fund's price either way. The whole listed chain (1.0) since
+  # phase 19: an option a book holds must stay in the archive after a large move, or it can be neither marked nor
+  # sold (found in review: a put 140 with the fund at 100 fell out of the 30 % window exactly in the crash the
+  # book bets on). The options book's spreads share the archive.
   bno_options:
-    - {adapter: cboe_chain, symbol: "BNO"}
+    - {adapter: cboe_chain, symbol: "BNO", moneyness: 1.0}
   uso_options:
-    - {adapter: cboe_chain, symbol: "USO"}
+    - {adapter: cboe_chain, symbol: "USO", moneyness: 1.0}
 
 # Refreshed by the weekly job only: the free Alpha Vantage tier allows 25 calls a day and this table needs 12.
 weekly_alt:

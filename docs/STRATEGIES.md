@@ -351,17 +351,26 @@ misurare (`docs/RESEARCH.md`, capitolo 14 A):
 - **L'uscita.** Venduta (a denaro più un quarto dello spread) quando il Dinamico non punta più nella sua direzione;
   con 7 giorni o meno alla scadenza venduta e sostituita lo stesso giorno se il segnale tiene. Nessun obiettivo di
   guadagno. Non venduta entro la scadenza: regolata al valore intrinseco sulla chiusura ufficiale.
-- **La vita.** A 50 $ (il 5%) il conto è morto; ma con contratti interi smette di poter scommettere prima, quando il
-  contratto più economico ammesso costa più di metà del conto (circa 240 $ sulla catena del 16 ottobre): la pagina
-  lo dice. Il pulsante «Start a new life» della sua pagina avvia il workflow `rocket-reset.yml`, che archivia la vita
-  com'è e riparte da 1 000 $.
+- **La vita.** Finisce al traguardo: alla prima decisione in cui il conto vale dieci volte il capitale della vita,
+  l'opzione si vende e il libro si ferma («target»; registrazione 14 H, dopo la misura di 14 G: 14 delle 29 vite del
+  modello che avevano toccato il 10x lo avevano restituito). A 50 $ (il 5%) il conto è morto; con contratti interi
+  smette di poter scommettere prima, quando il contratto più economico ammesso costa più di metà del conto (circa
+  240 $ sulla catena del 16 ottobre): la pagina lo dice. Il pulsante «Start a new life» della sua pagina avvia il
+  workflow `rocket-reset.yml`, che archivia la vita com'è e riparte da 1 000 $.
+- **Quando aspetta.** Legge la previsione del giorno stesso, come il Dinamico: se la tabella del fondo Brent manca,
+  se l'ora di decisione è passata durante gli scaricamenti o se non c'è previsione, non decide e la decisione resta
+  dovuta al giro successivo. Nei giorni di chiusura anticipata (le 13 di New York) non decide.
 
 - **Tesi.** Nessun vantaggio oltre a quello del Dinamico: le opzioni comprate sul petrolio costano in media più del
   movimento che segue (capitolo 4). Il libro paga quel premio per la possibilità di un 10x, che viene solo da un
   crollo o da un'impennata che la volatilità implicita non aveva prezzato.
-- **Le probabilità (un modello ≈, capitolo 14 E).** Su 811 finestre di tre mesi dal 2011: 10x nell'1,8%, tutte in tre
-  crolli comprati con le put (autunno 2014, maggio 2015, inizio 2020); raddoppio nel 10,5%; metà del conto o più
-  persa nel 50,1%; la mediana finisce a 0,50x. Nel 2026 nessuna delle 17 finestre è arrivata a 2x.
+- **Le probabilità (un modello ≈, capitolo 14 G-H, contratti interi e traguardo).** Su 812 finestre di tre mesi dal
+  2011: 10x nel 2,7% (22 finestre: autunno 2014, estate e novembre 2015, inizio 2020, gennaio 2026); raddoppio senza
+  10x nel 4,9%; metà del conto o più persa nel 16%; il 40% delle vite finisce senza poter più scommettere; la
+  mediana a 0,68x. Nel 2026 nessuna delle 17 finestre è arrivata a 2x. Senza un vantaggio nessuna strategia porta
+  1 000 $ a 10 000 più del 10% delle volte (Dubins e Savage): le varianti misurate in 14 G spostano probabilità
+  dalle code al centro o viceversa, non oltre quel tetto; su Kalshi (14 I) i contratti che pagano 10x perdono due
+  terzi di ogni dollaro anche con il segnale giusto.
 - **Replicabile.** Opzioni comprate su USO: livello 2 su Robinhood e su Alpaca (il conto di prova di Alpaca e la sua
   API sono gratuiti). La pagina del libro mostra l'ordine esatto nei due formati: il simbolo OCC, la quantità e il
   limite per l'API di Alpaca, i passi del modulo di Robinhood.
