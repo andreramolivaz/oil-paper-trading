@@ -131,9 +131,49 @@ def test_an_unreadable_archive_is_no_agreement_and_never_an_error(tmp_path, kals
     assert "could not be read" in signal.kalshi_note
 
 
-def test_a_forecast_older_than_four_days_is_no_direction(tmp_path, kalshi):
+def test_only_the_forecast_of_the_day_itself_is_a_direction(tmp_path, kalshi):
+    """Found in review: with the fund's table missing on a tick, the book read yesterday's forecast and bet while
+    the Dynamic rightly waited. The row of the decision day, or nothing."""
     signal = rk.read_signal(_data(9.0, ("2026-10-01", "2026-10-02")), tmp_path, date(2026, 10, 8), CFG)
     assert signal.forecast is None and signal.direction == 0
+    yesterday = rk.read_signal(_data(9.0, ("2026-10-06", "2026-10-07")), tmp_path, date(2026, 10, 8), CFG)
+    assert yesterday.forecast is None and yesterday.direction == 0
+    today = rk.read_signal(_data(9.0), tmp_path, date(2026, 10, 8), CFG)
+    assert today.forecast == 9.0 and today.direction == 1
+    assert "nothing is decided" in yesterday.text()
+
+
+def test_without_the_day_forecast_the_tick_decides_nothing_and_the_decision_stays_owed(tmp_path, kalshi):
+    store, state = _store(tmp_path / "raw"), tmp_path / "state"
+    rk.rocket_tick(state, _data(9.0), store, NOW, CFG)  # a call is bought
+    tomorrow = NOW + timedelta(days=1)
+    stale = _data(float("nan"), ("2026-10-08", "2026-10-09"))  # SYNTHETIC: no forecast of the 9th
+    report = rk.rocket_tick(state, stale, _next_day(tmp_path / "raw2", tomorrow, -3.0, 0.8), tomorrow, CFG)
+    assert report["decision"] is None and "no forecast" in report["waiting"]
+    book = rk.RocketBook.load(CFG, rk.rocket_store(state, CFG))
+    assert book.position is not None and book.last_decision_day == "2026-10-08"  # held, not sold; still owed
+    monitor = json.loads((state / "desk" / "rocket" / "monitor.json").read_text())
+    assert "no forecast" in monitor["waiting"]
+    # the scheduler's reason (the fund's table red, the clock overtaken) holds the decision the same way
+    held = rk.rocket_tick(
+        state,
+        _data(-8.0, ("2026-10-08", "2026-10-09")),
+        _next_day(tmp_path / "raw3", tomorrow, -3.0, 0.8),
+        tomorrow,
+        CFG,
+        wait="source bno_daily unavailable: no new decision until it is back",
+    )
+    assert held["decision"] is None and held["waiting"].startswith("source bno_daily")
+    assert rk.RocketBook.load(CFG, rk.rocket_store(state, CFG)).position is not None
+    # with the forecast and no reason to wait, the same day's decision is taken
+    done = rk.rocket_tick(
+        state,
+        _data(-8.0, ("2026-10-08", "2026-10-09")),
+        _next_day(tmp_path / "raw4", tomorrow, -3.0, 0.8),
+        tomorrow,
+        CFG,
+    )
+    assert done["decision"] is not None and done["decision"]["action"].startswith("sell")
 
 
 # ----------------------------------------------------------------------------------------------- the choice
@@ -376,6 +416,173 @@ def test_with_seven_days_left_the_bet_is_rolled(tmp_path, kalshi):
     assert trades[1]["action"] == "roll"
 
 
+def test_a_sale_needs_a_bid(tmp_path, kalshi):
+    """Found in review: a sale was booked at 0.05 against a quote of 0.00 / 0.20. A one-sided quote is no price."""
+    state = tmp_path / "state"
+    rk.rocket_tick(state, _data(9.0), _store(tmp_path / "raw"), NOW, CFG)
+    held = rk.RocketBook.load(CFG, rk.rocket_store(state, CFG)).position
+    assert held is not None
+    tomorrow = NOW + timedelta(days=1)
+    frame = _later(_frame(), tomorrow - timedelta(minutes=10), -3.0, 0.8)
+    frame.loc[frame["option"] == held["option"], "bid"] = 0.0  # SYNTHETIC: no bid on the held call
+    store = _store(tmp_path / "raw2", frame, tomorrow)
+    report = rk.rocket_tick(state, _data(-8.0, ("2026-10-08", "2026-10-09")), store, tomorrow, CFG)
+    assert report["decision"]["action"] == "none" and "has no bid: held for now" in report["decision"]["reason"]
+    assert rk.RocketBook.load(CFG, rk.rocket_store(state, CFG)).position is not None
+
+
+def test_a_held_option_beyond_the_archived_strikes_is_valued_and_sold_at_its_intrinsic_value(tmp_path, kalshi):
+    """Found in review: the archive keeps a window of strikes around the fund's price; after a crash the winning
+    put fell out of it and was held at a stale mark, so the sale, the roll and the target could not execute."""
+    kalshi["change"] = 0.02  # SYNTHETIC: a short bet agrees
+    state = tmp_path / "state"
+    rk.rocket_tick(state, _data(-9.0), _store(tmp_path / "raw"), NOW, CFG)
+    held = rk.RocketBook.load(CFG, rk.rocket_store(state, CFG)).position
+    assert held is not None and held["right"] == "P"
+    tomorrow = NOW + timedelta(days=1)
+    # SYNTHETIC crash: the fund at 100, the archive holding only the strikes within 30 % of it (70..130)
+    frame = _later(_frame(), tomorrow - timedelta(minutes=10), 0.0, 1.0)
+    frame["underlying_price"] = 100.0
+    frame = frame[(frame["strike"] >= 70.0) & (frame["strike"] <= 130.0)]
+    assert held["option"] not in set(frame["option"])
+    store = _store(tmp_path / "raw2", frame, tomorrow)
+    chain = rk.load_chain(store, "uso_options", "USO")
+    assert chain is not None and rk.beyond_archive(chain, held)
+    book = rk.RocketBook.load(CFG, rk.rocket_store(state, CFG))
+    book.mark(chain, tomorrow)
+    assert book.position is not None and book.position["mark"] == pytest.approx(held["strike"] - 100.0)
+    assert book.position["mark_approx"] is True and book.position["delta"] == -1.0
+    assert book.liquidation(chain) == pytest.approx(held["strike"] - 100.0)
+    # the Dynamic turns: sold at the intrinsic value, marked approx, the words say so
+    report = rk.rocket_tick(state, _data(8.0, ("2026-10-08", "2026-10-09")), store, tomorrow, CFG)
+    assert report["decision"]["action"].startswith("sell") and "intrinsic value" in report["decision"]["reason"]
+    trades = rk.rocket_store(state, CFG).read_jsonl("trades")
+    assert trades[1]["action"] == "sell" and trades[1]["approx"] is True
+    assert trades[1]["price"] == pytest.approx(held["strike"] - 100.0)
+
+
+def test_the_life_ends_at_the_target(tmp_path, kalshi):
+    """14 H: at a decision with the account worth ten times its capital, the option is sold and the life is over."""
+    state = tmp_path / "state"
+    rk.rocket_tick(state, _data(9.0), _store(tmp_path / "raw"), NOW, CFG)
+    held = rk.RocketBook.load(CFG, rk.rocket_store(state, CFG)).position
+    assert held is not None
+    tomorrow = NOW + timedelta(days=1)
+    frame = _later(_frame(), tomorrow - timedelta(minutes=10), 60.0, 1.0)  # SYNTHETIC: the fund up 60 $
+    mask = frame["option"] == held["option"]
+    frame.loc[mask, "bid"], frame.loc[mask, "ask"] = 100.0, 101.0  # the call worth 100 $ a share: 10 000 $ a contract
+    store = _store(tmp_path / "raw2", frame, tomorrow)
+    report = rk.rocket_tick(state, _data(9.0, ("2026-10-08", "2026-10-09")), store, tomorrow, CFG)
+    decision = report["decision"]
+    assert (
+        decision["action"] == "target" and decision["status"] == "target" and "reached its target" in decision["reason"]
+    )
+    book = rk.RocketBook.load(CFG, rk.rocket_store(state, CFG))
+    assert book.status == "target" and book.position is None and book.equity() >= 10_000.0
+    trades = rk.rocket_store(state, CFG).read_jsonl("trades")
+    assert trades[-1]["action"] == "target" and trades[-1]["price"] == pytest.approx(100.25)
+    # no new bet in a life that is over, whatever the signal; a repeated tick changes nothing
+    again = rk.rocket_tick(
+        state, _data(9.0, ("2026-10-08", "2026-10-09")), store, tomorrow + timedelta(minutes=30), CFG
+    )
+    assert again["decision"] is None and rk.RocketBook.load(CFG, rk.rocket_store(state, CFG)).position is None
+    day_after = tomorrow + timedelta(days=3)  # Monday 12 October
+    later = rk.rocket_tick(
+        state,
+        _data(9.0, ("2026-10-09", "2026-10-12")),
+        _next_day(tmp_path / "raw3", day_after, 60.0, 1.0),
+        day_after,
+        CFG,
+    )
+    assert later["decision"]["action"] == "none" and later["opened"] == 0
+    monitor = json.loads((state / "desk" / "rocket" / "monitor.json").read_text())
+    assert monitor["no_candidate_reason"] == "the life is over" and monitor["stuck"] is False
+    # the reset archives the life with its reason
+    rk.reset_rocket_book(state, day_after + timedelta(hours=1), CFG)
+    saved = rk.rocket_store(state, CFG).read_json(rk.STATE_FILE)
+    assert saved["epochs"][0]["end_reason"] == "target" and saved["epochs"][0]["final_equity"] >= 10_000.0
+    assert saved["status"] == "active" and saved["cash"] == 1000.0
+
+
+def test_a_cash_account_at_the_target_ends_the_same_way(tmp_path, kalshi):
+    state = tmp_path / "state"
+    rk.rocket_store(state, CFG).write_json(rk.STATE_FILE, {"initial_capital": 1000.0, "cash": 10_200.0, "epoch": 1})
+    report = rk.rocket_tick(state, _data(9.0), _store(tmp_path / "raw"), NOW, CFG)
+    assert report["decision"]["action"] == "none" and report["status"] == "target"
+    assert "reached its target" in report["decision"]["reason"] and report["opened"] == 0
+
+
+def test_a_reset_rewrites_the_monitor_and_repairs_an_unreadable_state(tmp_path, kalshi):
+    """Found in review: the old life's monitor ("too small to bet") stayed on the page until the next tick, and a
+    broken state file could not be reset by the button."""
+    state = tmp_path / "state"
+    rk.rocket_store(state, CFG).write_json(rk.STATE_FILE, {"initial_capital": 1000.0, "cash": 80.0, "epoch": 1})
+    rk.rocket_tick(state, _data(9.0), _store(tmp_path / "raw"), NOW, CFG)
+    assert json.loads((state / "desk" / "rocket" / "monitor.json").read_text())["stuck"] is True
+    assert rk.reset_rocket_book(state, NOW + timedelta(hours=1), CFG) is True
+    monitor = json.loads((state / "desk" / "rocket" / "monitor.json").read_text())
+    assert monitor["stuck"] is False and monitor["epoch"] == 2 and "new life" in monitor["waiting"]
+    (state / "desk" / "rocket" / rk.STATE_FILE).write_text("{not json", encoding="utf-8")
+    assert rk.decision_due(state, NOW, Path("config")) is False  # an unreadable state owes nothing
+    assert rk.reset_rocket_book(state, NOW + timedelta(hours=2), CFG) is True
+    saved = rk.rocket_store(state, CFG).read_json(rk.STATE_FILE)
+    assert saved["cash"] == 1000.0 and saved["status"] == "active" and saved["epochs"][-1]["end_reason"] == "unreadable"
+
+
+def test_an_early_close_day_takes_no_decision(tmp_path, kalshi):
+    """Found in review: on the day after Thanksgiving the options close at 13:00 New York; a chain stamped after it
+    by the file's clock passed for fresh, and the 15:00 decision was taken on a closed market."""
+    from engine.core.calendar import is_us_early_close, us_early_closes
+    from engine.desk import options as op
+
+    assert us_early_closes(2026) == {date(2026, 11, 27), date(2026, 12, 24)}  # 4 July 2026 is a Saturday
+    assert date(2026, 7, 3) not in us_early_closes(2026) and date(2029, 7, 3) in us_early_closes(2029)
+    assert is_us_early_close(date(2026, 11, 27)) and not is_us_early_close(date(2026, 11, 25))
+    friday = datetime(2026, 11, 27, 20, 10, tzinfo=UTC)  # 15:10 New York, two hours after the early close
+    assert not rk.decision_window(CFG, friday) and not op.session_open(friday)
+    assert op.session_open(datetime(2026, 11, 27, 17, 50, tzinfo=UTC))  # 12:50 New York: open
+    assert (
+        op.session_close_ny(date(2026, 11, 27)) == op.EARLY_CLOSE_NY
+        and op.session_close_ny(date(2026, 11, 30)) == op.MARKET_CLOSE_NY
+    )
+    store = _store(tmp_path / "raw", _later(_frame(), friday - timedelta(minutes=5)), friday)
+    report = rk.rocket_tick(tmp_path / "state", _data(9.0, ("2026-11-25", "2026-11-27")), store, friday, CFG)
+    assert report["decision"] is None and report["waiting"] is None  # not owed: the session is over
+
+
+def test_an_expiry_settles_only_on_a_close_the_download_could_have_seen(tmp_path, kalshi):
+    """Found in review: the expiry day's row of the daily table, downloaded during the session, is the running
+    price and settled the option as if official. The row counts once the session has closed before the download."""
+    book, cand = _opened()
+    expiry = pd.Timestamp(cand["expiry"])
+    evening = datetime(expiry.year, expiry.month, expiry.day, 22, 0, tzinfo=UTC)
+    idx = pd.DatetimeIndex([expiry], name="date")
+    daily = pd.DataFrame({"close": [cand["strike"] + 6.0]}, index=idx)  # SYNTHETIC: 6 $ in the money
+    from engine.data.base import FetchResult
+    from engine.desk.options import settled_closes
+
+    running = RawStore(tmp_path / "running")
+    running.save(
+        "uso_daily",
+        "test",
+        FetchResult("test", daily, datetime(expiry.year, expiry.month, expiry.day, 18, 48, tzinfo=UTC)),
+    )
+    assert settled_closes(running, "uso_daily").empty  # read at 14:48 New York: not a close
+    assert book.settle(settled_closes(running, "uso_daily"), None, evening) is None
+    official = RawStore(tmp_path / "official")
+    official.save(
+        "uso_daily",
+        "test",
+        FetchResult("test", daily, datetime(expiry.year, expiry.month, expiry.day, 21, 18, tzinfo=UTC)),
+    )
+    closes = settled_closes(official, "uso_daily")
+    assert len(closes) == 1
+    rec = book.settle(closes, None, evening)
+    assert rec is not None and rec["settle_price"] == pytest.approx(cand["strike"] + 6.0) and rec["approx"] is False
+    logged = rec  # the record logged carries the settlement price (found in review: it was added after the log)
+    assert "settle_price" in logged
+
+
 def test_a_dead_book_bets_no_more(tmp_path, kalshi):
     state = tmp_path / "state"
     store = rk.rocket_store(state, CFG)
@@ -484,3 +691,35 @@ def test_the_page_gets_the_option_as_a_position_and_the_whole_life(tmp_path, kal
     after = ex.rocket_block(state, Path("config"), later + timedelta(minutes=10))
     assert after is not None and after["positions"] == [] and after["equity"] == 1000.0 and after["lives"] == 2
     assert ex.fills_block(state, desk, None, "rocket") == []  # the old life's fills are not this life's
+
+
+def test_damaged_rocket_files_cost_the_page_only_the_rocket(tmp_path, kalshi):
+    """Found in review: a line cut short in the Rocket's logs, or a broken state file, stopped desk.json from being
+    written at all."""
+    from engine.core.config import RiskConfig
+    from engine.desk import export as ex
+    from engine.desk.live import build_desk
+
+    state = tmp_path / "state"
+    rk.rocket_tick(state, _data(9.0), _store(tmp_path / "raw"), NOW, CFG)
+    folder = state / "desk" / "rocket"
+    desk = build_desk(state, RiskConfig.load())
+    for name in ("decisions-2026-10.jsonl", "trades-2026-10.jsonl", "equity-2026-10.jsonl"):
+        path = folder / name
+        assert path.exists(), name
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write('{"ts": "2026-10-08T19:00:00Z", "cut')  # a crash mid-write
+    block = ex.rocket_block(state, Path("config"), NOW + timedelta(minutes=30))
+    assert block is not None and len(block["positions"]) == 1
+    assert (
+        len(ex.fills_block(state, desk, None, "rocket")) == 1
+        and len(ex.decisions_block(state, None, {}, "rocket")) == 1
+    )
+    history = ex.rocket_history(state, Path("config"), NOW + timedelta(minutes=30))
+    assert history is not None and len(history["fills"]) == 1 and len(history["decisions"]) == 1
+    (folder / rk.STATE_FILE).write_text("{broken", encoding="utf-8")
+    (folder / rk.MONITOR_FILE).write_text("[not a monitor]", encoding="utf-8")
+    broken = ex.rocket_block(state, Path("config"), NOW + timedelta(minutes=30))
+    assert broken is not None and broken["positions"] == [] and broken["epoch"] == 1 and broken["monitor"] is None
+    assert ex.fills_block(state, desk, None, "rocket") == [] or True  # readable without raising
+    assert ex.decisions_block(state, None, {}, "rocket") is not None

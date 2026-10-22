@@ -2152,6 +2152,21 @@ perdono due terzi di ogni dollaro anche con il segnale giusto; quelli su cui il 
 americani. Il Rocket resta sulle opzioni; i contratti a eventi si continuano ad archiviare e a leggere (le allerte,
 gli indici), e si rimisurano quando l'archivio avrà un anno (la regola di fase 13).
 
+### J. La revisione indipendente, prima della prima decisione (22 ottobre, sera)
+
+Un agente che non aveva visto scrivere il libro lo ha attaccato con simulatori suoi (`docs/VALIDATION.md`, «Il
+Rocket»). I ventun libri di prima sono identici byte per byte e l'impronta non cambia. Undici difetti, tutti
+riprodotti, tutti corretti e fissati da un test prima della messa in linea; i quattro che cambiavano decisioni o
+denaro: la previsione del giorno prima letta al posto di quella del giorno quando la tabella del fondo mancava (il
+Dinamico aspettava, il Rocket scommetteva); una previsione mancante che vendeva l'opzione; l'opzione vincente che in
+un crollo usciva dalla finestra di strike archiviata e restava a un prezzo vecchio, proprio nelle finestre dei 10x
+(ora l'archivio tiene tutta la catena e un'opzione oltre gli strike archiviati vale e si vende al valore intrinseco,
+≈); le chiusure anticipate delle 13 (il giorno dopo il Ringraziamento, la vigilia di Natale) su cui la decisione
+delle 15 cadeva a mercato chiuso. Gli altri: un file danneggiato che fermava `desk.json`, il monitor della vita
+vecchia dopo un reset, la riga di scadenza scaricata durante la seduta usata come chiusura ufficiale (anche nel
+libro delle opzioni), una vendita contro un denaro a zero, cinque valori delle regole nella pagina come HTML, il
+workflow del token letto dai dati, due parole. Le probabilità sulla pagina sono ora quelle di H.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):

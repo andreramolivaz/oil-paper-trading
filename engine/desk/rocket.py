@@ -62,21 +62,20 @@ from engine.data.raw_store import RawStore
 from engine.desk import oracle
 from engine.desk.data import DeskData
 from engine.desk.options import (
-    MARKET_CLOSE_NY,
     MULTIPLIER,
     NEW_YORK,
-    SETTLE_AFTER_NY,
     SETTLE_FALLBACK_DAYS,
     Chain,
     Underlying,
     _clean,
-    _closes,
-    _forecast,
     buy_price,
     load_chain,
     sell_price,
+    session_close_ny,
     session_day,
     session_open,
+    settle_after_ny,
+    settled_closes,
 )
 
 log = logging.getLogger(__name__)
@@ -91,28 +90,31 @@ USO_OPTIONS = Underlying("USO", "uso_options", "uso_daily", "BNO", "WTI fund")
 MODEL_ODDS: dict[str, Any] = {
     "approx": True,
     "span": "2011-2026",
-    "windows": 811,
-    "p_10x": 0.018496,  # 15 of 811
-    "p_2x": 0.104809,  # 85 of 811
-    "p_lose_half": 0.500617,  # 406 of 811
+    "windows": 812,
+    "p_10x": 0.0271,  # 22 of 812: the lives that reached the target, which ends them (14 H)
+    "p_2x": 0.0764,  # 62 of 812 ended at 2x or more (the 22 among them)
+    "p_lose_half": 0.1601,  # 130 of 812
     "p_dead": 0.0,
-    "median_multiple": 0.499,
-    "best_multiple": 37.15,
-    "ten_x_episodes": ["autumn 2014", "May 2015", "early 2020"],
-    # the 811 windows by how they ended, worst first (the counts add up to 811): what the page draws as one bar
+    "p_stuck": 0.4015,  # 326 of 812 ended unable to bet: nothing the rule admits fit in half the account
+    "median_multiple": 0.68,
+    "best_multiple": 33.0,
+    "ten_x_episodes": ["autumn 2014", "summer and November 2015", "early 2020", "January 2026"],
+    # the 812 windows by how they ended, worst first (the counts add up to 812): what the page draws as one bar
     "outcomes": [
-        {"id": "lost_half", "label": "lost half or more", "windows": 406, "share": 0.500617},
-        {"id": "between", "label": "between half and double", "windows": 320, "share": 0.394575},
-        {"id": "doubled", "label": "doubled, short of 10x", "windows": 70, "share": 0.086313},
-        {"id": "ten_x", "label": "10x or more", "windows": 15, "share": 0.018496},
+        {"id": "lost_half", "label": "lost half or more", "windows": 130, "share": 0.1601},
+        {"id": "between", "label": "between half and double", "windows": 620, "share": 0.7635},
+        {"id": "doubled", "label": "doubled, short of 10x", "windows": 40, "share": 0.0493},
+        {"id": "ten_x", "label": "reached 10x", "windows": 22, "share": 0.0271},
     ],
+    "halves": {"2011-2018": 0.0347, "2019-2026": 0.0184},
     "windows_2026": 17,
     "p_2x_2026": 0.0,
-    "median_multiple_2026": 0.33,
-    "source": "docs/RESEARCH.md 14 E: Black-Scholes on the OVX index, fractional contracts "
-    "(no history of option quotes exists)",
+    "median_multiple_2026": 0.83,
+    "source": "docs/RESEARCH.md 14 G-H: Black-Scholes on the OVX index, whole contracts at today's price of USO, "
+    "the life ending at 10x (no history of option quotes exists)",
 }
-ACTIONS = ("open", "sell", "roll", "expiry")
+ACTIONS = ("open", "sell", "roll", "target", "expiry")
+TARGET_MULTIPLE = 10.0  # the life ends at the target (14 H): ten times its capital
 
 
 @dataclass(frozen=True)
@@ -200,7 +202,7 @@ class RocketSignal:
 
     def text(self) -> str:
         if self.forecast is None:
-            return "No forecast of the Dynamic today: no direction."
+            return "No forecast of the Dynamic for today: nothing is decided and the position stays."
         side = {1: "long", -1: "short", 0: "no direction"}[self.direction]
         head = f"The Dynamic's forecast is {self.forecast:+.1f} ({side})."
         if self.kalshi_change is None:
@@ -213,14 +215,30 @@ class RocketSignal:
         return f"{head} Kalshi: {move}, {verdict}."
 
 
+def forecast_of_day(data: DeskData, key: str, day: date) -> float | None:
+    """The combined forecast of series ``key`` on ``day`` itself, as the Dynamic's live decision reads it
+    (``live._forecast_row``): yesterday's row is not today's forecast (found in review: with the fund's table
+    missing, the book decided on the day before's forecast while the Dynamic rightly waited)."""
+    series = data.series.get(key)
+    if series is None or series.forecasts.empty:
+        return None
+    ts = pd.Timestamp(day)
+    if ts not in series.forecasts.index:
+        return None
+    value = series.forecasts["combined"].get(ts)
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
 def read_signal(data: DeskData, state_dir: Path, day: date, cfg: RocketConfig) -> RocketSignal:
     """Rule 3 for the decision of ``day``: the Dynamic's direction and Kalshi's agreement with it."""
-    forecast, _ = _forecast(data, cfg.underlying.forecast, day)
+    forecast = forecast_of_day(data, cfg.underlying.forecast, day)
     direction = 0
-    if forecast is not None and math.isfinite(forecast):
+    if forecast is not None:
         direction = 1 if forecast >= cfg.forecast_threshold else (-1 if forecast <= -cfg.forecast_threshold else 0)
-    else:
-        forecast = None
     change: float | None = None
     index: float | None = None
     note = ""
@@ -380,6 +398,27 @@ def _row(chain: Chain | None, option: str) -> pd.Series | None:
     return row
 
 
+def intrinsic(p: dict[str, Any], price: float) -> float:
+    strike = float(p["strike"])
+    return max(0.0, price - strike) if p["right"] == "C" else max(0.0, strike - price)
+
+
+def beyond_archive(chain: Chain | None, p: dict[str, Any]) -> bool:
+    """True when the held option is not in the chain because its strike lies outside the strikes the archive
+    kept for its expiry and side (the download keeps a window around the fund's price): deep in the money after
+    a large move, which is where the book's only big wins are. Such an option is valued and sold at its intrinsic
+    value on the fund's delayed price, marked approx (found in review: it was held at a stale mark instead)."""
+    if chain is None or _row(chain, str(p["option"])) is not None:
+        return False
+    expiry = pd.Timestamp(str(p["expiry"]))
+    side = chain.frame[(chain.frame["expiry"] == expiry) & (chain.frame["right"] == p["right"])]
+    if side.empty:
+        return False
+    strike = float(p["strike"])
+    deep = strike > float(side["strike"].max()) if p["right"] == "P" else strike < float(side["strike"].min())
+    return deep and intrinsic(p, chain.price) > 0
+
+
 # ----------------------------------------------------------------------------------------------- the book
 @dataclass
 class RocketBook:
@@ -499,8 +538,17 @@ class RocketBook:
         record["replicate"] = self.position["replicate"]
         self._log("trades", record, ts)
 
-    def close(self, price: float, ts: datetime, action: str, reason: str, approx: bool = False) -> dict[str, Any]:
-        """Sell the open option at ``price`` a share (``sell``, ``roll``), or settle it at ``price`` (``expiry``)."""
+    def close(
+        self,
+        price: float,
+        ts: datetime,
+        action: str,
+        reason: str,
+        approx: bool = False,
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Sell the open option at ``price`` a share (``sell``, ``roll``, ``target``), or settle it at ``price``
+        (``expiry``). ``extra`` goes into the trade's record (the settlement price of an expiry)."""
         p = self.position
         if p is None:
             raise ValueError("rocket book: nothing open to close")
@@ -527,12 +575,39 @@ class RocketBook:
             "reason": reason,
             "approx": approx,
             "equity_after": round(self.cash, 2),
+            **(extra or {}),
         }
         if action != "expiry":
             record["replicate"] = replicate(str(p["option"]), n, max(0.0, price), "sell")
         self._log("trades", record, ts)
         self.position = None
         return record
+
+    def liquidation(self, chain: Chain | None) -> float | None:
+        """What the open option would fetch now, a share: the bid plus a quarter of the spread on a two-sided quote,
+        its intrinsic value when it lies beyond the archived strikes (approx), None when it cannot be sold."""
+        p = self.position
+        if p is None:
+            return None
+        row = _row(chain, str(p["option"]))
+        if row is not None and float(row["bid"]) > 0 and float(row["ask"]) > float(row["bid"]):
+            return sell_price(float(row["bid"]), float(row["ask"]), self.cfg.fill_fraction)
+        if chain is not None and beyond_archive(chain, p):
+            return intrinsic(p, chain.price)
+        return None
+
+    def at_target(self, chain: Chain | None) -> bool:
+        """The life's target (14 H): the account, with the open option at what it would fetch, is worth at least
+        ``TARGET_MULTIPLE`` times the capital of the life."""
+        p = self.position
+        value = 0.0
+        if p is not None:
+            price = self.liquidation(chain)
+            if price is None:
+                return False
+            n = int(p["contracts"])
+            value = price * MULTIPLIER * n - self.cfg.fee_per_contract * n
+        return self.cash + value >= TARGET_MULTIPLE * self.initial_capital
 
     def mark(self, chain: Chain | None, now: datetime) -> None:
         """The open option at the mid of its quote; without one in the chain it keeps its last mark and says so."""
@@ -541,8 +616,18 @@ class RocketBook:
             return
         p["mark_stale"] = True
         row = _row(chain, str(p["option"]))
+        if chain is not None and row is None and beyond_archive(chain, p):
+            p["mark"] = round(intrinsic(p, chain.price), 4)
+            p["marked_at"] = iso(chain.quote_ts)
+            p["mark_stale"] = chain.age_minutes(now) > 24 * 60
+            p["mark_approx"] = True
+            p["underlying_last"] = chain.price
+            p["delta"] = 1.0 if p["right"] == "C" else -1.0
+            p["delta_notional"] = round(float(p["delta"]) * MULTIPLIER * int(p["contracts"]) * chain.price, 2)
+            return
         if chain is None or row is None or not (float(row["ask"]) > 0):
             return
+        p["mark_approx"] = False
         p["mark"] = round(max(0.0, float(row["mid"])), 4)
         p["marked_at"] = iso(chain.quote_ts)
         p["mark_stale"] = chain.age_minutes(now) > 24 * 60
@@ -559,7 +644,7 @@ class RocketBook:
             return None
         local = ensure_utc(now).astimezone(NEW_YORK)
         expiry = date.fromisoformat(str(p["expiry"]))
-        if not (local.date() > expiry or (local.date() == expiry and local.time() >= SETTLE_AFTER_NY)):
+        if not (local.date() > expiry or (local.date() == expiry and local.time() >= settle_after_ny(expiry))):
             return None
         close: float | None = None
         approx = False
@@ -572,11 +657,14 @@ class RocketBook:
         if close is None or not math.isfinite(close) or close <= 0:
             p["awaiting_close"] = True
             return None
-        strike = float(p["strike"])
-        value = max(0.0, close - strike) if p["right"] == "C" else max(0.0, strike - close)
-        record = self.close(value, now, "expiry", f"expired with {p['underlying']} at {close:.2f}", approx=approx)
-        record["settle_price"] = close
-        return record
+        return self.close(
+            intrinsic(p, close),
+            now,
+            "expiry",
+            f"expired with {p['underlying']} at {close:.2f}",
+            approx=approx,
+            extra={"settle_price": close},
+        )
 
     def check_floor(self) -> bool:
         """Dead at the floor: no new bet until a reset (rule 1). True when it has just died."""
@@ -602,7 +690,7 @@ class RocketBook:
                 "peak_equity": None if self.peak_equity is None else round(self.peak_equity, 2),
                 "realized_pnl": round(self.realized_pnl, 2),
                 "n_closed": self.n_closed,
-                "end_reason": "dead" if self.status == "dead" else "reset_manual",
+                "end_reason": self.status if self.status in ("dead", "target", "unreadable") else "reset_manual",
                 "open_abandoned": 0 if self.position is None else 1,
             }
         )
@@ -653,19 +741,24 @@ def rocket_store(state_dir: Path, cfg: RocketConfig | None = None) -> StateStore
 
 
 def decision_window(cfg: RocketConfig, now: datetime) -> bool:
-    """True between the decision time and the close of a US session."""
+    """True between the decision time and the close of a US session (none on a day that closes early)."""
     local = ensure_utc(now).astimezone(NEW_YORK)
-    if session_day(now) is None:
+    day = session_day(now)
+    if day is None:
         return False
-    return time(*cfg.decision_time_ny) <= local.time() < MARKET_CLOSE_NY
+    return time(*cfg.decision_time_ny) <= local.time() < session_close_ny(day)
 
 
 def decision_due(state_dir: Path, now: datetime, config_dir: Path | None = None) -> bool:
-    """Does the book still owe today's decision? The scheduler asks before fetching, to refresh the chain."""
+    """Does the book still owe today's decision? The scheduler asks before fetching, to refresh the chain. An
+    unreadable state file owes nothing: it must not cost the tick (found in review)."""
     cfg = load_rocket_config(config_dir)
     if cfg is None or not decision_window(cfg, now):
         return False
-    state = rocket_store(state_dir, cfg).read_json(STATE_FILE) or {}
+    try:
+        state = rocket_store(state_dir, cfg).read_json(STATE_FILE) or {}
+    except (ValueError, TypeError):
+        return False
     day = session_day(now)
     return day is not None and state.get("last_decision_day") != day.isoformat()
 
@@ -693,11 +786,32 @@ def _held_words(p: dict[str, Any]) -> str:
 def _decide(
     book: RocketBook, cfg: RocketConfig, chain: Chain, signal: RocketSignal, day: date, now: datetime
 ) -> dict[str, Any]:
-    """Rules 3 to 5 for today's decision: the exit first, then a new bet. The decision's record, for the log."""
+    """Rules 3 to 5 and the target of 14 H for today's decision: the target, the exit, then a new bet. The decision's
+    record, for the log. A day without the Dynamic's forecast is not decided here (``rocket_tick`` waits)."""
     reasons: list[str] = [signal.text()]
     orders: list[dict[str, Any]] = []
     actions: list[str] = []
     p = book.position
+    if book.status == "active" and book.at_target(chain):
+        if p is not None:
+            price = book.liquidation(chain)
+            assert price is not None  # at_target needs a price
+            approx = _row(chain, str(p["option"])) is None
+            held, n = _held_words(p), int(p["contracts"])
+            rec = book.close(price, now, "target", "the life reached its target: ten times its capital", approx=approx)
+            actions.append("target")
+            orders.append({"symbol": str(p["option"]), "units": -n})
+            where = " (its intrinsic value: beyond the archived strikes)" if approx else ""
+            reasons.append(
+                f"Sold {held} at {price:.2f} $ a share{where}: {rec['pnl']:+,.2f} $ on the bet, "
+                f"{float(rec['multiple'] or 0):.2f} times what it cost."
+            )
+        book.status = "target"
+        reasons.append(
+            f"The life reached its target: {book.equity():,.2f} $, at least ten times its "
+            f"{book.initial_capital:,.0f} $. It ends here; a new one starts with the button."
+        )
+        p = None
     if p is not None:
         dte = (date.fromisoformat(str(p["expiry"])) - day).days
         action, why = None, ""
@@ -706,24 +820,26 @@ def _decide(
         elif dte <= cfg.roll_days:
             action, why = "roll", f"{dte} days to the expiry"
         if action is not None:
-            row = _row(chain, str(p["option"]))
-            if row is not None and float(row["ask"]) > float(row["bid"]) >= 0:
-                price = sell_price(float(row["bid"]), float(row["ask"]), cfg.fill_fraction)
-                held = _held_words(p)
-                n = int(p["contracts"])
-                rec = book.close(price, now, action, why)
+            price = book.liquidation(chain)
+            if price is not None:
+                approx = _row(chain, str(p["option"])) is None
+                held, n = _held_words(p), int(p["contracts"])
+                rec = book.close(price, now, action, why, approx=approx)
                 actions.append(action)
                 orders.append({"symbol": str(p["option"]), "units": -n})
+                where = " (its intrinsic value: beyond the archived strikes)" if approx else ""
                 reasons.append(
-                    f"Sold {held} at {price:.2f} $ a share ({why}): {rec['pnl']:+,.2f} $ on the bet, "
+                    f"Sold {held} at {price:.2f} $ a share{where} ({why}): {rec['pnl']:+,.2f} $ on the bet, "
                     f"{float(rec['multiple'] or 0):.2f} times what it cost."
                 )
             else:
-                reasons.append(f"{why.capitalize()}, but the option is not quoted on both sides: held for now.")
+                reasons.append(f"{why[:1].upper()}{why[1:]}, but the option has no bid: held for now.")
         else:
             reasons.append(f"Holding {_held_words(p)}: the Dynamic still points this way, {dte} days to the expiry.")
     if book.position is None:
-        if book.status != "active":
+        if book.status == "target":
+            pass
+        elif book.status != "active":
             reasons.append("The account is at or below 5% of its capital: no new bet until a reset.")
         elif signal.direction == 0:
             reasons.append("No new bet without a direction of the Dynamic.")
@@ -751,6 +867,8 @@ def _decide(
         "orders": orders,
         "reason": " ".join(reasons),
         "position": None if book.position is None else book.position.get("id"),
+        "held": book.position is not None,
+        "status": book.status,
         "equity": round(book.equity(), 2),
     }
 
@@ -761,8 +879,11 @@ def rocket_tick(
     raw: RawStore,
     now: datetime | None = None,
     cfg: RocketConfig | None = None,
+    wait: str | None = None,
 ) -> dict[str, Any]:
-    """Settle, mark, take the daily decision if it is due, snapshot. Idempotent within a session day."""
+    """Settle, mark, take the daily decision if it is due, snapshot. Idempotent within a session day. ``wait`` is the
+    scheduler's reason for taking no decision this tick (the Dynamic's fund table is red, or its decision time passed
+    while the tick was downloading): the decision stays owed, as the Dynamic's own does."""
     now = ensure_utc(now or datetime.now(tz=UTC))
     cfg = cfg if cfg is not None else load_rocket_config()
     if cfg is None:
@@ -773,8 +894,8 @@ def rocket_tick(
         book.started_at = iso(now)
     u = cfg.underlying
     chain = load_chain(raw, u.chain, u.symbol)
-    report: dict[str, Any] = {"settled": 0, "opened": 0, "sold": 0, "decision": None}
-    if book.settle(_closes(raw, u.daily), chain, now) is not None:
+    report: dict[str, Any] = {"settled": 0, "opened": 0, "sold": 0, "decision": None, "waiting": None}
+    if book.settle(settled_closes(raw, u.daily), chain, now) is not None:
         report["settled"] = 1
     book.mark(chain, now)
     died = book.check_floor()
@@ -782,21 +903,24 @@ def rocket_tick(
     day = session_day(now)
     signal = read_signal(data, state_dir, day or ensure_utc(now).astimezone(NEW_YORK).date(), cfg)
     fresh = chain is not None and chain.age_minutes(now) <= cfg.max_quote_age_minutes
-    if (
-        chain is not None
-        and fresh
-        and day is not None
-        and decision_window(cfg, now)
-        and book.last_decision_day != (day.isoformat())
-    ):
+    owed = day is not None and decision_window(cfg, now) and book.last_decision_day != day.isoformat()
+    waiting: str | None = None
+    if owed and wait:
+        waiting = wait
+    elif owed and signal.forecast is None:
+        waiting = "no forecast of the Dynamic for today yet: the decision waits for the next tick"
+    elif owed and not fresh:
+        waiting = "no USO quotes less than 45 minutes old: the decision waits for the next tick"
+    if owed and day is not None and chain is not None and waiting is None:
         decision = _decide(book, cfg, chain, signal, day, now)
         book._log("decisions", decision, now)
         book.last_decision_day = day.isoformat()
         report["decision"] = decision
         report["opened"] = int("open" in decision["action"])
-        report["sold"] = int("sell" in decision["action"] or "roll" in decision["action"])
+        report["sold"] = int(any(a in decision["action"] for a in ("sell", "roll", "target")))
         book.mark(chain, now)
         died = book.check_floor() or died
+    report["waiting"] = waiting
     book.save()
 
     equity = book.equity()
@@ -812,13 +936,18 @@ def rocket_tick(
         "status": book.status,
     }
     store.append_jsonl("equity", snapshot, ts=now)
-    store.write_json(MONITOR_FILE, _clean(monitor(book, cfg, chain, signal, now)))
+    store.write_json(MONITOR_FILE, _clean(monitor(book, cfg, chain, signal, now, waiting)))
     report.update({"equity": snapshot["equity"], "status": book.status, "died": died})
     return _clean(report)
 
 
 def monitor(
-    book: RocketBook, cfg: RocketConfig, chain: Chain | None, signal: RocketSignal, now: datetime
+    book: RocketBook,
+    cfg: RocketConfig,
+    chain: Chain | None,
+    signal: RocketSignal,
+    now: datetime,
+    waiting: str | None = None,
 ) -> dict[str, Any]:
     """What the page shows beside the book every tick: the signal of the day, the bet the rule would place now (when
     nothing is open), whether the account is too small to bet at all, the rules and the model's odds."""
@@ -831,6 +960,8 @@ def monitor(
         low = cheapest(chain, cfg)
         if book.position is not None:
             why = "a bet is open: one at a time"
+        elif book.status != "active":
+            why = "the life is over"
         elif signal.direction == 0:
             why = "no direction of the Dynamic"
         else:
@@ -855,6 +986,8 @@ def monitor(
         "bet_floor": None if low is None else round(low / cfg.stake, 2),
         "bet_floor_multiple": None if low is None else round(low / cfg.stake / book.initial_capital, 4),
         "stuck": bool(stuck and book.status == "active"),
+        "waiting": waiting,
+        "epoch": book.epoch,
         "rules": rules(cfg),
         "odds": MODEL_ODDS,
     }
@@ -881,10 +1014,22 @@ def rules(cfg: RocketConfig) -> dict[str, Any]:
 
 
 def reset_rocket_book(state_dir: Path, ts: datetime, cfg: RocketConfig | None = None) -> bool:
+    """A new life. An unreadable state file (a crash mid-write) is archived as such and the life starts fresh: the
+    button must be able to repair the book (found in review). The monitor is rewritten for the new life, so the page
+    does not show the old life's "too small to bet" until the next tick (found in review)."""
     cfg = cfg if cfg is not None else load_rocket_config()
     if cfg is None:
         return False
-    book = RocketBook.load(cfg, rocket_store(state_dir, cfg))
-    book.reset(ensure_utc(ts))
+    store = rocket_store(state_dir, cfg)
+    when = ensure_utc(ts)
+    try:
+        book = RocketBook.load(cfg, store)
+    except (ValueError, TypeError, KeyError) as exc:
+        log.warning("rocket: the state file could not be read (%s): a new life starts from a clean state", exc)
+        book = RocketBook(cfg, store, cfg.initial_capital, cfg.initial_capital, status="unreadable")
+    book.reset(when)
     book.save()
+    fresh = RocketSignal(when.astimezone(NEW_YORK).date(), None, 0, None, None, "", False)
+    note = "a new life: the next tick reads the day"
+    store.write_json(MONITOR_FILE, _clean(monitor(book, cfg, None, fresh, when, note)))
     return True

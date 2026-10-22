@@ -53,12 +53,12 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
-from engine.core.calendar import add_business_days, is_business_day
+from engine.core.calendar import add_business_days, is_business_day, is_us_early_close
 from engine.core.config import RiskConfig, load_config
 from engine.core.store import StateStore
 from engine.core.timeutil import ensure_utc, iso
 from engine.data.raw_store import RawStore
-from engine.desk.data import DeskData, _daily, _latest
+from engine.desk.data import DeskData, _daily, _latest, _latest_seen
 
 log = logging.getLogger(__name__)
 
@@ -69,7 +69,9 @@ MONITOR_FILE = "monitor.json"
 MULTIPLIER = 100.0  # shares per contract
 MARKET_OPEN_NY = time(9, 30)
 MARKET_CLOSE_NY = time(16, 0)
+EARLY_CLOSE_NY = time(13, 0)  # the day after Thanksgiving, Christmas Eve: options stop at 13:00 New York
 SETTLE_AFTER_NY = time(16, 15)
+SETTLE_AFTER_EARLY_NY = time(13, 15)
 SETTLE_FALLBACK_DAYS = 4  # no official close this long after the expiry -> settle on the last known price, approx
 
 
@@ -502,7 +504,7 @@ class OptionsBook:
         keep: list[dict[str, Any]] = []
         for s in self.structures:
             expiry = date.fromisoformat(str(s["expiry"]))
-            due = local.date() > expiry or (local.date() == expiry and local.time() >= SETTLE_AFTER_NY)
+            due = local.date() > expiry or (local.date() == expiry and local.time() >= settle_after_ny(expiry))
             if not due:
                 keep.append(s)
                 continue
@@ -618,19 +620,31 @@ def session_day(now: datetime) -> date | None:
     return day if is_business_day(day, "US") else None
 
 
+def session_close_ny(day: date) -> time:
+    """When the option session ends on ``day``: 16:00 New York, 13:00 on an early-close day (found in review:
+    on the day after Thanksgiving a chain stamped after the close, by the file's clock, passed for fresh)."""
+    return EARLY_CLOSE_NY if is_us_early_close(day) else MARKET_CLOSE_NY
+
+
+def settle_after_ny(day: date) -> time:
+    return SETTLE_AFTER_EARLY_NY if is_us_early_close(day) else SETTLE_AFTER_NY
+
+
 def session_open(now: datetime) -> bool:
     """True during the regular US option session. Outside it the chain on file holds the last quotes of the
     session, however recently its file was written (the fund keeps trading after hours and refreshes it)."""
     local = ensure_utc(now).astimezone(NEW_YORK)
-    return session_day(now) is not None and MARKET_OPEN_NY <= local.time() < MARKET_CLOSE_NY
+    day = session_day(now)
+    return day is not None and MARKET_OPEN_NY <= local.time() < session_close_ny(day)
 
 
 def decision_window(cfg: OptionsConfig, now: datetime) -> bool:
-    """True between the decision time and the close of a US session."""
+    """True between the decision time and the close of a US session: none on a day that closes before it."""
     local = ensure_utc(now).astimezone(NEW_YORK)
-    if session_day(now) is None:
+    day = session_day(now)
+    if day is None:
         return False
-    return time(*cfg.decision_time_ny) <= local.time() < MARKET_CLOSE_NY
+    return time(*cfg.decision_time_ny) <= local.time() < session_close_ny(day)
 
 
 def decision_due(state_dir: Path, now: datetime, config_dir: Path | None = None) -> bool:
@@ -649,6 +663,30 @@ def _closes(raw: RawStore, entry: str) -> pd.Series:
     if frame.empty or "close" not in frame.columns:
         return pd.Series(dtype="float64")
     return frame["close"].astype("float64").dropna()
+
+
+def settled_closes(raw: RawStore, entry: str) -> pd.Series:
+    """The daily closes an expiry may settle on: those the download could have seen as official. The row of the
+    New York day a table is downloaded on is the session's running price until the session has closed (found in
+    review: a chain read at 14:48 would have settled an expiry on it, as if official); rows of earlier days are
+    final. Without a download time (a fixture) every row is taken as final."""
+    frame, seen = _latest_seen(raw, entry)
+    closes = _daily(frame)
+    if closes.empty or "close" not in closes.columns:
+        return pd.Series(dtype="float64")
+    series = closes["close"].astype("float64").dropna()
+    if seen is None or pd.isna(seen):
+        return series
+    local = (
+        pd.Timestamp(seen).tz_convert(NEW_YORK)
+        if pd.Timestamp(seen).tzinfo
+        else pd.Timestamp(seen).tz_localize(UTC).tz_convert(NEW_YORK)
+    )
+    day = local.date()
+    keep = series.index < pd.Timestamp(day)
+    if local.time() >= settle_after_ny(day):
+        keep |= series.index == pd.Timestamp(day)
+    return series[keep]
 
 
 def _forecast(data: DeskData, key: str, day: date) -> tuple[float | None, float | None]:
@@ -699,7 +737,7 @@ def options_tick(
         chain = load_chain(raw, u.chain, u.symbol)
         if chain is not None:
             chains[u.symbol] = chain
-    closes = {u.symbol: _closes(raw, u.daily) for u in cfg.underlyings}
+    closes = {u.symbol: settled_closes(raw, u.daily) for u in cfg.underlyings}
 
     settled = book.settle(closes, chains, now)
     book.mark(chains, now)

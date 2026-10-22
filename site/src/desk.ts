@@ -152,6 +152,9 @@ export interface RocketMonitor {
   candidate: RocketCandidate | null;
   /** True when the candidate is shown although Kalshi does not agree today: no bet would open on it. */
   candidate_needs_kalshi?: boolean;
+  /** Why no decision was taken this tick while one was owed (the Dynamic's table red, no forecast yet, stale quotes). */
+  waiting?: string | null;
+  epoch?: number;
   no_candidate_reason: string;
   cheapest_cost: Num;
   /** The equity below which no option the rule admits fits in the stake, and that as a multiple of the start. */
@@ -170,6 +173,8 @@ export interface RocketOdds {
   p_2x: number;
   p_lose_half: number;
   p_dead: number;
+  p_stuck?: number;
+  halves?: Record<string, number>;
   median_multiple: number;
   best_multiple: number;
   ten_x_episodes: string[];
@@ -383,7 +388,9 @@ export interface Book {
   lives?: number;
   fees?: Num;
   odds?: RocketOdds;
+  /** The name of the reset workflow, for information: the page uses its own constant (found in review). */
   reset_workflow?: string;
+  waiting?: string | null;
   last_decision_day?: string | null;
 }
 
@@ -956,4 +963,6 @@ export interface HistoryDecision extends DecisionRow {
   /** The Rocket: the de-escalation index's change over the week, and whether it agreed with the Dynamic. */
   kalshi_change?: Num;
   agree?: boolean | null;
+  /** The Rocket: whether an option was held after the decision ("held" or "no bet" on a decision without an order). */
+  holding?: boolean | null;
 }

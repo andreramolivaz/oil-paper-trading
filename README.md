@@ -224,13 +224,17 @@ short, metà del conto per scommessa, e solo se nella settimana l'indice di de-e
 che serve alla scommessa. Vende quando il Dinamico cambia idea, rinnova a sette giorni dalla scadenza, non ha un
 obiettivo di guadagno. Le regole di rischio del progetto sono sospese **per lui solo**, e non entra in nessun totale.
 
-**È una lotteria, e i numeri lo dicono** (un modello delle opzioni, ≈): su 811 finestre di tre mesi dal 2011 il 10x
-è arrivato nell'1,8%, tutte in tre crolli del petrolio comprati con le put; il risultato tipico è metà del conto; nel
-2026 nessuna delle 17 finestre ha raddoppiato. Con contratti interi, sotto i 240 $ circa non riesce più a comprare
-nulla: la pagina lo dice.
+**È una lotteria, e i numeri lo dicono** (un modello delle opzioni, ≈, con contratti interi): su 812 finestre di tre
+mesi dal 2011 il 10x è arrivato nel 2,7%, quasi sempre in crolli del petrolio comprati con le put; il 16% delle vite
+perde metà o più e il 40% finisce senza poter più scommettere (sotto i 240 $ circa non compra più nulla: la pagina lo
+dice); nel 2026 nessuna delle 17 finestre ha raddoppiato. La vita finisce al traguardo: a dieci volte il capitale
+l'opzione si vende e il libro si ferma. Senza un vantaggio nessuna strategia arriva a 10x più del 10% delle volte
+(Dubins e Savage, 1965); le varianti provate e i contratti a eventi di Kalshi sono misurati in `docs/RESEARCH.md`
+14 F-I: nessuno fa meglio, e i contratti sotto i 15 centesimi perdono due terzi di ogni dollaro.
 
 - **Farlo ripartire.** Pagina «Desk» → Rocket → **Start a new life at 1,000 $**. Con il token salvato sulla pagina
-  Reset il pulsante avvia il workflow `rocket-reset.yml` (un clic se la vita è finita, due se è ancora in corso);
+  Reset il pulsante avvia il workflow `rocket-reset.yml` (un clic se la vita è finita, al traguardo, morta o troppo
+  piccola per scommettere; due se è ancora in corso);
   senza token apre il workflow su GitHub, dove «Run workflow» lo avvia. La vita finita resta nella storia del libro.
 - **Copiarlo su un conto vero.** La pagina del libro mostra l'ordine di ogni scommessa: per l'API di Alpaca (il conto
   di prova e l'API sono gratuiti, le opzioni sono attive di serie sul conto di prova; `POST /v2/orders` con il

@@ -85,6 +85,7 @@ const STATUS: Record<string, { cls: string; text: string }> = {
   halted_breaker: { cls: "warn", text: "Halted until tomorrow: the daily loss limit was hit" },
   halted_stale: { cls: "warn", text: "Halted: stale data" },
   dead: { cls: "bad", text: "Wiped out: needs a reset" },
+  target: { cls: "ok", text: "Target reached: 10x. A new life starts it again" },
 };
 
 /** A book's state in words. `quiet` is true for the ordinary state, which a row does not need to repeat. */
@@ -321,23 +322,25 @@ export function analystSleevesText(sleeves: Record<string, 1 | -1> | null | unde
 export function ruleLine(b: Book): string {
   const r = b.rules;
   if (b.kind === "lottery") {
-    const dte = (r.dte as number[] | undefined) ?? [];
+    const raw = (r.dte as unknown[] | undefined) ?? [];
+    const dte = [num(raw[0] as number, 0), num(raw[1] as number, 0), num(raw[2] as number, 0)];
     return `Each life starts at ${usd(r.initial_capital as number, 0)}. Once a day at ${escapeHtml(String(r.decision_time_ny ?? "15:00"))} New York:
     with the Dynamic at +${num(r.forecast_threshold as number, 0)} or more it buys calls on USO, at ${MINUS}${num(
       r.forecast_threshold as number,
       0,
     )} or less puts, and only when Kalshi's odds of a de-escalation moved over the week the way the bet needs (down
-    for calls, up for puts). The option: the listed expiry closest to ${dte[1] ?? 30} days (between ${dte[0] ?? 21} and ${
-      dte[2] ?? 45
+    for calls, up for puts). The option: the listed expiry closest to ${dte[1]} days (between ${dte[0]} and ${
+      dte[2]
     }), delta nearest ${num(r.target_delta as number, 2)} if it fits in ${percent(r.stake as number, 0)} of the account, else further
     from the price down to delta ${num(r.min_delta as number, 2)}; whole contracts, never more than ${leverage(
       r.max_delta_leverage as number,
     )} the account in delta; quoted within ${percent(r.max_leg_spread as number, 0)} of its price, bought a quarter of the
     spread from the ask, ${usd(r.fee_per_contract as number, 2)} a contract. One bet at a time, sold when the Dynamic stops
-    pointing its way or with ${r.roll_days ?? 7} days left (then replaced if the signal holds); no profit target. At ${percent(
+    pointing its way or with ${num(r.roll_days as number, 0)} days left (then replaced if the signal holds). The life ends when
+    the account reaches ten times its start (the target: the option is sold and nothing more is bought), or at ${percent(
       r.floor as number,
       0,
-    )} of its capital the life is over. The options book's limits and the volatility targets are suspended for this book alone.`;
+    )} of its start. The options book's limits and the volatility targets are suspended for this book alone.`;
   }
   if (b.kind === "options") {
     const dte = (r.dte as number[] | undefined) ?? [];

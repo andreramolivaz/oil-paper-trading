@@ -122,6 +122,24 @@ def us_holidays(year: int) -> frozenset[date]:
     return frozenset(hols)
 
 
+def us_early_closes(year: int) -> frozenset[date]:
+    """The days the US stock and option exchanges close at 13:00 New York (NYSE and Cboe): the day after
+    Thanksgiving, Christmas Eve on a weekday, and 3 July when Independence Day falls on a weekday after it."""
+    days = {_nth_weekday(year, 11, 3, 4) + timedelta(days=1)}
+    eve = date(year, 12, 24)
+    if eve.weekday() < 5 and eve not in us_holidays(year):
+        days.add(eve)
+    fourth = date(year, 7, 4)
+    third = date(year, 7, 3)
+    if fourth.weekday() in (1, 2, 3, 4) and third.weekday() < 5:
+        days.add(third)
+    return frozenset(days)
+
+
+def is_us_early_close(d: date) -> bool:
+    return d in us_early_closes(d.year)
+
+
 def is_business_day(d: date, market: str = "ICE") -> bool:
     if d.weekday() >= 5:
         return False

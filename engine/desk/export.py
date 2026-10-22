@@ -727,9 +727,16 @@ def decisions_block(
             if _since(d.get("ts"), started):
                 rows.append(_options_decision_row(d))
     if rocket_id:
-        store = StateStore(Path(state_dir) / "desk" / rocket_id)
-        _, _, started = _rocket_life(store)
-        rows += [_rocket_decision_row(d) for d in store.tail_jsonl("decisions", 40) if _since(d.get("ts"), started)]
+        try:  # the Rocket's logs must cost the page only its own rows (found in review)
+            store = StateStore(Path(state_dir) / "desk" / rocket_id)
+            _, _, started = _rocket_life(store)
+            rows += [
+                _rocket_decision_row(d)
+                for d in _tail_jsonl_safe(store, "decisions", 40)
+                if _since(d.get("ts"), started)
+            ]
+        except Exception as exc:
+            log.warning("rocket decisions skipped: %s", exc)
     rows.sort(key=lambda r: str(r.get("ts")), reverse=True)
     return rows[:MAX_DECISIONS]
 
@@ -799,13 +806,16 @@ def fills_block(
             if int(t.get("epoch", epoch) or epoch) == epoch
         ]
     if rocket_id:
-        store = StateStore(Path(state_dir) / "desk" / rocket_id)
-        _, epoch, _ = _rocket_life(store)
-        rows += [
-            _rocket_fill_row(t, rocket_id)
-            for t in store.tail_jsonl("trades", 40)
-            if int(t.get("epoch", epoch) or epoch) == epoch
-        ]
+        try:  # the Rocket's logs must cost the page only its own rows (found in review)
+            store = StateStore(Path(state_dir) / "desk" / rocket_id)
+            _, epoch, _ = _rocket_life(store)
+            rows += [
+                _rocket_fill_row(t, rocket_id)
+                for t in _tail_jsonl_safe(store, "trades", 40)
+                if int(t.get("epoch", epoch) or epoch) == epoch
+            ]
+        except Exception as exc:
+            log.warning("rocket fills skipped: %s", exc)
     rows.sort(key=lambda r: str(r.get("ts")), reverse=True)
     return rows[:MAX_FILLS]
 
@@ -988,6 +998,8 @@ def _rocket_decision_row(d: dict[str, Any]) -> dict[str, Any]:
         "orders": orders,
         "kalshi_change": _r(signal.get("kalshi_change"), 4),
         "agree": signal.get("agree"),
+        # what the book held after the decision: the page says "held" or "no bet" on a decision without an order
+        "holding": d.get("held", bool(d.get("position"))),
         "text": d.get("reason"),
         "status": d.get("action"),
     }
@@ -1017,9 +1029,31 @@ def _rocket_fill_row(t: dict[str, Any], book_id: str) -> dict[str, Any]:
 
 
 def _rocket_life(store: StateStore) -> tuple[dict[str, Any], int, datetime | None]:
-    state = store.read_json(ROCKET_STATE) or {}
-    started = parse_iso(str(state["started_at"])) if state.get("started_at") else None
-    return state, int(state.get("epoch", 1) or 1), started
+    """The Rocket's state, its epoch and when the life began. A state file that cannot be read (a crash mid-write)
+    is an empty one here: the page must still be written (found in review)."""
+    try:
+        state = store.read_json(ROCKET_STATE) or {}
+    except (ValueError, TypeError):
+        log.warning("rocket: the state file could not be read")
+        state = {}
+    if not isinstance(state, dict):
+        state = {}
+    try:
+        started = parse_iso(str(state["started_at"])) if state.get("started_at") else None
+    except ValueError:
+        started = None
+    try:
+        epoch = int(state.get("epoch", 1) or 1)
+    except (TypeError, ValueError):
+        epoch = 1
+    return state, epoch, started
+
+
+def _tail_jsonl_safe(store: StateStore, name: str, n: int) -> list[dict[str, Any]]:
+    """The last ``n`` records of a log, a line cut short skipped: a damaged Rocket log must cost the page only
+    what it holds (found in review: it stopped desk.json from being written)."""
+    rows = [r for r in store.iter_jsonl(name, skip_bad=True) if isinstance(r, dict)]
+    return rows[-n:]
 
 
 def rocket_block(state_dir: Path, config_dir: Path | None, now: datetime) -> dict[str, Any] | None:
@@ -1029,9 +1063,18 @@ def rocket_block(state_dir: Path, config_dir: Path | None, now: datetime) -> dic
         return None
     store = rocket_store(state_dir, cfg)
     state, epoch, started = _rocket_life(store)
-    monitor = store.read_json(ROCKET_MONITOR) or {}
+    try:
+        monitor = store.read_json(ROCKET_MONITOR) or {}
+    except (ValueError, TypeError):
+        monitor = {}
+    if not isinstance(monitor, dict):
+        monitor = {}
+    # a monitor written before this life began is the old life's (a reset between two ticks): not shown
+    written = parse_iso(str(monitor.get("generated_at"))) if monitor.get("generated_at") else None
+    if started is not None and written is not None and written < ensure_utc(started):
+        monitor = {}
     initial = float(state.get("initial_capital", cfg.initial_capital))
-    rows = _current_epoch(store.read_jsonl("equity"), epoch)
+    rows = _current_epoch(list(store.iter_jsonl("equity", skip_bad=True)), epoch)
     equity = float(rows[-1]["equity"]) if rows else float(state.get("equity", initial))
     day_rows = [r for r in rows if str(r.get("ts", ""))[:10] < (rows[-1]["ts"][:10] if rows else "")]
     day_base = float(day_rows[-1]["equity"]) if day_rows else initial
@@ -1040,7 +1083,7 @@ def rocket_block(state_dir: Path, config_dir: Path | None, now: datetime) -> dic
     today = now.astimezone(NEW_YORK).date()
     positions = [_rocket_position(position, equity, today)] if isinstance(position, dict) else []
     delta_notional = float(position.get("delta_notional") or 0.0) if isinstance(position, dict) else 0.0
-    decisions = [d for d in store.tail_jsonl("decisions", 20) if _since(d.get("ts"), started)]
+    decisions = [d for d in _tail_jsonl_safe(store, "decisions", 20) if _since(d.get("ts"), started)]
     last = decisions[-1] if decisions else None
     session = session_day(now)
     return {
@@ -1074,6 +1117,7 @@ def rocket_block(state_dir: Path, config_dir: Path | None, now: datetime) -> dic
         "started_at": state.get("started_at"),
         "positions": positions,
         "pending": [],  # the Rocket queues nothing: it buys and sells at the decision, on live quotes
+        "waiting": monitor.get("waiting"),
         "n_closed": int(state.get("n_closed", 0)),
         "n_wins": int(state.get("n_wins", 0)),
         "realized_pnl": _r(state.get("realized_pnl", 0.0), 2),
@@ -1110,7 +1154,7 @@ def rocket_history(state_dir: Path, config_dir: Path | None, now: datetime) -> d
         _rocket_decision_row(d) for d in store.iter_jsonl("decisions", skip_bad=True) if _since(d.get("ts"), started)
     ]
     decisions.sort(key=lambda r: str(r.get("ts")), reverse=True)
-    rows = _current_epoch(store.read_jsonl("equity"), epoch)
+    rows = _current_epoch(list(store.iter_jsonl("equity", skip_bad=True)), epoch)
     return {
         "generated_at": iso(now),
         "id": cfg.id,

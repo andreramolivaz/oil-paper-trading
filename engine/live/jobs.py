@@ -533,7 +533,13 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
 
             rocket_cfg = load_rocket_config(runner.settings.config_dir)
             if rocket_cfg is not None:
-                detail["rocket"] = rocket_tick(runner.settings.state_dir, data, runner.raw, now, rocket_cfg)
+                # it reads the Dynamic's forecast: when the Dynamic's vehicle may take no new decision (its table
+                # is red, or its decision time passed during the downloads) neither may the Rocket (found in review:
+                # it decided on yesterday's forecast while the Dynamic waited)
+                vehicle = rocket_cfg.underlying.forecast
+                detail["rocket"] = rocket_tick(
+                    runner.settings.state_dir, data, runner.raw, now, rocket_cfg, wait=blocked.get(vehicle)
+                )
         except Exception as exc:
             log.warning("rocket book skipped: %s", exc)
             detail["rocket"] = {"error": str(exc)[:200]}

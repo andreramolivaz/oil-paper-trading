@@ -6,7 +6,7 @@
  * through them.
  */
 import { lineChart } from "../charts/lines";
-import { readToken, workflowDispatch, workflowPage } from "../config";
+import { ROCKET_RESET_WORKFLOW, readToken, workflowDispatch, workflowPage } from "../config";
 import { load } from "../data";
 import {
   rocketMonitor,
@@ -139,7 +139,7 @@ function rail(b: Book, m: RocketMonitor | null): string {
     [2, "2x"],
     [RAIL_HI, "10x"],
   ];
-  const beyond = now > RAIL_HI ? ", past the 10x" : "";
+  const beyond = b.status === "target" ? ": the target, where the life ends" : now > RAIL_HI ? ", past the 10x" : "";
   const zoneWords =
     floor !== null && floor !== undefined && m?.bet_floor
       ? ` Below ${usd(m.bet_floor, 0)} (${num(floor, 2)}x) no option the rule admits fits in half the account.`
@@ -203,19 +203,24 @@ function lotteryNow(b: Book, h: BookHistory | null): string {
   for (const p of held) lines.push(positionLine(p));
   if (held.length) {
     const side = held[0]!.side === "short" ? "short" : "long";
-    lines.push(`<li class="t-dim">It is sold when the Dynamic stops pointing ${side}, or with ${String(
-      b.rules.roll_days ?? 7,
-    )} days left, then replaced if the signal still holds. There is no profit target: a 10x can only come from a bet left to run.</li>`);
+    lines.push(`<li class="t-dim">It is sold when the Dynamic stops pointing ${side}, or with ${num(
+      b.rules.roll_days as number,
+      0,
+    )} days left, then replaced if the signal still holds; the life ends when the account reaches 10x.</li>`);
   } else {
     lines.push(`<li>No option open: the account is ${usd(b.equity, 2)} in cash.</li>`);
   }
-  if (b.status === "dead") {
+  if (b.status === "target") {
+    lines.push(`<li class="up">The life reached its target: ${usd(b.equity, 2)}, at least ten times its start. It ends
+      here; a new one starts with the button below.</li>`);
+  } else if (b.status === "dead") {
     lines.push(`<li class="warn">The life is over: at ${usd(b.equity, 2)} the account is at or below ${percent(
       (b.rules.floor as number | undefined) ?? 0.05,
       0,
     )} of its start, and no bet opens until a new life.</li>`);
   } else if (m) {
     lines.push(`<li>Today's signal: ${escapeHtml(m.signal.text)}</li>`);
+    if (m.waiting && b.decision_owed) lines.push(`<li class="t-dim">Waiting: ${escapeHtml(m.waiting)}.</li>`);
     if (!held.length && m.stuck) {
       lines.push(`<li class="warn">The account is too small to bet: the cheapest option the rule admits costs ${usd(
         m.cheapest_cost,
@@ -242,7 +247,7 @@ function lotteryNow(b: Book, h: BookHistory | null): string {
     : `<p class="t-dim">No decision yet.</p>`;
   const timing = `<p class="t-dim">It decides once a day, at the first tick after ${escapeHtml(
     String(b.rules.decision_time_ny ?? "15:00"),
-  )} New York, on USO quotes less than ${String(b.rules.max_quote_age_minutes ?? 45)} minutes old${
+  )} New York, on USO quotes less than ${num(b.rules.max_quote_age_minutes as number, 0)} minutes old${
     m?.quote_ts ? `; the latest are from ${escapeHtml(when(m.quote_ts))}` : ""
   }.</p>`;
   const copy = held.length ? copyBlock(held[0]!.replicate, "Copy this bet on a real account") : m?.candidate ? copyBlock(m.candidate.replicate, "Copy the bet the rule would place") : "";
@@ -253,16 +258,18 @@ function lotteryNow(b: Book, h: BookHistory | null): string {
  *  so a stray tap does not archive a life that is still running. */
 function newLifeSection(b: Book): string {
   const m = rocketMonitor(b);
-  const over = b.status === "dead" || !!m?.stuck;
+  const over = b.status === "dead" || b.status === "target" || !!m?.stuck;
   const lead =
-    b.status === "dead"
-      ? `This life is over: ${usd(b.equity, 2)} is at or below ${percent((b.rules.floor as number | undefined) ?? 0.05, 0)} of its start.`
-      : m?.stuck
+    b.status === "target"
+      ? `This life reached its target: ${usd(b.equity, 2)}, ${num(b.multiple ?? null, 2)}x of its start. It is over, and the money stays on its record.`
+      : b.status === "dead"
+        ? `This life is over: ${usd(b.equity, 2)} is at or below ${percent((b.rules.floor as number | undefined) ?? 0.05, 0)} of its start.`
+        : m?.stuck
         ? `This life cannot bet any more: it is at ${num(b.multiple ?? null, 2)}x of its start.`
         : `This life is at ${num(b.multiple ?? null, 2)}x of its start. A new one archives it as it stands${
             (b.positions?.length ?? 0) > 0 ? " (the option it holds is abandoned, as in any reset)" : ""
           } and starts again.`;
-  const file = b.reset_workflow ?? "rocket-reset.yml";
+  const file = ROCKET_RESET_WORKFLOW;
   return section(
     "A new life",
     `<p class="r-lead">${lead} Every life before stays in the history below.</p>
@@ -285,7 +292,7 @@ function wireNewLife(root: HTMLElement, b: Book): void {
   const button = root.querySelector<HTMLButtonElement>("[data-new-life]");
   const result = root.querySelector<HTMLElement>(".r-result");
   if (!button || !result) return;
-  const file = b.reset_workflow ?? "rocket-reset.yml";
+  const file = ROCKET_RESET_WORKFLOW;
   const label = button.textContent ?? "";
   let armed = button.dataset.over === "1";
   button.addEventListener("click", async () => {
@@ -352,13 +359,14 @@ function oddsSection(b: Book): string {
       <div class="r-bar" role="img" aria-label="${escapeHtml(label)}">${segs}</div>
       <ul class="r-legend">${legend}</ul>
     </figure>
-    <p>Every 10x began in an oil crash bought with puts: ${escapeHtml(o.ten_x_episodes.join(", "))}. The typical life ended at
-    ${num(o.median_multiple, 2)}x of its start, the best at ${num(o.best_multiple, 0)}x. In 2026, none of the ${num(
-      o.windows_2026,
-      0,
-    )} windows doubled (median ${num(o.median_multiple_2026, 2)}x): the options cost about as much as the moves that came.</p>
-    <p class="t-dim">≈ A model, not a record: ${escapeHtml(o.source)}. The real book buys whole contracts, so its bets are
-    lumpier than the model's and a small account stops betting before it is wiped out.</p>`,
+    <p>Every 10x began in a large move of oil: ${escapeHtml(o.ten_x_episodes.join(", "))}, mostly crashes bought with puts.
+    The typical life ended at ${num(o.median_multiple, 2)}x of its start, the best at ${num(o.best_multiple, 0)}x${
+      o.p_stuck ? `; ${percent(o.p_stuck, 0)} of the lives ended too small to bet` : ""
+    }. In 2026, none of the ${num(o.windows_2026, 0)} windows doubled (median ${num(
+      o.median_multiple_2026,
+      2,
+    )}x): the options cost about as much as the moves that came.</p>
+    <p class="t-dim">≈ A model, not a record: ${escapeHtml(o.source)}. A life that reaches 10x ends there, as this book's does.</p>`,
     "a model of the rule, approximate",
     "odds",
   );
@@ -555,7 +563,11 @@ function decisionsPanel(decisions: HistoryDecision[], unit: string | undefined, 
                   : ""
               }</td>`
         }
-        <td class="n h-c" data-l="Position">${lottery ? escapeHtml(d.status === "none" ? "held" : (d.status ?? "")) : escapeHtml(positionChange(d, unit))}</td>
+        <td class="n h-c" data-l="Position">${
+          lottery
+            ? escapeHtml(d.status === "none" ? (d.holding === false ? "no bet" : d.holding ? "held" : "") : (d.status ?? ""))
+            : escapeHtml(positionChange(d, unit))
+        }</td>
         <td class="n h-right"><span class="m-l">order</span>${order}</td>
         <td class="w h-what">${escapeHtml(d.text ?? "")}</td>
       </tr>`;
@@ -579,6 +591,8 @@ function decisionsPanel(decisions: HistoryDecision[], unit: string | undefined, 
 const END_WORDS: Record<string, string> = {
   reset_manual: "reset by the owner",
   dead: "wiped out",
+  target: "reached its target",
+  unreadable: "state file unreadable, restarted",
   reset: "reset",
 };
 

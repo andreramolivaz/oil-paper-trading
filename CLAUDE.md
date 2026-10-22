@@ -1038,6 +1038,25 @@ order to copy (Alpaca's API, Robinhood's form), the model's odds as one bar, and
 the life is over, two otherwise; with the token the reset page saves it dispatches the workflow, without it opens
 it on GitHub). Tests: `tests/test_desk_rocket.py` (the real chain of 8 October; the forecasts, Kalshi's changes,
 later quotes and closes SYNTHETIC and labelled). No book of before changed and the fingerprint is b66ecbb82b75.
+The owner then asked for "more chances" and "also Kalshi- or Polymarket-style markets" (14 F-I, registered before
+measuring): the 1/N ceiling of a fair game (Dubins and Savage) means no strategy without an edge turns 1 000 $ into
+10 000 more than 10 % of the time; of seven option variants measured once in both halves of the history only the
+TARGET entered (14 H: the life ends at ten times its capital; 14 of the 29 lives that touched 10x had given it
+back: 1.8 -> 3.6 %, whole contracts 1.2 -> 2.7 %); bold play, the cheap-volatility filter, longer options and
+rolling up do not enter; the +-10 threshold (same 10x, a third of the losses) and the WTI forecast (four windows
+of 812) are the owner's calls, written in 14 G. Kalshi's oil ladders (49 settled events since mid-August, the
+listing forgets settled markets): contracts under 15 cents return -80 % a dollar, -67 % with the Dynamic's
+direction; the 15-70 cent band in its direction is -6 % after fees, so NO Kalshi side enters; Polymarket is closed
+to US users. The independent review (14 J, `docs/VALIDATION.md`) found eleven defects, all fixed and pinned before
+the first decision: the Rocket now reads only the forecast row of the day (`forecast_of_day`) and WAITS when the
+Dynamic's vehicle is blocked or overtaken (`rocket_tick(wait=...)`) or the day has no forecast; a held option
+beyond the archived strikes is valued and sold at its intrinsic value (`beyond_archive`, approx) and the chains
+keep every strike (`moneyness: 1.0` in data_sources.yaml); the US early closes (13:00: the day after
+Thanksgiving, Christmas Eve, 3 July before a weekday Fourth) are in `calendar.us_early_closes` and the options
+helpers (`session_close_ny`, `settle_after_ny`); an expiry settles only on a close the download could have seen
+(`settled_closes`, both books); a damaged Rocket file costs the page its row only; a reset rewrites the monitor
+and repairs an unreadable state; a sale needs a bid; the site escapes every rule figure and hard-codes the
+reset workflow (`ROCKET_RESET_WORKFLOW`). The page's odds are the whole-contract ones with the target (MODEL_ODDS).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

@@ -252,7 +252,12 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   esposizione in delta, la pagina del libro con il binario verso il 10x, l'ordine da copiare, le probabilità del
   modello in una barra e il pulsante «Start a new life» che avvia il workflow `rocket-reset.yml` (un clic se la vita
   è finita, due se è in corso; senza token apre il workflow su GitHub). Nessun libro di prima cambia: il Rocket non
-  entra nel replay, nelle tabelle né nell'impronta (b66ecbb82b75).
+  entra nel replay, nelle tabelle né nell'impronta (b66ecbb82b75). Poi, su «more chances» e «anche Kalshi o
+  Polymarket» (capitolo 14 F-I, registrato prima di misurare): il tetto di Dubins e Savage (senza vantaggio il 10x
+  non supera il 10%), sette varianti sulle opzioni di cui entra solo il traguardo (14 H: la vita finisce a 10x, da
+  1,8% a 3,6% di 10x, con contratti interi da 1,2% a 2,7%), le scale di Kalshi misurate sui candlestick veri (i
+  contratti sotto i 15 ¢ rendono −80% per dollaro, −67% con il segnale: nessun lato Kalshi entra). La revisione
+  indipendente (14 J, `docs/VALIDATION.md`) ha trovato undici difetti, tutti corretti prima della prima decisione.
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

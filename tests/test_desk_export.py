@@ -63,7 +63,7 @@ def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_pat
     rocket = doc["books"][-1]
     assert rocket["kind"] == "lottery" and rocket["group"] == "lottery" and rocket["initial_capital"] == 1_000.0
     assert rocket["positions"] == [] and rocket["epoch"] == 1 and rocket["odds"]["approx"] is True
-    assert sum(o["windows"] for o in rocket["odds"]["outcomes"]) == rocket["odds"]["windows"] == 811
+    assert sum(o["windows"] for o in rocket["odds"]["outcomes"]) == rocket["odds"]["windows"] == 812
     assert sum(o["share"] for o in rocket["odds"]["outcomes"]) == pytest.approx(1.0, abs=1e-5)
     assert doc["total"] == {"equity": 40_000.0, "initial_capital": 40_000.0, "pnl": 0.0, "pnl_pct": 0.0, "n_books": 4}
     assert doc["total_candidates"]["equity"] == 10_000.0 * (len(candidates) + len(kalshi) + len(claude))

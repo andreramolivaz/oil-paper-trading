@@ -24,6 +24,10 @@ export const dispatchUrl = () =>
 
 export const repoUrl = () => `https://github.com/${config.owner}/${config.repo}`;
 
+/** The Rocket's one-click reset (phase 19): a constant of the site, so a poisoned desk.json can never point the
+ *  token-bearing dispatch at another workflow (found in review). */
+export const ROCKET_RESET_WORKFLOW = "rocket-reset.yml";
+
 /** Any workflow of the repository: its page on GitHub (where "Run workflow" starts it) and its dispatch endpoint. */
 export const workflowPage = (file: string) =>
   `https://github.com/${config.owner}/${config.repo}/actions/workflows/${file}`;
