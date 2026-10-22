@@ -216,6 +216,28 @@ Dal sito, pagina **Reset**: se salvi nel tuo browser un token fine-grained con i
 *Actions: write* su questo repository, il pulsante avvia il workflow direttamente; altrimenti apre la pagina del
 workflow su GitHub, dove parte con un clic. **Il token resta nel tuo browser e non finisce mai nel repository.**
 
+## Il Rocket: una lotteria da 1 000 $
+
+Dal 22 ottobre 2026 c'è un conto a parte, chiesto per «fare 10 000 $ in tre mesi partendo da 1 000»: il **Rocket**
+(`engine/desk/rocket.py`, `docs/RESEARCH.md` capitolo 14). Compra call su USO quando il Dinamico è long, put quando è
+short, metà del conto per scommessa, e solo se nella settimana l'indice di de-escalation di Kalshi si è mosso nel verso
+che serve alla scommessa. Vende quando il Dinamico cambia idea, rinnova a sette giorni dalla scadenza, non ha un
+obiettivo di guadagno. Le regole di rischio del progetto sono sospese **per lui solo**, e non entra in nessun totale.
+
+**È una lotteria, e i numeri lo dicono** (un modello delle opzioni, ≈): su 811 finestre di tre mesi dal 2011 il 10x
+è arrivato nell'1,8%, tutte in tre crolli del petrolio comprati con le put; il risultato tipico è metà del conto; nel
+2026 nessuna delle 17 finestre ha raddoppiato. Con contratti interi, sotto i 240 $ circa non riesce più a comprare
+nulla: la pagina lo dice.
+
+- **Farlo ripartire.** Pagina «Desk» → Rocket → **Start a new life at 1,000 $**. Con il token salvato sulla pagina
+  Reset il pulsante avvia il workflow `rocket-reset.yml` (un clic se la vita è finita, due se è ancora in corso);
+  senza token apre il workflow su GitHub, dove «Run workflow» lo avvia. La vita finita resta nella storia del libro.
+- **Copiarlo su un conto vero.** La pagina del libro mostra l'ordine di ogni scommessa: per l'API di Alpaca (il conto
+  di prova e l'API sono gratuiti, le opzioni sono attive di serie sul conto di prova; `POST /v2/orders` con il
+  simbolo OCC, la quantità, il limite) e i passi del modulo di Robinhood (opzioni di livello 2: comprare call e put).
+  Il limite è il prezzo a cui ha eseguito il conto di carta, su quotazioni in ritardo di 15 minuti: un ordine vero può
+  eseguire altrove o non eseguire. È uno studio, non un consiglio.
+
 ## Se il motore si ferma
 
 Ogni pagina del sito lo dice in alto («Engine late» o «Engine stopped»). Ogni runner avvia il proprio successore;

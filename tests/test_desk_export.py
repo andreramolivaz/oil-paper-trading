@@ -39,6 +39,7 @@ def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_pat
         "desk.json",
         *(f"books/{b['id']}.json" for b in doc["books"] if b["kind"] == "linear"),
         "books/opzioni.json",
+        "books/rocket.json",
     ]
     assert json.loads((tmp_path / "out" / "books" / "spinto.json").read_text())["fills"] == []
     # the core books first, the options book among them, then the candidate books of phases 12 and 13
@@ -53,9 +54,17 @@ def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_pat
         *candidates,
         *kalshi,
         *claude,
+        "rocket",  # the lottery of phase 19, last
     ]
-    assert [b["role"] for b in doc["books"]] == ["core"] * 4 + ["candidate"] * (len(candidates) + len(kalshi) + 4)
-    assert all(b["equity"] == 10_000.0 and b["pnl_total"] == 0.0 for b in doc["books"])
+    roles = ["core"] * 4 + ["candidate"] * (len(candidates) + len(kalshi) + 4) + ["lottery"]
+    assert [b["role"] for b in doc["books"]] == roles
+    assert all(b["equity"] == b["initial_capital"] and b["pnl_total"] == 0.0 for b in doc["books"])
+    assert {b["initial_capital"] for b in doc["books"]} == {10_000.0, 1_000.0}
+    rocket = doc["books"][-1]
+    assert rocket["kind"] == "lottery" and rocket["group"] == "lottery" and rocket["initial_capital"] == 1_000.0
+    assert rocket["positions"] == [] and rocket["epoch"] == 1 and rocket["odds"]["approx"] is True
+    assert sum(o["windows"] for o in rocket["odds"]["outcomes"]) == rocket["odds"]["windows"] == 811
+    assert sum(o["share"] for o in rocket["odds"]["outcomes"]) == pytest.approx(1.0, abs=1e-5)
     assert doc["total"] == {"equity": 40_000.0, "initial_capital": 40_000.0, "pnl": 0.0, "pnl_pct": 0.0, "n_books": 4}
     assert doc["total_candidates"]["equity"] == 10_000.0 * (len(candidates) + len(kalshi) + len(claude))
     assert doc["total_candidates"]["n_books"] == len(candidates) + len(kalshi) + len(claude)
@@ -218,7 +227,8 @@ def test_the_desk_page_groups_the_books_and_sums_each_group(tmp_path, monkeypatc
     groups = {g["id"]: g for g in doc["portfolios"]}
     # three groups, in the page's order, and every book in exactly one of them: the group its forecast and its
     # configured role give it
-    assert [g["id"] for g in doc["portfolios"]] == ["core", "candidates", "kalshi", "claude"]
+    assert [g["id"] for g in doc["portfolios"]] == ["core", "candidates", "kalshi", "claude", "lottery"]
+    assert groups["lottery"]["books"] == ["rocket"] and groups["lottery"]["initial_capital"] == 1_000.0
     assert groups["core"]["books"] == ["prudente", "dinamico", "spinto", "opzioni"]
     assert groups["kalshi"]["books"] == ["oracle", "oracle_equities", "oracle_utilities"]
     assert groups["claude"]["books"] == ["claude_oil", "claude_gold", "claude_equities", "claude_bonds"]

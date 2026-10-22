@@ -235,6 +235,24 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   inferiore del traffico; oggi il tetto dimezzato non tocca nessun libro. Cambiano le parole sul sito e nelle
   decisioni («transiti di petroliere visibili sull'AIS»), non la regola: tenerla, toglierla o misurarla altrimenti è
   una decisione del proprietario.
+- [x] 19. Il Rocket, una lotteria da 1 000 $ (22 ottobre 2026, su «un altro account che parte da 1 000 dollari e ha
+  come obiettivo circa 10 000 in 3 mesi, super aggressivo, con leva, che si può riattivare con un click», con «il
+  Dinamico più Kalshi», replicabile su Robinhood o con un'API gratuita, e le regole di rischio sospese «solo per
+  lui»; `docs/RESEARCH.md`, capitolo 14, registrato e spinto come 55ccdfce prima di misurare). Opzioni COMPRATE su
+  USO: call quando il Dinamico è long, put quando è short, solo se l'indice di de-escalation di Kalshi si è mosso
+  nella settimana nel verso della scommessa; metà del conto per scommessa, delta 0,30 (fino a 0,10 se il conto è
+  piccolo), scadenza più vicina a 30 giorni, vendita quando il Dinamico cambia idea o a sette giorni dalla scadenza,
+  nessun obiettivo di guadagno, morto a 50 $. Misurato una volta su un modello (`scripts/research_rocket.py`, capitolo
+  14 E): 10x nell'1,8% delle finestre di tre mesi dal 2011, tutte in tre crolli; mediana a metà del conto; nel 2026
+  nessuna finestra a 2x. Con i contratti interi, sotto i 240 $ circa il libro non può più scommettere e lo dice.
+  Motore: `engine/desk/rocket.py` (il giro, i conti, la scelta dell'opzione, l'ordine da copiare per Alpaca e
+  Robinhood), `rocket_book` in `config/books.yaml`, il giro lo chiama dopo il libro delle opzioni e scarica la
+  catena quando gli deve la decisione, il reset (`--book rocket`, e «all» lo comprende) riparte dal suo capitale.
+  Sito: il gruppo «Lottery» sulla pagina Desk (fuori da ogni totale), l'opzione fra le posizioni aperte con la sua
+  esposizione in delta, la pagina del libro con il binario verso il 10x, l'ordine da copiare, le probabilità del
+  modello in una barra e il pulsante «Start a new life» che avvia il workflow `rocket-reset.yml` (un clic se la vita
+  è finita, due se è in corso; senza token apre il workflow su GitHub). Nessun libro di prima cambia: il Rocket non
+  entra nel replay, nelle tabelle né nell'impronta (b66ecbb82b75).
 
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 

@@ -1,0 +1,52 @@
+name: rocket-reset (a new life for the Rocket, at 1 000 $)
+
+# The Rocket (engine/desk/rocket.py, docs/RESEARCH.md chapter 14) is a 1 000 $ lottery the owner restarts with one
+# click: the button on its page dispatches this workflow (with the token saved on the reset page), or opens this
+# page on GitHub, where "Run workflow" starts it. It archives the current life (its final equity, its lowest and
+# highest, how it ended), abandons an option still open and starts a new life at 1 000 $. Every other book is
+# untouched; the full reset of every book stays reset.yml, with its typed confirmation.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: trading-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPT_STATE_DIR: ${{ github.workspace }}/state-repo/state
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - name: Install
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r requirements.lock
+      - name: Checkout data branch
+        run: scripts/data_branch.sh checkout state-repo
+      # The runner pushes a tick every half hour. If one lands between this job's checkout and its push, the
+      # push cannot be rebased (both sides rewrote the same JSON): start again from the new branch head.
+      - name: Reset the Rocket, export, push (retried if the branch moved)
+        run: |
+          for attempt in 1 2 3 4; do
+            .venv/bin/python -m engine.cli reset --confirm RESET --book rocket \
+              --job-id "${{ github.run_id }}-$attempt" --actor "${{ github.actor }}"
+            .venv/bin/python -m engine.cli export-site --out state-repo/site-data \
+              || echo "::warning::site export failed: the reset is pushed anyway"
+            if scripts/data_branch.sh push state-repo "rocket: new life by ${{ github.actor }} run ${{ github.run_id }}"; then
+              exit 0
+            fi
+            echo "the branch moved: taking the new head and resetting again ($attempt)"
+            git -C state-repo rebase --abort 2>/dev/null || true
+            git -C state-repo reset --quiet --hard
+            scripts/data_branch.sh sync state-repo
+          done
+          echo "::error::could not push the reset after 4 attempts"; exit 1

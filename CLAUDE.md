@@ -27,8 +27,11 @@ There are two systems in this repository and it matters which one you are touchi
   `config/analyst.yaml`, `forecast: claude`) reads the news once a day through the Anthropic API and four more
   speculative candidates buy its view (`claude_oil` on /MCL long and short; `claude_gold`, `claude_equities`,
   `claude_bonds` on GLD, SPY, TLT long only); it runs only with the repository secret `ANTHROPIC_API_KEY`, and no
-  backtest of it can exist. The desk page shows what every book holds, each book's own page its whole history, the
-  signals page what they read.
+  backtest of it can exist. Since phase 19 the ROCKET (`engine/desk/rocket.py`, `rocket_book` in books.yaml), a
+  1 000 $ LOTTERY the owner asked for, BUYS USO calls or puts in the Dynamic's direction when Kalshi's de-escalation
+  index agrees, half the account a bet, with the project's risk rules suspended for it alone: its own group
+  ("Lottery"), out of every total, never promoted, restarted by the `rocket-reset` workflow (a button on its page).
+  The desk page shows what every book holds, each book's own page its whole history, the signals page what they read.
 * **The first system** (`engine/strategies`, `engine/portfolio`, `engine/backtest/session.py`, ...) is 21
   strategies on shadow accounts behind a seven-condition validation gate. Nothing passed, so its master account
   is flat by construction. It still runs daily (the tick runs its end of day) and is reachable from the site's
@@ -59,7 +62,7 @@ python -m engine.cli fetch --snapshot          # pull all sources, write point-i
 python -m engine.cli eod                       # first system, after ICE settlement (the tick calls it when due)
 python -m engine.cli weekly                    # COT, rig count, retrain, full backtest, validation report
 python -m engine.cli backtest --start 1990-01-01 --end 2026-10-01 --report out/backtest
-python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|...|clean|oracle|oracle_equities|oracle_utilities|claude_oil|...|all]
+python -m engine.cli reset --confirm RESET [--book prudente|dinamico|spinto|opzioni|gold|...|clean|oracle|oracle_equities|oracle_utilities|claude_oil|...|rocket|all]
 python -m engine.cli export-site               # site-data/: desk.json + books/<id>.json for the desk pages + the first system's files
 
 python -m engine.cli watch                     # the prediction markets alone (the weekend job): read, archive, judge
@@ -125,6 +128,14 @@ engine/desk/
                 the lifecycle once a day, allocate, decide once a day, mark; one vehicle failing never stops
                 the others (`_tick_vehicle`)
   options.py    the options book on real Cboe quotes + its model replay (always approx)
+  rocket.py     the Rocket (phase 19): a 1 000 $ lottery on BOUGHT USO options, the rule of docs/RESEARCH.md 14 A:
+                the Dynamic's direction (BNO's combined forecast, +-5) and Kalshi's agreement (the de-escalation
+                index's weekly change, its sign only) open a bet; the listed expiry closest to 30 days, delta 0.30 if
+                it fits in half the equity else further out down to 0.10, whole contracts, 10x on the delta notional;
+                sold when the Dynamic turns or with 7 days left; dead at 5 %; `monitor.stuck` when nothing fits;
+                `replicate` writes the same order for Alpaca's API and Robinhood's form; `reset_rocket_book` starts a
+                life at its own 1 000 $. Its own store (state/desk/rocket), its own row in the export (kind
+                "lottery"), its own history file; no backtest (the odds of 14 E are a model, MODEL_ODDS, approx)
   report.py     desk-backtest payload with and without the allocator, attribution by sleeve and by source,
                 the rules' fingerprint (books, options, risk.yaml, allocator.yaml)
   export.py     site-data/desk.json (books with role/allocator/lifecycle, `allocator`, `prediction_markets`)
@@ -134,6 +145,7 @@ config/books.yaml      the three linear books, the options book, the ten candida
                        `claude_equities`, `claude_bonds` (forecast: claude, one market each in `sleeves`)
 config/allocator.yaml  the allocator's four rules with their published parameters and on/off switches
 config/analyst.yaml    the Claude analyst: model, start time, searches, token limits, monthly budget, published prices
+config/books.yaml rocket_book   the Rocket's registered rule (14 A), every key named as the constant it sets
 engine/data/adapters/kalshi.py   the public Kalshi API, one call a second (429 after about thirty in a burst);
                                  `fetch_history`: every market of a series with its daily candlesticks (the
                                  live endpoint, else `/historical/...` for a market archived after settlement)
@@ -346,7 +358,8 @@ site/          Vite + TypeScript (vanilla), SVG charts drawn by hand, no chart l
 tests/         pytest; `network` marker for tests hitting real sources
 .github/workflows/  ci, runner (the tick loop), watchdog (restarts it), weekly, reset, deploy, keepalive,
                     eod (manual re-run of one date), research-data (manual download for research),
-                    kalshi-weekend (the prediction markets while the runner sleeps: `engine.cli watch`)
+                    kalshi-weekend (the prediction markets while the runner sleeps: `engine.cli watch`),
+                    rocket-reset (a new life for the Rocket at 1 000 $, dispatched by the button on its page)
 ```
 
 ### Data flow
@@ -386,7 +399,8 @@ record per event and day), `state/desk/kalshi_alerts-*.jsonl` and `kalshi_watch.
 alerts and the last reading judged), `state/desk/claude-*.jsonl` and `claude_status.json` (the Claude analyst's
 attempts, and the runner's word on whether it has a key), `state/desk/backtest.json`, and one folder per book (the linear books, core and
 candidate: the paper broker's `account.json`, `positions.json`, `trades`, `orders`, `equity` logs; `opzioni`:
-`book.json`, `monitor.json`, `trades`, `decisions`, `equity`, `smile`).
+`book.json`, `monitor.json`, `trades`, `decisions`, `equity`, `smile`; `rocket`: `book.json` with its lives in
+`epochs`, `monitor.json`, `trades`, `decisions`, `equity`).
 Rotation: monthly rollover of jsonl files. Raw snapshots are trimmed by every tick (intraday tables keep one
 copy, option chains one a week, daily tables the last two plus the first of each ISO week). The weekly job
 squashes the branch's git history to one commit (`scripts/data_branch.sh squash`): the audit trail lives
@@ -429,6 +443,13 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   all of the same moment; never on a quote, on another symbol's bar or on a bar older than the last mark.
 - A sleeve enters the forecast with a published rule and its author's parameters, written down before its
   result is looked at; every candidate tried is reported in `docs/RESEARCH.md`, kept or not.
+- The Rocket (phase 19) is the one book whose risk rules are SUSPENDED, by the owner's decision of 22 October 2026
+  and for it alone: no volatility target, half the account on each bet, not the options book's 5 % and two
+  structures. Kept: it only BUYS options (its loss is the premium, never more), on real quotes less than 45 minutes
+  old at prices the feed bracketed, the delta notional never above 10x the equity, dead at 5 %, out of every total
+  (`total`, `total_candidates`), never promoted, no row in any backtest table. Its rule is the one written in
+  `docs/RESEARCH.md` 14 A before it was measured; changing it is a new registration. It is shown as a lottery with
+  the model's odds beside it, everywhere.
 - The options book only opens defined-risk structures: max loss per structure ≤ 5% of equity, at most two open,
   priced on real quotes less than 45 minutes old, never at a price the feed did not bracket.
 - Margin as the vehicle has it (10% for /MCL, 50% for a fund; the first system keeps 10%); stop-out when
@@ -468,9 +489,9 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   no ALL-CAPS labels; colour only for sign (green and red), state, and what can be clicked (magenta, `--accent`).
   The three group colours are the validated series slots 1-3 (`groupColor`), in the engine's fixed group order.
 
-## State of play (2026-10-16)
-Phases 1-18 of `docs/PLAN.md` are implemented (17 waits for the owner's `ANTHROPIC_API_KEY` to take a reading; 18 was
-research and changed no book). Phase 10 (8 October) added the desk after three days of a flat
+## State of play (2026-10-22)
+Phases 1-19 of `docs/PLAN.md` are implemented (17 waits for the owner's `ANTHROPIC_API_KEY` to take a reading; 18 was
+research and changed no book; 19 added the Rocket, a lottery outside every total). Phase 10 (8 October) added the desk after three days of a flat
 account with zero trades. The four causes, all fixed and pinned by `tests/test_tick_job.py`:
 1. nothing was promoted, so the master's weight was zero by construction (now: the desk books trade);
 2. the end of day ran after midnight London and asked for a date that had not settled (now: latest SETTLED date);
@@ -996,6 +1017,27 @@ March-May crossings, Drewry "the majority" by late August, UKMTO 254 transits in
 PortWatch's 3-4 a day): the 1% of normal is a lower bound of the traffic. The words now say so (decisions, the
 allocator's rule text, the signals page); the rule itself is unchanged until the owner decides. Kalshi's "strait back
 to normal" market resolves on the same AIS count.
+
+Phase 19 (22 October, on the owner's "another account that starts from 1 000 dollars and aims at about 10 000 in three
+months, super aggressive, super leveraged, restarted with a click", "the Dynamic plus Kalshi", replicable on Robinhood
+or a free API, the risk rules suspended "only for it"; `docs/RESEARCH.md` chapter 14, registered and pushed as 55ccdfce
+before a number was computed). The honest answer came first: no strategy makes 10x in three months reliably; at
+these risks luck decides. The instrument is the one with which 1 000 $ can make 10x and lose only what it paid:
+BOUGHT USO options (a broker lends nothing under 2 000 $, one /MCL is ten times the account, a 2x fund never makes
+10x in three months). Measured once on the options book's model (`scripts/research_rocket.py`, 14 E, approx): over
+811 three-month windows since 2011, 10x in 1.8 %, all bought with puts in three crashes (autumn 2014, May 2015, early
+2020), 2x in 10.5 %, half the account or more lost in 50.1 %, median 0.50x; in 2026 none of 17 windows reached 2x and
+Kalshi's agreement delayed entries without removing them. On the real chain of 16 October whole contracts put 39-42 %
+of 1 000 $ on a bet, and below about 238 $ no option the rule admits fits in half the account (the book says
+`stuck`). The measurement decided nothing, as registered. Engine: `rocket.py` (above), the tick after the options
+book, the chain downloaded when the Rocket owes its decision (`_options_due`), the reset (`--book rocket`; `all`
+includes it) at its own capital, `rocket-reset.yml` for the button. Site: the "Lottery" group (series slot 6: slot 5
+is a pink too close to the clickable magenta; the five group colours pass the validator on adjacent pairs on both
+themes), the option among the open positions with its delta exposure, the book's page with the rail to 10x, the
+order to copy (Alpaca's API, Robinhood's form), the model's odds as one bar, and "Start a new life" (one press when
+the life is over, two otherwise; with the token the reset page saves it dispatches the workflow, without it opens
+it on GitHub). Tests: `tests/test_desk_rocket.py` (the real chain of 8 October; the forecasts, Kalshi's changes,
+later quotes and closes SYNTHETIC and labelled). No book of before changed and the fingerprint is b66ecbb82b75.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

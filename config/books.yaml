@@ -375,3 +375,39 @@ options_book:
     Put credit spreads on USO (and on BNO when the quotes allow it), sold below the market when the forecast is
     long. Maximum loss defined at the opening: 5% of the account per structure, two structures at most.
     Experimental: the simulation is a model, the book exists to measure it on real prices.
+
+# The Rocket (engine/desk/rocket.py, docs/RESEARCH.md chapter 14): a 1 000 $ lottery the owner asked for on
+# 2026-10-22 ("from 1 000 to about 10 000 in three months, super leveraged, restarted with a click"). It BUYS calls
+# or puts on USO in the Dynamic's direction when Kalshi's de-escalation index agrees, half the account on each bet.
+# The options book's limits (5 % per structure, two structures) and the spirit of the 50 % volatility target are
+# suspended for this book alone, by the owner's decision; real quotes, bracketed prices, the 10x on the delta
+# notional and the 5 % floor stay. The model's odds (14 E, approx): 10x in 1.8 % of three-month windows since 2011,
+# the median window ends at half the account. Every value below is the registered rule of 14 A, not a fitted one.
+rocket_book:
+  enabled: true
+  id: rocket
+  name: Rocket
+  initial_capital: 1000.0        # each life starts here; the reset workflow rocket-reset.yml opens a new one
+  forecast_threshold: 5.0        # the Dynamic's combined forecast (BNO) that is a direction: >= +5 long, <= -5 short
+  target_delta: 0.30             # the option bought: delta nearest this whose cost fits in the stake...
+  min_delta: 0.10                # ...else further from the price, never below this
+  dte_min: 21                    # the listed expiry closest to dte_target inside [dte_min, dte_max]
+  dte_target: 30
+  dte_max: 45
+  roll_days: 7                   # sold with this many days left, and replaced the same day if the signal holds
+  stake: 0.5                     # each bet: as many whole contracts as this fraction of the equity buys
+  max_delta_leverage: 10.0       # delta x 100 x contracts x price never above 10x the equity at the opening
+  max_leg_spread: 0.25           # an option quoted wider than this fraction of its mid-price is not bought
+  max_quote_age_minutes: 45
+  fill_fraction: 0.25            # buys fill at ask - 25 % of the spread, sales at bid + 25 %
+  fee_per_contract: 0.05
+  decision_time_ny: [15, 0]
+  floor: 0.05                    # dead at 5 % of the capital: no bet until a reset
+  underlying: {symbol: USO, chain: uso_options, daily: uso_daily, forecast: BNO, label: "WTI fund"}
+  description: >-
+    A lottery, not a strategy: 1 000 dollars that try for 10 000 in three months by buying USO calls when the
+    Dynamic is long and USO puts when it is short, half the account on each bet, opened only when Kalshi's odds of
+    a de-escalation moved over the week the way that bet needs (down for a call, up for a put). A model of the rule
+    since 2011 reached 10x in fewer than two windows of three months out of a hundred, all in oil crashes, and ended
+    at half the account in the typical one. Out of every total, never promoted; a reset starts a new life at 1 000
+    dollars.

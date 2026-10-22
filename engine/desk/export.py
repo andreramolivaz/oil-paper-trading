@@ -46,9 +46,13 @@ from engine.desk.live import (
     last_quote,
     latest_price,
 )
-from engine.desk.options import MONITOR_FILE, STATE_FILE, load_options_config, options_store
+from engine.desk.options import MONITOR_FILE, STATE_FILE, load_options_config, options_store, session_day
 from engine.desk.prediction import configured_series, latest_reading, prediction_block
 from engine.desk.report import BACKTEST_FILE
+from engine.desk.rocket import MODEL_ODDS, RESET_WORKFLOW, load_rocket_config, occ_parts, rocket_store
+from engine.desk.rocket import MONITOR_FILE as ROCKET_MONITOR
+from engine.desk.rocket import STATE_FILE as ROCKET_STATE
+from engine.desk.rocket import rules as rocket_rules
 from engine.desk.vehicles import get_vehicle
 from engine.desk.watch import describe as describe_watch
 from engine.desk.watch import recent_alerts
@@ -84,6 +88,11 @@ GROUPS: tuple[tuple[str, str, str], ...] = (
         "claude",
         "Claude books",
         "speculative: their direction comes from a language model reading the day's news, and no backtest can exist",
+    ),
+    (
+        "lottery",
+        "Lottery",
+        "1 000 dollars on bought options with the risk rules suspended, out of every total: most lives lose",
     ),
 )
 STRESS_MOVES = (-0.30, -0.20, -0.10, 0.10, 0.20)  # gaps of the vehicle's price the books are revalued on
@@ -700,7 +709,10 @@ def _options_life(state_dir: Path, options_id: str) -> tuple[int, datetime | Non
 
 
 def decisions_block(
-    state_dir: Path, options_id: str | None, starts: dict[str, datetime | None] | None = None
+    state_dir: Path,
+    options_id: str | None,
+    starts: dict[str, datetime | None] | None = None,
+    rocket_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """The desk's latest decisions, each book's of its current life only (``starts``: when each life began)."""
     starts = starts or {}
@@ -714,6 +726,10 @@ def decisions_block(
         for d in StateStore(Path(state_dir) / "desk" / options_id).tail_jsonl("decisions", 60):
             if _since(d.get("ts"), started):
                 rows.append(_options_decision_row(d))
+    if rocket_id:
+        store = StateStore(Path(state_dir) / "desk" / rocket_id)
+        _, _, started = _rocket_life(store)
+        rows += [_rocket_decision_row(d) for d in store.tail_jsonl("decisions", 40) if _since(d.get("ts"), started)]
     rows.sort(key=lambda r: str(r.get("ts")), reverse=True)
     return rows[:MAX_DECISIONS]
 
@@ -761,7 +777,9 @@ def _options_fill_row(t: dict[str, Any], book_id: str) -> dict[str, Any]:
     }
 
 
-def fills_block(state_dir: Path, desk: Desk, options_id: str | None) -> list[dict[str, Any]]:
+def fills_block(
+    state_dir: Path, desk: Desk, options_id: str | None, rocket_id: str | None = None
+) -> list[dict[str, Any]]:
     """The desk's latest fills, each book's of its current life only: the same rows "every fill since the start"
     finds in the books' own history files."""
     rows: list[dict[str, Any]] = []
@@ -778,6 +796,14 @@ def fills_block(state_dir: Path, desk: Desk, options_id: str | None) -> list[dic
         rows += [
             _options_fill_row(t, options_id)
             for t in StateStore(Path(state_dir) / "desk" / options_id).tail_jsonl("trades", 40)
+            if int(t.get("epoch", epoch) or epoch) == epoch
+        ]
+    if rocket_id:
+        store = StateStore(Path(state_dir) / "desk" / rocket_id)
+        _, epoch, _ = _rocket_life(store)
+        rows += [
+            _rocket_fill_row(t, rocket_id)
+            for t in store.tail_jsonl("trades", 40)
             if int(t.get("epoch", epoch) or epoch) == epoch
         ]
     rows.sort(key=lambda r: str(r.get("ts")), reverse=True)
@@ -882,6 +908,234 @@ def options_history(state_dir: Path, config_dir: Path | None, now: datetime) -> 
     }
 
 
+# ----------------------------------------------------------------------------------------------- the Rocket
+def _option_label(t: dict[str, Any]) -> str:
+    """ "USO call 175 2026-11-13": the option of a Rocket record as the page names it."""
+    right = "call" if t.get("right") == "C" else "put"
+    try:
+        strike = f"{float(t.get('strike') or 0):g}"
+    except (TypeError, ValueError):
+        strike = "?"
+    return f"{t.get('underlying') or ''} {right} {strike} {t.get('expiry') or ''}".strip()
+
+
+def _occ_label(symbol: str) -> str:
+    """An OCC symbol (``USO261113C00175000``) as ``_option_label`` names it; the symbol itself when it is not one."""
+    parts = occ_parts(symbol)
+    if parts is None:
+        return symbol
+    return _option_label({"underlying": parts["root"], **parts})
+
+
+def _rocket_position(p: dict[str, Any], equity: float, today: date) -> dict[str, Any]:
+    """The Rocket's open option in the shape of a position row (the desk page lists it with the others): what it
+    cost, what it is worth at the mark, its open P&L before fees (as the options book shows a spread's), and its
+    delta exposure as a multiple of the account."""
+    n = int(p.get("contracts") or 0)
+    mark = float(p.get("mark") or 0.0)
+    paid = float(p.get("paid") or 0.0)
+    delta_notional = float(p.get("delta_notional") or 0.0)
+    try:
+        days_left: int | None = (date.fromisoformat(str(p.get("expiry"))) - today).days
+    except ValueError:
+        days_left = None
+    return {
+        "symbol": p.get("option"),
+        "label": _option_label(p),
+        "kind": "call" if p.get("right") == "C" else "put",
+        "underlying": p.get("underlying"),
+        "strike": _r(p.get("strike"), 2),
+        "expiry": p.get("expiry"),
+        "days_left": days_left,
+        "units": n,
+        "unit": "contract",
+        "side": "long" if int(p.get("direction") or 1) > 0 else "short",
+        "multiplier": 1,
+        "avg_price": _r(paid, 4),
+        "last_price": _r(mark, 4),
+        "notional": _r(mark * 100.0 * n, 2),
+        "cost": _r(p.get("cost"), 2),
+        "unrealized": _r((mark - paid) * 100.0 * n, 2),
+        "exposure": _r(delta_notional / equity, 4) if equity > 0 else None,
+        "delta": _r(p.get("delta"), 4),
+        "delta_notional": _r(delta_notional, 2),
+        "opened_at": p.get("opened_at"),
+        "marked_at": p.get("marked_at"),
+        "mark_stale": bool(p.get("mark_stale")),
+        "awaiting_close": bool(p.get("awaiting_close")),
+        "underlying_at_entry": _r(p.get("underlying_at_entry"), 3),
+        "underlying_last": _r(p.get("underlying_last"), 3),
+        "replicate": p.get("replicate"),
+    }
+
+
+def _rocket_decision_row(d: dict[str, Any]) -> dict[str, Any]:
+    signal = d.get("signal") or {}
+    orders = [
+        {"symbol": _occ_label(str(o.get("symbol") or "")), "units": _r(o.get("units"), 0)}
+        for o in d.get("orders") or []
+        if isinstance(o, dict) and o.get("units")
+    ]
+    return {
+        "ts": d.get("ts"),
+        "book": d.get("book"),
+        "symbol": d.get("underlying"),
+        "price": _r(d.get("underlying_price"), 3),
+        "forecast": _r(d.get("forecast"), 2),
+        "exposure": None,
+        "limited_by": None,
+        "order_units": orders[0]["units"] if orders else 0,
+        "orders": orders,
+        "kalshi_change": _r(signal.get("kalshi_change"), 4),
+        "agree": signal.get("agree"),
+        "text": d.get("reason"),
+        "status": d.get("action"),
+    }
+
+
+def _rocket_fill_row(t: dict[str, Any], book_id: str) -> dict[str, Any]:
+    opened = t.get("action") == "open"
+    n = int(t.get("contracts") or 0)
+    return {
+        "ts": t.get("ts"),
+        "book": book_id,
+        "symbol": _option_label(t),
+        "units": n if opened else -n,
+        "unit": "contract",
+        "price": _r(t.get("price"), 4),
+        "reference_price": None,
+        "cost_bps": None,
+        "commission": _r(t.get("fees"), 2) if opened else None,
+        "reason": t.get("action"),
+        "realized_pnl": _r(t.get("pnl"), 2),
+        "multiple": _r(t.get("multiple"), 3),
+        "decided_at": None,
+        "leverage_after": None,
+        "equity_after": _r(t.get("equity_after"), 2),
+        "approx": bool(t.get("approx")),
+    }
+
+
+def _rocket_life(store: StateStore) -> tuple[dict[str, Any], int, datetime | None]:
+    state = store.read_json(ROCKET_STATE) or {}
+    started = parse_iso(str(state["started_at"])) if state.get("started_at") else None
+    return state, int(state.get("epoch", 1) or 1), started
+
+
+def rocket_block(state_dir: Path, config_dir: Path | None, now: datetime) -> dict[str, Any] | None:
+    """The Rocket's row (``engine/desk/rocket.py``): a book of its own kind, in its own group, out of every total."""
+    cfg = load_rocket_config(config_dir)
+    if cfg is None:
+        return None
+    store = rocket_store(state_dir, cfg)
+    state, epoch, started = _rocket_life(store)
+    monitor = store.read_json(ROCKET_MONITOR) or {}
+    initial = float(state.get("initial_capital", cfg.initial_capital))
+    rows = _current_epoch(store.read_jsonl("equity"), epoch)
+    equity = float(rows[-1]["equity"]) if rows else float(state.get("equity", initial))
+    day_rows = [r for r in rows if str(r.get("ts", ""))[:10] < (rows[-1]["ts"][:10] if rows else "")]
+    day_base = float(day_rows[-1]["equity"]) if day_rows else initial
+    peak = max([initial, *[float(r["equity"]) for r in rows]]) if rows else initial
+    position = state.get("position")
+    today = now.astimezone(NEW_YORK).date()
+    positions = [_rocket_position(position, equity, today)] if isinstance(position, dict) else []
+    delta_notional = float(position.get("delta_notional") or 0.0) if isinstance(position, dict) else 0.0
+    decisions = [d for d in store.tail_jsonl("decisions", 20) if _since(d.get("ts"), started)]
+    last = decisions[-1] if decisions else None
+    session = session_day(now)
+    return {
+        "id": cfg.id,
+        "kind": "lottery",
+        "role": "lottery",
+        "configured_role": "lottery",
+        "group": "lottery",
+        "name": cfg.name,
+        "description": cfg.description,
+        "vehicle": f"{cfg.underlying.symbol} options",
+        "unit": "contract",
+        "underlying": cfg.underlying.symbol,
+        "robinhood": f"calls and puts bought on {cfg.underlying.symbol}, the WTI fund: options level 2 on Robinhood or "
+        "Alpaca",
+        "experimental": True,
+        "backtested": False,
+        "rules": monitor.get("rules") or rocket_rules(cfg),
+        "equity": _r(equity, 2),
+        "initial_capital": initial,
+        "pnl_total": _r(equity - initial, 2),
+        "pnl_total_pct": _r(equity / initial - 1.0, 5) if initial > 0 else None,
+        "multiple": _r(equity / initial, 4) if initial > 0 else None,
+        "pnl_day": _r(equity - day_base, 2),
+        "pnl_day_pct": _r(equity / day_base - 1.0, 5) if day_base > 0 else None,
+        "drawdown": _r(max(0.0, 1.0 - equity / peak), 5) if peak > 0 else None,
+        "leverage": _r(abs(delta_notional) / equity, 4) if equity > 0 else None,
+        "exposure": _r(delta_notional / equity, 4) if equity > 0 else None,
+        "status": state.get("status", "active"),
+        "epoch": epoch,
+        "started_at": state.get("started_at"),
+        "positions": positions,
+        "pending": [],  # the Rocket queues nothing: it buys and sells at the decision, on live quotes
+        "n_closed": int(state.get("n_closed", 0)),
+        "n_wins": int(state.get("n_wins", 0)),
+        "realized_pnl": _r(state.get("realized_pnl", 0.0), 2),
+        "fees": _r(state.get("fees", 0.0), 2),
+        "lives": len(state.get("epochs", []) or []) + 1,
+        "monitor": monitor or None,
+        "odds": MODEL_ODDS,
+        "reset_workflow": RESET_WORKFLOW,
+        "last_decision": None
+        if last is None
+        else {"ts": last.get("ts"), "rationale": last.get("reason"), "status": last.get("action")},
+        "last_decision_day": state.get("last_decision_day"),
+        "decision_owed": session is not None and state.get("last_decision_day") != session.isoformat(),
+        "curve": _curve(rows),
+        "_daily": _daily_closes(rows),  # for the group curves; dropped before the payload is written
+    }
+
+
+def rocket_history(state_dir: Path, config_dir: Path | None, now: datetime) -> dict[str, Any] | None:
+    """``book_history`` for the Rocket, from its own logs: every option bought, sold or expired in this life, every
+    decision, the equity curve and the lives before (each with how it ended)."""
+    cfg = load_rocket_config(config_dir)
+    if cfg is None:
+        return None
+    store = rocket_store(state_dir, cfg)
+    state, epoch, started = _rocket_life(store)
+    fills = [
+        _rocket_fill_row(t, cfg.id)
+        for t in store.iter_jsonl("trades", skip_bad=True)
+        if int(t.get("epoch", epoch) or epoch) == epoch
+    ]
+    fills.sort(key=lambda r: str(r.get("ts")), reverse=True)
+    decisions = [
+        _rocket_decision_row(d) for d in store.iter_jsonl("decisions", skip_bad=True) if _since(d.get("ts"), started)
+    ]
+    decisions.sort(key=lambda r: str(r.get("ts")), reverse=True)
+    rows = _current_epoch(store.read_jsonl("equity"), epoch)
+    return {
+        "generated_at": iso(now),
+        "id": cfg.id,
+        "name": cfg.name,
+        "kind": "lottery",
+        "vehicle": f"{cfg.underlying.symbol} options",
+        "unit": "contract",
+        "epoch": epoch,
+        "started_at": iso(started) if started else None,
+        "curve": _curve(rows, detail_days=HISTORY_DETAIL_DAYS, max_points=MAX_HISTORY_POINTS),
+        "fills": fills,
+        "decisions": decisions,
+        "summary": {
+            "n_fills": len(fills),
+            "n_decisions": len(decisions),
+            "n_orders": sum(1 for d in decisions if d.get("order_units")),
+            "realized_pnl": _r(sum(float(f.get("realized_pnl") or 0.0) for f in fills), 2),
+            "commission": _r(state.get("fees"), 2),
+        },
+        "epochs": [
+            {**_epoch_row(e), "peak_equity": _r(e.get("peak_equity"), 2)} for e in state.get("epochs", []) or []
+        ],
+    }
+
+
 def health_block(store: StateStore, now: datetime) -> dict[str, Any]:
     health = store.read_json("health.json") or {}
     sources = list(health.get("sources", []))
@@ -968,13 +1222,22 @@ def build_desk_payload(
     allocator_cfg = AllocatorConfig.load(settings.config_dir)
     desk = build_desk(settings.state_dir, risk, allocator=allocator_cfg)
     options_cfg = load_options_config(settings.config_dir)
+    rocket_cfg = load_rocket_config(settings.config_dir)
     linear = [book_block(b, desk, settings.state_dir, now) for b in desk.books.values()]
-    # the core books first (the options book among them), then the candidates: the page reads them in order
+    # the core books first (the options book among them), then the candidates, the lottery last: the page reads
+    # them in order
     books: list[dict[str, Any]] = [b for b in linear if b["role"] == "core"]
     options = options_block(settings.state_dir, risk, settings.config_dir)
     if options is not None:
         books.append(options)
     books += [b for b in linear if b["role"] != "core"]
+    try:  # a side book: its logs going bad must cost the page its row, never the page
+        rocket = rocket_block(settings.state_dir, settings.config_dir, now)
+    except Exception as exc:
+        log.warning("rocket block skipped: %s", exc)
+        rocket = None
+    if rocket is not None:
+        books.append(rocket)
 
     def totals(rows: list[dict[str, Any]]) -> dict[str, Any]:
         total = sum(float(b["equity"] or 0.0) for b in rows)
@@ -1000,15 +1263,19 @@ def build_desk_payload(
         "books": books,
         # the groups the page shows the books in, with their totals and their P&L since start day by day
         "portfolios": groups,
-        # the sum of the core books (the desk as it is judged) and, apart, the sum of the candidate books
+        # the sum of the core books (the desk as it is judged) and, apart, the sum of the candidate books; the
+        # lottery is in neither (phase 19: its risk rules are suspended, its own group shows it)
         "total": totals([b for b in books if b["role"] == "core"]),
-        "total_candidates": totals([b for b in books if b["role"] != "core"]),
+        "total_candidates": totals([b for b in books if b["role"] not in ("core", "lottery")]),
         "decisions": decisions_block(
             settings.state_dir,
             options_cfg.id if options_cfg else None,
             {b.id: b.broker.state.epoch_started_ts for b in desk.books.values()},
+            rocket_cfg.id if rocket_cfg else None,
         ),
-        "fills": fills_block(settings.state_dir, desk, options_cfg.id if options_cfg else None),
+        "fills": fills_block(
+            settings.state_dir, desk, options_cfg.id if options_cfg else None, rocket_cfg.id if rocket_cfg else None
+        ),
         "health": health_block(store, now),
         "backtest": backtest_summary(settings.state_dir),
         "calendar": {
@@ -1158,6 +1425,13 @@ def export_book_histories(settings: Settings, risk: RiskConfig, out_dir: Path, n
         options = None
     if options is not None:
         histories.append(options)
+    try:
+        rocket = rocket_history(settings.state_dir, settings.config_dir, now)
+    except Exception as exc:
+        log.warning("history of the rocket book skipped: %s", exc)
+        rocket = None
+    if rocket is not None:
+        histories.append(rocket)
     written: list[str] = []
     keep: set[str] = set()
     for h in histories:

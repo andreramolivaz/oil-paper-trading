@@ -528,6 +528,15 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         except Exception as exc:  # the options book is independent of the linear books
             log.warning("options book skipped: %s", exc)
             detail["options"] = {"error": str(exc)[:200]}
+        try:  # the Rocket (phase 19), a lottery on bought options: on its own, like the options book
+            from engine.desk.rocket import load_rocket_config, rocket_tick
+
+            rocket_cfg = load_rocket_config(runner.settings.config_dir)
+            if rocket_cfg is not None:
+                detail["rocket"] = rocket_tick(runner.settings.state_dir, data, runner.raw, now, rocket_cfg)
+        except Exception as exc:
+            log.warning("rocket book skipped: %s", exc)
+            detail["rocket"] = {"error": str(exc)[:200]}
 
         # The terminal shows the backtest beside the live books. The weekly job refreshes it; a desk that has
         # never had one, or whose rules have changed since the one on file was computed, computes it once here
@@ -704,17 +713,21 @@ def _blocked_vehicles(runner: LiveRunner, vehicles: Iterable[str] | None = None)
 
 def _options_due(runner: LiveRunner, now: Any) -> bool:
     """Option chains are refreshed hourly while the US market is open, on the tick that owes the options book
-    its daily decision (the book only trades on quotes less than 45 minutes old), and once when they have
-    never been read."""
+    or the Rocket its daily decision (both only trade on quotes less than 45 minutes old), and once when they
+    have never been read."""
     from engine.desk.live import NEW_YORK
     from engine.desk.options import decision_due
+    from engine.desk.rocket import decision_due as rocket_decision_due
 
     if _source_attempted_at(runner, "uso_options") is None:
         return True  # never read: the last quotes of the session are still worth showing, whatever the hour
     local = ensure_utc(now).astimezone(NEW_YORK)
     if local.weekday() >= 5 or not (9 <= local.hour < 17):
         return False
-    if decision_due(runner.settings.state_dir, ensure_utc(now), runner.settings.config_dir):
+    state_dir, config_dir = runner.settings.state_dir, runner.settings.config_dir
+    if decision_due(state_dir, ensure_utc(now), config_dir) or rocket_decision_due(
+        state_dir, ensure_utc(now), config_dir
+    ):
         return True
     checked = _source_checked_at(runner, "uso_options")
     return checked is None or (ensure_utc(now) - ensure_utc(checked)).total_seconds() > 3300
@@ -792,6 +805,15 @@ def _reset_books(runner: LiveRunner, book: str) -> list[str]:
             done.append("opzioni")
     except Exception as exc:
         log.warning("options book reset skipped: %s", exc)
+    try:  # the Rocket starts its new life at its own capital (1 000 $), not the desk's
+        from engine.desk.rocket import load_rocket_config, reset_rocket_book
+
+        rocket_cfg = load_rocket_config(runner.settings.config_dir)
+        wanted = rocket_cfg is not None and book in {"all", rocket_cfg.id}
+        if wanted and rocket_cfg is not None and reset_rocket_book(runner.settings.state_dir, ts, rocket_cfg):
+            done.append(rocket_cfg.id)
+    except Exception as exc:
+        log.warning("rocket book reset skipped: %s", exc)
     desk.save()
     return done
 
@@ -838,7 +860,13 @@ def reset(runner: LiveRunner, job_id: str, actor: str = "unknown", book: str = "
             if not books_reset:
                 runner.finish_run(rec, "failed", f"libro sconosciuto: {book}")
                 return JobOutcome("failed", f"libro sconosciuto: {book}", {})
-            msg = f"libro {book} riportato a {runner.risk.initial_capital:,.0f} $ da {actor}".replace(",", ".")
+            capital = runner.risk.initial_capital
+            if book == "rocket":
+                from engine.desk.rocket import load_rocket_config
+
+                rocket_cfg = load_rocket_config(runner.settings.config_dir)
+                capital = rocket_cfg.initial_capital if rocket_cfg is not None else capital
+            msg = f"libro {book} riportato a {capital:,.0f} $ da {actor}".replace(",", ".")
             runner.finish_run(rec, "ok", msg, {"actor": actor, "books": books_reset})
             return JobOutcome("ok", msg, {"actor": actor, "books": books_reset})
         md = runner.market_data(refresh=False) if runner.store.exists("health.json") else None
