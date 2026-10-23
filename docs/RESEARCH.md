@@ -2287,9 +2287,80 @@ I dati: l'archivio Kalshi del ramo `data` (letture dal vivo più i candlestick r
 la serie del fondo e del WTI da una copia dello stesso ramo, il codice di `main` al commit di questa
 registrazione. La misura è **una**, e i suoi numeri vanno in E anche se sono brutti.
 
-### E. Risultati
+### E. Risultati (23 ottobre 2026, 05:20 UTC: scritti dopo la misura)
 
-*Da scrivere dopo la misura.*
+`scripts/research_kalshi_daily.py` sull'archivio del ramo `data` al commit b17dd7341 (288 letture, 9 gennaio -
+23 ottobre, 284 con componenti), il codice di `main` a b391064c2 (la registrazione sopra), **152 sedute** dal 18
+marzo al 22 ottobre. Sul fondo, con il dimensionamento di B 7 e i costi di B 8:
+
+| | Sharpe | SE | rendimento/anno | volatilità |
+|---|---|---|---|---|
+| lordo | +3,11 | 3,12 | +60,8% | 19,6% |
+| **dopo costi** | **+2,99** | **3,02** | +58,1% | 19,5% |
+| dopo costi, prima metà (76 sedute) | +3,70 | 5,10 | +80,5% | 21,8% |
+| dopo costi, seconda metà (75 sedute) | +2,11 | 3,29 | +35,4% | 16,8% |
+| dopo costi, senza giugno (il mese migliore) | +2,28 | 2,64 | +41,5% | 18,2% |
+| dopo costi, a costi doppi | +2,86 | 2,92 | +55,4% | 19,3% |
+
+Rotazione 49,7 volte il capitale l'anno, costi 2,73% l'anno. |cambiamento giornaliero| medio 2,01 punti (mediana
+1,14) contro i 2,8 previsti da 6,3/√5: |F| medio **5,55** invece di 10, sbagliato di meno di un fattore due,
+quindi la scala **non si tocca**, come dichiarato. Sulla serie lunga del WTI, dove l'osservazione era nata, i
+numeri sono gli stessi o migliori (dopo costi +3,27).
+
+**Le cinque condizioni di D passano tutte.** Sharpe dopo costi 2,99 > 0,5; stesso segno nelle due metà; positivo
+in entrambe; senza il mese migliore +2,28 > 0; a costi doppi +55,4% > 0. Il che significa, per il patto scritto in
+D, che partirebbe un libro candidato.
+
+**Non parte, e il motivo è il vicino (a), quello che avevo registrato esattamente per questa domanda.** Il
+segnale, ritardato di una sola seduta, non perde forza: **cambia segno**.
+
+| | Sharpe lordo |
+|---|---|
+| la regola come registrata | +3,19 |
+| **lo stesso segnale ritardato di 1 seduta** | **−1,42** |
+| ritardato di 2 sedute | +0,05 |
+| ritardato di 3 sedute | +0,19 |
+
+E la tabella dei ritardi dice la stessa cosa: corr(cambiamento giornaliero, rendimento di D+k) = D−2 −0,03,
+D−1 −0,19, D+0 −0,09, **D+1 −0,21**, D+2 +0,06, D+3 +0,07. L'effetto vive a un ritardo solo e si inverte a
+quello dopo. **È la firma del momentum del crack spread della fase 11** (capitolo 7: «un artefatto di timing che
+è svanito con un giorno di ritardo»), bocciato allora per questa ragione esatta, e il vicino (a) era registrato
+con la frase «un segnale vero non deve funzionare solo al ritardo che l'ha fatto notare». Invocarlo non è spostare
+il bersaglio: è la cosa per cui l'ho scritto. L'errore di stesura, che ammetto, è averlo messo fra i vicini
+«che non decidono» invece che fra le condizioni.
+
+Che cosa dice e non dice la statistica, perché il 2,99 non venga letto come un vantaggio:
+
+- **Il livello non è conoscibile.** 152 sedute sono 0,60 anni: l'errore standard di uno Sharpe di 3 su 0,6 anni è
+  3,02, cioè **t = 0,99**. L'intervallo al 95% è circa [−2,9, +8,9]. Sapere che è positivo non è sapere quanto.
+- **L'associazione, invece, è forte in campione.** Spostando il segnale in modo circolare (20 000 prove, che
+  conservano la sua autocorrelazione e il percorso dei rendimenti) la mediana è −0,06, la fascia 5-95% è
+  [−2,03, +2,18] e **p(≥ 3,19) = 0,013**. Permutando il segnale, p = 0,010. Non è un caso qualunque.
+- **Ma è stata scelta fra sei ritardi.** Il +1 è il ritardo che l'ha fatta notare, su una tabella di sei: la
+  correzione più semplice porta p da 0,013 a circa **0,08**. Sotto la soglia di questo documento non ci sta.
+- **Non è beta.** Esposizione media −0,013, beta sul fondo −0,021, e il fondo nel periodo ha fatto +32,1%: la
+  regola non è una posizione lunga mascherata. Demeanando il segnale lo Sharpe sale (3,16), quindi non vive sul
+  suo piccolo sbilanciamento lungo.
+
+Vicini, che non decidono: cambiamento a due giorni +1,45, a tre giorni +2,00 (decade, come un rimbalzo deve
+fare); senza soglia morta identico (+2,99: la soglia tocca pochi giorni); la stessa regola giornaliera sul Fed
+path +1,57 e sulla probabilità di recessione −0,71 (segni discordi su indici che leggono la stessa macchina: il
+segnale non è una proprietà dei mercati di previsione in generale).
+
+**Verdetto.** Nessun libro parte. Quello che l'archivio mostra è, con ogni probabilità, il meccanismo che il
+prior di C aveva messo al primo posto: dopo uno shock geopolitico il greggio rimbalza di un giorno, e l'indice di
+Kalshi è un modo di datare lo shock — non un'informazione che arriva prima. Un rimbalzo che richiede il ritardo
+esatto, cambia segno il giorno dopo e vale 0,6 anni di dati non è una regola su cui mettere capitale, nemmeno di
+carta: sarebbe esattamente il tipo di cosa che questo documento esiste per non fare.
+
+**Che cosa si fa invece.** Primo: il filtro di D era scritto male e la versione corretta è questa, per la
+prossima volta — alle cinque condizioni si aggiungono (6) il segnale ritardato di una seduta non cambia segno,
+(7) p ≤ 0,01 su uno spostamento circolare **dopo** la correzione per il numero di ritardi e indici guardati, e
+(8) almeno un anno di sedute. Secondo: la regola resta scritta qui, con i suoi numeri, e si **rimisura quando
+l'archivio avrà un anno di letture dal vivo** (gennaio 2027 per le ricostruite, marzo 2027 per quelle del tick),
+senza toccare né scala né soglia. Se a quel punto il ritardo di una seduta non inverte più il segno, è un'altra
+storia e si riapre. Terzo: niente di tutto questo cambia un libro, un veicolo o l'impronta del backtest, che
+resta `b66ecbb82b75`.
 
 ### F. Fare mercato sugli event venue: registrato come fuori perimetro
 
