@@ -2167,6 +2167,243 @@ vecchia dopo un reset, la riga di scadenza scaricata durante la seduta usata com
 libro delle opzioni), una vendita contro un denaro a zero, cinque valori delle regole nella pagina come HTML, il
 workflow del token letto dai dati, due parole. Le probabilità sulla pagina sono ora quelle di H.
 
+## 15. Fase 20 (23 ottobre 2026, 04:10 UTC): il cambiamento giornaliero dell'indice Kalshi, l'incertezza accanto ai numeri, il piano di accumulo del proprietario
+
+Tre cose, chieste dal proprietario la notte del 22-23 ottobre dopo una lettura dei risultati: una regola che
+l'archivio ha già mostrato e che nessun libro usa (B-E), il mercato fatto sugli event venue (F), e due pezzi di
+onestà — l'incertezza accanto allo Sharpe sul sito (G) e la misura del suo piano di accumulo personale (H).
+
+### A. Perché questa fase non aggiunge un libro, e che cosa fa invece
+
+La risposta data al proprietario la stessa notte, prima di questo capitolo: le fasi 1-19 hanno bisogno di mesi di
+record dal vivo, non di libri nuovi, perché ogni libro in più è superficie di selezione in più. Questa fase non
+contraddice quella risposta: **registra** una regola e il suo filtro, la misura una volta, e la fa partire come
+libro candidato **solo** se passa un filtro dichiarato più severo del solito. Se non passa, resta scritta qui con
+i suoi numeri, come i dodici segnali bocciati del capitolo 7 e i due libri Kalshi bocciati del capitolo 11.
+
+L'occasione è datata: il 3 novembre 2026 ci sono le elezioni di medio termine americane, e il 21 ottobre il
+presidente ha detto che gli Stati Uniti non attaccheranno l'Iran prima di quella data. È l'evento verso cui
+puntano sia il prezzo sia i mercati di previsione. Scrivere la regola *prima* di quella data vale molto più che
+scriverla dopo: dopo, qualunque numero sarebbe indistinguibile da una storia raccontata a posteriori.
+
+### B. La regola (registrata il 23 ottobre alle 04:10 UTC, prima di ogni misura)
+
+Da dove viene l'osservazione, detta per intero perché è il punto debole di tutto il capitolo: misurando la regola
+del capitolo 10 sull'archivio ricostruito (15 ottobre, 143 sedute dal 18 marzo al 12 ottobre),
+`scripts/research_oracle.py` stampa una tabella di correlazioni a diversi ritardi, e in quella tabella il
+**cambiamento giornaliero** dell'indice di de-escalation correla **−0,21 con il rendimento del petrolio della
+seduta successiva** (t circa 2,5), mentre il cambiamento **settimanale** — quello che l'Oracle usa davvero —
+correla +0,03 con il rendimento della settimana successiva, cioè niente. L'osservazione è stata **fatta dopo aver
+guardato**, ed è già registrata come candidata al capitolo 10 H. Questa sezione la trasforma in una regola
+scritta, con il filtro severo che il suo peccato d'origine impone (D).
+
+L'allineamento, che è la cosa che va controllata per prima: la lettura del giorno UTC D è presa verso le 00:20
+UTC (la sera del D−1 a New York) e il candlestick ricostruito si chiude a mezzanotte di New York, cioè alle 04:00
+o 05:00 UTC del giorno D; il rendimento della seduta D+1 va dalla chiusura di D (20:30 UTC) a quella di D+1.
+Quindi fra l'informazione e la finestra del rendimento ci sono circa venti ore e **nessuna sovrapposizione**: il
+ritardo +1 della tabella è esattamente l'allineamento che un libro potrebbe negoziare, con la regola di
+riempimento del desk (ordine deciso alla chiusura, riempito all'apertura dopo). Il ritardo 0, che non si usa, è
+contaminato per costruzione.
+
+La regola, come la misuro (`scripts/research_kalshi_daily.py`, costanti con lo stesso nome):
+
+1. **L'indice**: `deescalation` del registro (`engine/desk/oracle.INDICES`), letto sull'archivio giornaliero
+   esattamente come lo legge l'Oracle — la prima lettura del giorno UTC D, ogni scadenza interpolata nel tempo
+   fra i mercati quotati entro 10 centesimi, con (oggi, 0) come primo punto, la media delle tre componenti.
+2. **Il segnale**: il cambiamento fra la lettura del giorno D e quella del giorno D−1 — **uno** di calendario, non
+   sette — calcolato sulle sole componenti che entrambe le letture quotano e con la scadenza del riferimento
+   riletta alla data di oggi (`oracle.common_values`: la stessa macchina della regola settimanale, e la stessa
+   correzione trovata nella revisione del capitolo 11 G). Se non esiste una lettura del giorno prima, o se nessuna
+   componente è in comune, **non c'è decisione**: posizione invariata, come per l'Oracle.
+3. **Il segno**: negativo. Le probabilità di de-escalation che SALGONO sono un segnale ribassista sul greggio.
+   `DAILY_SCALE = -3.5` previsione per punto percentuale di cambiamento, limitata a ±20, zero sotto `DEADBAND =
+   0.3` punti.
+4. **La scala, derivata prima di guardare il risultato**: la regola settimanale usa −2 per punto e misura un
+   |cambiamento settimanale| medio di 6,3 punti, che dà |F| medio 9,84, cioè la normalizzazione di Carver (|F|
+   medio circa 10). Se i cambiamenti fossero una passeggiata casuale, il cambiamento giornaliero medio sarebbe
+   6,3/√5 = 2,8 punti, e la scala che tiene |F| a 10 sarebbe 10/2,8 = 3,57. Si dichiara **3,5**, numero tondo. Come
+   per ogni manica, la si verifica una volta sul |F| medio misurato e si tocca solo se è sbagliata di un fattore
+   due, e la soglia morta di 0,3 punti è la soglia settimanale di 1 punto divisa per la stessa √5.
+5. **L'orizzonte**: una seduta. La previsione del giorno D vale per la seduta D+1 e poi si ricalcola. È un segnale
+   a rotazione alta, ed è il motivo per cui i costi decidono il verdetto.
+6. **Lo strumento: il fondo, non il future.** Su /MCL con 10 000 $ un contratto è 0,9x del conto, quindi un
+   segnale giornaliero finisce schiacciato fra zero e un lotto intero dalla banda d'inerzia, e misurarlo lì
+   misurerebbe la taglia del contratto, non la regola. Si misura sul fondo Brent (BNO), dove le azioni sono quasi
+   continue, con i suoi costi (`vehicles.BNO`: zero commissioni, mezzo spread 2 pb che si allarga con la
+   volatilità, 5,25% annuo sulla cassa prestata); si riporta accanto la stessa misura sulla serie lunga del WTI,
+   che è quella su cui l'osservazione è nata.
+7. **Il dimensionamento**: la regola dura del progetto e nient'altro, `previsione/10 × target × m / vol`, con
+   `DAILY_VOL_TARGET = 0.25`, tetto 2x, banda d'inerzia di Carver al 10%, e `m` dell'allocatore (oggi 0,5: il
+   prezzo è raddoppiato in due anni). Lungo e corto, perché il segnale ha due segni; il corto sul fondo si fa
+   comprando SCO come già fa il Dinamico, con i costi di quel fondo.
+8. **I costi**: quelli di `engine/broker/costs.py` come li paga il desk — mezzo spread che si allarga con la
+   volatilità, impatto di mercato di 1 pb per giro di capitale, nessuna commissione sul fondo.
+
+Vicini riportati, che non decidono: (a) la tabella dei ritardi da D−2 a D+3, perché un segnale vero non deve
+funzionare solo al ritardo che l'ha fatto notare; (b) la stessa regola sugli altri due indici del registro (Fed
+path, recessione) a orizzonte giornaliero; (c) la regola a due giorni e a tre, perché se l'effetto è un rimbalzo
+dopo uno shock deve decadere; (d) la misura senza soglia morta; (e) la misura sulla serie WTI oltre che sul fondo.
+
+### C. Il prior, scritto prima
+
+**Mi aspetto che non passi**, e per una ragione aritmetica che va scritta prima dei numeri: una correlazione
+giornaliera di 0,21 fra segnale e rendimento successivo, se fosse un'informazione vera e sfruttabile, implicherebbe
+uno Sharpe lordo attorno a 0,21 × √252 ≈ 3,3. Questo progetto ha già risposto al proprietario (capitolo 8) che uno
+Sharpe sopra 3 su questi strumenti non esiste e che un backtest che lo mostra è la prova di un errore, non di una
+strategia. Quindi il prior è che la misura troverà una delle tre cose seguenti, in quest'ordine di probabilità:
+
+1. **L'effetto è concentrato.** 143 sedute dentro una guerra, e il mese di luglio 2026 ha fatto da solo il
+   risultato della regola settimanale. Un meccanismo plausibile: quando il petrolio salta su un attacco, le
+   probabilità di de-escalation scendono la sera stessa e il prezzo rimbalza il giorno dopo. Se è questo, è un
+   **rimbalzo dopo uno shock**, non un vantaggio informativo — e i rimbalzi di breve periodo su questi strumenti
+   sono già stati misurati e bocciati dopo i costi (capitolo 5: la reversione BNO-USO).
+2. **I costi se lo mangiano.** Rotazione giornaliera su un segnale che cambia segno spesso, con il mezzo spread
+   pagato ogni volta e allargato dalla volatilità al 36%.
+3. **Non sopravvive al taglio in due metà**, che è il modo più semplice di distinguere un effetto da un mese.
+
+Probabilità che passi il filtro di D, scritta prima: **circa 1 su 4**. Se passa, la cosa da credere non è «il
+mercato di previsione sa prima»: è «dopo uno shock geopolitico il greggio rimbalza, e l'indice di Kalshi è un modo
+di datare lo shock». Che è una cosa più piccola, e va detta così sulla pagina.
+
+### D. Il filtro e la misura, dichiarati prima
+
+Il filtro è **più severo** di quello delle fasi 12-15 (Sharpe dopo costi positivo), perché quella soglia è fatta
+per regole scelte prima di guardare, e questa è stata trovata dopo. Perché un libro parta devono valere **tutte e
+cinque**:
+
+1. Sharpe dopo costi **> 0,5** sull'intero archivio, sul fondo, con il dimensionamento di B 7;
+2. il **segno** dell'effetto uguale nelle **due metà** dell'archivio (taglio alla seduta mediana);
+3. Sharpe dopo costi **> 0** in entrambe le metà;
+4. togliendo il **mese di calendario migliore**, lo Sharpe dopo costi resta **> 0**;
+5. a **costi doppi**, il rendimento dopo costi resta positivo sull'intera finestra.
+
+Se una sola condizione cade, nessun libro parte e il capitolo registra il perché. Se passano tutte: parte un libro
+**candidato** (`role: candidate`, `forecast: kalshi`, una manica nuova nel registro), sul fondo, lungo e corto, con
+i parametri di B, fuori dal replay, dalle tabelle e dall'impronta come gli altri libri Kalshi, **mai promosso**, e
+si rivede dopo 60 sedute dal vivo. Anche in quel caso la scala si ricontrolla una volta sola sul |F| medio e si
+tocca solo se è sbagliata di un fattore due.
+
+I dati: l'archivio Kalshi del ramo `data` (letture dal vivo più i candlestick ricostruiti, le prime vincono),
+la serie del fondo e del WTI da una copia dello stesso ramo, il codice di `main` al commit di questa
+registrazione. La misura è **una**, e i suoi numeri vanno in E anche se sono brutti.
+
+### E. Risultati
+
+*Da scrivere dopo la misura.*
+
+### F. Fare mercato sugli event venue: registrato come fuori perimetro
+
+Quello che il progetto ha misurato su Kalshi (capitolo 14 I) è il **prendere**: comprare contratti al prezzo
+lettera. Su 49 eventi petrolio chiusi da metà agosto i contratti sotto 15 centesimi rendono −80% per dollaro, e la
+fascia 15-70 centesimi nella direzione del Dinamico rende −6% dopo le fee. Quello che non ha mai misurato è il
+**fare mercato**: mettere ordini limite su mercati sottili e incassare lo spread, che è dove la letteratura su
+queste piattaforme colloca il rendimento (il taker paga `round-up(0,07 × C × P × (1−P))` e il maker no).
+
+Resta fuori perimetro, e le ragioni sono tre, non una preferenza:
+
+1. **Non c'è niente su cui misurarlo.** L'archivio tiene candlestick giornalieri (apertura, denaro, lettera,
+   ultimo, volume, interesse aperto): non un libro ordini. Senza la profondità e la sequenza degli scambi non si
+   può stimare né quanto si viene riempiti né in che direzione, e un backtest di market making senza libro ordini
+   è una simulazione dei propri desideri.
+2. **Non è replicabile sotto le regole di questo progetto.** Fare mercato richiede ordini veri, continui, e un
+   rischio di inventario su contratti che non si possono coprire. «Paper trading only» non è un dettaglio da
+   sospendere: senza fill veri non c'è misura, e con fill veri non è più carta.
+3. **È un altro progetto.** Un bot di quotazione su un venue regolamentato, con la sua gestione del rischio di
+   inventario e i suoi obblighi, non è una manica di un desk di ricerca sul greggio.
+
+Che cosa servirebbe, scritto perché la risposta non sia «no» e basta: la raccolta del libro ordini (snapshot a
+qualche secondo su una lista corta di mercati, settimane di dati prima di qualunque stima), una misura della
+probabilità di riempimento per distanza dal mezzo, e il confronto fra lo spread incassato e il movimento avverso
+dopo il riempimento. È un lavoro di raccolta dati di mesi, prima di una riga di strategia. Se il proprietario lo
+vuole, il primo passo è il raccoglitore, non il bot.
+
+### G. L'incertezza accanto ai numeri (che cosa va sul sito)
+
+Il problema, trovato rispondendo al proprietario che chiedeva «1,23 è valido?»: la pagina del backtest mostra uno
+Sharpe e un t, e quel t è `Sharpe × √anni`, che ignora la varianza propria dello Sharpe. Misure del 23 ottobre
+sul payload vero:
+
+| portafoglio | Sharpe | t esposto | errore standard | t corretto | IC 95% |
+|---|---|---|---|---|---|
+| tutti e tredici | 1,23 | 4,55 | 0,358 | **3,44** | **0,53 – 1,93** |
+| core (15,1 anni) | 0,78 | 3,04 | 0,294 | 2,65 | 0,20 – 1,36 |
+| core sulla finestra dei candidati | 0,86 | 3,20 | 0,316 | 2,72 | 0,24 – 1,48 |
+
+L'errore standard è `√((1 + S²/2) / anni)`, la formula gaussiana. Controprova sui rendimenti annuali, che non
+assume nulla sulla distribuzione giornaliera: tredici anni completi 2013-2025, media +8,55%, deviazione 9,94%,
+**t annuale 3,10**; i due anni migliori sono il 45% della somma e togliendoli il t scende a 2,51. Test multiplo:
+con le circa quaranta prove dichiarate in questo documento la soglia di Bonferroni al 5% è t 3,02, cioè uno Sharpe
+di 1,08 — il portafoglio completo passa, i tre libri del greggio da soli **no** (2,65 e 2,72).
+
+I benchmark sulla **stessa finestra** del portafoglio (30 gennaio 2013 - 16 ottobre 2026), calcolati con la
+formula del desk (media aritmetica annualizzata su volatilità annualizzata, senza tasso privo di rischio):
+
+| | Sharpe | IC 95% | rendimento/anno | volatilità | drawdown max |
+|---|---|---|---|---|---|
+| desk, tredici libri | 1,23 | 0,53 – 1,93 | +9,11% | 7,3% | −10,3% |
+| SPY comprato e tenuto | 0,89 | 0,27 – 1,52 | +14,55% | 16,8% | −33,7% |
+| 60/40 SPY+TLT | 0,89 | 0,26 – 1,51 | +9,28% | 10,7% | −27,2% |
+| TLT da solo | 0,08 | −0,45 – 0,61 | +0,08% | 14,4% | −48,4% |
+
+Gli intervalli di desk e SPY si sovrappongono quasi del tutto: **con tredici anni di dati non si può affermare che
+il desk batta un portafoglio indicizzato**, e il sito deve dirlo. Quello che va aggiunto all'export e alla pagina:
+l'errore standard, l'intervallo al 95% e il t corretto accanto a ogni Sharpe di portafoglio; i tre benchmark sulla
+stessa finestra; una riga che dice che gli intervalli si sovrappongono. Nessun numero dei libri cambia.
+
+### H. Il piano di accumulo del proprietario (misure del 23 ottobre, non una regola del desk)
+
+Il proprietario risparmierà 5 000 $ al mese da gennaio 2027, con un aumento del 2% l'anno (657 000 $ versati in
+dieci anni, 1 458 000 $ in venti), e ha chiesto come investirli, se ha senso usare questo strumento, prodotti che
+rendano il 10% e il 20% l'anno. Le misure stanno qui perché siano verificabili e perché fra un anno si rifacciano
+sul record dal vivo. **Non sono una consulenza finanziaria e non sono una regola del desk.**
+
+Metodo: doppio bootstrap sui rendimenti annuali misurati (ogni percorso ridisegna prima l'urna degli anni, così
+l'incertezza sulla media entra nel conto, poi estrae gli anni), 60 000 percorsi, versamenti mensili che guadagnano
+in media mezzo anno nell'anno in cui sono fatti, e **media annuale ridotta di un errore standard** (caso
+prudente). Mediana a venti anni, e 5° percentile:
+
+| | mediana 2046 | in $ di oggi | 5° percentile |
+|---|---|---|---|
+| 60/40 | 3,04M | 2,06M | 1,53M |
+| 15% Spinto + 85% 60/40 | **5,06M** | 3,41M | **2,70M** |
+| 25% Spinto + 75% 60/40 | 5,60M | 3,77M | 2,23M |
+| Dinamico da solo | 2,32M | 1,58M | 0,56M |
+| Spinto da solo | 3,60M | 2,42M | 0,41M |
+
+Tre risultati, in ordine di quanto contano:
+
+1. **Il taglio di un errore standard capovolge la classifica.** Con le medie grezze il Dinamico batte il 60/40 a
+   dieci anni (1,38M contro 1,07M); col taglio perde (819k contro 954k), perché la sua media scende dal 20,1% al
+   10,1% (quindici anni al 38,6% di deviazione) mentre quella del 60/40 scende dal 9,4% al 7,3%. **Il vantaggio
+   dei libri concentrati vive dentro il loro stesso errore di misura.**
+2. **I rendimenti annuali dello Spinto correlano −0,48 con il 60/40** sui ventitré anni in comune (2003-2025):
+   per questo una fetta del 15-25% migliora sia la mediana sia il percentile cattivo. Osservazione fatta dopo aver
+   guardato, con un errore standard di 0,21 (il valore vero sta fra −0,75 e −0,08) e su una finestra generosa con
+   lo Spinto (media +46% contro +36% sui quarant'anni): **candidata da registrare, non una regola**. Si rimisura
+   fra un anno sul record dal vivo.
+3. **Il costo del prodotto pesa più della scelta della strategia.** Sullo stesso piano, caso prudente a venti
+   anni: 0,03% di spesa dà 3,03M, l'1% dà 2,73M (−301k), il 2% dà 2,46M (−574k); su sole azioni l'1% costa 347k e
+   il 2% 662k. Una commissione dell'1% all'anno costa più dell'intera differenza fra il 60/40 e il Dinamico. E il
+   contenitore fiscale pesa ancora di più: con i limiti 2026 (403(b) 24 500 $ + 457(b) 24 500 $, limiti separati,
+   più 7 500 $ di IRA) stanno al riparo 56 500 $ dei 60 000 $ annui, cioè il 94% — da verificare con l'ufficio
+   benefit e, data la posizione italiana del proprietario, con un fiscalista cross-border.
+
+Sui due obiettivi di rendimento chiesti, misurato e non argomentato:
+
+- **10% l'anno è il mercato azionario.** SPY ha fatto 10,79% annuo composto dal febbraio 1993 (33,7 anni, media
+  aritmetica 12,3%, errore standard 3,1 punti: il solo passato sostiene da +6,3% a +18,3%). Il prezzo: volatilità
+  18,5%, drawdown −55,2%, e **dal 3 gennaio 2000 al 31 dicembre 2009 −0,91% l'anno**, cioè un decennio a zero.
+- **20% l'anno non ha un prodotto.** La leva sull'indice, che è il modo ovvio di provarci, misurata sulla stessa
+  storia con reset giornaliero, 1,5-2,5% di finanziamento sulla parte prestata e 0,95% di spesa: **2x dà 15,76%
+  l'anno** con volatilità 37% e drawdown **−86,3%**; **3x dà 15,54%**, cioè *meno* del 2x, con drawdown −97,9%.
+  Il freno è il trascinamento da volatilità, non un'opinione: triplicare la leva non triplica il rendimento, lo
+  riduce e quasi azzera il conto. Il 2x fra ottobre 2007 e marzo 2009 ha perso 77,4% (l'indice 46,0%). Il 20%
+  annuo è il numero dei migliori investitori della storia su decenni interi, non la categoria di un prodotto.
+- **10% al mese (214% l'anno) non esiste**, e il conto lo chiude: dal Dinamico servirebbe leva 10,7x, a cui la
+  volatilità del libro diventa 293% annua e il suo peggior giorno storico (−13,1%) diventa −140%, cioè conto
+  azzerato. Con 5 000 $ al mese quel rendimento darebbe 4,6 miliardi di dollari in dieci anni e supererebbe il
+  miliardo in 8 anni e 8 mesi. È il motivo per cui il tetto duro di 10x esiste, e per cui il Rocket ha 1 000 $.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
@@ -2306,3 +2543,14 @@ Letteratura (letta per intero salvo dove indicato):
   (Polymarket chiede alla CFTC di riaprire agli americani; «Polymarket US» su QCEX dal dicembre 2025, solo sport,
   lista d'attesa); [Alpaca, opzioni](https://docs.alpaca.markets/docs/options-trading) (sul conto di prova le
   opzioni sono attive di serie; livello 2: comprare call e put; `time_in_force` `day` o `gtc`).
+
+Fase 20 (23 ottobre 2026): [FINRA, limiti di versamento 2026](https://www.finra.org/investors/learn-to-invest/types-investments/retirement/401k-investing/annual-contribution-limits)
+(403(b)/457(b) 24 500 $ ciascuno, IRA 7 500 $); le notizie che datano la divergenza fra prezzo e mercati di
+previsione del 21-22 ottobre: [Transport Topics, sette petroliere danneggiate a Hormuz il 22 ottobre](https://www.ttnews.com/articles/oil-prices-tankers-damaged)
+(il numero più alto in un giorno dall'inizio della guerra il 28 febbraio; Brent +2,2% a 111,19 $, massimo di cinque
+mesi), [Outlook India, 21-22 ottobre](https://www.outlookindia.com/international/no-talks-but-an-end-very-soon-trumps-iran-war-claims-face-tehrans-account)
+(Trump: «non stiamo negoziando», nessun attacco prima del 3 novembre; Araghchi: colloqui indiretti tramite
+Pakistan e Qatar, lo stretto resta chiuso finché le condizioni non sono accettate),
+[CNBC, 16 ottobre](https://www.cnbc.com/2026/10/16/oil-price-today-iran-strait-hormuz-ukraine-russia.html)
+(l'Ucraina colpisce le raffinerie russe: un secondo canale di offerta). I prezzi e le probabilità citati nel
+capitolo sono quelli dell'export del desk del 23 ottobre alle 03:18 UTC, non di queste pagine.
