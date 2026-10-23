@@ -454,6 +454,11 @@ export interface Stats {
   win_rate?: Num;
   avg_r?: Num;
   worst_r?: Num;
+  /** How precisely the Sharpe is known (engine/desk/report.py, `uncertainty`): its standard error, the 95%
+   *  interval and the t that error implies - not `t_stat`, which ignores the Sharpe's own sampling error. */
+  sharpe_se?: Num;
+  sharpe_ci?: [number, number] | null;
+  t_sharpe?: Num;
 }
 
 export interface Ruin {
@@ -475,6 +480,10 @@ export interface PortfolioStats {
   stats: Stats;
   yearly?: Record<string, number>;
   method?: string;
+  /** What a reader could buy instead, over THIS portfolio's window (report.py, `window_benchmarks`). */
+  benchmarks?: Record<string, { label: string; short?: string; stats: Stats }>;
+  /** Whether the intervals can be told apart, in words (report.py, `benchmark_note`). */
+  benchmark_note?: string;
 }
 
 export interface BacktestSummary {

@@ -11,6 +11,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import logging
+import math
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,8 @@ from engine.desk.vehicles import INVERSE_FUNDS, VEHICLES
 log = logging.getLogger(__name__)
 
 BACKTEST_FILE = "backtest.json"
+# the window-matched alternatives of chapter 15 G: broad equities and long Treasuries, and the 60/40 of them
+BENCHMARK_MIX = (("SPY", 0.6), ("TLT", 0.4))
 SLEEVE_VOL_TARGET = 0.15
 SLEEVE_LABELS = {
     "trend": "Trend (EWMAC)",
@@ -227,6 +230,86 @@ def _row_kind(key: str) -> str:
     return "before" if key == BEFORE_ID else "all"
 
 
+def uncertainty(sharpe: float | None, years: float | None) -> dict[str, Any]:
+    """How precisely a Sharpe ratio is known after ``years`` of daily returns (chapter 15 G).
+
+    The t the page used to show is ``Sharpe x sqrt(years)``, which treats the Sharpe as if it had no sampling
+    error of its own. It has one: for independent returns the standard error of an annualised Sharpe is
+    ``sqrt((1 + S^2/2) / years)`` (Lo 2002, the Gaussian case), and it grows with the Sharpe itself - which is
+    why a high ratio measured over a short window says less, not more. A Sharpe of 1.23 over 13.7 years has a
+    standard error of 0.36: the interval is 0.53-1.93, and the honest t is 3.44 rather than 4.55.
+    """
+    if sharpe is None or years is None or not math.isfinite(sharpe) or years <= 0:
+        return {}
+    se = math.sqrt((1.0 + sharpe**2 / 2.0) / years)
+    if not math.isfinite(se) or se <= 0:
+        return {}
+    return {
+        "sharpe_se": round(se, 3),
+        "sharpe_ci": [round(sharpe - 1.96 * se, 2), round(sharpe + 1.96 * se, 2)],
+        "t_sharpe": round(sharpe / se, 2),
+    }
+
+
+def _hold_curve(returns: pd.Series) -> pd.Series:
+    return (1.0 + returns.dropna()).cumprod()
+
+
+def window_benchmarks(data: DeskData, start: date, end: date) -> dict[str, Any]:
+    """What a reader could buy instead, measured over the SAME window as the portfolio (chapter 15 G).
+
+    The ``benchmarks`` of the replay are each vehicle bought and held over ITS own history, which is the right
+    comparison for one book and the wrong one for the portfolio: a window that starts in 2013 cannot be
+    compared with one that starts in 1986. These three are the alternatives the owner asked about - broad
+    equities, a 60/40 of equities and long Treasuries rebalanced daily, and the Treasuries alone - cut to the
+    portfolio's days, with the same formula the desk uses for its own books and with ``uncertainty`` beside it.
+    """
+    rows: dict[str, Any] = {}
+    series = {v: data.series[v] for v in ("SPY", "TLT") if v in data.series}
+    if len(series) < 2:
+        return rows
+    lo, hi = pd.Timestamp(start), pd.Timestamp(end)
+    cut = {v: s.returns.dropna().loc[lo:hi] for v, s in series.items()}
+    frame = pd.concat(cut, axis=1).dropna()
+    if len(frame) < 60:
+        return rows
+    mix = BENCHMARK_MIX[0][1] * frame["SPY"] + BENCHMARK_MIX[1][1] * frame["TLT"]
+    for key, label, short, returns in (
+        ("SPY", "Broad US equities (SPY) bought and held", "equities", frame["SPY"]),
+        ("mix_60_40", "60% equities, 40% long Treasuries, rebalanced daily", "the 60/40", mix),
+        ("TLT", "Long Treasuries (TLT) bought and held", "Treasuries", frame["TLT"]),
+    ):
+        stats = performance(_hold_curve(returns))
+        if not stats:
+            continue
+        stats.update(uncertainty(stats.get("sharpe"), stats.get("years")))
+        rows[key] = {"label": label, "short": short, "stats": stats}
+    return rows
+
+
+def benchmark_note(portfolio: dict[str, Any]) -> str | None:
+    """One sentence on whether the portfolio's Sharpe can be told apart from the alternatives' (chapter 15 G).
+
+    Two intervals that overlap mean the data cannot say which ratio is higher. Saying it in words is the whole
+    point of putting the intervals on the page: a reader who sees 1.23 beside 0.89 reads a win.
+    """
+    own = portfolio.get("stats", {}).get("sharpe_ci")
+    rows = portfolio.get("benchmarks") or {}
+    if not own or not rows:
+        return None
+    overlapping = [
+        str(r.get("short") or r.get("label"))
+        for r in rows.values()
+        if (ci := r.get("stats", {}).get("sharpe_ci")) and own[0] <= ci[1] and ci[0] <= own[1]
+    ]
+    if not overlapping:
+        return "Over this window the interval does not overlap any of the alternatives'."
+    names = overlapping[0] if len(overlapping) == 1 else f"{', '.join(overlapping[:-1])} and {overlapping[-1]}"
+    return (
+        f"The interval overlaps the one of {names}: over this window the data cannot say which Sharpe ratio is higher."
+    )
+
+
 def portfolio_stats(
     result: BacktestResult, ids: list[str], label: str, start: date | None = None, end: date | None = None
 ) -> dict[str, Any] | None:
@@ -249,6 +332,7 @@ def portfolio_stats(
     stats = performance(equity)
     if not stats:
         return None
+    stats.update(uncertainty(stats.get("sharpe"), stats.get("years")))
     return {
         "label": label,
         "books": [i for i in ids if i in result.books],
@@ -260,10 +344,13 @@ def portfolio_stats(
     }
 
 
-def portfolio_block(result: BacktestResult, books: list[BookConfig]) -> dict[str, Any]:
+def portfolio_block(result: BacktestResult, books: list[BookConfig], data: DeskData | None = None) -> dict[str, Any]:
     """The books together: the core books (what the desk is judged on) over their whole common history and,
     when there are candidates, everything over ITS common window and the core books again over that same window,
-    so that the two rows say what adding the candidates did and not what the extra years did."""
+    so that the two rows say what adding the candidates did and not what the extra years did.
+
+    With ``data``, every portfolio also carries the alternatives a reader could buy over ITS OWN window and a
+    sentence on whether the intervals can be told apart (chapter 15 G)."""
     core = [b.id for b in books if b.role == "core"]
     everything = [b.id for b in books]
     out: dict[str, Any] = {}
@@ -283,6 +370,14 @@ def portfolio_block(result: BacktestResult, books: list[BookConfig]) -> dict[str
             )
             if matched is not None:
                 out["core_matched"] = matched
+    if data is not None:
+        for row in out.values():
+            rows = window_benchmarks(data, date.fromisoformat(row["start"]), date.fromisoformat(row["end"]))
+            if rows:
+                row["benchmarks"] = rows
+                note = benchmark_note(row)
+                if note:
+                    row["benchmark_note"] = note
     return out
 
 
@@ -317,7 +412,7 @@ def desk_backtest_payload(
     payload = base.to_dict()
     payload["double_cost"] = _stats_only(doubled)
     payload["same_close"] = _stats_only(same_close)
-    payload["portfolio"] = portfolio_block(base, books)
+    payload["portfolio"] = portfolio_block(base, books, data)
     payload["allocator"] = None if allocator is None else {"rules": describe(allocator), "config": allocator.to_dict()}
     if allocator is not None:
         alone = run_backtest(data, books, risk, start=start, end=end, ruin=False)

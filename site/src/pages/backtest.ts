@@ -8,7 +8,7 @@
 import { lineChart, lineLegend, type LineSeries } from "../charts/lines";
 import { repoUrl } from "../config";
 import { load } from "../data";
-import { bookColor, portfolios, type BacktestDoc, type CurvePoint, type Stats } from "../desk";
+import { bookColor, portfolios, type BacktestDoc, type CurvePoint, type PortfolioStats, type Stats } from "../desk";
 import { EMPTY, escapeHtml, leverage, num, percent, relative, signedPercent, tone } from "../format";
 
 const MINUS = "−";
@@ -27,6 +27,15 @@ function points(curve: CurvePoint[]): { t: number; v: number }[] {
 
 const sharpeCell = (s: Stats | undefined): string =>
   s ? `${num(s.sharpe ?? null, 2)}<small>t ${num(s.t_stat ?? null, 1)}</small>` : EMPTY;
+
+/** A portfolio's Sharpe with the interval it is known to, which is what the reader needs beside a ratio
+ *  measured over a handful of years (engine/desk/report.py, `uncertainty`; docs/RESEARCH.md 15 G). */
+const sharpeRange = (s: Stats | undefined): string => {
+  if (!s) return EMPTY;
+  const ci = s.sharpe_ci;
+  const tail = ci ? `${num(ci[0], 2)}–${num(ci[1], 2)}` : `t ${num(s.t_stat ?? null, 1)}`;
+  return `${num(s.sharpe ?? null, 2)}<small>${tail}</small>`;
+};
 
 const years = (a: string, b: string): string => `${escapeHtml(a.slice(0, 4))}–${escapeHtml(b.slice(0, 4))}`;
 
@@ -93,7 +102,9 @@ function summary(doc: BacktestDoc, names: Names, roles: Roles): string {
         <th class="n">Days invested</th><th class="n">Costs/year</th><th class="n">Capital</th></tr></thead>
       <tbody>${core.join("")}${candBlock}${bench}</tbody></table></div>
       <p class="t-dim">${escapeHtml(doc.meta.fill_rule.charAt(0).toUpperCase() + doc.meta.fill_rule.slice(1))}; initial capital ${num(doc.meta.initial_capital, 0)} $ per book.
-      "t" is the Sharpe times the square root of the years: below 2 the result cannot be told from luck with confidence.</p>`,
+      "t" is the Sharpe times the square root of the years: below 2 the result cannot be told from luck with confidence.
+      It is an optimistic t, because it treats the Sharpe as exact; the portfolio table below carries the interval the
+      Sharpe is really known to, which is wider.</p>`,
     `computed ${escapeHtml(relative(doc.meta.generated_at))}`,
   );
 }
@@ -107,7 +118,7 @@ function together(doc: BacktestDoc): string {
       return `<tr><th scope="row">${escapeHtml(label)}<small>${p.books.length} books · ${years(p.start, p.end)}</small></th>
         <td class="n">${signedPercent(s.cagr ?? null, 1)}</td>
         <td class="n">${percent(s.vol ?? null, 0)}</td>
-        <td class="n"><b>${sharpeCell(s)}</b></td>
+        <td class="n"><b>${sharpeRange(s)}</b></td>
         <td class="n down">${percent(s.max_drawdown ?? null, 0)}<small>${num((s.longest_drawdown_days ?? 0) / 252, 1)} years under water</small></td>
         <td class="n down">${percent(s.worst_day ?? null, 1)}<small>week ${percent(s.worst_week ?? null, 0)}</small></td></tr>`;
     })
@@ -131,15 +142,42 @@ function together(doc: BacktestDoc): string {
   return section(
     "The books together",
     `<div class="t-scroll"><table class="t-table">
-      <thead><tr><th>Portfolio</th><th class="n">Yearly return</th><th class="n">Volatility</th><th class="n">Sharpe</th>
+      <thead><tr><th>Portfolio</th><th class="n">Yearly return</th><th class="n">Volatility</th><th class="n">Sharpe<small>95% interval</small></th>
         <th class="n">Max drawdown</th><th class="n">Worst day</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
       ${yearly}
       <p class="t-dim">Equal capital in every book, rebalanced daily, over the days all of them have. The Sharpe of the sum
       is not the average of the Sharpes: books that move independently add up to less risk than return. This is the
-      number the candidates were added for; it says nothing about any book alone.</p>`,
+      number the candidates were added for; it says nothing about any book alone. The interval under each Sharpe is where
+      the true ratio lies with 95% confidence: a ratio measured over a dozen years never has two meaningful digits.</p>
+      ${instead(port)}`,
     "the same backtests, held side by side",
   );
+}
+
+/** What a reader could buy instead, over the SAME window as the portfolio: the comparison the reader is
+ *  actually making, with the intervals that say whether the difference can be told apart at all (15 G). */
+function instead(port: [string, string, PortfolioStats][]): string {
+  // the widest portfolio first: "all" is the number the page is read for, and its window is the common one
+  const chosen = port.find(([key, , p]) => key === "all" && p.benchmarks) ?? port.find(([, , p]) => p.benchmarks) ?? null;
+  if (!chosen) return "";
+  const [, label, p] = chosen;
+  const bench = Object.values(p.benchmarks ?? {});
+  if (!bench.length) return "";
+  const row = (name: string, s: Stats, own: boolean): string =>
+    `<tr${own ? ' class="t-total"' : ""}><th scope="row">${escapeHtml(name)}</th>
+      <td class="n">${signedPercent(s.cagr ?? null, 1)}</td>
+      <td class="n">${percent(s.vol ?? null, 0)}</td>
+      <td class="n">${own ? `<b>${sharpeRange(s)}</b>` : sharpeRange(s)}</td>
+      <td class="n down">${percent(s.max_drawdown ?? null, 0)}</td></tr>`;
+  return `<h3 class="t-sub">What a reader could buy instead</h3>
+    <div class="t-scroll"><table class="t-table">
+      <thead><tr><th>Over ${years(p.start, p.end)}</th><th class="n">Yearly return</th><th class="n">Volatility</th>
+        <th class="n">Sharpe<small>95% interval</small></th><th class="n">Max drawdown</th></tr></thead>
+      <tbody>${row(label, p.stats, true)}${bench.map((b) => row(b.label, b.stats, false)).join("")}</tbody></table></div>
+    <p class="t-dim">${p.benchmark_note ? `${escapeHtml(p.benchmark_note)} ` : ""}Bought and held over the same days as the
+    portfolio above, with the same formula the desk uses for its own books (no risk-free rate subtracted on either side).
+    A paper desk that cannot be told apart from an index fund is the honest state of this research, not a failure of it.</p>`;
 }
 
 function withAndWithout(doc: BacktestDoc, names: Names, roles: Roles): string {

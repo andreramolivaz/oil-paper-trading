@@ -489,7 +489,7 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   no ALL-CAPS labels; colour only for sign (green and red), state, and what can be clicked (magenta, `--accent`).
   The three group colours are the validated series slots 1-3 (`groupColor`), in the engine's fixed group order.
 
-## State of play (2026-10-22)
+## State of play (2026-10-23)
 Phases 1-19 of `docs/PLAN.md` are implemented (17 waits for the owner's `ANTHROPIC_API_KEY` to take a reading; 18 was
 research and changed no book; 19 added the Rocket, a lottery outside every total). Phase 10 (8 October) added the desk after three days of a flat
 account with zero trades. The four causes, all fixed and pinned by `tests/test_tick_job.py`:
@@ -1073,6 +1073,34 @@ Rocket's first decision (the 23rd at 15:18 New York, the 19:18 UTC tick, which d
 strike for the first time), its first bet (it needs Kalshi's agreement: a fall of the de-escalation odds over the
 week with the Dynamic long), a sale, a roll, an expiry, a life ended at the target or at the floor, the button
 pressed by the owner, an early-close day (27 November).
+
+Phase 20 (23 October, night, on the owner's questions "is 1.23 valid?", "does it make sense to invest with this
+tool?" and "can you find an edge starting from the tool I gave you?"; `docs/RESEARCH.md` chapter 15, registered and
+pushed as b391064c2 before a number was computed). **No book was added, and that is the point.** Three things.
+(A) The DAILY change of the Kalshi de-escalation index, which the archive had shown (−0,21 against the next
+session's return, against +0,03 for the weekly change the Oracle trades) and no book uses: registered with its
+scale derived a priori (−3,5 per point, from 6,3/√5), a deadband of 0,3 points, a one-session horizon, the FUND as
+the instrument (one /MCL lot is 0,9x of a 10 000 $ account and would measure the contract, not the rule), a prior
+that said it would fail (an IC of 0,21 implies a gross Sharpe near 3,3, which this project has already told the
+owner does not exist) and a filter of five conditions, stricter than phases 12-15 because the thing was found
+after looking. Measured once (`scripts/research_kalshi_daily.py`, 152 sessions, 18 March - 22 October): after
+costs **+2,99**, both halves positive, +2,28 without the best month, +2,86 at double costs — **all five conditions
+pass**. It does not start, because the registered neighbour (a) answers what they do not: the same signal **one
+session late scores −1,42**, the effect lives at one lag and inverts at the next (D+1 −0,21, D+2 +0,06). That is
+the crack-spread artefact of phase 11, rejected then for the same reason. The level is unknowable anyway (151
+sessions = 0,60 years, so SE 3,02 and t 0,99) while the association is strong in sample (circular shift of the
+signal, p = 0,013) but was picked from six lags (corrected p ≈ 0,08). The drafting error — that test belonged
+among the conditions, not among the neighbours — is admitted in 15 E, the corrected filter is written there, and
+the rule is re-measured when the archive has a year of live readings. (B) Market making on the event venues is
+registered as out of perimeter (15 F) with the three reasons: no order book in the archive, no way to measure it
+on paper, and it is another project — the first step would be a collector, not a bot. (C) The site no longer shows
+a Sharpe naked: `report.uncertainty` adds the standard error, the 95% interval and the honest t to every portfolio
+(1,23 → SE 0,358, interval 0,53-1,93, t 3,44 against the 4,55 the page showed), and `report.window_benchmarks`
+adds what a reader could buy instead over the SAME window (SPY 0,89 [0,26-1,52], a 60/40 of SPY and TLT 0,89,
+TLT alone 0,09) with a sentence saying the intervals overlap, so the page says that with thirteen years of data
+the desk cannot be told apart from an index fund. Pinned by `tests/test_desk_uncertainty.py` (10 tests). No book,
+vehicle or rule changed and the fingerprint is still `b66ecbb82b75` — which also means the new block appears only
+when the backtest is next recomputed (the weekly job, Saturday 03:30 UTC, or a manual dispatch of `weekly.yml`).
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
