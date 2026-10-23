@@ -347,7 +347,12 @@ def test_the_books_together_are_an_equal_capital_portfolio_rebalanced_daily():
     assert both is not None and both["books"] == ["prudente", "spinto"] and both["label"] == "both"
     frame = pd.concat([res.books["prudente"].equity, res.books["spinto"].equity], axis=1).dropna()
     want = (1.0 + frame.pct_change().dropna().mean(axis=1)).cumprod() * float(frame.iloc[0].sum())
-    assert both["stats"] == performance(want) and both["start"] == frame.index[0].date().isoformat()
+    # the same numbers as the sum's own curve, plus the interval the Sharpe is known to (RESEARCH.md 15 G)
+    plain = performance(want)
+    extra = {"sharpe_se", "sharpe_ci", "t_sharpe"}
+    assert set(both["stats"]) - set(plain) == extra
+    assert {k: v for k, v in both["stats"].items() if k not in extra} == plain
+    assert both["start"] == frame.index[0].date().isoformat()
     # one book alone, or a book that has no curve, is not a portfolio
     assert portfolio_stats(res, ["prudente"], "one") is None
     assert portfolio_stats(res, ["prudente", "nessuno"], "missing") is None
