@@ -1070,11 +1070,13 @@ USO call at strike 180 expiring 20 November, 408.80 $, 41 % of the account) and 
 +14.8 long, Kalshi's de-escalation index +2.4 points in a week: no agreement); the 21 books of before were left
 where the previous runner had them (core +447.63 $, candidates -260.07 $, Kalshi +64.57 $, Claude 0); `desk.json`
 carries 22 books, the "lottery" group and `total_candidates` with 17 books; the public desk page and the Rocket's
-page render on the live JSON on desktop and on a phone with no console error and no overflow. Still NOT seen: the
-Rocket's first decision (the 23rd at 15:18 New York, the 19:18 UTC tick, which downloads the chain with every
-strike for the first time), its first bet (it needs Kalshi's agreement: a fall of the de-escalation odds over the
-week with the Dynamic long), a sale, a roll, an expiry, a life ended at the target or at the floor, the button
-pressed by the owner, an early-close day (27 November).
+page render on the live JSON on desktop and on a phone with no console error and no overflow.
+
+**The Rocket's first bet, seen on 23-24 October**: it bought 1 USO call, strike 190, expiring 20 November
+(28 days, delta 0.27) at 4.38 $ a share - 437.55 $ with the fees, 44% of the account, with the fund at 169.06 -
+because the Dynamic was +14.5 long and Kalshi agreed for the first time (the de-escalation index -1.2 points in
+the week). Equity 1 002.45 $ on the 24th. Still NOT seen: a sale, a roll, an expiry, a life ended at the target
+or at the floor, the button pressed by the owner, an early-close day (27 November), the `stuck` state.
 
 Phase 20 (23 October, night, on the owner's questions "is 1.23 valid?", "does it make sense to invest with this
 tool?" and "can you find an edge starting from the tool I gave you?"; `docs/RESEARCH.md` chapter 15, registered and
