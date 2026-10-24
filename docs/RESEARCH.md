@@ -2475,6 +2475,104 @@ Sui due obiettivi di rendimento chiesti, misurato e non argomentato:
   azzerato. Con 5 000 $ al mese quel rendimento darebbe 4,6 miliardi di dollari in dieci anni e supererebbe il
   miliardo in 8 anni e 8 mesi. È il motivo per cui il tetto duro di 10x esiste, e per cui il Rocket ha 1 000 $.
 
+## 16. Fase 21 (24 ottobre 2026, 20:40 UTC): l'Oracolo su uno strumento che sa esprimere la sua regola, registrato prima di misurare
+
+La richiesta del proprietario (24 ottobre): «voglio che sia un portafoglio attivo, l'Oracolo, utile, spinto: si
+può fare». È la seconda volta che lo chiede — la prima, il 22 ottobre, era «sulle tre strategie Kalshi non sta
+succedendo niente, non è un po' debole?». Questa volta i dati per rispondere ci sono.
+
+### A. La diagnosi: il libro non è prudente, è muto
+
+Otto decisioni dal 15 al 23 ottobre, **zero operazioni**, conto fermo a 10 000,00 $. Quello che ha voluto fare:
+
+| giorno | sleeve | esposizione voluta | esito |
+|---|---|---|---|
+| 15 ott | — | 0,49x | meno di un lotto intero |
+| 16 ott | +0,0 | 0,00x | dentro la soglia morta |
+| 19 ott | +6,4 | 0,43x | meno di un lotto intero |
+| 20 ott | +0,0 | 0,00x | dentro la soglia morta |
+| 21 ott | −3,2 | 0,23x | meno di un lotto intero |
+| 22 ott | −4,7 | 0,33x | meno di un lotto intero |
+| 23 ott | +2,4 | 0,17x | meno di un lotto intero |
+
+Sei giorni su otto il libro ha voluto una posizione; sei su otto non ha potuto prenderla. **Un contratto /MCL
+vale circa 0,9x di un conto da 10 000 $** (un micro WTI è 100 barili: a 96 $ sono 9 600 $), e la banda d'inerzia
+di Carver chiede metà lotto per aprirne uno.
+
+E non è sfortuna di sei settimane, è aritmetica della regola. La taglia è `F/10 × target × m / vol`: con il
+target 0,50, il dimezzamento della bolla (m = 0,5) e la volatilità al 36 %, l'esposizione è `F × 0,069`. Quindi
+**anche con il segnale al massimo assoluto della scala (±20) il libro vorrebbe 1,39x**, e per comprare un
+contratto intero attraverso la banda gli serve un sleeve di circa ±8,5 su 20. In 143 sedute di archivio
+ricostruito il |sleeve| medio è 9,84 ma la mediana è molto più bassa, e nelle sei settimane dal vivo il massimo
+è stato +6,4. Il tetto di 10x che il libro ha in configurazione non ha mai avuto modo di mordere: è decorazione.
+
+Detto in una riga: **il problema non è il segnale, è la granularità dello strumento.** Un conto da 10 000 $ che
+negozia un contratto da 9 600 $ può solo stare fuori o andare quasi tutto dentro.
+
+### B. Il cambiamento (registrato il 24 ottobre alle 20:40 UTC, prima di ogni misura)
+
+Cambia **una cosa sola: il veicolo.** `vehicle: MCL` → `vehicle: BNO`, con `short_via: SCO` per il lato corto,
+esattamente come fa il Dinamico. Le azioni di un fondo sono quasi continue (lotto = 1 azione), quindi 0,43x
+diventa una posizione vera invece di zero.
+
+**Resta identico tutto il resto della regola del capitolo 10**: l'indice di de-escalation e le sue tre
+componenti, l'interpolazione a 90 giorni, il riferimento di 7-10 giorni prima, il cambiamento letto sulle
+componenti comuni, −2 per punto percentuale, la soglia morta di un punto, il limite ±20, le regole di
+obsolescenza (nessuna lettura entro 3 giorni: piatto; nessun riferimento: nessuna decisione), il target di
+volatilità 0,50, il breaker al 15 %, il ruolo `candidate`, l'esclusione dal replay, dalle tabelle e
+dall'impronta, e il divieto di promozione. Non si tocca né la scala né la soglia: toccarle dopo aver visto che
+il libro non negozia sarebbe tarare la regola sul risultato.
+
+Quello che cambia come conseguenza, e va detto: **il tetto di leva scende da 10x a 2x** (1x prima di una
+chiusura), perché è il margine che Regulation T dà su un fondo. Non costa niente in pratica, e la ragione è in
+A: la regola non può volere più di 1,39x nemmeno con il segnale al massimo. Il lato corto è il fondo inverso
+comprato in contanti (SCO), con tutte le regole dure che il Dinamico già rispetta. I costi diventano quelli del
+fondo (zero commissioni, mezzo spread 2 pb che si allarga con la volatilità, 5,25 % annuo sulla cassa prestata)
+invece di 1,27 $ per contratto per lato.
+
+Il mercato cambia da WTI a Brent. È una scelta, non una neutralità: lo stretto di Hormuz è un fatto del Brent
+più che del WTI, e il fondo Brent è il solo veicolo lungo/corto che il desk ha già. Il vicino (a) misura la
+stessa regola sul fondo WTI.
+
+### C. Il prior, scritto prima
+
+**Non mi aspetto che diventi redditizio, mi aspetto che diventi giudicabile.** Le due cose misurate finora
+dicono che il segnale settimanale non ha un vantaggio dimostrato: il cambiamento settimanale correla **+0,03**
+con il rendimento della settimana dopo (capitolo 10 H), e la regola registrata misura Sharpe 1,19 con un errore
+standard di 1,7 su 143 sedute, con un mese solo (luglio) che fa il risultato. Il prior del capitolo 10 — nessun
+vantaggio — resta in piedi e non lo cambio.
+
+Quello che il cambiamento compra è diverso e vale: un libro speculativo esiste per essere **giudicato sui fill
+veri**, e un libro che non può prendere posizione non produce fill, quindi non produce nemmeno il verdetto per
+cui è stato creato. Oggi l'Oracolo non sta dimostrando di non avere un vantaggio: non sta dimostrando niente.
+Mi aspetto sul fondo uno Sharpe vicino a quello misurato su /MCL a taglia continua (1,19 ± 1,7, cioè
+indistinguibile da zero) e una quota di giorni con posizione sopra l'80 %.
+
+### D. Il filtro e la misura, dichiarati prima
+
+Stesso filtro delle fasi 12 e 15, più la condizione che dà senso al cambiamento. Il libro si sposta sul fondo
+se valgono **tutte e due**:
+
+1. Sharpe **dopo costi > 0** sull'intero archivio ricostruito, sul fondo, con il dimensionamento della regola;
+2. il libro prende posizione in **almeno il 20 %** dei giorni in cui decide (altrimenti il cambiamento non
+   risolve il problema per cui è fatto).
+
+Se la prima cade, il libro **resta su /MCL com'è** e il capitolo lo scrive: la risposta onesta al proprietario
+diventa «lo strumento per renderlo attivo esiste, ma la misura dice di no». Nessuna terza via, nessuna
+rimisurazione con altri parametri.
+
+I dati: l'archivio Kalshi del ramo `data` (letture dal vivo più candlestick ricostruiti, le prime vincono), le
+serie dei fondi dallo stesso ramo, il codice di `main` al commit di questa registrazione. La misura è una.
+
+Vicini riportati, che non decidono: (a) la stessa regola sul fondo WTI (USO) invece che sul Brent; (b) il libro
+com'è oggi su /MCL, a lotti interi, come linea di base; (c) /MCL a taglia continua, per separare l'effetto
+dello strumento da quello del mercato; (d) senza il dimezzamento della bolla, per vedere quanto dell'inattività
+viene dall'allocatore e quanto dal lotto.
+
+### E. Risultati
+
+*Da scrivere dopo la misura.*
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
