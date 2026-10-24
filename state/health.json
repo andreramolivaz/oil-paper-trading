@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-24T08:21:44.731894Z",
+  "checked_at": "2026-10-24T10:49:15.418049Z",
   "sources": [
     {
       "source": "bab_el_mandeb",
@@ -367,10 +367,10 @@
     {
       "source": "kalshi",
       "status": "green",
-      "checked_at": "2026-10-24T08:21:44.731894Z",
-      "last_success_at": "2026-10-24T08:25:32.064327Z",
-      "data_asof": "2026-10-24T08:25:15.028482Z",
-      "latency_ms": 17038,
+      "checked_at": "2026-10-24T10:49:15.418049Z",
+      "last_success_at": "2026-10-24T10:49:32.527900Z",
+      "data_asof": "2026-10-24T10:49:15.420461Z",
+      "latency_ms": 17110,
       "message": "adapter kalshi",
       "fallback_used": null,
       "rows": 367
@@ -691,12 +691,6 @@
     "wti_front"
   ],
   "groups_checked": [
-    "desk",
-    "fundamentals",
-    "news",
-    "positioning",
-    "prices",
-    "volatility_macro",
-    "weekly_alt"
+    "desk"
   ]
 }
