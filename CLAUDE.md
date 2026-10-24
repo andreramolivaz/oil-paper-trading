@@ -17,9 +17,11 @@ There are two systems in this repository and it matters which one you are touchi
   (`engine/desk/allocator.py`, `config/allocator.yaml`) scales every book's volatility target and weekend
   ceiling by published rules (bubble switch, strait rule, lifecycle; drawdown control measured and off), and
   the tick archives Kalshi's prediction markets (`engine/desk/prediction.py`) that no core book trades on.
-  Since phase 14 ONE candidate book, `oracle` (`forecast: kalshi`, `engine/desk/oracle.py`), trades the micro
-  WTI future in the direction of a de-escalation index read on that archive: speculative, no backtest, judged
-  on live fills only, never promoted. Since phase 15 `oracle.py` is a REGISTRY of three indices (de-escalation,
+  Since phase 14 ONE candidate book, `oracle` (`forecast: kalshi`, `engine/desk/oracle.py`), trades in the
+  direction of a de-escalation index read on that archive: speculative, no backtest, judged on live fills
+  only, never promoted. It traded the micro WTI future until phase 21 and took eight decisions without ever
+  holding a position (one contract is 0.9x of the account); since 24 October it trades the BNO fund, short
+  through SCO, same rule. Since phase 15 `oracle.py` is a REGISTRY of three indices (de-escalation,
   the Fed path read off the FOMC meetings' outcome markets, the recession probability off the yearly NBER
   markets) and two more speculative books read them with a sign per sleeve, long only, on the S&P 500 and
   utilities funds (`oracle_equities`, `oracle_utilities`); two others (bonds, gold) were registered, measured a
@@ -1101,6 +1103,27 @@ TLT alone 0,09) with a sentence saying the intervals overlap, so the page says t
 the desk cannot be told apart from an index fund. Pinned by `tests/test_desk_uncertainty.py` (10 tests). No book,
 vehicle or rule changed and the fingerprint is still `b66ecbb82b75` — which also means the new block appears only
 when the backtest is next recomputed (the weekly job, Saturday 03:30 UTC, or a manual dispatch of `weekly.yml`).
+
+Phase 21 (24 October, on the owner's "I want the Oracle to be an active book, useful, aggressive: can it be
+done?"; `docs/RESEARCH.md` chapter 16, registered and pushed as c961e23a9 before a number was computed).
+Diagnosis first: the book was not prudent, it was MUTE. Eight decisions, zero fills, equity still exactly
+10 000; it wanted a position on six of the eight days (0.49x, 0.43x, 0.33x, 0.23x, 0.17x) and could take none,
+because one /MCL contract is about 0.9x of a 10 000 $ account and Carver's band asks half a lot to open one.
+Nor was that six weeks of bad luck: the rule's own sizing is `F x 0.069` once the bubble switch halves it, so
+even a maximum forecast of 20 wants 1.39x and the book needs a sleeve near 8.5 to buy one contract - the 10x
+ceiling in its config never had a chance to bind. The change is one line, registered with its filter before
+measuring: `vehicle: MCL` -> `BNO` with `short_via: SCO`, everything else of chapter 10's rule identical (the
+scale and the deadband deliberately NOT touched, because tuning them after seeing the book sit still would be
+tuning on the result). Measured once (`research_oracle.py --vehicle`, 152 sessions): on the fund the same rule
+holds a position on **85% of sessions in today's regime against 19% on the future** (same mean wanted
+exposure, 0.35x against 0.37x: the signal is identical, the instrument is not), after-cost Sharpe +0.65
+(SE 1.41) against +0.91 on /MCL - both conditions of 16 D pass, so the book moves. Written beside it: nothing
+here is significant (every SE is about 1.4), /MCL measures the HIGHER Sharpe and stays a neighbour that does
+not decide because a book in cash four days out of five produces no verdict at all, and July makes the result
+as it did in chapter 10 H. The leverage ceiling falls 10x -> 2x (Reg T on a fund) and never bound. Safe today
+only because the book is flat: **change a vehicle only on a flat book**, or the old one is left an orphan.
+The fingerprint is unchanged (`b66ecbb82b75`: the Kalshi books are not replayed), and the tick test now pins
+that the Oracle decides beside the fund books instead of sharing the futures book's silence.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

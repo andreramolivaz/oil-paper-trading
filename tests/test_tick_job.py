@@ -657,7 +657,13 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
     first = jobs.tick(runner, "t-1", legacy=False)
     assert first.status == "ok" and first.exit_code == 0
     decisions = first.detail["desk"]["decisions"]
-    assert [d["book"] for d in decisions] == ["prudente", "dinamico"]
+    # the Oracle decides beside the fund books since phase 21: on /MCL it shared the futures book's silence,
+    # on BNO it is fed and owes a decision every session - here "missing data", there being no Kalshi archive
+    assert [d["book"] for d in decisions] == ["prudente", "dinamico", "oracle"]
+    oracle_row = decisions[-1]
+    assert oracle_row["book"] == "oracle" and oracle_row["symbol"] == "BNO"
+    assert oracle_row["forecast"]["combined"] is None and oracle_row["order_units"] == 0.0
+    assert "position unchanged" in oracle_row["rationale"]
     # the futures book has a forecast but no price for the contract it would hold (no per-contract table in
     # this archive): it does not guess one from another contract, it waits and says so
     assert any("no recent price for CL" in note for note in first.detail["desk"]["notes"])
