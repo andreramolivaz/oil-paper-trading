@@ -210,22 +210,34 @@ books:
   # 90 days): rising, short oil; falling, long. There is no history of these markets, so there is no backtest:
   # the book is judged on its live fills only, is never promoted, and the prior written with the rule is that
   # it has no edge. It can wipe out its account.
+  # Phase 21 (24 October 2026, docs/RESEARCH.md chapter 16): the vehicle changed from /MCL to the Brent fund,
+  # and nothing else. On the micro WTI future the book took eight decisions and no position: one contract is
+  # about 0.9x of a 10 000 $ account while the rule, with the bubble switch halving it, cannot want more than
+  # 1.39x even at a maximum forecast, so six wants of 0.17-0.49x all rounded to zero. Measured once on the
+  # archive before the change (16 E): on the fund the same rule holds a position on 85% of sessions in today's
+  # regime against 19% on the future, with an after-cost Sharpe of +0.65 (SE 1.41, i.e. not distinguishable
+  # from zero - the change buys judgeability, not an edge). The leverage ceiling falls to what Regulation T
+  # gives on a fund, which has never bound.
   - id: oracle
     name: Oracle
     role: candidate
     forecast: kalshi
-    vehicle: MCL
+    vehicle: BNO
     vol_target: 0.50
-    max_leverage: 10.0
-    weekend_max_leverage: 3.0
+    max_leverage: 2.0
+    weekend_max_leverage: 1.0
     long_only: false
+    short_via: SCO
     daily_loss_breaker: 0.15
     description: >-
-      Speculative, paper only, no backtest. Full Kelly on the micro WTI future, long and short, up to 10x, in the
-      direction Kalshi's prediction markets point: when the crowd's probability of de-escalation (the strait
-      back to normal, a US-Iran meeting, a nuclear deal within 90 days) rises over a week the book is short oil,
-      when it falls the book is long. The rule was written down before the first decision and is judged on live
-      fills alone; the prior is that it has no edge. It can wipe out the account.
+      Speculative, paper only, no backtest. Full Kelly on the Brent fund, long and short, in the direction
+      Kalshi's prediction markets point: when the crowd's probability of de-escalation (the strait back to
+      normal, a US-Iran meeting, a nuclear deal within 90 days) rises over a week the book is short oil, when
+      it falls the book is long. Short through SCO, bought with cash, as the Dynamic does. It traded the micro
+      WTI future until 24 October and never took a position: one contract was 0.9x of the account and the rule
+      never wanted that much, so the instrument became the fund, whose shares are fine enough to hold what the
+      rule asks for. The rule itself is unchanged and was written down before the first decision; it is judged
+      on live fills alone, and the prior is that it has no edge.
 
   # Phase 15 (15 October 2026), on the owner's "improve on the other markets, and speculative Kalshi as the
   # reference" (docs/RESEARCH.md, chapter 11, registered before any measurement). The same pattern on the funds

@@ -75,12 +75,13 @@ def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap
         assert (b.vol_target, b.max_leverage, b.daily_loss_breaker) == (0.12, 1.0, 0.05)
         assert b.sleeves == {"trend": 1.0, "accel": 1.0, "skew": 1.0}
         assert b.forecast == "desk"
-    # the speculative Kalshi book (phase 14): the aggressive book's ceilings on the future, the prediction
-    # markets' index as its forecast, a candidate that no replay can run
+    # the speculative Kalshi book (phase 14), moved to the fund in phase 21 (docs/RESEARCH.md chapter 16): on
+    # /MCL it took eight decisions and no position, because one contract is 0.9x of the account and the rule
+    # cannot want more than 1.39x. Same rule, an instrument fine enough to hold it, Reg T ceilings.
     oracle_book = books["oracle"]
-    assert oracle_book.role == "candidate" and oracle_book.forecast == "kalshi" and oracle_book.vehicle == "MCL"
-    assert (oracle_book.vol_target, oracle_book.max_leverage, oracle_book.weekend_max_leverage) == (0.5, 10.0, 3.0)
-    assert not oracle_book.long_only and oracle_book.short_via is None and oracle_book.sleeves == {"deescalation": 1.0}
+    assert oracle_book.role == "candidate" and oracle_book.forecast == "kalshi" and oracle_book.vehicle == "BNO"
+    assert (oracle_book.vol_target, oracle_book.max_leverage, oracle_book.weekend_max_leverage) == (0.5, 2.0, 1.0)
+    assert not oracle_book.long_only and oracle_book.short_via == "SCO" and oracle_book.sleeves == {"deescalation": 1.0}
     assert [b.id for b in books.values() if b.forecast == "desk"] == ["prudente", "dinamico", "spinto", *satellites]
     # the Claude analyst's books (phase 17): one market each, the Oracle's ceilings on the future, long-only 2x funds
     claude = {b.id: b for b in books.values() if b.forecast == "claude"}

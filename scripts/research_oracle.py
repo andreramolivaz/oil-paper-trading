@@ -31,13 +31,28 @@ from engine.desk.backfill import records_from_history
 from engine.desk.book import buffered_target
 from engine.desk.data import build_desk_data
 from engine.desk.prediction import KALSHI_LOG
-from engine.desk.vehicles import MCL
+from engine.desk.vehicles import BNO, MCL, Vehicle
 
 VOL_TARGET = 0.50
 CAP = 10.0
 BUFFER = 0.10
 LOT = 100.0
 EQUITY = 10_000.0
+
+# chapter 16: the same rule on an instrument fine enough to express it. A fund's lot is one share and
+# Regulation T caps it at 2x, which the rule cannot reach anyway (F x 0.069, so 1.39x at a maximum forecast).
+NORMAL_VOL = 0.25  # engine/broker/costs.py: above this the half spread widens linearly
+VEHICLES_UNDER_TEST: dict[str, tuple[Vehicle, float, float]] = {  # vehicle -> (spec, lot, leverage cap)
+    "MCL": (MCL, LOT, CAP),
+    "BNO": (BNO, 1.0, 2.0),
+}
+
+
+def _trade_cost(vehicle: Vehicle, units: float, price: float, vol: float) -> float:
+    """What the broker charges to move ``units``: the half spread widened by volatility, plus commission."""
+    scale = 1.0 + max(0.0, vol / NORMAL_VOL - 1.0) if math.isfinite(vol) else 1.0
+    notional = abs(units) * price * (LOT if vehicle is MCL else 1.0)
+    return abs(units) * vehicle.commission_per_lot + notional * vehicle.half_spread_bps * scale * 1e-4
 
 
 def _stats(pnl: pd.Series) -> tuple[float, float, float, int]:
@@ -53,6 +68,8 @@ def main() -> int:
     parser.add_argument("--state", required=True, help="a copy of the data branch's state/ (the raw store)")
     parser.add_argument("--archive", default=None, help="the desk's archive directory (state/desk): its readings win")
     parser.add_argument("--start", default="2026-03-18", help="first session (the strait's ladder opened on 17 March)")
+    parser.add_argument("--vehicle", default="MCL", choices=sorted(VEHICLES_UNDER_TEST), help="chapter 16 B")
+    parser.add_argument("--no-runup", action="store_true", help="neighbour (d): without the bubble switch")
     args = parser.parse_args()
 
     history = json.loads(Path(args.history).read_text(encoding="utf-8"))
@@ -63,7 +80,8 @@ def main() -> int:
         records = [r for r in records if r["key"] not in keys] + live
     readings = oracle.index_readings(records)
     data = build_desk_data(RawStore(args.state), None)
-    series = data.series["MCL"]
+    vehicle, lot, cap = VEHICLES_UNDER_TEST[args.vehicle]
+    series = data.series[args.vehicle]
     runup = runup_table(sg.total_return_index(series.returns), AllocatorConfig.load())
     start = date.fromisoformat(args.start)
     days = [d.date() for d in series.returns.index if d.date() >= start]
@@ -72,7 +90,7 @@ def main() -> int:
     for d in days:
         f = oracle.forecast_on(readings, d)
         ts = pd.Timestamp(d)
-        m = 0.5 if (ts in runup.index and bool(runup.loc[ts, "active"])) else 1.0
+        m = 1.0 if args.no_runup else (0.5 if (ts in runup.index and bool(runup.loc[ts, "active"])) else 1.0)
         rows.append(
             {
                 "day": d,
@@ -87,36 +105,52 @@ def main() -> int:
         )
     df = pd.DataFrame(rows).set_index("day")
     forecast = df["forecast"].fillna(0.0)
-    df["expo"] = (forecast / sg.FORECAST_NORMAL * VOL_TARGET * df["m"] / df["vol"]).clip(-CAP, CAP)
+    df["expo"] = (forecast / sg.FORECAST_NORMAL * VOL_TARGET * df["m"] / df["vol"]).clip(-cap, cap)
     df["pnl"] = df["expo"] * df["r_next"]
 
     # whole lots on a fixed account (no compounding): the inertia band, the vehicle's commission and half spread
-    lots, held, pnl_lots, trades, cost = 0.0, [], [], 0, 0.0
+    lots, held, pnl_lots, day_cost, trades = 0.0, [], [], [], 0
     for _, row in df.iterrows():
-        per_lot = EQUITY / row["price"] / LOT
+        per_lot = EQUITY / row["price"] / lot
         band = BUFFER * VOL_TARGET * row["m"] / row["vol"]
         if row["forecast"] is not None and not math.isnan(row["forecast"]):
-            target = buffered_target(row["expo"] * per_lot, band * per_lot, lots, CAP * per_lot)
+            target = buffered_target(row["expo"] * per_lot, band * per_lot, lots, cap * per_lot)
         else:
             target = lots
+        spent = 0.0
         if target != lots:
-            cost += abs(target - lots) * (MCL.commission_per_lot + row["price"] * LOT * MCL.half_spread_bps * 1e-4)
+            spent = _trade_cost(vehicle, target - lots, row["price"], row["vol"])
             trades += 1
             lots = target
+        day_cost.append(spent)
         held.append(lots)
         r = row["r_next"] if not math.isnan(row["r_next"]) else 0.0
-        pnl_lots.append(lots * LOT * row["price"] * r)
+        pnl_lots.append(lots * lot * row["price"] * r)
     df["lots"] = held
     df["pnl_lots"] = pnl_lots
+    df["cost"] = day_cost
+    df["net"] = (df["pnl_lots"] - df["cost"]) / EQUITY  # after costs, as a fraction of the fixed account
 
     sharpe, ann, vol, n = _stats(df["pnl"])
+    print(f"=== {args.vehicle} ({vehicle.name}), lot {lot:g} {vehicle.unit}, cap {cap:g}x"
+          f"{', no bubble switch' if args.no_runup else ''}")  # fmt: skip
     print(f"sessions {n}, {df.index[0]} to {df.index[-1]}; forecast non-zero on {int((forecast != 0).sum())} "
           f"(short {int((forecast < 0).sum())}, long {int((forecast > 0).sum())})")  # fmt: skip
     print(f"continuous sizing: Sharpe {sharpe:.2f} (SE {math.sqrt((1 + sharpe**2 / 2) / (n / 252)):.2f}), "
           f"{ann:+.1%}/yr, vol {vol:.1%}, hit rate {(df['pnl'][forecast != 0] > 0).mean():.2f}")  # fmt: skip
-    gross = sum(pnl_lots)
+    gross, cost = sum(pnl_lots), sum(day_cost)
+    wanted = forecast != 0
+    holds = df["lots"] != 0
     print(f"whole lots on {EQUITY:,.0f} $: {gross:+,.0f} $ gross, {cost:,.0f} $ costs, {gross - cost:+,.0f} $ net "
           f"({(gross - cost) / EQUITY:+.1%}); {trades} trades, max {df['lots'].abs().max():.0f} lots")  # fmt: skip
+    kept = (holds & wanted).sum() / max(1, int(wanted.sum()))
+    print(f"ACTIVITY: a position on {holds.mean():.0%} of sessions ({int(holds.sum())} of {len(df)}); on the "
+          f"{int(wanted.sum())} days the rule wanted one, it held on {kept:.0%}")  # fmt: skip
+    sh_after, ann_after, _, n_after = _stats(df["net"])
+    half = len(df) // 2
+    print(f"AFTER COSTS at whole lots: Sharpe {sh_after:+.2f} "
+          f"(SE {math.sqrt((1 + sh_after**2 / 2) / (n_after / 252)):.2f}), {ann_after:+.1%}/yr; "
+          f"halves {_stats(df['net'].iloc[:half])[0]:+.2f} / {_stats(df['net'].iloc[half:])[0]:+.2f}")  # fmt: skip
     print(f"mean |weekly change| {df['change'].abs().mean() * 100:.2f} points (median "
           f"{df['change'].abs().median() * 100:.2f}); mean |F| {forecast.abs().mean():.2f}; |F| = 20 on "
           f"{(forecast.abs() >= 20).mean():.0%} of sessions")  # fmt: skip

@@ -269,7 +269,9 @@ def test_the_books_on_file_are_the_registered_ones_and_stay_out_of_the_replay():
     # bonds and gold measured a negative after-cost Sharpe (chapter 11 E): they do not start
     assert "oracle_bonds" not in books and "oracle_gold" not in books
     # the oil book is unchanged: the de-escalation sleeve as it is
-    assert books["oracle"].sleeves == {"deescalation": 1.0} and books["oracle"].vehicle == "MCL"
+    # phase 21 (chapter 16): same rule, the fund instead of the future, because one contract was 0.9x of
+    # the account and the book took eight decisions without ever being able to hold a position
+    assert books["oracle"].sleeves == {"deescalation": 1.0} and books["oracle"].vehicle == "BNO"
     # none of the three is replayed: no backtest, no fingerprint, no attribution row
     cfgs = replayed_books(list(books.values()))
     assert {b.id for b in cfgs} & {"oracle", "oracle_equities", "oracle_utilities"} == set()

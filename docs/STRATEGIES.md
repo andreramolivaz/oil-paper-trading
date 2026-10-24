@@ -192,8 +192,13 @@ capitolo 9 F, con i casi pubblici e le soglie dichiarate prima di accenderla).
 
 Il proprietario ha chiesto «una strategia basata su Kalshi a leva, altamente speculativa». Un contratto Kalshi
 paga 1 $ se l'evento accade e costa la sua probabilità: non si compra a margine e il desk non ha un broker di
-carta per i contratti a evento. La leva, quindi, sta sul petrolio - il future micro WTI (/MCL), l'unico
-strumento a leva del desk - e Kalshi dà la **direzione**. Tutto è scritto in `docs/RESEARCH.md`, capitolo 10,
+carta per i contratti a evento. La leva, quindi, sta sul petrolio e Kalshi dà la **direzione**. Fino al 24 ottobre
+lo strumento era il future micro WTI (/MCL); dal 24 ottobre è il fondo Brent (BNO, corto comprando SCO), per
+la ragione misurata nel capitolo 16: su /MCL il libro ha preso otto decisioni e **nessuna posizione**, perché
+un contratto vale circa 0,9x di un conto da 10 000 $ mentre la regola, con l'interruttore della bolla, non può
+volere più di 1,39x nemmeno con il segnale al massimo. Nel regime di oggi il fondo tiene una posizione
+nell'85% delle sedute contro il 19% del future, con la stessa identica regola. Il tetto di leva è sceso da 10x
+a 2x (Regulation T su un fondo) e non ha mai morso. Tutto è scritto in `docs/RESEARCH.md`, capitolo 10,
 prima della prima decisione, perché non c'è una storia su cui provarlo: l'archivio giornaliero del desk
 (`state/desk/kalshi-*.jsonl`) È la storia, e il primo test sarà possibile fra un anno.
 

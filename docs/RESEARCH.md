@@ -2569,9 +2569,52 @@ com'è oggi su /MCL, a lotti interi, come linea di base; (c) /MCL a taglia conti
 dello strumento da quello del mercato; (d) senza il dimezzamento della bolla, per vedere quanto dell'inattività
 viene dall'allocatore e quanto dal lotto.
 
-### E. Risultati
+### E. Risultati (24 ottobre 2026, 21:10 UTC: scritti dopo la misura)
 
-*Da scrivere dopo la misura.*
+`scripts/research_oracle.py --vehicle BNO` sull'archivio del ramo `data` al commit 5bba6fb28 (letture dal vivo
+più candlestick ricostruiti), il codice di `main` a c961e23a9 (la registrazione sopra), **152 sedute** dal 18
+marzo al 23 ottobre, conto fisso da 10 000 $, lotti interi, con i costi del veicolo.
+
+| | Sharpe dopo costi | SE | taglia continua | giorni con posizione | **nel regime di oggi** |
+|---|---|---|---|---|---|
+| **BNO, il fondo Brent (registrato)** | **+0,65** | 1,41 | +0,79 | 89 % | **85 %** |
+| USO, il fondo WTI — vicino (a) | +0,43 | 1,34 | +0,63 | 89 % | 90 % |
+| /MCL, il libro di oggi — vicino (b) | +0,91 | 1,52 | +1,14 | 60 % | **19 %** |
+
+«Il regime di oggi» è la colonna che conta e va spiegata: l'interruttore della bolla si è acceso sul greggio
+l'8-10 settembre, quindi in 34 delle 153 sedute misurate il libro gira a metà rischio — ed è lo stato in cui si
+trova adesso e in cui resterà per un anno. In quello stato **il future tiene una posizione il 19 % dei giorni e
+il fondo l'85 %**, con la stessa identica regola e la stessa esposizione media voluta (0,37x contro 0,35x). È
+la prova diretta della diagnosi di A: non cambia il segnale, cambia solo che lo strumento sa contenerlo.
+
+**Le due condizioni di D passano**: Sharpe dopo costi +0,65 > 0, posizione nell'85 % dei giorni ≫ 20 %. Il libro
+si sposta sul fondo.
+
+Quello che la misura NON dice, e va scritto accanto al +0,65:
+
+- **Non è significativo.** L'errore standard è 1,41 su 0,60 anni di dati: l'intervallo contiene zero
+  abbondantemente, e nessuna delle tre righe si distingue dalle altre. La scelta fra loro non è una scelta di
+  rendimento, è una scelta di granularità — ed è quella che era registrata.
+- **Il /MCL misura meglio** (+0,91 contro +0,65; a taglia continua +1,14 contro +0,79, cioè il WTI ha pagato più
+  del Brent per questo segnale in questi sei mesi). Resta un vicino e non decide, come scritto in D: il numero
+  più alto appartiene a un libro che nel regime di oggi sta in contanti quattro giorni su cinque, e un libro in
+  contanti non produce il verdetto per cui esiste. Se fra un anno il Brent avrà pagato meno del WTI, questo
+  paragrafo è il posto dove andarlo a leggere.
+- **Luglio fa il risultato**, come per la misura del capitolo 10 H: +37 % del mese a taglia continua su +42 %
+  dell'anno. Senza luglio non resta quasi niente.
+- Il vicino (c), il future a taglia frazionaria, non è uno strumento che esista (una commissione di 1,27 $ per
+  contratto su migliaia di micro-lotti dà −10,3 di Sharpe): la colonna «taglia continua» è la sua versione
+  onesta, e dice +1,14.
+- Il vicino (d) non serve più: la tabella sopra separa già i due regimi dell'allocatore, ed è proprio lì che si
+  vede che l'inattività è per metà colpa dell'interruttore della bolla e per metà della taglia del contratto —
+  prima di settembre, a rischio pieno, il future teneva una posizione il 71 % dei giorni.
+
+**Che cosa viene fatto.** `config/books.yaml`: `vehicle: MCL` → `BNO`, `short_via: SCO`, `max_leverage` 10 → 2,
+`weekend_max_leverage` 3 → 1 (Regulation T su un fondo). Nient'altro. Il cambio è sicuro oggi perché il libro è
+piatto: cambiare veicolo a un libro che tiene una posizione lascerebbe un orfano sul veicolo vecchio, e questa
+regola — **si cambia veicolo solo a libro piatto** — va rispettata la prossima volta. Il libro non ha fill da
+perdere (zero in otto decisioni), quindi non c'è record dal vivo da azzerare: la sua vita continua, su uno
+strumento che sa eseguirla.
 
 ## Fonti
 
