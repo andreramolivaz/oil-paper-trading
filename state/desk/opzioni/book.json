@@ -1,0 +1,63 @@
+{
+  "account_id": "desk-opzioni",
+  "epoch": 1,
+  "initial_capital": 10000.0,
+  "cash": 10049.8,
+  "equity": 9999.8,
+  "realized_pnl": 0.0,
+  "fees": 0.2,
+  "structures": [
+    {
+      "id": "BNO-2026-11-20-57-55-2026-10-13",
+      "kind": "put_credit_spread",
+      "underlying": "BNO",
+      "expiry": "2026-11-20",
+      "opened_at": "2026-10-13T19:18:35.910445Z",
+      "opened_day": "2026-10-13",
+      "contracts": 2,
+      "short": {
+        "option": "BNO261120P00057000",
+        "right": "P",
+        "strike": 57.0,
+        "qty": -1,
+        "fill": 1.0125,
+        "bid": 0.95,
+        "ask": 1.2,
+        "delta": -0.1774,
+        "iv": 0.4929
+      },
+      "long": {
+        "option": "BNO261120P00055000",
+        "right": "P",
+        "strike": 55.0,
+        "qty": 1,
+        "fill": 0.7625,
+        "bid": 0.65,
+        "ask": 0.8,
+        "delta": -0.1305,
+        "iv": 0.5002
+      },
+      "width": 2.0,
+      "credit": 0.25,
+      "max_loss": 350.2,
+      "max_gain": 49.8,
+      "breakeven": 56.75,
+      "fees": 0.2,
+      "forecast": 6.51,
+      "underlying_at_entry": 64.875,
+      "mark": 0.25,
+      "marked_at": "2026-10-23T20:17:47Z",
+      "mark_stale": false,
+      "delta_notional": 322.98,
+      "rationale": "Previsione BNO 6,5 (soglia +5). Vendo 2 spread di put BNO 57/55 scadenza 2026-11-20 (38 giorni): incasso 0,25 $ per azione (a metà prezzo sarebbero 0,35), perdita massima 350 $, pareggio a 56,75 con il fondo a 64,88.",
+      "underlying_last": 70.83
+    }
+  ],
+  "last_decision_day": "2026-10-23",
+  "last_entry_day": "2026-10-13",
+  "n_closed": 0,
+  "n_wins": 0,
+  "status": "active",
+  "started_at": "2026-10-08T21:19:21.847468Z",
+  "epochs": []
+}

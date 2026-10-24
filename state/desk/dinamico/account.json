@@ -1,0 +1,75 @@
+{
+  "account_id": "desk-dinamico",
+  "epoch": 1,
+  "cash": 10017.625787121846,
+  "positions": {
+    "BNO": {
+      "instrument": "BNO",
+      "qty_bbl": 73.0,
+      "avg_price": 65.27214048712439,
+      "opened_ts": "2026-10-09T14:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 71.27999877929688,
+      "low_water": 63.33000183105469,
+      "strategies": [
+        "trend",
+        "carry",
+        "accel",
+        "skew",
+        "copper",
+        "carry_momentum"
+      ],
+      "last_price": 70.98999786376953,
+      "last_ts": "2026-10-23T22:18:19.937920Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10448.899553839598,
+  "day_start_equity": 10283.18979889575,
+  "day_start_date": "2026-10-23",
+  "last_mark_ts": "2026-10-23T22:18:19.937920Z",
+  "last_prices": {
+    "BNO": 70.98999786376953,
+    "SCO": 15.920000076293945
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-23T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "085828d35231a4be8dc67732c816458d583abf73",
+    "2e493239ea261f69e4b274227c1f6f106a3596d0",
+    "45d826a51acc913695518b617b50a84ad8eab152",
+    "67a19752ff686874d6bcb8fb086ed3f6919fabe4",
+    "77f0eb3cd93380d65471e8c971b43dbd7427cbc4",
+    "8df4f3365815f36f8de4d0f8aa71ecaf656ebf01",
+    "90a3c56074adb9a004e44f0d7de8c8aade2654c5",
+    "dbe4fd960678fa38047b85c0a5d3d6b9ab1b1165"
+  ],
+  "n_fills": 8,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-08T21:19:21.847468Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 10000.0,
+  "epoch_n_fills": 8,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 17.625787121845406,
+  "total_commission": 0.0,
+  "total_slippage_usd": 2.1104978876985356,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "BNO": 73.0
+  },
+  "distributions_seen": {},
+  "last_equity": 10435.029375616941,
+  "last_bar_ts": {
+    "BNO|30m": "2026-10-23T20:30:00Z",
+    "SCO|30m": "2026-10-23T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

@@ -1,0 +1,23 @@
+[
+  {
+    "instrument": "CLZ26",
+    "qty_bbl": 100.0,
+    "avg_price": 98.99508318101478,
+    "opened_ts": "2026-10-16T19:30:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 103.91999816894531,
+    "low_water": 95.25,
+    "strategies": [
+      "trend",
+      "accel",
+      "skew",
+      "carry",
+      "carry_momentum",
+      "copper"
+    ],
+    "last_price": 103.44000244140625,
+    "last_ts": "2026-10-23T22:18:19.937920Z"
+  }
+]

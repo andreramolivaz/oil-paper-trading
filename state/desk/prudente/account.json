@@ -1,0 +1,73 @@
+{
+  "account_id": "desk-prudente",
+  "epoch": 1,
+  "cash": 10009.540969133484,
+  "positions": {
+    "BNO": {
+      "instrument": "BNO",
+      "qty_bbl": 35.0,
+      "avg_price": 65.2847800732341,
+      "opened_ts": "2026-10-09T14:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 71.27999877929688,
+      "low_water": 63.33000183105469,
+      "strategies": [
+        "trend",
+        "carry",
+        "accel",
+        "skew",
+        "copper",
+        "carry_momentum"
+      ],
+      "last_price": 70.98999786376953,
+      "last_ts": "2026-10-23T22:18:19.937920Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10215.873677251444,
+  "day_start_equity": 10136.42379474412,
+  "day_start_date": "2026-10-23",
+  "last_mark_ts": "2026-10-23T22:18:19.937920Z",
+  "last_prices": {
+    "BNO": 70.98999786376953
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-23T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "05c49f9690893cf8e0bc89a8b34977003a5990f8",
+    "18be53538355241f3390c9c32d987567f9c3b34a",
+    "2f90f22ff0666c317de32029fb0230bfe27394a4",
+    "34b207485d2e25ea9ffcaa3a33ad0ef422ebb1cb",
+    "6f888cdbdf73a5734db17c8b5117335287da4822",
+    "af20bf90b1b305fcf6f751dd7dafa49ee422e158",
+    "f8302db37b2722652fdbcb4eca05018a4be6ccbe",
+    "fdc3e340f8b9511951875c52870837af8774f6dc"
+  ],
+  "n_fills": 8,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-08T21:19:21.847468Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 10000.0,
+  "epoch_n_fills": 8,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 9.540969133483827,
+  "total_commission": 0.0,
+  "total_slippage_usd": 1.0363454841529296,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "BNO": 35.0
+  },
+  "distributions_seen": {},
+  "last_equity": 10209.223591802225,
+  "last_bar_ts": {
+    "BNO|30m": "2026-10-23T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}
