@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-31T12:12:36.410242Z",
+  "checked_at": "2026-10-31T17:39:00.980331Z",
   "sources": [
     {
       "source": "bab_el_mandeb",
@@ -367,13 +367,13 @@
     {
       "source": "kalshi",
       "status": "green",
-      "checked_at": "2026-10-31T12:12:36.410242Z",
-      "last_success_at": "2026-10-31T12:12:53.486258Z",
-      "data_asof": "2026-10-31T12:12:36.413853Z",
-      "latency_ms": 17076,
+      "checked_at": "2026-10-31T17:39:00.980331Z",
+      "last_success_at": "2026-10-31T17:39:18.073377Z",
+      "data_asof": "2026-10-31T17:39:00.984137Z",
+      "latency_ms": 17093,
       "message": "adapter kalshi",
       "fallback_used": null,
-      "rows": 322
+      "rows": 332
     },
     {
       "source": "lit_daily",

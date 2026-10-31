@@ -1,9 +1,9 @@
 {
-  "last_reading": "2026-10-31T12:12:53.486258Z",
-  "judged_at": "2026-10-31T12:12:53.701851Z",
-  "markets": 322,
+  "last_reading": "2026-10-31T17:39:18.073377Z",
+  "judged_at": "2026-10-31T17:39:18.302419Z",
+  "markets": 332,
   "baselines": 216,
   "flagged": [
-    "KXUSIRANMEETING-27"
+    "KXHORMUZWEEKLY-26NOV01"
   ]
 }
