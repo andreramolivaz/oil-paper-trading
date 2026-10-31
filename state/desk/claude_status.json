@@ -1,0 +1,9 @@
+{
+  "checked_at": "2026-10-30T22:18:01.568708Z",
+  "key_set": true,
+  "readers": true,
+  "step": {
+    "status": "not due",
+    "why": "today's reading is on file"
+  }
+}

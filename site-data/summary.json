@@ -1,0 +1,840 @@
+{
+  "generated_at": "2026-10-31T10:21:12.828919Z",
+  "brent": {
+    "value": 117.63999938964844,
+    "asof": "2026-10-30",
+    "source": "yahoo",
+    "change_1d": 0.024025088807602346,
+    "ovx": {
+      "value": 57.16,
+      "asof": "2026-10-29",
+      "source": "fred"
+    },
+    "spot": {
+      "value": 123.1,
+      "asof": "2026-10-27",
+      "source": "eia"
+    }
+  },
+  "regime": {
+    "label": "Squeeze rialzista",
+    "confidence": 0.9910641750626683,
+    "probabilities": {
+      "Shock/crash": 0.003233978798216632,
+      "Backwardation + vol alta + rischio geopolitico": 0.0,
+      "Squeeze rialzista": 0.9910641750626683,
+      "Contango + eccesso d'offerta + trend ribassista": 5.812814675169007e-15,
+      "Range a bassa volatilità": 0.005701846139109374
+    },
+    "change_point_prob": 0.010564799389033604,
+    "asof": "2026-10-30T19:30:00Z",
+    "source": "engine/regime (HMM walk-forward + BOCPD)",
+    "approx": true
+  },
+  "data_status": {
+    "overall": "yellow",
+    "checked_at": "2026-10-31T09:54:27.904095Z",
+    "sources": [
+      {
+        "source": "bab_el_mandeb",
+        "status": "red",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-26T22:18:53.374504Z",
+        "data_asof": null,
+        "latency_ms": null,
+        "message": "portwatch: DataUnavailable: portwatch Bab el-Mandeb Strait: {'error': {'code': 400, 'message': 'Cannot perform query. Invalid query parameters.', 'details': ['Unable to perform query. Please check your parameters.']}}",
+        "fallback_used": null,
+        "rows": 0
+      },
+      {
+        "source": "bno_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:57:17.313068Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 1285,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 4130
+      },
+      {
+        "source": "bno_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:01.791619Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 115,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "bno_options",
+        "status": "green",
+        "checked_at": "2026-10-30T20:18:02.236069Z",
+        "last_success_at": "2026-10-30T20:18:20.655966Z",
+        "data_asof": "2026-10-30T19:58:43Z",
+        "latency_ms": 321,
+        "message": "adapter cboe",
+        "fallback_used": null,
+        "rows": 770
+      },
+      {
+        "source": "breakeven10y",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:26.544063Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 388,
+        "message": "adapter fred",
+        "fallback_used": null,
+        "rows": 5962
+      },
+      {
+        "source": "brent_curve",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:55:25.143017Z",
+        "data_asof": "2026-10-30T23:00:00Z",
+        "latency_ms": 43151,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 19
+      },
+      {
+        "source": "brent_front",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:54:31.177187Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 1300,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 4794
+      },
+      {
+        "source": "brent_intraday_1h",
+        "status": "yellow",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:15.720854Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 135,
+        "message": "adapter yahoo | [warning] close (ret): variazione anomala: z robusto 6.6 (soglia 6)",
+        "fallback_used": null,
+        "rows": 1392
+      },
+      {
+        "source": "brent_spot",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:54:29.009795Z",
+        "data_asof": "2026-10-27T00:00:00Z",
+        "latency_ms": 1109,
+        "message": "adapter eia",
+        "fallback_used": null,
+        "rows": 10008
+      },
+      {
+        "source": "bz_contracts",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:04.097194Z",
+        "data_asof": "2026-10-30T23:00:00Z",
+        "latency_ms": 20330,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 31157
+      },
+      {
+        "source": "bz_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:07.733352Z",
+        "data_asof": "2026-10-30T21:00:00Z",
+        "latency_ms": 2384,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 427
+      },
+      {
+        "source": "cl_contracts",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:57:43.712440Z",
+        "data_asof": "2026-10-30T23:00:00Z",
+        "latency_ms": 20378,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 36303
+      },
+      {
+        "source": "cl_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:05.342821Z",
+        "data_asof": "2026-10-30T21:00:00Z",
+        "latency_ms": 2403,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 804
+      },
+      {
+        "source": "copper",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:25.743023Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 3582,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 6572
+      },
+      {
+        "source": "copper_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:07.719561Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 3584,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 6572
+      },
+      {
+        "source": "cot_brent",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:54.228219Z",
+        "data_asof": "2026-10-27T00:00:00Z",
+        "latency_ms": 7566,
+        "message": "adapter ice_cot",
+        "fallback_used": null,
+        "rows": 826
+      },
+      {
+        "source": "cot_gasoil",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:57:02.208769Z",
+        "data_asof": "2026-10-27T00:00:00Z",
+        "latency_ms": 7974,
+        "message": "adapter ice_cot",
+        "fallback_used": null,
+        "rows": 826
+      },
+      {
+        "source": "cot_wti",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:46.654132Z",
+        "data_asof": "2026-10-27T00:00:00Z",
+        "latency_ms": 565,
+        "message": "adapter cftc_socrata",
+        "fallback_used": null,
+        "rows": 1064
+      },
+      {
+        "source": "cper_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:19.717358Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 2408,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 3761
+      },
+      {
+        "source": "cper_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:10.133169Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1189,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "dba_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:22.162434Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 2432,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 4987
+      },
+      {
+        "source": "dba_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:11.331590Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1193,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "dxy",
+        "status": "yellow",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:17.243172Z",
+        "data_asof": "2026-10-23T00:00:00Z",
+        "latency_ms": 685,
+        "message": "adapter fred | [warning] index: ultimo dato 2026-10-23 (201.9 h, limite 144.0 h) | [warning] value (ret): variazione anomala: z robusto 7.6 (soglia 6)",
+        "fallback_used": null,
+        "rows": 5217
+      },
+      {
+        "source": "dxy_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:13.725741Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 5989,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 11933
+      },
+      {
+        "source": "gdelt_events",
+        "status": "red",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-29T19:50:20.641418Z",
+        "data_asof": null,
+        "latency_ms": null,
+        "message": "gdelt_files: DataUnavailable: GET https://data.gdeltproject.org/gdeltv2/20261031100000.export.CSV.zip failed after 3 attempts: 404 Client Error: Not Found for url: https://data.gdeltproject.org/gdeltv2/20261031100000.export.CSV.zip; gdelt_doc_api: DataUnavailable: GDELT DOC API (timelinevol): no 'timeline' array in the reply",
+        "fallback_used": null,
+        "rows": 0
+      },
+      {
+        "source": "gld_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:17.293540Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 3546,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 5522
+      },
+      {
+        "source": "gld_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:08.939168Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1200,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "gpr",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:57:16.003620Z",
+        "data_asof": "2026-10-26T00:00:00Z",
+        "latency_ms": 629,
+        "message": "adapter gpr",
+        "fallback_used": null,
+        "rows": 15274
+      },
+      {
+        "source": "ho_front",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:54:41.975552Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 3595,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 6570
+      },
+      {
+        "source": "hormuz",
+        "status": "red",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-26T22:18:40.703583Z",
+        "data_asof": null,
+        "latency_ms": null,
+        "message": "portwatch: DataUnavailable: portwatch Strait of Hormuz: {'error': {'code': 400, 'message': 'Cannot perform query. Invalid query parameters.', 'details': ['Unable to perform query. Please check your parameters.']}}",
+        "fallback_used": null,
+        "rows": 0
+      },
+      {
+        "source": "icln_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:44.962619Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 2408,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 4617
+      },
+      {
+        "source": "icln_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:19.734018Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1192,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "insider_form4",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:59:42.715822Z",
+        "data_asof": "2026-10-23T00:00:00Z",
+        "latency_ms": 16909,
+        "message": "adapter insider_form4 (approx)",
+        "fallback_used": null,
+        "rows": 9992
+      },
+      {
+        "source": "kalshi",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:59:25.799995Z",
+        "data_asof": "2026-10-31T09:59:08.757530Z",
+        "latency_ms": 17046,
+        "message": "adapter kalshi",
+        "fallback_used": null,
+        "rows": 322
+      },
+      {
+        "source": "lit_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:38.942405Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 2373,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 4094
+      },
+      {
+        "source": "lit_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:17.333339Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1191,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "ovx",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:16.071252Z",
+        "data_asof": "2026-10-29T00:00:00Z",
+        "latency_ms": 340,
+        "message": "adapter fred",
+        "fallback_used": null,
+        "rows": 4902
+      },
+      {
+        "source": "rbob_front",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:54:38.363715Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 3587,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 6531
+      },
+      {
+        "source": "rig_count",
+        "status": "red",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-06T22:49:19.465358Z",
+        "data_asof": null,
+        "latency_ms": null,
+        "message": "baker_hughes: DataUnavailable: Baker Hughes page https://rigcount.bakerhughes.com/na-rig-count: GET https://rigcount.bakerhughes.com/na-rig-count failed after 3 attempts: 403 Client Error: Forbidden for url: https://rigcount.bakerhughes.com/na-rig-count",
+        "fallback_used": null,
+        "rows": 0
+      },
+      {
+        "source": "sco_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:57:23.318753Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 2421,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 4510
+      },
+      {
+        "source": "sco_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:02.934149Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1129,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "smh_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:42.537403Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 3581,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 6642
+      },
+      {
+        "source": "smh_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:18.536265Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1198,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "spx",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:22.135004Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 4878,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 11804
+      },
+      {
+        "source": "spy_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:30.529688Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 4784,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 8497
+      },
+      {
+        "source": "spy_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:13.727785Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1185,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "steo_brent",
+        "status": "yellow",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:39.570729Z",
+        "data_asof": "2027-12-01T00:00:00Z",
+        "latency_ms": 261,
+        "message": "adapter eia | [warning] value (ret): variazione anomala: z robusto 8.0 (soglia 6)",
+        "fallback_used": null,
+        "rows": 456
+      },
+      {
+        "source": "tlt_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:25.730285Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 3553,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 6104
+      },
+      {
+        "source": "tlt_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:12.537907Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1200,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "ura_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:32.931952Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 2382,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 4020
+      },
+      {
+        "source": "ura_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:14.939618Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1206,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      },
+      {
+        "source": "us10y",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:26.138225Z",
+        "data_asof": "2026-10-29T00:00:00Z",
+        "latency_ms": 380,
+        "message": "adapter fred",
+        "fallback_used": null,
+        "rows": 11708
+      },
+      {
+        "source": "uso_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:57:20.882322Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 3555,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 5173
+      },
+      {
+        "source": "uso_options",
+        "status": "green",
+        "checked_at": "2026-10-30T20:18:02.236069Z",
+        "last_success_at": "2026-10-30T20:18:21.753041Z",
+        "data_asof": "2026-10-30T20:17:19Z",
+        "latency_ms": 1092,
+        "message": "adapter cboe",
+        "fallback_used": null,
+        "rows": 2096
+      },
+      {
+        "source": "vix",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:16.540472Z",
+        "data_asof": "2026-10-29T00:00:00Z",
+        "latency_ms": 454,
+        "message": "adapter fred",
+        "fallback_used": null,
+        "rows": 9306
+      },
+      {
+        "source": "wpsr",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:39.558065Z",
+        "data_asof": "2026-10-23T00:00:00Z",
+        "latency_ms": 13002,
+        "message": "adapter eia",
+        "fallback_used": null,
+        "rows": 2300
+      },
+      {
+        "source": "wti_curve",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:55:39.545898Z",
+        "data_asof": "2026-10-30T23:00:00Z",
+        "latency_ms": 14397,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 12
+      },
+      {
+        "source": "wti_curve_hist",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:56:15.559194Z",
+        "data_asof": "2024-04-05T00:00:00Z",
+        "latency_ms": 36017,
+        "message": "adapter eia (approx)",
+        "fallback_used": null,
+        "rows": 10310
+      },
+      {
+        "source": "wti_front",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:54:34.760291Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 3568,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 6576
+      },
+      {
+        "source": "wti_spot",
+        "status": "yellow",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:54:29.860212Z",
+        "data_asof": "2026-10-27T00:00:00Z",
+        "latency_ms": 812,
+        "message": "adapter eia | [warning] value (ret): variazione anomala: z robusto 6.3 (soglia 6)",
+        "fallback_used": null,
+        "rows": 10281
+      },
+      {
+        "source": "xlu_daily",
+        "status": "green",
+        "checked_at": "2026-10-31T09:54:27.904095Z",
+        "last_success_at": "2026-10-31T09:58:36.550810Z",
+        "data_asof": "2026-10-30T00:00:00Z",
+        "latency_ms": 3605,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 7007
+      },
+      {
+        "source": "xlu_intraday",
+        "status": "green",
+        "checked_at": "2026-10-30T22:18:01.676215Z",
+        "last_success_at": "2026-10-30T22:18:16.137150Z",
+        "data_asof": "2026-10-30T20:00:00Z",
+        "latency_ms": 1192,
+        "message": "adapter yahoo",
+        "fallback_used": null,
+        "rows": 131
+      }
+    ]
+  },
+  "account": {
+    "epoch": 2,
+    "status": "active",
+    "dead": false,
+    "initial_capital": 10000.0,
+    "equity": 10000.0,
+    "cash": 10000.0,
+    "pnl_day": 0.0,
+    "pnl_total": 0.0,
+    "pnl_total_pct": 0.0,
+    "drawdown": 0.0,
+    "peak_equity": 10000.0,
+    "margin_used": 0.0,
+    "margin_level": null,
+    "gross_notional": 0.0,
+    "net_notional": 0.0,
+    "liquidation_price": null,
+    "leverage": {
+      "value": 0.0,
+      "limited_by": "nessun segnale netto: nessuna esposizione",
+      "components": {
+        "kelly": 0.0,
+        "vol": 0.9028,
+        "drawdown": 10.0,
+        "event": 10.0,
+        "cap": 10.0,
+        "default": 1.0
+      }
+    },
+    "gate": {
+      "passed": false,
+      "reason": "Gate non superato (nessuna direzione netta tra i segnali; 0 famiglie poco correlate d'accordo (nessuna), ne servono 3; correlazioni non ancora stimabili; regime «Squeeze rialzista» con confidenza 99% (soglia 70%); nessuna statistica out-of-sample disponibile per le strategie d'accordo).",
+      "conditions": {
+        "ensemble_prob": {
+          "ok": false,
+          "value": 0.5,
+          "threshold": 0.62,
+          "detail": "nessuna direzione netta tra i segnali"
+        },
+        "families_agree": {
+          "ok": false,
+          "value": 0,
+          "threshold": 3,
+          "detail": "0 famiglie poco correlate d'accordo (nessuna), ne servono 3; correlazioni non ancora stimabili"
+        },
+        "regime_quality": {
+          "ok": false,
+          "value": {
+            "regime_confidence": 0.991,
+            "min_psr": null
+          },
+          "threshold": {
+            "regime_confidence": 0.7,
+            "min_psr": 0.9
+          },
+          "detail": "regime «Squeeze rialzista» con confidenza 99% (soglia 70%); nessuna statistica out-of-sample disponibile per le strategie d'accordo"
+        },
+        "physical_confirmation": {
+          "ok": true,
+          "value": true,
+          "threshold": true,
+          "detail": "non richiesta (nessun picco geopolitico o posizione non long)"
+        },
+        "no_binary_event": {
+          "ok": true,
+          "value": 39.5,
+          "threshold": 24.0,
+          "detail": "prossimo evento binario «Riunione OPEC+ (8 paesi, mensile)» tra 39.5 h"
+        },
+        "data_fresh": {
+          "ok": false,
+          "value": {
+            "health": "yellow",
+            "age_minutes": 3.3
+          },
+          "threshold": {
+            "health": "green",
+            "age_minutes": 90.0
+          },
+          "detail": "stato dati «yellow», ultimo aggiornamento 3 min fa"
+        },
+        "drawdown_ok": {
+          "ok": true,
+          "value": 0.0,
+          "threshold": 0.1,
+          "detail": "drawdown 0.0% contro il limite 10%"
+        }
+      },
+      "families_agreeing": [],
+      "ensemble_prob": 0.5
+    },
+    "positions": [],
+    "asof": "2026-10-08T19:52:28.099486Z"
+  },
+  "portfolio": {
+    "n_strategies": 19,
+    "n_active": 0,
+    "lifecycle_counts": {
+      "incubation": 19
+    },
+    "master_flat_by_design": true,
+    "explanation": "Nessuna delle 19 strategie ha superato la validazione out-of-sample: tutte hanno peso zero e girano solo sul conto ombra. Il master resta quindi fermo, in contanti, e la leva resta a 1x o meno. È il comportamento voluto, non un errore: una strategia entra nel portafoglio solo con DSR, PBO e Sharpe out-of-sample al netto del doppio dei costi in regola.",
+    "source": "engine/validation (ciclo di vita delle strategie)",
+    "asof": "2026-10-31T10:13:08.958666Z"
+  },
+  "last_run": {
+    "job": "weekly",
+    "ts": "2026-10-31T10:13:08.967435Z",
+    "status": "ok",
+    "message": "aggiornamento settimanale completato",
+    "cron_lag_minutes": 692.5646518833333
+  },
+  "reset": {
+    "workflow_url": "https://github.com/andreramolivaz/oil-paper-trading/actions/workflows/reset.yml",
+    "dispatch_api": "https://api.github.com/repos/andreramolivaz/oil-paper-trading/actions/workflows/reset.yml/dispatches",
+    "confirm_text": "RESET"
+  },
+  "disclaimer": "Simulazione a scopo di studio su dati reali. Nessun consiglio finanziario, nessun ordine reale, nessun broker collegato."
+}

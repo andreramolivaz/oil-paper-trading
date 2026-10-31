@@ -1,0 +1,49 @@
+{
+  "account_id": "desk-oracle_utilities",
+  "epoch": 1,
+  "cash": 10108.41537205437,
+  "positions": {},
+  "status": "active",
+  "peak_equity": 10138.408584421282,
+  "day_start_equity": 10108.41537205437,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "XLU": 43.43000030517578
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "22c4ad5a559b19497dd4888cb1cb69137a031631",
+    "3be7da854d257287467507b2c80af47203055fb5",
+    "5d486ccb75e2e73f30f2d3a0c06cf879658272b6",
+    "8d3604a74d01d2265bf0648d5010077eb5b66f4e",
+    "c4be2130d949edffedad5cbbcdffebfc7c7d1e57",
+    "e63b08bdf746020c4c19277f5f89b4a4e511a48e"
+  ],
+  "n_fills": 6,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-16T01:29:05.481713Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9848.55446977766,
+  "epoch_n_fills": 6,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 111.01095993156048,
+  "total_commission": 0.0,
+  "total_slippage_usd": 7.806308440022872,
+  "total_financing": 2.59558787718887,
+  "total_distributions": 0.0,
+  "day_start_positions": {},
+  "distributions_seen": {
+    "XLU": "2026-10-30"
+  },
+  "last_equity": 10108.41537205437,
+  "last_bar_ts": {
+    "XLU|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

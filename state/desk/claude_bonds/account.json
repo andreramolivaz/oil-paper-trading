@@ -1,0 +1,64 @@
+{
+  "account_id": "desk-claude_bonds",
+  "epoch": 1,
+  "cash": 10000.0,
+  "positions": {
+    "TLT": {
+      "instrument": "TLT",
+      "qty_bbl": 7.0,
+      "avg_price": 81.5732753665188,
+      "opened_ts": "2026-10-30T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 81.87999725341797,
+      "low_water": 81.5250015258789,
+      "strategies": [
+        "oil",
+        "gold",
+        "equities",
+        "bonds"
+      ],
+      "last_price": 81.83999633789062,
+      "last_ts": "2026-10-30T22:18:36.780822Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10001.937061753217,
+  "day_start_equity": 10000.0,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "TLT": 81.83999633789062
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "7c583ba9b828bbbea94e241f57c0652562d92c73"
+  ],
+  "n_fills": 1,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-16T10:25:02.268421Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 10000.0,
+  "epoch_n_fills": 1,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.05791047578783454,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {},
+  "distributions_seen": {
+    "TLT": "2026-10-30"
+  },
+  "last_equity": 10001.867046799603,
+  "last_bar_ts": {
+    "TLT|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

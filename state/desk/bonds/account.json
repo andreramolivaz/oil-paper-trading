@@ -1,0 +1,68 @@
+{
+  "account_id": "desk-bonds",
+  "epoch": 1,
+  "cash": 10000.0,
+  "positions": {
+    "TLT": {
+      "instrument": "TLT",
+      "qty_bbl": 30.0,
+      "avg_price": 81.50654010043526,
+      "opened_ts": "2026-10-26T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 82.02999877929688,
+      "low_water": 80.7300033569336,
+      "strategies": [
+        "accel",
+        "skew"
+      ],
+      "last_price": 81.83999633789062,
+      "last_ts": "2026-10-30T22:18:36.780822Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10010.303751210575,
+  "day_start_equity": 10000.00329801582,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "TLT": 81.83999633789062
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "2a24d5dc42d63d48d07d574cb7f6c41281d474cd",
+    "3c22744e96b7b2cf523af4e4fb85795b4768b77e",
+    "80470ee3a1893199f6858a42acd0e459cdf64c0d",
+    "9a6d7d268049212a5e98bef56eac27291be1c003",
+    "f3cd382834bfd57c9a910585d2048cfa3947b9f6"
+  ],
+  "n_fills": 5,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-14T01:22:57.606296Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9987.459146242993,
+  "epoch_n_fills": 5,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.24768616735433904,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "TLT": 24.0
+  },
+  "distributions_seen": {
+    "TLT": "2026-10-30"
+  },
+  "last_equity": 10010.00368712366,
+  "last_bar_ts": {
+    "TLT|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

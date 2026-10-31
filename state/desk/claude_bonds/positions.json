@@ -1,0 +1,21 @@
+[
+  {
+    "instrument": "TLT",
+    "qty_bbl": 7.0,
+    "avg_price": 81.5732753665188,
+    "opened_ts": "2026-10-30T20:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 81.87999725341797,
+    "low_water": 81.5250015258789,
+    "strategies": [
+      "oil",
+      "gold",
+      "equities",
+      "bonds"
+    ],
+    "last_price": 81.83999633789062,
+    "last_ts": "2026-10-30T22:18:36.780822Z"
+  }
+]

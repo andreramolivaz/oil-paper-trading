@@ -1,0 +1,64 @@
+{
+  "account_id": "desk-claude_equities",
+  "epoch": 1,
+  "cash": 10000.0,
+  "positions": {
+    "SPY": {
+      "instrument": "SPY",
+      "qty_bbl": 6.0,
+      "avg_price": 770.8959907791346,
+      "opened_ts": "2026-10-28T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 772.5499877929688,
+      "low_water": 750.530029296875,
+      "strategies": [
+        "gold",
+        "equities"
+      ],
+      "last_price": 755.719970703125,
+      "last_ts": "2026-10-30T22:18:36.780822Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10008.723908840817,
+  "day_start_equity": 9990.783967434567,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "SPY": 755.719970703125
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "aa459919be2ac0f3f26dd90889c9514be479b6af"
+  ],
+  "n_fills": 1,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-16T10:25:02.268421Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9882.63418716113,
+  "epoch_n_fills": 1,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.5159593232454214,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "SPY": 6.0
+  },
+  "distributions_seen": {
+    "SPY": "2026-10-30"
+  },
+  "last_equity": 9908.943879543942,
+  "last_bar_ts": {
+    "SPY|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

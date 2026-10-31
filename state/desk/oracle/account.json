@@ -1,0 +1,67 @@
+{
+  "account_id": "desk-oracle",
+  "epoch": 1,
+  "cash": 9970.226633556067,
+  "positions": {
+    "SCO": {
+      "instrument": "SCO",
+      "qty_bbl": 136.0,
+      "avg_price": 15.597072176848208,
+      "opened_ts": "2026-10-30T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 15.649999618530273,
+      "low_water": 15.569999694824219,
+      "strategies": [
+        "deescalation"
+      ],
+      "last_price": 15.649999618530273,
+      "last_ts": "2026-10-30T22:18:36.780822Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10017.233127869069,
+  "day_start_equity": 9970.226633556067,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "CLZ26": 103.44000244140625,
+    "BNO": 71.38999938964844,
+    "SCO": 15.649999618530273
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "3f1ce11debb9761584ba453309d81bc3506b8827",
+    "50ef52ce46ac4a48dbdc40d6a84535c77c2a1b61",
+    "a75d9ec858f79e4c38edbc1ce476296aa19f657c",
+    "be778a574f58b57410af9c9a83170c0af0fee7aa",
+    "cdc7fc47dd377d996901bae9f8966b708805185e"
+  ],
+  "n_fills": 5,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-15T05:13:31.764297Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9892.835874390339,
+  "epoch_n_fills": 5,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": -29.773366443932048,
+  "total_commission": 0.0,
+  "total_slippage_usd": 4.071434936694962,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {},
+  "distributions_seen": {},
+  "last_equity": 9977.424765624828,
+  "last_bar_ts": {
+    "CLZ26|30m": "2026-10-23T21:00:00Z",
+    "BNO|30m": "2026-10-30T20:30:00Z",
+    "SCO|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

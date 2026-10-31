@@ -1,0 +1,64 @@
+{
+  "account_id": "desk-claude_gold",
+  "epoch": 1,
+  "cash": 9987.3368003571,
+  "positions": {
+    "GLD": {
+      "instrument": "GLD",
+      "qty_bbl": 3.0,
+      "avg_price": 355.21645802089574,
+      "opened_ts": "2026-10-30T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 356.1000061035156,
+      "low_water": 354.6700134277344,
+      "strategies": [
+        "oil",
+        "gold",
+        "equities",
+        "bonds"
+      ],
+      "last_price": 355.7799987792969,
+      "last_ts": "2026-10-30T22:18:36.780822Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10004.055273293703,
+  "day_start_equity": 9987.3368003571,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "GLD": 355.7799987792969
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "023d2e4aa650ab8047ee531eebb28ee9450855f7",
+    "24c4391316faf826e890ca20225295c10edec9ea",
+    "9052f1d48866bc73dc7351e34f57d01887f9d238"
+  ],
+  "n_fills": 3,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-16T10:25:02.268421Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9984.525243996828,
+  "epoch_n_fills": 3,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": -12.66319964290011,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.33762863722813635,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {},
+  "distributions_seen": {},
+  "last_equity": 9989.027422632304,
+  "last_bar_ts": {
+    "GLD|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

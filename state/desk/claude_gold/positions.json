@@ -1,0 +1,21 @@
+[
+  {
+    "instrument": "GLD",
+    "qty_bbl": 3.0,
+    "avg_price": 355.21645802089574,
+    "opened_ts": "2026-10-30T20:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 356.1000061035156,
+    "low_water": 354.6700134277344,
+    "strategies": [
+      "oil",
+      "gold",
+      "equities",
+      "bonds"
+    ],
+    "last_price": 355.7799987792969,
+    "last_ts": "2026-10-30T22:18:36.780822Z"
+  }
+]

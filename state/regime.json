@@ -1,0 +1,131 @@
+{
+  "generated_at": "2026-10-30T19:53:58.870866Z",
+  "current": {
+    "ts": "2026-10-30T19:30:00Z",
+    "regime_id": 15,
+    "label": "Squeeze rialzista",
+    "confidence": 0.9910641750626683,
+    "probabilities": {
+      "Shock/crash": 0.003233978798216632,
+      "Backwardation + vol alta + rischio geopolitico": 0.0,
+      "Squeeze rialzista": 0.9910641750626683,
+      "Contango + eccesso d'offerta + trend ribassista": 5.812814675169007e-15,
+      "Range a bassa volatilità": 0.005701846139109374
+    },
+    "change_point_prob": 0.010564799389033604,
+    "features_used": [
+      "ret_21",
+      "rv_yz_21",
+      "slope_m1_m6",
+      "vrp",
+      "tsmom_63",
+      "geo_index",
+      "crude_stocks_vs_5y"
+    ],
+    "model": "hmm5-wf-2026-08-24",
+    "approx": true
+  },
+  "history": [
+    {
+      "ts": "2026-10-05T18:30:00Z",
+      "label": "Squeeze rialzista",
+      "confidence": 0.583876122734104
+    },
+    {
+      "ts": "2026-10-05T18:30:00Z",
+      "label": "Squeeze rialzista",
+      "confidence": 0.583876122734104
+    },
+    {
+      "ts": "2026-10-06T18:30:00Z",
+      "label": "Contango + eccesso d'offerta + trend ribassista",
+      "confidence": 0.9996635606814417
+    },
+    {
+      "ts": "2026-10-08T18:30:00Z",
+      "label": "Contango + eccesso d'offerta + trend ribassista",
+      "confidence": 0.9996600772265212
+    },
+    {
+      "ts": "2026-10-09T18:30:00Z",
+      "label": "Contango + eccesso d'offerta + trend ribassista",
+      "confidence": 0.9995848788211292
+    },
+    {
+      "ts": "2026-10-12T18:30:00Z",
+      "label": "Contango + eccesso d'offerta + trend ribassista",
+      "confidence": 0.9998187337455581
+    },
+    {
+      "ts": "2026-10-13T18:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.9967511625887605
+    },
+    {
+      "ts": "2026-10-14T18:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.989725815501409
+    },
+    {
+      "ts": "2026-10-15T18:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.9835810662884147
+    },
+    {
+      "ts": "2026-10-16T18:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.9831979133722942
+    },
+    {
+      "ts": "2026-10-19T18:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.9659058469510823
+    },
+    {
+      "ts": "2026-10-20T18:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.9576436416975513
+    },
+    {
+      "ts": "2026-10-21T18:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.9655947222198061
+    },
+    {
+      "ts": "2026-10-22T18:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.9395839038561596
+    },
+    {
+      "ts": "2026-10-23T18:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.9374815600585005
+    },
+    {
+      "ts": "2026-10-26T19:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.9735864003157467
+    },
+    {
+      "ts": "2026-10-27T19:30:00Z",
+      "label": "Shock/crash",
+      "confidence": 0.9897804639146659
+    },
+    {
+      "ts": "2026-10-28T19:30:00Z",
+      "label": "Squeeze rialzista",
+      "confidence": 0.6119882460171413
+    },
+    {
+      "ts": "2026-10-29T19:30:00Z",
+      "label": "Squeeze rialzista",
+      "confidence": 0.951147267670824
+    },
+    {
+      "ts": "2026-10-30T19:30:00Z",
+      "label": "Squeeze rialzista",
+      "confidence": 0.9910641750626683
+    }
+  ],
+  "source": "engine/regime"
+}

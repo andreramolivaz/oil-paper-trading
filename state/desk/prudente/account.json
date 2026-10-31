@@ -1,0 +1,76 @@
+{
+  "account_id": "desk-prudente",
+  "epoch": 1,
+  "cash": 10050.49840002383,
+  "positions": {
+    "BNO": {
+      "instrument": "BNO",
+      "qty_bbl": 37.0,
+      "avg_price": 67.06242846303032,
+      "opened_ts": "2026-10-09T14:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 72.5,
+      "low_water": 63.33000183105469,
+      "strategies": [
+        "trend",
+        "carry",
+        "accel",
+        "skew",
+        "copper",
+        "carry_momentum"
+      ],
+      "last_price": 71.38999938964844,
+      "last_ts": "2026-10-30T22:18:36.780822Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10249.838433976669,
+  "day_start_equity": 10187.308625932235,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "BNO": 71.38999938964844
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "05c49f9690893cf8e0bc89a8b34977003a5990f8",
+    "18be53538355241f3390c9c32d987567f9c3b34a",
+    "2df064bde9bf1eb9cfcd14f4607c4c99a58b78ab",
+    "2f90f22ff0666c317de32029fb0230bfe27394a4",
+    "32413755ec9e3cbdbbd1acb2feb6a2e16feabc80",
+    "34b207485d2e25ea9ffcaa3a33ad0ef422ebb1cb",
+    "57ba9043200cee9987ec3c13b4fbbb63ed824dd8",
+    "6f888cdbdf73a5734db17c8b5117335287da4822",
+    "af20bf90b1b305fcf6f751dd7dafa49ee422e158",
+    "f8302db37b2722652fdbcb4eca05018a4be6ccbe",
+    "fdc3e340f8b9511951875c52870837af8774f6dc"
+  ],
+  "n_fills": 11,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-08T21:19:21.847468Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 10000.0,
+  "epoch_n_fills": 11,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 50.49840002382939,
+  "total_commission": 0.0,
+  "total_slippage_usd": 1.4615042252350638,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "BNO": 37.0
+  },
+  "distributions_seen": {},
+  "last_equity": 10210.6185243087,
+  "last_bar_ts": {
+    "BNO|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

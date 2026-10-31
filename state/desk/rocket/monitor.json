@@ -1,0 +1,99 @@
+{
+  "generated_at": "2026-10-30T22:18:36.780822Z",
+  "session_open": false,
+  "quote_ts": "2026-10-30T20:17:19Z",
+  "quote_age_minutes": 121.3,
+  "underlying_price": 168.43,
+  "signal": {
+    "day": "2026-10-30",
+    "forecast": 15.05,
+    "direction": 1,
+    "kalshi_change": 0.0407,
+    "kalshi_index": 0.2451,
+    "kalshi_note": "de-escalation index 24.5 % on 2026-10-30 against 20.4 % on 2026-10-23 (3 of 3 components in both): +4.1 points -> sleeve -8.1 (-2 per point)",
+    "agree": false,
+    "text": "The Dynamic's forecast is +15.0 (long). Kalshi: the de-escalation index moved +4.1 points in a week, it does not agree."
+  },
+  "candidate": null,
+  "candidate_needs_kalshi": false,
+  "no_candidate_reason": "a bet is open: one at a time",
+  "cheapest_cost": 140.3,
+  "bet_floor": 280.6,
+  "bet_floor_multiple": 0.2806,
+  "stuck": false,
+  "waiting": null,
+  "epoch": 1,
+  "rules": {
+    "initial_capital": 1000.0,
+    "forecast_threshold": 5.0,
+    "target_delta": 0.3,
+    "min_delta": 0.1,
+    "dte": [
+      21,
+      30,
+      45
+    ],
+    "roll_days": 7,
+    "stake": 0.5,
+    "max_delta_leverage": 10.0,
+    "max_leg_spread": 0.25,
+    "fill_fraction": 0.25,
+    "fee_per_contract": 0.05,
+    "max_quote_age_minutes": 45,
+    "decision_time_ny": "15:00",
+    "floor": 0.05,
+    "reset_workflow": "rocket-reset.yml"
+  },
+  "odds": {
+    "approx": true,
+    "span": "2011-2026",
+    "windows": 812,
+    "p_10x": 0.0271,
+    "p_2x": 0.0764,
+    "p_lose_half": 0.1601,
+    "p_dead": 0.0,
+    "p_stuck": 0.4015,
+    "median_multiple": 0.68,
+    "best_multiple": 33.0,
+    "ten_x_episodes": [
+      "autumn 2014",
+      "summer and November 2015",
+      "early 2020",
+      "January 2026"
+    ],
+    "outcomes": [
+      {
+        "id": "lost_half",
+        "label": "lost half or more",
+        "windows": 130,
+        "share": 0.1601
+      },
+      {
+        "id": "between",
+        "label": "between half and double",
+        "windows": 620,
+        "share": 0.7635
+      },
+      {
+        "id": "doubled",
+        "label": "doubled, short of 10x",
+        "windows": 40,
+        "share": 0.0493
+      },
+      {
+        "id": "ten_x",
+        "label": "reached 10x",
+        "windows": 22,
+        "share": 0.0271
+      }
+    ],
+    "halves": {
+      "2011-2018": 0.0347,
+      "2019-2026": 0.0184
+    },
+    "windows_2026": 17,
+    "p_2x_2026": 0.0,
+    "median_multiple_2026": 0.83,
+    "source": "docs/RESEARCH.md 14 G-H: Black-Scholes on the OVX index, whole contracts at today's price of USO, the life ending at 10x (no history of option quotes exists)"
+  }
+}

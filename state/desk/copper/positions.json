@@ -1,0 +1,19 @@
+[
+  {
+    "instrument": "CPER",
+    "qty_bbl": 114.0,
+    "avg_price": 40.23709132887871,
+    "opened_ts": "2026-10-14T14:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 40.36000061035156,
+    "low_water": 38.375,
+    "strategies": [
+      "trend",
+      "skew"
+    ],
+    "last_price": 38.9900016784668,
+    "last_ts": "2026-10-30T22:18:36.780822Z"
+  }
+]

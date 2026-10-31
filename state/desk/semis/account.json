@@ -1,0 +1,47 @@
+{
+  "account_id": "desk-semis",
+  "epoch": 1,
+  "cash": 9916.723289748,
+  "positions": {},
+  "status": "active",
+  "peak_equity": 10000.0,
+  "day_start_equity": 9916.723289748,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "SMH": 522.489990234375
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "06b93b3e0c7c0a40d57149350b14550f14bba3d2",
+    "3311332d9fb9017a3fa75316d1545b609cad7832",
+    "452afcc4f1744b953d199b748fc1d30e429cf1ae",
+    "63244d55488e718b67b1c9bcbb5f6461daef174e"
+  ],
+  "n_fills": 4,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-14T01:22:57.606296Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9912.394502253635,
+  "epoch_n_fills": 4,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": -83.2767102519988,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.4616467754364799,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {},
+  "distributions_seen": {
+    "SMH": "2026-10-30"
+  },
+  "last_equity": 9916.723289748,
+  "last_bar_ts": {
+    "SMH|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

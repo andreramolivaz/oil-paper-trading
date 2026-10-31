@@ -1,0 +1,68 @@
+{
+  "account_id": "desk-spinto",
+  "epoch": 1,
+  "cash": 9998.73,
+  "positions": {
+    "CLZ26": {
+      "instrument": "CLZ26",
+      "qty_bbl": 100.0,
+      "avg_price": 98.99508318101478,
+      "opened_ts": "2026-10-16T19:30:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 104.98999786376953,
+      "low_water": 95.25,
+      "strategies": [
+        "trend",
+        "accel",
+        "skew",
+        "carry",
+        "carry_momentum",
+        "copper"
+      ],
+      "last_price": 102.94999694824219,
+      "last_ts": "2026-10-30T22:18:36.780822Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10586.221956556725,
+  "day_start_equity": 10376.221346205162,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "CLX26": 94.80000305175781,
+    "CLZ26": 102.94999694824219
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T21:00:00Z",
+  "pending": [],
+  "processed_keys": [
+    "824e9464128293e37220ac67c47af33e05c0c438"
+  ],
+  "n_fills": 1,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-08T21:19:21.847468Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9672.222017591881,
+  "epoch_n_fills": 1,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 1.27,
+  "total_slippage_usd": 2.508196031165016,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "CLZ26": 100.0
+  },
+  "distributions_seen": {},
+  "last_equity": 10394.22137672274,
+  "last_bar_ts": {
+    "CLX26|30m": "2026-10-14T03:30:00Z",
+    "CLZ26|30m": "2026-10-30T21:00:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

@@ -1,0 +1,361 @@
+{
+  "last_decision_day": {
+    "prudente": "2026-10-30",
+    "dinamico": "2026-10-30",
+    "spinto": "2026-10-30",
+    "copper": "2026-10-30",
+    "agri": "2026-10-30",
+    "gold": "2026-10-30",
+    "clean": "2026-10-30",
+    "lithium": "2026-10-30",
+    "semis": "2026-10-30",
+    "equities": "2026-10-30",
+    "bonds": "2026-10-30",
+    "uranium": "2026-10-30",
+    "utilities": "2026-10-30",
+    "oracle": "2026-10-30",
+    "oracle_equities": "2026-10-30",
+    "oracle_utilities": "2026-10-30",
+    "claude_gold": "2026-10-30",
+    "claude_oil": "2026-10-30",
+    "claude_equities": "2026-10-30",
+    "claude_bonds": "2026-10-30"
+  },
+  "last_financing_day": {
+    "prudente": "2026-10-30",
+    "dinamico": "2026-10-30",
+    "copper": "2026-10-30",
+    "agri": "2026-10-30",
+    "gold": "2026-10-30",
+    "clean": "2026-10-30",
+    "lithium": "2026-10-30",
+    "semis": "2026-10-30",
+    "equities": "2026-10-30",
+    "bonds": "2026-10-30",
+    "uranium": "2026-10-30",
+    "utilities": "2026-10-30",
+    "oracle_equities": "2026-10-30",
+    "oracle_utilities": "2026-10-30",
+    "claude_gold": "2026-10-30",
+    "claude_equities": "2026-10-30",
+    "claude_bonds": "2026-10-30",
+    "oracle": "2026-10-30"
+  },
+  "last_roll": {},
+  "allocator": {
+    "_lifecycle": {
+      "day": "2026-10-30",
+      "prudente": {
+        "role": "core",
+        "months_live": 1.0,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0048,
+        "since": "2026-10-08"
+      },
+      "dinamico": {
+        "role": "core",
+        "months_live": 1.0,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0098,
+        "since": "2026-10-08"
+      },
+      "spinto": {
+        "role": "core",
+        "months_live": 1.0,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.022,
+        "since": "2026-10-08"
+      },
+      "gold": {
+        "role": "candidate",
+        "months_live": 0.8,
+        "sharpe_live": null,
+        "max_drawdown_live": 0.0,
+        "since": "2026-10-13"
+      },
+      "copper": {
+        "role": "candidate",
+        "months_live": 0.8,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0219,
+        "since": "2026-10-13"
+      },
+      "agri": {
+        "role": "candidate",
+        "months_live": 0.8,
+        "sharpe_live": null,
+        "max_drawdown_live": 0.0,
+        "since": "2026-10-13"
+      },
+      "bonds": {
+        "role": "candidate",
+        "months_live": 0.7,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0009,
+        "since": "2026-10-14"
+      },
+      "equities": {
+        "role": "candidate",
+        "months_live": 0.7,
+        "sharpe_live": null,
+        "max_drawdown_live": 0.0,
+        "since": "2026-10-14"
+      },
+      "uranium": {
+        "role": "candidate",
+        "months_live": 0.7,
+        "sharpe_live": null,
+        "max_drawdown_live": 0.0,
+        "since": "2026-10-14"
+      },
+      "utilities": {
+        "role": "candidate",
+        "months_live": 0.7,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0026,
+        "since": "2026-10-14"
+      },
+      "lithium": {
+        "role": "candidate",
+        "months_live": 0.7,
+        "sharpe_live": null,
+        "max_drawdown_live": 0.0,
+        "since": "2026-10-14"
+      },
+      "semis": {
+        "role": "candidate",
+        "months_live": 0.7,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0083,
+        "since": "2026-10-14"
+      },
+      "clean": {
+        "role": "candidate",
+        "months_live": 0.7,
+        "sharpe_live": null,
+        "max_drawdown_live": 0.0,
+        "since": "2026-10-14"
+      },
+      "oracle": {
+        "role": "candidate",
+        "months_live": 0.7,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0047,
+        "since": "2026-10-15"
+      },
+      "oracle_equities": {
+        "role": "candidate",
+        "months_live": 0.6,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0084,
+        "since": "2026-10-16"
+      },
+      "oracle_utilities": {
+        "role": "candidate",
+        "months_live": 0.6,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0189,
+        "since": "2026-10-16"
+      },
+      "claude_oil": {
+        "role": "candidate",
+        "months_live": 0.6,
+        "sharpe_live": null,
+        "max_drawdown_live": 0.0,
+        "since": "2026-10-16"
+      },
+      "claude_gold": {
+        "role": "candidate",
+        "months_live": 0.6,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0017,
+        "since": "2026-10-16"
+      },
+      "claude_equities": {
+        "role": "candidate",
+        "months_live": 0.6,
+        "sharpe_live": null,
+        "max_drawdown_live": -0.0018,
+        "since": "2026-10-16"
+      },
+      "claude_bonds": {
+        "role": "candidate",
+        "months_live": 0.6,
+        "sharpe_live": null,
+        "max_drawdown_live": 0.0,
+        "since": "2026-10-16"
+      }
+    },
+    "spinto": {
+      "risk": 0.5,
+      "weekend": 0.5,
+      "reasons": [
+        "price doubled in two years (last on 2026-10-30): risk x 0.5 for a year",
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "prudente": {
+      "risk": 0.5,
+      "weekend": 0.5,
+      "reasons": [
+        "price doubled in two years (last on 2026-10-30): risk x 0.5 for a year",
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "dinamico": {
+      "risk": 0.5,
+      "weekend": 0.5,
+      "reasons": [
+        "price doubled in two years (last on 2026-10-30): risk x 0.5 for a year",
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "copper": {
+      "risk": 1.0,
+      "weekend": 0.5,
+      "reasons": [
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "agri": {
+      "risk": 1.0,
+      "weekend": 0.5,
+      "reasons": [
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "gold": {
+      "risk": 0.5,
+      "weekend": 0.5,
+      "reasons": [
+        "price doubled in two years (last on 2026-05-13): risk x 0.5 for a year",
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "clean": {
+      "risk": 1.0,
+      "weekend": 0.5,
+      "reasons": [
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "lithium": {
+      "risk": 0.5,
+      "weekend": 0.5,
+      "reasons": [
+        "price doubled in two years (last on 2026-09-15): risk x 0.5 for a year",
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "semis": {
+      "risk": 0.5,
+      "weekend": 0.5,
+      "reasons": [
+        "price doubled in two years (last on 2026-10-30): risk x 0.5 for a year",
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "equities": {
+      "risk": 1.0,
+      "weekend": 0.5,
+      "reasons": [
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "bonds": {
+      "risk": 1.0,
+      "weekend": 0.5,
+      "reasons": [
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "uranium": {
+      "risk": 0.5,
+      "weekend": 0.5,
+      "reasons": [
+        "price doubled in two years (last on 2026-09-11): risk x 0.5 for a year",
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "utilities": {
+      "risk": 1.0,
+      "weekend": 0.5,
+      "reasons": [
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "oracle": {
+      "risk": 0.5,
+      "weekend": 0.5,
+      "reasons": [
+        "price doubled in two years (last on 2026-10-30): risk x 0.5 for a year",
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "oracle_equities": {
+      "risk": 1.0,
+      "weekend": 0.5,
+      "reasons": [
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "oracle_utilities": {
+      "risk": 1.0,
+      "weekend": 0.5,
+      "reasons": [
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "claude_gold": {
+      "risk": 0.5,
+      "weekend": 0.5,
+      "reasons": [
+        "price doubled in two years (last on 2026-05-13): risk x 0.5 for a year",
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "claude_oil": {
+      "risk": 0.5,
+      "weekend": 0.5,
+      "reasons": [
+        "price doubled in two years (last on 2026-10-30): risk x 0.5 for a year",
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "claude_equities": {
+      "risk": 1.0,
+      "weekend": 0.5,
+      "reasons": [
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    },
+    "claude_bonds": {
+      "risk": 1.0,
+      "weekend": 0.5,
+      "reasons": [
+        "AIS-visible tanker transits through Hormuz at 1% of normal: weekend ceiling x 0.5"
+      ],
+      "day": "2026-10-30"
+    }
+  },
+  "roles": {}
+}

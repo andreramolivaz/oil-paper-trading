@@ -1,0 +1,42 @@
+{
+  "account_id": "desk-clean",
+  "epoch": 1,
+  "cash": 10000.0,
+  "positions": {},
+  "status": "active",
+  "peak_equity": 10000.0,
+  "day_start_equity": 10000.0,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "ICLN": 15.3100004196167
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [],
+  "n_fills": 0,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-14T01:22:57.606296Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 10000.0,
+  "epoch_n_fills": 0,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.0,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {},
+  "distributions_seen": {
+    "ICLN": "2026-10-30"
+  },
+  "last_equity": 10000.0,
+  "last_bar_ts": {
+    "ICLN|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

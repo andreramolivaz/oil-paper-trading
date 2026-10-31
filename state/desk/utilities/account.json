@@ -1,0 +1,75 @@
+{
+  "account_id": "desk-utilities",
+  "epoch": 1,
+  "cash": 10000.0,
+  "positions": {
+    "XLU": {
+      "instrument": "XLU",
+      "qty_bbl": 101.0,
+      "avg_price": 42.50757606172947,
+      "opened_ts": "2026-10-16T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 43.650001525878906,
+      "low_water": 41.279998779296875,
+      "strategies": [
+        "skew",
+        "accel",
+        "trend"
+      ],
+      "last_price": 43.43000030517578,
+      "last_ts": "2026-10-30T22:18:36.780822Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10108.196671156067,
+  "day_start_equity": 10069.046604780335,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "XLU": 43.43000030517578
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "1f9a17077f0d9bf4232efd740d2076c2749bc31d",
+    "4c8a190a8c26a64463699faa7ac574d8f34a532b",
+    "5703d66ad269effef71862ab683d156ea28721f9",
+    "7aff703b421c6f3e1f4a89118daf2a340bd6a97f",
+    "b912b7e114a89812f8cf127c12f0ff913dd190cd",
+    "ce27d6dda93dda55d8a42fa602cc4c3938afd0bb",
+    "da55627febbc872828a35d6d36d8934cc87d022d",
+    "e2f12d970759523f346a810d63233e27c8795d1a",
+    "f5eec82efeb52be4f3b104dab05d8adb18e2ca90",
+    "fae0a41a5e514f5d8402989254adc90c9857f448",
+    "fafad43cc74f8271642403c6dce34141ea45abde"
+  ],
+  "n_fills": 11,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-14T01:22:57.606296Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9986.242073812326,
+  "epoch_n_fills": 11,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.4341275471761987,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "XLU": 87.0
+  },
+  "distributions_seen": {
+    "XLU": "2026-10-30"
+  },
+  "last_equity": 10093.164848588078,
+  "last_bar_ts": {
+    "XLU|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

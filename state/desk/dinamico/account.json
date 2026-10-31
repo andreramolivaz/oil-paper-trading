@@ -1,0 +1,79 @@
+{
+  "account_id": "desk-dinamico",
+  "epoch": 1,
+  "cash": 10099.791144894658,
+  "positions": {
+    "BNO": {
+      "instrument": "BNO",
+      "qty_bbl": 80.0,
+      "avg_price": 67.15217599773867,
+      "opened_ts": "2026-10-09T14:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 72.5,
+      "low_water": 63.33000183105469,
+      "strategies": [
+        "trend",
+        "carry",
+        "accel",
+        "skew",
+        "copper",
+        "carry_momentum"
+      ],
+      "last_price": 71.38999938964844,
+      "last_ts": "2026-10-30T22:18:36.780822Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10521.873546535506,
+  "day_start_equity": 10390.053951198592,
+  "day_start_date": "2026-10-30",
+  "last_mark_ts": "2026-10-30T22:18:36.780822Z",
+  "last_prices": {
+    "BNO": 71.38999938964844,
+    "SCO": 15.649999618530273
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-10-30T20:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "085828d35231a4be8dc67732c816458d583abf73",
+    "2e493239ea261f69e4b274227c1f6f106a3596d0",
+    "45d826a51acc913695518b617b50a84ad8eab152",
+    "47a76220ec9516c1a7874b5c98fe049949e8e652",
+    "67a19752ff686874d6bcb8fb086ed3f6919fabe4",
+    "77f0eb3cd93380d65471e8c971b43dbd7427cbc4",
+    "8c8599653bcd2f4bebe7c550af272b2049c853d4",
+    "8df4f3365815f36f8de4d0f8aa71ecaf656ebf01",
+    "8f606278066322efbf7a7088ac1446810b37692f",
+    "90a3c56074adb9a004e44f0d7de8c8aade2654c5",
+    "961734d060ece1a2f7854dade2c3bb3af25a28a2",
+    "dbe4fd960678fa38047b85c0a5d3d6b9ab1b1165"
+  ],
+  "n_fills": 12,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-08T21:19:21.847468Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 10000.0,
+  "epoch_n_fills": 12,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 99.79114489465763,
+  "total_commission": 0.0,
+  "total_slippage_usd": 3.023052569699499,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "BNO": 78.0
+  },
+  "distributions_seen": {},
+  "last_equity": 10438.81701624744,
+  "last_bar_ts": {
+    "BNO|30m": "2026-10-30T20:30:00Z",
+    "SCO|30m": "2026-10-30T20:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

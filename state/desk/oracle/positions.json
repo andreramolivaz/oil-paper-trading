@@ -1,0 +1,18 @@
+[
+  {
+    "instrument": "SCO",
+    "qty_bbl": 136.0,
+    "avg_price": 15.597072176848208,
+    "opened_ts": "2026-10-30T20:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 15.649999618530273,
+    "low_water": 15.569999694824219,
+    "strategies": [
+      "deescalation"
+    ],
+    "last_price": 15.649999618530273,
+    "last_ts": "2026-10-30T22:18:36.780822Z"
+  }
+]
