@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-31T10:21:12.828919Z",
+  "generated_at": "2026-10-31T12:12:56.148053Z",
   "brent": {
     "value": 117.63999938964844,
     "asof": "2026-10-30",
@@ -33,7 +33,7 @@
   },
   "data_status": {
     "overall": "yellow",
-    "checked_at": "2026-10-31T09:54:27.904095Z",
+    "checked_at": "2026-10-31T12:12:36.410242Z",
     "sources": [
       {
         "source": "bab_el_mandeb",
@@ -401,10 +401,10 @@
       {
         "source": "kalshi",
         "status": "green",
-        "checked_at": "2026-10-31T09:54:27.904095Z",
-        "last_success_at": "2026-10-31T09:59:25.799995Z",
-        "data_asof": "2026-10-31T09:59:08.757530Z",
-        "latency_ms": 17046,
+        "checked_at": "2026-10-31T12:12:36.410242Z",
+        "last_success_at": "2026-10-31T12:12:53.486258Z",
+        "data_asof": "2026-10-31T12:12:36.413853Z",
+        "latency_ms": 17076,
         "message": "adapter kalshi",
         "fallback_used": null,
         "rows": 322
@@ -825,11 +825,11 @@
     "asof": "2026-10-31T10:13:08.958666Z"
   },
   "last_run": {
-    "job": "weekly",
-    "ts": "2026-10-31T10:13:08.967435Z",
+    "job": "watch",
+    "ts": "2026-10-31T12:12:53.885760Z",
     "status": "ok",
-    "message": "aggiornamento settimanale completato",
-    "cron_lag_minutes": 692.5646518833333
+    "message": "322 markets, 1 flagged, 1 alerts",
+    "cron_lag_minutes": 804.2866374500001
   },
   "reset": {
     "workflow_url": "https://github.com/andreramolivaz/oil-paper-trading/actions/workflows/reset.yml",
