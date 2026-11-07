@@ -1,0 +1,9 @@
+{
+  "checked_at": "2026-11-06T23:18:01.610215Z",
+  "key_set": true,
+  "readers": true,
+  "step": {
+    "status": "not due",
+    "why": "3 attempts today, the most allowed"
+  }
+}

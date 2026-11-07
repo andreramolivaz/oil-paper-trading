@@ -1,0 +1,18 @@
+[
+  {
+    "instrument": "SPY",
+    "qty_bbl": 4.0,
+    "avg_price": 735.2588267219962,
+    "opened_ts": "2026-11-05T21:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 742.2103881835938,
+    "low_water": 732.7100219726562,
+    "strategies": [
+      "fedpath"
+    ],
+    "last_price": 735.2899780273438,
+    "last_ts": "2026-11-06T23:18:19.795977Z"
+  }
+]

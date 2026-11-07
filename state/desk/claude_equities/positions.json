@@ -1,0 +1,20 @@
+[
+  {
+    "instrument": "SPY",
+    "qty_bbl": 6.0,
+    "avg_price": 762.6346559487253,
+    "opened_ts": "2026-10-28T20:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 775.6400146484375,
+    "low_water": 732.7100219726562,
+    "strategies": [
+      "gold",
+      "equities",
+      "bonds"
+    ],
+    "last_price": 735.2899780273438,
+    "last_ts": "2026-11-06T23:18:19.795977Z"
+  }
+]

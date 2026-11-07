@@ -1,0 +1,18 @@
+{
+  "account_id": "desk-rocket",
+  "epoch": 1,
+  "initial_capital": 1000.0,
+  "cash": 619.15,
+  "equity": 619.15,
+  "realized_pnl": -380.85,
+  "fees": 0.1,
+  "position": null,
+  "last_decision_day": "2026-11-06",
+  "n_closed": 1,
+  "n_wins": 0,
+  "status": "active",
+  "started_at": "2026-10-22T22:10:21.826180Z",
+  "peak_equity": 1002.45,
+  "min_equity": 613.95,
+  "epochs": []
+}

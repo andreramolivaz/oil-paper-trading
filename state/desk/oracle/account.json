@@ -1,0 +1,73 @@
+{
+  "account_id": "desk-oracle",
+  "epoch": 1,
+  "cash": 10327.18853718532,
+  "positions": {
+    "SCO": {
+      "instrument": "SCO",
+      "qty_bbl": 68.0,
+      "avg_price": 16.617758362389768,
+      "opened_ts": "2026-10-30T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 19.71500015258789,
+      "low_water": 15.569999694824219,
+      "strategies": [
+        "deescalation"
+      ],
+      "last_price": 18.770000457763672,
+      "last_ts": "2026-11-06T23:18:19.795977Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10576.798861790232,
+  "day_start_equity": 10505.433203890909,
+  "day_start_date": "2026-11-06",
+  "last_mark_ts": "2026-11-06T23:18:19.795977Z",
+  "last_prices": {
+    "CLZ26": 103.44000244140625,
+    "BNO": 62.220001220703125,
+    "SCO": 18.770000457763672
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-11-06T21:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "18ce87170a5a41eeb1c9aa4347b7f325b3da5bc3",
+    "3f1ce11debb9761584ba453309d81bc3506b8827",
+    "4311cda32803fcac42cd4b0af8906fc86f45544c",
+    "50ef52ce46ac4a48dbdc40d6a84535c77c2a1b61",
+    "862e4669c00e9de1f696c15965384c4921402b47",
+    "88e6fd9dc2abf132c9ddf81e7ba90be619d5629b",
+    "a75d9ec858f79e4c38edbc1ce476296aa19f657c",
+    "be778a574f58b57410af9c9a83170c0af0fee7aa",
+    "cdc7fc47dd377d996901bae9f8966b708805185e"
+  ],
+  "n_fills": 9,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-15T05:13:31.764297Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9892.835874390339,
+  "epoch_n_fills": 9,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 327.1885371853209,
+  "total_commission": 0.0,
+  "total_slippage_usd": 7.395945290801462,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "SCO": 74.0
+  },
+  "distributions_seen": {},
+  "last_equity": 10473.540999670746,
+  "last_bar_ts": {
+    "CLZ26|30m": "2026-10-23T21:00:00Z",
+    "BNO|30m": "2026-11-06T21:30:00Z",
+    "SCO|30m": "2026-11-06T21:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

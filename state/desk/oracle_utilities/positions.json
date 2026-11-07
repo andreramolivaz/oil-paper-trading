@@ -1,0 +1,18 @@
+[
+  {
+    "instrument": "XLU",
+    "qty_bbl": 117.0,
+    "avg_price": 43.131132213317585,
+    "opened_ts": "2026-11-05T21:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 43.38999938964844,
+    "low_water": 42.63090133666992,
+    "strategies": [
+      "fedpath"
+    ],
+    "last_price": 43.130001068115234,
+    "last_ts": "2026-11-06T23:18:19.795977Z"
+  }
+]
