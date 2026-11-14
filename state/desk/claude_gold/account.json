@@ -1,0 +1,46 @@
+{
+  "account_id": "desk-claude_gold",
+  "epoch": 1,
+  "cash": 10071.555114639385,
+  "positions": {},
+  "status": "active",
+  "peak_equity": 10074.77610775505,
+  "day_start_equity": 10071.555114639385,
+  "day_start_date": "2026-11-13",
+  "last_mark_ts": "2026-11-13T23:18:19.915949Z",
+  "last_prices": {
+    "GLD": 355.45001220703125
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-11-13T21:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "023d2e4aa650ab8047ee531eebb28ee9450855f7",
+    "24c4391316faf826e890ca20225295c10edec9ea",
+    "9052f1d48866bc73dc7351e34f57d01887f9d238",
+    "a8673878b607e067d828393990b1a66589f58884",
+    "f9ae3d62a5a0d9b3bf2051d9bff2662e38442042"
+  ],
+  "n_fills": 5,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-16T10:25:02.268421Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9984.525243996828,
+  "epoch_n_fills": 5,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 71.55511463938507,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.6999512785840505,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {},
+  "distributions_seen": {},
+  "last_equity": 10071.555114639385,
+  "last_bar_ts": {
+    "GLD|30m": "2026-11-13T21:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

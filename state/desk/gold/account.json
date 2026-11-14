@@ -1,0 +1,45 @@
+{
+  "account_id": "desk-gold",
+  "epoch": 1,
+  "cash": 9975.471798965247,
+  "positions": {},
+  "status": "active",
+  "peak_equity": 10000.0,
+  "day_start_equity": 9975.050368159169,
+  "day_start_date": "2026-11-13",
+  "last_mark_ts": "2026-11-13T23:18:19.915949Z",
+  "last_prices": {
+    "GLD": 355.45001220703125
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-11-13T21:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "a15983152288e86ef0481b6ff6cace99759b1810",
+    "c63c0027d935b9155684dad2576ea2c73cf85397"
+  ],
+  "n_fills": 2,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-13T21:47:30.904489Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9973.800246088857,
+  "epoch_n_fills": 2,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": -24.52820103475267,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.07821934529957006,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "GLD": 1.0
+  },
+  "distributions_seen": {},
+  "last_equity": 9975.471798965247,
+  "last_bar_ts": {
+    "GLD|30m": "2026-11-13T21:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

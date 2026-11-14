@@ -1,0 +1,78 @@
+{
+  "account_id": "desk-oracle",
+  "epoch": 1,
+  "cash": 10747.603161427412,
+  "positions": {
+    "BNO": {
+      "instrument": "BNO",
+      "qty_bbl": 80.0,
+      "avg_price": 59.97578940631136,
+      "opened_ts": "2026-11-10T21:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 61.679901123046875,
+      "low_water": 58.345001220703125,
+      "strategies": [
+        "deescalation"
+      ],
+      "last_price": 61.060001373291016,
+      "last_ts": "2026-11-13T23:18:19.915949Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10850.223330730067,
+  "day_start_equity": 10833.393260234461,
+  "day_start_date": "2026-11-13",
+  "last_mark_ts": "2026-11-13T23:18:19.915949Z",
+  "last_prices": {
+    "CLZ26": 103.44000244140625,
+    "BNO": 61.060001373291016,
+    "SCO": 19.139999389648438
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-11-13T21:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "18ce87170a5a41eeb1c9aa4347b7f325b3da5bc3",
+    "3955901ea7ef8e1d0c151b35fb6c4be23ffa0d2b",
+    "3f1ce11debb9761584ba453309d81bc3506b8827",
+    "4311cda32803fcac42cd4b0af8906fc86f45544c",
+    "4ab82377ea99b844ffa7e32628a7e9fd49a5d66c",
+    "50c3d334f791cf6a902f04c6145583d566ab368c",
+    "50ef52ce46ac4a48dbdc40d6a84535c77c2a1b61",
+    "7a7b9044179435cf2179c0bf714403946f084326",
+    "862e4669c00e9de1f696c15965384c4921402b47",
+    "87c123953dbe49c6d058d7aa45fbd7075ae10b39",
+    "88e6fd9dc2abf132c9ddf81e7ba90be619d5629b",
+    "a75d9ec858f79e4c38edbc1ce476296aa19f657c",
+    "be778a574f58b57410af9c9a83170c0af0fee7aa",
+    "cdc7fc47dd377d996901bae9f8966b708805185e"
+  ],
+  "n_fills": 14,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-15T05:13:31.764297Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9892.835874390339,
+  "epoch_n_fills": 14,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 747.6031614274137,
+  "total_commission": 0.0,
+  "total_slippage_usd": 15.002076725077231,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "BNO": 33.0
+  },
+  "distributions_seen": {},
+  "last_equity": 10834.340118785785,
+  "last_bar_ts": {
+    "CLZ26|30m": "2026-10-23T21:00:00Z",
+    "BNO|30m": "2026-11-13T21:30:00Z",
+    "SCO|30m": "2026-11-13T21:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

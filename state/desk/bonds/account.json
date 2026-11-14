@@ -1,0 +1,75 @@
+{
+  "account_id": "desk-bonds",
+  "epoch": 1,
+  "cash": 10000.0,
+  "positions": {
+    "TLT": {
+      "instrument": "TLT",
+      "qty_bbl": 55.0,
+      "avg_price": 81.40242483227875,
+      "opened_ts": "2026-10-26T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 82.41500091552734,
+      "low_water": 79.11090087890625,
+      "strategies": [
+        "accel",
+        "skew",
+        "trend"
+      ],
+      "last_price": 79.37999725341797,
+      "last_ts": "2026-11-13T23:18:19.915949Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10023.637410644267,
+  "day_start_equity": 9907.46670136334,
+  "day_start_date": "2026-11-13",
+  "last_mark_ts": "2026-11-13T23:18:19.915949Z",
+  "last_prices": {
+    "TLT": 79.37999725341797
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-11-13T21:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "2a24d5dc42d63d48d07d574cb7f6c41281d474cd",
+    "3c22744e96b7b2cf523af4e4fb85795b4768b77e",
+    "47147d171f0da734f55bc6f1605db6f9874d0499",
+    "7137e2a5ee858574fbe510101ef9757d9ded6ff7",
+    "80470ee3a1893199f6858a42acd0e459cdf64c0d",
+    "8d636d816487afc9812aa98d94ee5fcf682b5b61",
+    "9a6d7d268049212a5e98bef56eac27291be1c003",
+    "9a9698e4ee98dc34ea26bc3fb2cd4eb7eafb8d29",
+    "ba8f7ee4436c907f94d88e072967e3391b78b870",
+    "d57eb6423140e873223b45af2e21b6a0134a0026",
+    "f3cd382834bfd57c9a910585d2048cfa3947b9f6"
+  ],
+  "n_fills": 11,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-14T01:22:57.606296Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9881.34178528668,
+  "epoch_n_fills": 11,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": 0.0,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.45483794330058075,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "TLT": 55.0
+  },
+  "distributions_seen": {
+    "TLT": "2026-11-13"
+  },
+  "last_equity": 9888.766483162657,
+  "last_bar_ts": {
+    "TLT|30m": "2026-11-13T21:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

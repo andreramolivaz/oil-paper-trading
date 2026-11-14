@@ -1,0 +1,20 @@
+[
+  {
+    "instrument": "TLT",
+    "qty_bbl": 55.0,
+    "avg_price": 81.40242483227875,
+    "opened_ts": "2026-10-26T20:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 82.41500091552734,
+    "low_water": 79.11090087890625,
+    "strategies": [
+      "accel",
+      "skew",
+      "trend"
+    ],
+    "last_price": 79.37999725341797,
+    "last_ts": "2026-11-13T23:18:19.915949Z"
+  }
+]

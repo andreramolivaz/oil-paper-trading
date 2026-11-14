@@ -1,0 +1,45 @@
+{
+  "account_id": "desk-claude_bonds",
+  "epoch": 1,
+  "cash": 9997.189441049506,
+  "positions": {},
+  "status": "active",
+  "peak_equity": 10003.827091660443,
+  "day_start_equity": 9997.189441049506,
+  "day_start_date": "2026-11-13",
+  "last_mark_ts": "2026-11-13T23:18:19.915949Z",
+  "last_prices": {
+    "TLT": 79.37999725341797
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-11-13T21:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "7c583ba9b828bbbea94e241f57c0652562d92c73",
+    "a1f294c2caac1d8b3d1a9c2870377c130b7ff4df"
+  ],
+  "n_fills": 2,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-16T10:25:02.268421Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9996.406361069623,
+  "epoch_n_fills": 2,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": -2.810558950494311,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.11554399688100367,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {},
+  "distributions_seen": {
+    "TLT": "2026-11-13"
+  },
+  "last_equity": 9997.189441049506,
+  "last_bar_ts": {
+    "TLT|30m": "2026-11-13T21:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

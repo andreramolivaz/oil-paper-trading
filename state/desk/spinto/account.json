@@ -1,0 +1,47 @@
+{
+  "account_id": "desk-spinto",
+  "epoch": 1,
+  "cash": 9750.172343286893,
+  "positions": {},
+  "status": "active",
+  "peak_equity": 10586.221956556725,
+  "day_start_equity": 9750.172343286893,
+  "day_start_date": "2026-11-13",
+  "last_mark_ts": "2026-11-13T23:18:19.915949Z",
+  "last_prices": {
+    "CLX26": 94.80000305175781,
+    "CLZ26": 88.91999816894531,
+    "CLF27": 87.61000061035156
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-11-13T22:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "0be7d9acb8a5433adbb2cb384c43454816ed4039",
+    "824e9464128293e37220ac67c47af33e05c0c438"
+  ],
+  "n_fills": 2,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-08T21:19:21.847468Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9555.221437757897,
+  "epoch_n_fills": 2,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": -247.28765671310668,
+  "total_commission": 2.54,
+  "total_slippage_usd": 5.287839818575559,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {},
+  "distributions_seen": {},
+  "last_equity": 9750.172343286893,
+  "last_bar_ts": {
+    "CLX26|30m": "2026-10-14T03:30:00Z",
+    "CLZ26|30m": "2026-11-13T22:30:00Z",
+    "CLF27|30m": "2026-11-13T22:00:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}
