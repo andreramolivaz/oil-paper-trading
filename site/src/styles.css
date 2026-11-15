@@ -1,4 +1,7 @@
-/* Dark-first, mobile-first: the desk's chart room at night.
+/* Black-first, mobile-first (phase 22: the owner asked for a black page that reads at a glance).
+ *
+ * The dark theme is true black: the page is #000, a card is one step up, and nothing else is tinted. The rest of
+ * the idea is unchanged from the chart room it replaced:
  *
  * The palette comes from where this desk looks all day: the tankers in the Strait of Hormuz. Surfaces are night
  * water (a ship's chart display dims to deep navy so the eye keeps its night vision), text is chart paper, and
@@ -9,32 +12,32 @@
  * One family, Atkinson Hyperlegible Next (the Braille Institute's face, drawn so that every glyph stays apart from
  * its neighbours at a glance): proportional figures for a headline number, tabular figures in every column.
  *
- * Every ink was checked against the surfaces it sits on (WCAG): primary 14.5:1, secondary 8.2:1, muted 5.4:1,
- * accent 6.6:1, gain 8.6:1, loss 6.8:1 on --surface-1 in the dark theme; 16.7, 8.0, 5.4, 7.5, 5.8, 6.4 in the
+ * Every ink was checked against the surfaces it sits on (WCAG): primary 18.1:1, secondary 9.6:1, muted 6.0:1,
+ * accent 8.0:1, gain 10.1:1, loss 8.0:1 on --surface-1 in the black theme; 16.7, 8.0, 5.4, 7.5, 5.8, 6.4 in the
  * light one. The series colours are the validated data-viz defaults (all checks pass on --surface-1).
  */
 :root {
   color-scheme: dark;
 
   /* surfaces: night water, each step visible from the previous */
-  --surface-0: #0b1622;
-  --surface-1: #102031;
-  --surface-2: #16293d;
-  --surface-3: #1d3349;
-  --border: #26405a;
-  --border-strong: #3b5a7a;
+  --surface-0: #000000;
+  --surface-1: #0c0c0e;
+  --surface-2: #141417;
+  --surface-3: #1c1c21;
+  --border: #26262c;
+  --border-strong: #3d3d46;
 
-  --text-primary: #eaf1f8;
-  --text-secondary: #a9b9cb;
-  --text-muted: #8496ab;
+  --text-primary: #f5f5f7;
+  --text-secondary: #b6b6c0;
+  --text-muted: #8e8e99;
 
   /* chart magenta: links, the selected choice, the focus ring */
   --accent: #ee7cc6;
   --accent-wash: color-mix(in srgb, var(--accent) 13%, transparent);
-  --accent-ink: #0b1622; /* text on a magenta fill: 7.2:1 */
+  --accent-ink: #000000; /* text on a magenta fill: 8.6:1 */
   /* the neutral inks of the marks that are not a series: exposure bars, a single equity line */
-  --ink-bar: #6f93b8;
-  --ink-line: #86b9ea;
+  --ink-bar: #7d8796;
+  --ink-line: #9ec5ee;
 
   --series-1: #3987e5;
   --series-2: #d95926;

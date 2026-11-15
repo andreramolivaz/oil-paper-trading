@@ -6,6 +6,7 @@
  * moved since the start: one line per group. What happened last: the latest fills. The signals the books read
  * are on their own page. Every figure is the engine's (`desk.json`); the page only counts rows.
  */
+import { marketStrip, radarSection } from "./radar";
 import { lineChart, lineLegend, type LineSeries } from "../charts/lines";
 import { load } from "../data";
 import type { Book, BookHistory, BookPosition, DeskDoc, FillRow, OptionStructure, PortfolioGroup } from "../desk";
@@ -288,6 +289,26 @@ function analystLine(doc: DeskDoc): string {
 
 /** The lottery in one line under its group: where this life stands against its start, and the model's odds. */
 function lotteryLine(members: Book[]): string {
+  // a LINEAR lottery book (the Oracle 3x): one hard rule suspended, the model's odds with and without an edge
+  const linear = members
+    .filter((b) => b.kind !== "lottery" && b.lottery)
+    .map((b) => {
+      const o = b.lottery?.odds;
+      const odds = o
+        ? ` Over three months, a model of its rule doubled in ${num(o.no_edge.p_double * 100, 0)} of 100 paths and lost half in ${num(
+            o.no_edge.p_lose_half * 100,
+            0,
+          )} if the rule has no edge; ${num(o.as_measured.p_double * 100, 0)} and ${num(o.as_measured.p_lose_half * 100, 0)} if the last eight months repeat (≈).`
+        : "";
+      return `<p class="d-watch">${escapeHtml(b.name)}: the Oracle's rule at three times the risk, on the owner's decision.${odds} <a href="${bookHref(
+        b.id,
+      )}">Its page and its odds</a>.</p>`;
+    })
+    .join("");
+  return linear + rocketLine(members);
+}
+
+function rocketLine(members: Book[]): string {
   return members
     .filter((b) => b.kind === "lottery")
     .map((b) => {
@@ -550,7 +571,9 @@ export async function renderDesk(el: HTMLElement): Promise<void> {
   el.innerHTML = `<div class="term desk">
     ${doc.sample ? '<div class="banner sample">Sample data: this is not the real state of the books.</div>' : ""}
     ${statusLine(doc, loaded.origin)}
+    ${marketStrip(doc)}
     ${hero(doc, groups)}
+    ${radarSection(doc)}
     ${openPositions(doc)}
     ${portfolios(doc, groups, start)}
     ${pnlSection(groups)}

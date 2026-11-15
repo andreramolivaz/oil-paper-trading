@@ -9,14 +9,25 @@ from __future__ import annotations
 import dataclasses
 import math
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
 import pytest
+import yaml
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from engine.core.config import RiskConfig
 from engine.core.events import Bar
-from engine.desk.book import HARD_CAP, Book, BookConfig, book_risk, buffered_target, is_pre_closure, load_books
+from engine.desk.book import (
+    HARD_CAP,
+    Book,
+    BookConfig,
+    book_risk,
+    buffered_target,
+    is_pre_closure,
+    load_books,
+    load_event_budgets,
+)
 from engine.desk.vehicles import BNO, MCL, SCO, get_vehicle
 
 RISK = RiskConfig.load()
@@ -62,6 +73,7 @@ def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap
         "claude_gold",
         "claude_equities",
         "claude_bonds",
+        "oracle_3x",  # phase 22: the Oracle's rule at three times the risk, a lottery, last
     ]
     assert [b.id for b in books.values() if b.role == "core"] == ["prudente", "dinamico", "spinto"]
     assert books["prudente"].max_leverage == 1.0 and books["prudente"].long_only
@@ -97,7 +109,9 @@ def test_the_books_on_file_are_the_documented_ones_and_none_exceeds_the_hard_cap
     for b in books.values():
         assert 0 < b.max_leverage <= HARD_CAP
         assert b.max_leverage <= get_vehicle(b.vehicle).max_leverage + 1e-9  # the broker's margin allows it
-        assert 0 < b.vol_target <= 0.5  # nothing above full Kelly for a Sharpe of 0.5
+        # nothing above full Kelly for a Sharpe of 0.5 - except a lottery book, the one place the owner may
+        # suspend that rule, and then only up to three times it (phase 22, docs/RESEARCH.md 17 D)
+        assert 0 < b.vol_target <= (1.5 if b.role == "lottery" else 0.5)
 
 
 @pytest.mark.parametrize(
@@ -224,6 +238,66 @@ def test_the_ceiling_binds_and_is_lower_before_a_weekend():
     assert calm.target_units == 900.0
     # ... and a book already holding twelve is brought back under the ceiling: eleven, never twelve
     assert buffered_target(11.11, 1.667, 12, 11.11) == 11
+
+
+def test_the_event_budget_is_one_more_ceiling_and_binds_by_side(tmp_path):
+    """Phase 22 (docs/RESEARCH.md 17 C 2): for the one book that has a budget, the exposure on a side is at most
+    the budget divided by the adverse state's move. It only ever LOWERS a position, and the two sides differ."""
+    strong = {"trend": 20.0, "accel": 10.0, "skew": 12.0, "carry": 10.0, "carry_momentum": 10.0}
+    strong |= {"copper": 10.0, "dollar": 6.0}
+    bearish = {k: -v for k, v in strong.items()}
+    book = _book("MCL", vol_target=0.50, max_leverage=10.0, long_only=False)
+    free, _ = book.decide(TS, THURSDAY, "CLX26", 90.0, strong, 0.10)
+    assert free.exposure == pytest.approx(9.333, abs=1e-3)
+
+    # half the account on a 25 % fall is 2x long; on a 32 % rise, 1.56x short
+    book.set_event_caps(0.5 / 0.25, 0.5 / 0.32, "event budget: the options' two states")
+    long_side, _ = book.decide(TS, THURSDAY, "CLX26", 90.0, strong, 0.10)
+    short_side, _ = book.decide(TS, THURSDAY, "CLX26", 90.0, bearish, 0.10)
+    assert long_side.exposure == pytest.approx(2.0) and long_side.limited_by == "event budget"
+    assert short_side.exposure == pytest.approx(-0.5 / 0.32) and short_side.limited_by == "event budget"
+    assert "event budget: the options' two states" in long_side.scale_reasons
+    # it never raises one: a ceiling above what the formula wants changes nothing
+    book.set_event_caps(50.0, 50.0, "")
+    wide, _ = book.decide(TS, THURSDAY, "CLX26", 90.0, strong, 0.10)
+    assert wide.exposure == pytest.approx(free.exposure) and wide.limited_by == free.limited_by
+    # and no budget at all is the state of every other book
+    book.set_event_caps(None, None, "")
+    assert book.decide(TS, THURSDAY, "CLX26", 90.0, strong, 0.10)[0].exposure == pytest.approx(free.exposure)
+
+
+def test_only_a_lottery_book_may_suspend_the_volatility_ceiling_and_only_to_three_times_it(tmp_path):
+    """The one hard rule the owner suspended, and the only place it can be suspended (phase 22, 17 D)."""
+    base = {"id": "x", "name": "x", "vehicle": "MCL", "max_leverage": 2.0, "forecast": "kalshi"}
+    base |= {"sleeves": {"deescalation": 1.0}}
+    # a lottery book may go to three times the ceiling, and no further
+    assert BookConfig(**base, vol_target=1.5, role="lottery").vol_target == 1.5
+    assert _loaded(tmp_path, {**base, "vol_target": 1.5, "role": "lottery"}).vol_target == 1.5
+    # every other role stops at the rule, and a lottery book stops at three times it
+    for bad, says in (({}, "above 0.5"), ({"role": "candidate"}, "above 0.5"), ({"role": "lottery"}, "above 1.5")):
+        with pytest.raises(ValueError, match=says):
+            _loaded(tmp_path, {**base, "vol_target": 1.6 if "lottery" in str(bad) else 1.5, **bad})
+    # a lottery book never reads the desk's forecast: the replay's numbers must stand for the rules as written
+    with pytest.raises(ValueError):
+        BookConfig(id="x", name="x", vehicle="MCL", vol_target=1.5, max_leverage=2.0, role="lottery")
+    # and only a lottery book may carry an event budget
+    config = _write_books(tmp_path, {**base, "vol_target": 0.5, "role": "candidate", "event_budget": 0.5})
+    with pytest.raises(ValueError, match="lottery book only"):
+        load_event_budgets(config)
+    config = _write_books(tmp_path, {**base, "vol_target": 1.5, "role": "lottery", "event_budget": 0.5})
+    assert load_event_budgets(config) == {"x": 0.5}
+
+
+def _write_books(tmp_path: Path, entry: dict) -> Path:
+    """A config directory holding one book, so the rules enforced when the file is READ can be exercised."""
+    config = tmp_path / "config"
+    config.mkdir(exist_ok=True)
+    (config / "books.yaml").write_text(yaml.safe_dump({"books": [{**entry, "enabled": True}]}), encoding="utf-8")
+    return config
+
+
+def _loaded(tmp_path: Path, entry: dict) -> BookConfig:
+    return load_books(_write_books(tmp_path, entry))[0]
 
 
 def test_missing_inputs_hold_the_position_and_say_why():

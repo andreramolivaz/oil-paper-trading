@@ -356,6 +356,38 @@ books:
       when the Claude analyst reads the day's news as good for Treasury prices (yields down) over the next five
       sessions, in cash otherwise. The prior is that it has no edge.
 
+  # Phase 22 (15 November 2026), on the owner's "more leverage on Kalshi" (docs/RESEARCH.md, chapter 17 D,
+  # registered before measuring). Inside the hard rules there is no room: the size is forecast/10 x target x m /
+  # vol, the target's ceiling is 0.50, and at 48 % volatility with the bubble switch on a MAXIMUM forecast wants
+  # 1.04x. So this is what the Rocket was: ONE book in which ONE rule is suspended by the owner's decision - "no
+  # volatility target above 0.50" - shown as a lottery, out of every total, never promoted, no backtest. The
+  # rule is the Oracle's, sleeve and scale untouched; the target is 1.50, three times the ceiling, with the same
+  # allocator multiplier, so the book is the Oracle times three at every moment. The vehicle is the micro WTI
+  # future (a fund stops at 2x under Regulation T), whose 0.9x contract is fine-grained at these sizes. Kept:
+  # the 10x hard cap, the 3x ceiling before a closure (halved by the strait rule), the 15 % daily breaker, the
+  # 5 % floor, and one ceiling more - the event budget (17 C 2): the exposure on a side never exceeds
+  # event_budget / |the adverse state's move| as the options price it, or - without a two-state reading - the
+  # largest one-session move of the last year. It is the same bet as the Oracle with a stake three times larger,
+  # not a better one, and its page says so.
+  - id: oracle_3x
+    name: Oracle 3x
+    role: lottery
+    forecast: kalshi
+    vehicle: MCL
+    vol_target: 1.50
+    max_leverage: 10.0
+    weekend_max_leverage: 3.0
+    long_only: false
+    daily_loss_breaker: 0.15
+    event_budget: 0.50
+    description: >-
+      A lottery, paper only, no backtest, out of every total. The Oracle's rule at three times the risk: the
+      same Kalshi de-escalation index, the same scale, a volatility target of 150 % instead of 50 % - the one
+      hard rule suspended for this book alone, on the owner's decision of 14 November 2026. Long and short on
+      the micro WTI future, up to the 10x hard cap, 3x before a closure, and never more than half the account
+      on the adverse move the options price (the event budget). It is the same coin as the Oracle with a stake
+      three times larger: with no edge, most paths lose and a few double.
+
 # The options book (engine/desk/options.py): put credit spreads sold below the market when the forecast is
 # long, priced on the real delayed bid and ask. Its replay is a model and is labelled approx everywhere; the
 # book exists to measure the idea on real quotes. Every number here is a rule of the book, not a fitted value:

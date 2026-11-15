@@ -54,9 +54,11 @@ def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_pat
         *candidates,
         *kalshi,
         *claude,
-        "rocket",  # the lottery of phase 19, last
+        # the lotteries, last: the Oracle 3x of phase 22 and the Rocket of phase 19
+        "oracle_3x",
+        "rocket",
     ]
-    roles = ["core"] * 4 + ["candidate"] * (len(candidates) + len(kalshi) + 4) + ["lottery"]
+    roles = ["core"] * 4 + ["candidate"] * (len(candidates) + len(kalshi) + 4) + ["lottery"] * 2
     assert [b["role"] for b in doc["books"]] == roles
     assert all(b["equity"] == b["initial_capital"] and b["pnl_total"] == 0.0 for b in doc["books"])
     assert {b["initial_capital"] for b in doc["books"]} == {10_000.0, 1_000.0}
@@ -77,7 +79,9 @@ def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_pat
     assert by_id["oracle"]["backtested"] is False and by_id["spinto"]["backtested"] is True
     assert by_id["spinto"]["forecast_family"] == "desk" and by_id["spinto"]["experimental"] is False
     # and its index block is there even with an empty archive: no reading, no forecast, the rule written out
-    assert [b["id"] for b in doc["oracle"]["books"]] == kalshi and doc["oracle"]["archive_days"] == 0
+    # the Oracle 3x reads the same index, so the block lists it too (phase 22): it is a lottery, not a candidate
+    assert [b["id"] for b in doc["oracle"]["books"]] == [*kalshi, "oracle_3x"]
+    assert doc["oracle"]["archive_days"] == 0
     assert doc["oracle"]["books"][0]["sleeves"] == {"deescalation": 1}
     assert doc["oracle"]["books"][1]["sleeves"] == {"fedpath": 1, "recession": -1}
     assert [i["id"] for i in doc["oracle"]["indices"]] == ["deescalation", "fedpath", "recession"]
@@ -91,7 +95,7 @@ def test_an_empty_state_exports_the_untouched_books_and_no_made_up_price(tmp_pat
             ex.oracle, "archive_readings", lambda store, spec=None: (_ for _ in ()).throw(RuntimeError("boom"))
         )
         broken = ex.build_desk_payload(settings, RawStore(settings.state_dir), RISK, StateStore(settings.state_dir))
-    assert broken["oracle"] == {"error": "RuntimeError: boom", "books": kalshi}
+    assert broken["oracle"] == {"error": "RuntimeError: boom", "books": [*kalshi, "oracle_3x"]}
     assert [b["id"] for b in broken["books"]] == [b["id"] for b in doc["books"]]
     # a book with nothing in it loses nothing on any gap
     assert doc["books"][0]["stress"] == {"-30%": 0.0, "-20%": 0.0, "-10%": 0.0, "+10%": 0.0, "+20%": 0.0}
@@ -228,7 +232,10 @@ def test_the_desk_page_groups_the_books_and_sums_each_group(tmp_path, monkeypatc
     # three groups, in the page's order, and every book in exactly one of them: the group its forecast and its
     # configured role give it
     assert [g["id"] for g in doc["portfolios"]] == ["core", "candidates", "kalshi", "claude", "lottery"]
-    assert groups["lottery"]["books"] == ["rocket"] and groups["lottery"]["initial_capital"] == 1_000.0
+    # phase 22: the Oracle 3x joins the Rocket in the lottery group - a book whose one suspended rule puts it
+    # out of every total, whatever forecast it reads
+    assert groups["lottery"]["books"] == ["oracle_3x", "rocket"]
+    assert groups["lottery"]["initial_capital"] == 11_000.0
     assert groups["core"]["books"] == ["prudente", "dinamico", "spinto", "opzioni"]
     assert groups["kalshi"]["books"] == ["oracle", "oracle_equities", "oracle_utilities"]
     assert groups["claude"]["books"] == ["claude_oil", "claude_gold", "claude_equities", "claude_bonds"]

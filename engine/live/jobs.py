@@ -381,7 +381,29 @@ def _prediction_markets_step(runner: LiveRunner) -> dict[str, Any]:
     except Exception as exc:
         log.warning("prediction markets watch skipped: %s", exc)
         detail["prediction_watch"] = {"status": f"failed: {str(exc)[:160]}"}
+    try:  # the weekend watch (phase 22): the index marked after Friday's close and followed until Sunday
+        from engine.desk import weekend
+
+        detail["weekend_watch"] = weekend.update(runner.raw, desk_store(runner.settings.state_dir), now_utc())
+    except Exception as exc:
+        log.warning("weekend watch skipped: %s", exc)
+        detail["weekend_watch"] = {"status": f"failed: {str(exc)[:160]}"}
     return detail
+
+
+def _options_reading_step(runner: LiveRunner) -> dict[str, Any]:
+    """The two-state reading of the option chain (phase 22, ``engine/desk/twostate.py``): read and archived when
+    the chain on file has quotes newer than the last reading's, before the books decide (the Oracle 3x's event
+    budget reads it). On the side: a chain nobody can fit costs the reading, never the tick."""
+    from engine.desk.live import desk_store
+
+    try:
+        from engine.desk import twostate
+
+        return {"two_state": twostate.record_reading(runner.raw, desk_store(runner.settings.state_dir), now_utc())}
+    except Exception as exc:
+        log.warning("two-state reading skipped: %s", exc)
+        return {"two_state": {"status": f"failed: {str(exc)[:160]}"}}
 
 
 def watch(runner: LiveRunner, job_id: str) -> JobOutcome:
@@ -513,6 +535,7 @@ def tick(runner: LiveRunner, job_id: str, legacy: bool = True) -> JobOutcome:
         detail["raw_snapshots_deleted"] = _compact_raw(runner, fetched)
 
         detail.update(_prediction_markets_step(runner))
+        detail.update(_options_reading_step(runner))
 
         data = build_desk_data(runner.raw, runner.settings)
         blocked = _blocked_vehicles(runner, desk.vehicles())

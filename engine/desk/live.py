@@ -34,7 +34,7 @@ from engine.core.events import Bar
 from engine.core.store import StateStore
 from engine.core.timeutil import ensure_utc, iso
 from engine.data.raw_store import OBSERVED_AT_COLUMN
-from engine.desk import analyst, oracle
+from engine.desk import analyst, oracle, twostate
 from engine.desk import signals as sg
 from engine.desk.allocator import (
     AllocatorConfig,
@@ -45,7 +45,7 @@ from engine.desk.allocator import (
     runup_state,
     transit_ratios,
 )
-from engine.desk.book import Book, BookConfig, load_books
+from engine.desk.book import Book, BookConfig, load_books, load_event_budgets
 from engine.desk.data import DeskData, VehicleSeries, held_contract
 from engine.desk.engine import Desk
 from engine.desk.vehicles import INVERSE_FUNDS, Vehicle, get_vehicle
@@ -80,12 +80,38 @@ def build_desk(
     risk: RiskConfig,
     configs: list[BookConfig] | None = None,
     allocator: AllocatorConfig | None = None,
+    event_budgets: dict[str, float] | None = None,
 ) -> Desk:
     """``allocator`` None leaves the books to their own rules (the tests of the books themselves); the tick
     passes the configuration on file."""
+    # the event budgets are read with the configuration on file; a desk built from explicit configs (the tests
+    # of the books themselves) has none unless it is given them
+    budgets = (load_event_budgets() if configs is None else {}) if event_budgets is None else dict(event_budgets)
     configs = configs if configs is not None else load_books()
     books = [Book(cfg, risk, store=book_store(state_dir, cfg.id)) for cfg in configs]
+    for book in books:
+        book.event_budget = budgets.get(book.id)
     return Desk(books, store=desk_store(state_dir), allocator=allocator)
+
+
+def set_event_caps(desk: Desk, book: Book, returns: pd.Series, day: date, now: datetime) -> str | None:
+    """Today's event-budget ceilings for a book that has a budget (phase 22, docs/RESEARCH.md 17 C 2): from the
+    newest two-state reading of the options at most 26 hours old when it shows two states, else from the largest
+    one-session move of the vehicle's own series over the last 252 sessions. A book without a budget is left
+    with no such ceiling. Returns the words for the tick's notes, None for a book without a budget."""
+    if book.event_budget is None:
+        book.set_event_caps(None, None, "")
+        return None
+    moves = None
+    if desk.store is not None:
+        try:
+            moves = twostate.state_moves(twostate.reading_for(desk.store, now))
+        except Exception as exc:  # the reading is on the side of the book: without it, the fallback
+            log.warning("event budget of %s: the two-state reading could not be read (%s)", book.id, exc)
+    known = returns.loc[: pd.Timestamp(day)] if len(returns) else returns
+    long_cap, short_cap, text = twostate.event_caps(book.event_budget, moves, twostate.largest_move(known.tolist()))
+    book.set_event_caps(long_cap, short_cap, text)
+    return text
 
 
 # ----------------------------------------------------------------------------------------------- calendar
@@ -611,6 +637,11 @@ def _tick_vehicle(
                 # their forecast comes from the desk's own archive, for this decision day, and never from the
                 # vehicle's series. A failure there costs those books their decision and nothing else.
                 deciding = [b for b in pending if not b.replayable and not b.other_contract_positions(symbol)]
+                # the event budget (phase 22): one more ceiling for the book that has one, set for this decision
+                for book in pending:
+                    words = set_event_caps(desk, book, series.returns, day, now)
+                    if words:
+                        report.notes.append(f"{book.id}: {words}")
                 own = oracle_forecasts(desk, [b for b in deciding if b.cfg.forecast == oracle.FAMILY], day, report)
                 # the Claude analyst's books (phase 17): their forecast is the analyst's reading on file
                 own.update(

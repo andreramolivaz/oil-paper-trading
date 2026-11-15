@@ -81,6 +81,8 @@ CANDLE_COLUMNS = [
     "price_previous", "volume", "open_interest", "source",
 ]  # fmt: skip
 CANDLE_DAY = 1440  # period_interval in minutes: a daily candle
+CANDLE_HOUR = 60
+HOURLY_WINDOW_DAYS = 120  # hourly candles are asked for 120 days at a time (2 880 candles a request)
 
 
 def _num(value: Any) -> float | None:
@@ -316,13 +318,21 @@ class KalshiAdapter(HttpClient):
             raise DataUnavailable(f"kalshi candlesticks {ticker}: unexpected answer {str(body)[:120]}")
         return parse_candlesticks(body.get("candlesticks") or [], ticker, source)
 
-    def fetch_history(self, series: Iterable[str], since: int, until: int | None = None) -> dict[str, Any]:
+    def fetch_history(
+        self, series: Iterable[str], since: int, until: int | None = None, period: int = CANDLE_DAY
+    ) -> dict[str, Any]:
         """Every market of each series, whatever its status, with its daily candlesticks from ``since`` (a Unix
         time; a market opened later starts at its open) to ``until`` (now by default): what the archive of the
         prediction markets would hold had the desk read them every day since ``since`` (``engine/desk/backfill``).
-        One series failing is noted and the others are still returned."""
+        One series failing is noted and the others are still returned.
+
+        ``period`` is the candle in minutes. The hourly candles (60: the weekend research of phase 22) are asked
+        for in windows of ``HOURLY_WINDOW_DAYS``, because one request returns a bounded number of candles."""
         end = int(until if until is not None else utc_now().timestamp())
-        out: dict[str, Any] = {"fetched_at": utc_now().isoformat(), "since": int(since), "until": end, "series": {}}
+        out: dict[str, Any] = {
+            "fetched_at": utc_now().isoformat(), "since": int(since), "until": end, "period": int(period), "series": {}
+        }  # fmt: skip
+        window = None if period >= CANDLE_DAY else HOURLY_WINDOW_DAYS * 86_400
         failed: dict[str, str] = {}
         for series_ticker in series:
             try:
@@ -351,7 +361,17 @@ class KalshiAdapter(HttpClient):
                 if stop <= start:
                     continue
                 try:
-                    candles[ticker] = self.fetch_candlesticks(series_ticker, ticker, start, stop + 86_400)
+                    if window is None:
+                        candles[ticker] = self.fetch_candlesticks(series_ticker, ticker, start, stop + 86_400)
+                    else:
+                        rows: list[dict[str, Any]] = []
+                        cursor = start
+                        while cursor < stop + 86_400:
+                            upto = min(cursor + window, stop + 86_400)
+                            rows += self.fetch_candlesticks(series_ticker, ticker, cursor, upto, period)
+                            cursor = upto
+                        # two windows share their boundary candle: one row per period end
+                        candles[ticker] = list({int(r["end_ts"]): r for r in rows}.values())
                 except DataUnavailable as exc:
                     failed[ticker] = str(exc)[:160]
                     log.warning("kalshi candlesticks %s: %s", ticker, exc)

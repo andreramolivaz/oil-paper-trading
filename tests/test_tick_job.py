@@ -722,7 +722,9 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
     assert broken.status == "ok" and broken.exit_code == 0
     assert broken.detail["desk_backtest"] == "failed: unreadable configuration"
     # the books on the two vehicles this archive has: the core's, and the speculative ones on /MCL
-    assert set(broken.detail["desk"]["books"]) == {"prudente", "dinamico", "spinto", "oracle", "claude_oil"}
+    assert set(broken.detail["desk"]["books"]) == {
+        "prudente", "dinamico", "spinto", "oracle", "oracle_3x", "claude_oil"
+    }  # fmt: skip
 
     # a red fund table blocks the fund's books and nothing else
     others = [row for row in green if row["source"] != "bno_daily"]
@@ -731,4 +733,6 @@ def test_a_tick_decides_once_and_is_idempotent_from_the_state_on_disk(tmp_path, 
     blocked = jobs.tick(runner, "t-3", legacy=False)
     assert blocked.status == "ok" and any("bno_daily" in note for note in blocked.detail["desk"]["notes"])
     assert blocked.detail["desk"]["decisions"] == []
-    assert set(blocked.detail["desk"]["books"]) == {"prudente", "dinamico", "spinto", "oracle", "claude_oil"}  # all
+    assert set(blocked.detail["desk"]["books"]) == {
+        "prudente", "dinamico", "spinto", "oracle", "oracle_3x", "claude_oil"
+    }  # all  # fmt: skip

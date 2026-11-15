@@ -81,6 +81,9 @@ class BookConfig:
     description: str = ""
     # "core": one of the books the desk is judged on; "candidate": a paper book run beside them to be judged on
     # real fills before anybody trusts it (the satellite markets of phase 12). Same engine, same rules.
+    # "lottery" (phase 22, the Oracle 3x): a book in which ONE hard rule is suspended by the owner's decision -
+    # the 0.50 ceiling on the volatility target - shown with the Rocket, out of every total, never promoted. It
+    # is always on a forecast that has no replay, so no backtest number depends on it.
     role: str = "core"
     forecast: str = FORECAST_DESK  # FORECAST_FAMILIES
 
@@ -89,6 +92,8 @@ class BookConfig:
             raise ValueError(f"book {self.id}: max_leverage {self.max_leverage} must be in (0, {HARD_CAP:g}]")
         if self.weekend_max_leverage is not None and not (0 <= self.weekend_max_leverage <= self.max_leverage):
             raise ValueError(f"book {self.id}: weekend_max_leverage must be within [0, max_leverage]")
+        if self.role not in ("core", "candidate", "lottery"):
+            raise ValueError(f"book {self.id}: role must be 'core', 'candidate' or 'lottery', not {self.role!r}")
         if not (0 < self.vol_target <= 2.0):
             raise ValueError(f"book {self.id}: vol_target {self.vol_target} out of range")
         if self.forecast not in FORECAST_FAMILIES:
@@ -100,8 +105,9 @@ class BookConfig:
         unknown = set(self.sleeves) - set(FORECAST_FAMILIES[self.forecast])
         if unknown:
             raise ValueError(f"book {self.id}: unknown sleeves {sorted(unknown)} for the {self.forecast!r} forecast")
-        if self.role not in ("core", "candidate"):
-            raise ValueError(f"book {self.id}: role must be 'core' or 'candidate', not {self.role!r}")
+        if self.role == "lottery" and self.forecast == FORECAST_DESK:
+            # a book the replay would run must obey the rules the replay's numbers stand for
+            raise ValueError(f"book {self.id}: a lottery book reads a forecast without a replay, not the desk's")
         if self.forecast != FORECAST_DESK and self.role == "core":
             # a book nobody can backtest is never one of the books the desk is judged on
             raise ValueError(
@@ -123,6 +129,14 @@ def load_books(config_dir: Path | None = None) -> list[BookConfig]:
         if not entry.get("enabled", True):
             continue
         get_vehicle(str(entry["vehicle"]))
+        # The hard rule, enforced on what is CONFIGURED (a test may build any book to exercise the broker): no
+        # volatility target above 0.50. Suspended for a lottery book alone, up to 1.50 - three times the rule,
+        # the owner's decision of 14 November 2026 (docs/RESEARCH.md 17 D).
+        ceiling = 1.50 if str(entry.get("role", "core")) == "lottery" else 0.50
+        if float(entry["vol_target"]) > ceiling + 1e-12:
+            raise ValueError(
+                f"book {entry['id']}: vol_target {entry['vol_target']} is above {ceiling:g}, the ceiling of its role"
+            )
         family = str(entry.get("forecast", FORECAST_DESK))
         defaults = DEFAULT_WEIGHTS_OF.get(family, sg.DEFAULT_WEIGHTS)
         sleeves = {str(k): float(v) for k, v in (entry.get("sleeves") or defaults).items()}
@@ -149,6 +163,24 @@ def load_books(config_dir: Path | None = None) -> list[BookConfig]:
     if len(ids) != len(set(ids)):
         raise ValueError(f"duplicate book ids in config: {ids}")
     return books
+
+
+def load_event_budgets(config_dir: Path | None = None) -> dict[str, float]:
+    """The books with an event budget (``event_budget`` in their entry of ``config/books.yaml``): book id -> the
+    share of the account the book may lose in the adverse state (docs/RESEARCH.md 17 C 2). Only a lottery book
+    may have one: for every other book the rule would be an allocator rule that was never measured on the replay."""
+    raw = load_config(BOOKS_CONFIG, config_dir)
+    out: dict[str, float] = {}
+    for entry in raw.get("books", []):
+        if not entry.get("enabled", True) or entry.get("event_budget") is None:
+            continue
+        budget = float(entry["event_budget"])
+        if str(entry.get("role", "core")) != "lottery":
+            raise ValueError(f"book {entry['id']}: an event budget is for a lottery book only")
+        if not (0 < budget <= 1.0):
+            raise ValueError(f"book {entry['id']}: event_budget {budget} must be a share of the account in (0, 1]")
+        out[str(entry["id"])] = budget
+    return out
 
 
 def book_risk(base: RiskConfig, cfg: BookConfig, vehicle: Vehicle) -> RiskConfig:
@@ -322,6 +354,13 @@ class Book:
         self.risk_scale: float = 1.0
         self.weekend_scale: float = 1.0
         self.scale_reasons: list[str] = []
+        # The event budget (phase 22, docs/RESEARCH.md 17 C 2): one more ceiling, by side, for the one book that
+        # has a budget in books.yaml (``event_budget``, read by ``load_event_budgets``; not a field of the
+        # configuration, which the replay's fingerprint hashes). ``None`` is no ceiling: every other book.
+        self.event_budget: float | None = None
+        self.event_cap_long: float | None = None
+        self.event_cap_short: float | None = None
+        self.event_reason: str = ""
 
     # ------------------------------------------------------------------ views
     @property
@@ -425,6 +464,19 @@ class Book:
         self.weekend_scale = min(1.0, max(0.0, float(weekend)))
         self.scale_reasons = list(reasons or [])
 
+    def set_event_caps(self, long_cap: float | None, short_cap: float | None, reason: str = "") -> None:
+        """Today's event-budget ceilings on the long and on the short side, as multiples of equity (None: none).
+        Like the allocator's scales they only ever lower a position."""
+        self.event_cap_long = None if long_cap is None or not math.isfinite(long_cap) else max(0.0, float(long_cap))
+        self.event_cap_short = None if short_cap is None or not math.isfinite(short_cap) else max(0.0, float(short_cap))
+        self.event_reason = reason
+
+    def _side_cap(self, day: date, side: float) -> float:
+        """The ceiling in force on the side ``side`` points to: the book's own, lowered by the event budget."""
+        cap = self._cap(day)
+        extra = self.event_cap_long if side > 0 else (self.event_cap_short if side < 0 else None)
+        return cap if extra is None else min(cap, extra)
+
     @property
     def vol_target(self) -> float:
         """The volatility target in force today: the book's own, times the allocator's risk scale."""
@@ -452,6 +504,9 @@ class Book:
         if abs(raw) > cap:
             limited = "pre-closure ceiling" if cap < full_cap else "the book's leverage ceiling"
         capped = max(-cap, min(cap, raw))
+        side_cap = self._side_cap(day, capped)
+        if abs(capped) > side_cap:
+            capped, limited = math.copysign(side_cap, capped), "event budget"
         if self.short is not None and capped < -self.short.max_exposure:
             # the short side is an inverse fund bought with cash: it cannot carry more than its own multiple
             capped, limited = -self.short.max_exposure, "the inverse fund is bought with cash only"
@@ -537,7 +592,10 @@ class Book:
         per_lot = equity / price / lot  # lots that one times the equity buys
         band = cfg.buffer * max(self.vol_target, 1e-9) / float(vol)  # the buffer, as a multiple of equity
         target_lots = buffered_target(
-            exact=exposure * per_lot, buffer=band * per_lot, current=current / lot, cap=self._cap(day) * per_lot
+            exact=exposure * per_lot,
+            buffer=band * per_lot,
+            current=current / lot,
+            cap=self._side_cap(day, exposure) * per_lot,
         )
         if cfg.long_only or not self.vehicle.allow_short:
             target_lots = max(0.0, target_lots)
@@ -583,7 +641,7 @@ class Book:
         dec.risk_scale, dec.weekend_scale, dec.scale_reasons = (
             self.risk_scale,
             self.weekend_scale,
-            list(self.scale_reasons),
+            [*self.scale_reasons, *([self.event_reason] if self.event_reason else [])],
         )
         orders: list[Order] = []
         levered = {
