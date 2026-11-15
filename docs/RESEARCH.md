@@ -2616,6 +2616,284 @@ regola — **si cambia veicolo solo a libro piatto** — va rispettata la prossi
 perdere (zero in otto decisioni), quindi non c'è record dal vivo da azzerare: la sua vita continua, su uno
 strumento che sa eseguirla.
 
+## 17. Fase 22 (15 novembre 2026, 06:10 UTC): due stati, il fine settimana, il petrolio come segnale, un libro Kalshi a rischio triplo — registrati prima di misurare
+
+Il proprietario, il 14 novembre: «ci sono altre strategie che avrebbe senso implementare, non stupide e non
+scontate, che permettano di vedere il lungo vista la situazione corrente?»; avuta la risposta (cinque idee e una
+regola per il giorno della riapertura), la sera: «fai tutto, e design nero, che mi sia più chiaro, più leva su
+Kalshi e quei segnali che permettono di anticipare mercato o anomalie di sistema, il design facile d'intuito».
+
+Questo capitolo registra regole, prior e filtri **prima** di calcolare un numero. Le sezioni M e seguenti si
+scrivono dopo la misura, e la misura è una.
+
+### A. Che cosa avevo già visto quando ho scritto queste regole
+
+Va detto per intero, perché decide quanto valgono i prior:
+
+1. Lo stato del desk del 13-14 novembre (l'export pubblico): la previsione combinata a +0,5 su 20, la volatilità
+   al 50%, l'interruttore del run-up acceso, i libri core quasi fermi (0,02x e 0,04x), l'Oracolo lungo 0,45x e a
+   +8,3% dal 15 ottobre, il Rocket a 619 $.
+2. **Una** fotografia della catena di opzioni su USO (Cboe, 13 novembre 21:17 UTC), guardata per capire se una
+   mistura fosse stimabile: 55-66 strike fuori dal denaro quotati entro il 25% per scadenza, undici scadenze dal 13
+   novembre al 15 gennaio. In quella fotografia ho letto la volatilità implicita alla pari per scadenza (40,7% a
+   una settimana, 46,3% a cinque, 46,5% a nove) e la forma del sorriso (tutte e due le ali alzate, quella delle
+   call di più). Nessun modello è stato stimato.
+3. Una verifica di definizione su un fine settimana (6-9 novembre): l'«open» della barra giornaliera di Yahoo per
+   un contratto CL è la chiusura del venerdì (90,83), non la riapertura di domenica sera (90,39 sulla prima barra
+   da mezz'ora). Quindi la barra giornaliera dei future non misura il gap, e la sezione E usa il fondo.
+4. Che l'API di Kalshi serve le candele **orarie** (provata su un mercato: 274 candele in venti giorni).
+
+Niente di quello che le sezioni E, F e D misurano è stato calcolato.
+
+**Due correzioni a quello che ho scritto al proprietario il 14 novembre**, prima di cominciare. (a) Ho attribuito
+a Melick e Thomas una mistura di **due** lognormali: nel loro lavoro sul greggio durante la crisi del Golfo sono
+**tre** (ricordato, non riletto: il riassunto pubblico non lo dice); la mistura a due è di Ritchey (1990) e di
+Bahra (1997). Qui se ne usano due, perché la domanda è binaria e quattro parametri liberi su una sessantina di
+quotazioni sono già molti. (b) Ho scritto «se la struttura a termine della volatilità è invertita, come mi
+aspetto»: sulla catena del 13 novembre **non lo è** — la settimana costa meno delle cinque settimane. La diagonale
+di put che avevo proposto vende quindi oggi la volatilità meno cara e compra la più cara: la sezione G la registra
+come misura in avanti e non come libro.
+
+### B. La lettura a due stati (`engine/desk/twostate.py`): una misura mostrata, non una regola negoziata
+
+La domanda del proprietario è «vedere il lungo». La curva dei future dà una media; le opzioni danno la
+distribuzione, e in un mercato appeso a un evento la distribuzione può avere due gobbe. La lettura:
+
+1. **Quotazioni.** La catena di USO più recente in archivio. Per una scadenza, le opzioni con denaro e lettera,
+   lettera maggiore del denaro e `(lettera − denaro) / medio ≤ 0,25` (`MAX_REL_SPREAD`, la regola 5 del libro
+   opzioni), **fuori dal denaro** rispetto al forward: put con strike sotto il forward, call sopra. Il forward `F`
+   viene dalla parità put-call: la mediana, sui tre strike più vicini al prezzo del fondo, di
+   `K + (C − P) · e^{rT}` sui prezzi medi, con `r = 0,04` (`RATE`: una costante dichiarata; su 45 giorni sposta i
+   prezzi di mezzo punto percentuale, molto meno del denaro-lettera). Le opzioni sono americane: fuori dal denaro,
+   su un fondo che non paga dividendi, il premio di esercizio anticipato è trascurabile, e la lettura è `approx`.
+2. **Scadenze.** Ogni scadenza quotata fra 14 e 75 giorni (`DTE_MIN`, `DTE_MAX`). Quella di riferimento è la più
+   vicina a 45 giorni (`DTE_HEADLINE`).
+3. **Modello.** La densità neutrale al rischio a scadenza è `w · LN(F_L, s_L) + (1 − w) · LN(F_H, s_H)` con
+   `F_L ≤ F_H` e il vincolo `w · F_L + (1 − w) · F_H = F`. Parametri liberi: `w`, `d = ln(F_H / F_L) ≥ 0`, `s_L`,
+   `s_H` (volatilità annue in [0,05; 3]). Il prezzo di un'opzione è la media pesata dei due prezzi di Black.
+4. **Stima.** Minimi quadrati sugli errori `(modello − medio) / h`, dove `h` è il mezzo denaro-lettera
+   dell'opzione (minimo un centesimo): un errore sotto 1 vuol dire «dentro la quotazione». Partenze fisse, la
+   griglia `w ∈ {0,1; 0,25; 0,5; 0,75; 0,9} × d ∈ {0,1; 0,25; 0,5}`, la migliore; nessun numero casuale.
+5. **Il confronto obbligato**: la stessa perdita con **una** lognormale (un parametro).
+6. **Quando la lettura «vede due stati»** (tutte e cinque, scritte prima di stimare la prima):
+   (a) almeno 8 put e 8 call passano il filtro (`MIN_SIDE`); (b) l'errore quadratico medio della mistura è al più
+   0,70 volte quello della lognormale sola (`IMPROVEMENT`); (c) `0,05 ≤ w ≤ 0,95` (`W_MIN`); (d) gli stati sono
+   separati: `d ≥ max(s_L, s_H) · √T` (`SEPARATION = 1`); (e) l'errore medio della mistura è al più 2 mezzi
+   denaro-lettera (`MAX_RMSE`). Se una cade, la pagina dice «oggi le opzioni mostrano un solo stato» e dà la fascia
+   a una deviazione standard della lognormale. È il risultato nullo, e va mostrato come tale.
+7. **Gli stati in prezzo.** `g_L = F_L / F − 1` e `g_H = F_H / F − 1`; il Brent e il WTI «in ciascuno stato» sono
+   la quotazione del desk per `(1 + g)`: `approx`, perché suppone che il rapporto fra Brent e WTI regga in tutti e
+   due gli stati, e una riapertura lo cambierebbe. Gli stati si chiamano **basso** e **alto**, mai «pace» e
+   «guerra»: quale dei due sia il più probabile lo dicono i pesi, non il nome.
+8. **Kalshi accanto.** Per la stessa data di scadenza, la probabilità che Kalshi dà a ciascuna delle tre
+   componenti dell'indice di de-escalation (`oracle.horizon_probability` con l'orizzonte uguale ai giorni alla
+   scadenza) e la loro media. **Nessuna regola negozia la differenza**: non ha storia.
+9. **Archivio.** Ogni lettura (una per scaricamento della catena con quotazioni nuove) in
+   `state/desk/twostate-YYYY-MM.jsonl`. Dopo 60 sedute si guarda — non prima — se `w` e l'indice Kalshi si muovono
+   insieme e chi precede.
+
+**Prior.** I pesi di una mistura stimata sulle opzioni sono instabili (è il limite noto di questi modelli); le
+medie degli stati lo sono meno. Mi aspetto che la condizione (b) cada in una parte dei giorni, e che lo stato di
+peso piccolo sia quello **alto**, non quello basso: il sorriso che ho visto ha l'ala delle call più alta.
+
+### C. Il bilancio dell'evento: quanto costa a ciascun libro ciascuno stato
+
+1. **Mostrato per tutti i libri sul petrolio** (nessuna regola): l'esposizione del libro per `g_L` e per `g_H`,
+   in dollari. Sta accanto allo `stress` che l'export ha già (gap fissi da −30% a +20%): quelli sono gap scelti da
+   me, questi sono i due stati che il mercato prezza. Solo quando la lettura è valida.
+2. **Applicato a un libro solo, l'Oracle 3x** (sezione D): l'esposizione ammessa da un lato è al più
+   `B / |g avverso|`, con `B = 0,50` (`EVENT_BUDGET`: metà del conto nello stato avverso). Lungo: lo stato avverso
+   è il basso; corto: l'alto. Si legge la lettura valida più recente della scadenza di riferimento, vecchia al
+   più 26 ore alla decisione (`MAX_AGE_HOURS`). Senza: `|g avverso|` è il più grande rendimento assoluto di una
+   seduta del veicolo nelle ultime 252, un fatto dell'archivio, uguale per i due lati.
+
+Perché non ai libri core: una regola dell'allocatore entra dopo essere stata misurata sul replay (regola dura), e
+di quotazioni di opzioni non esiste storia. I libri core oggi tengono 0,02x e 0,04x: il loro stato avverso costa
+qualche dollaro, e la pagina lo mostrerà.
+
+### D. Oracle 3x: la regola dell'Oracolo a tre volte il rischio, su decisione del proprietario
+
+«Più leva su Kalshi». Dentro le regole dure non c'è spazio: la taglia è `previsione/10 × obiettivo × m / vol`,
+l'obiettivo massimo è 0,50, e con la volatilità al 48% e `m = 0,5` una previsione massima di 20 vuole 1,04x.
+L'Oracolo non è frenato dallo strumento (capitolo 16) ma dalla formula, ed è giusto che lo sia.
+
+Quello che si può fare è quello che si è fatto per il Rocket (capitolo 14): **un libro solo, in cui una regola è
+sospesa per decisione del proprietario, fuori da ogni totale, mostrato come una lotteria**. La regola sospesa è
+una: «nessun obiettivo di volatilità sopra 0,50».
+
+1. `oracle_3x`, «Oracle 3x», 10 000 $, `forecast: kalshi`, la manica `deescalation` **identica** a quella
+   dell'Oracolo (capitolo 10 C: scala −2 per punto, soglia di un punto, orizzonte 90 giorni, cambiamento a 7
+   giorni). Nessuna manica nuova: una manica nuova senza storia sarebbe una seconda scommessa nascosta nella prima.
+2. **Obiettivo di volatilità 1,50**: tre volte il massimo delle regole dure. La formula resta la stessa, con lo
+   stesso `m` dell'allocatore (oggi 0,5 su /MCL): il libro è l'Oracolo moltiplicato per tre in ogni momento, e
+   scende quando la volatilità sale. Tre e non altro: è il numero tondo più piccolo che, con `m = 0,5` e la
+   volatilità di oggi, fa comprare più di un contratto a una previsione normale (10 × 0,75 / 0,48 = 1,56x).
+3. **Veicolo /MCL**, lungo e corto. Un fondo si ferma a 2x (Regolamento T); il micro future ha un margine del
+   10%. Un contratto è 0,88x del conto: fra uno e sei contratti il libro ha la granularità che all'Oracolo mancava.
+4. **Tetti**: 10x (il tetto duro, che non si sospende mai), 3x prima di una chiusura — dimezzato dalla regola
+   dello stretto, 1,5x oggi — e il **bilancio dell'evento** di C 2. Interruttore giornaliero al 15%, morte al 5%
+   del capitale, margine e stop-out del veicolo: quelli di ogni libro.
+5. **Ruolo `lottery`**: nel gruppo «Lottery» con il Rocket, fuori da `total` e da `total_candidates`, mai
+   promosso, nessun backtest, nessuna riga nelle tabelle del replay, nessuna parte nell'impronta. Sulla pagina, le
+   probabilità del modello accanto.
+6. **La misura, una, prima che il libro parta** (`scripts/research_oracle.py --vehicle MCL --vol-target 1.5`):
+   la regola sull'archivio dal 18 marzo, a contratti interi, con i costi del veicolo. **Filtro** (quello delle
+   fasi 12-15): uno Sharpe dopo i costi negativo non parte. **Le probabilità**: ricampionamento a blocchi di 5
+   sedute dei rendimenti giornalieri netti del libro, 20 000 percorsi di 63 sedute, seme 7: quanti raddoppiano,
+   quanti perdono metà, quanti muoiono, il multiplo mediano. `approx`: ricampiona otto mesi di una guerra sola.
+
+**Prior.** La regola è quella che ha misurato +0,91 su /MCL (16 C) con un errore standard di 1,4: cioè niente di
+distinguibile da zero. Moltiplicare la taglia per tre non cambia lo Sharpe e triplica la volatilità: mi aspetto
+che passi il filtro (è la stessa moneta) e che le probabilità dicano quello che dice l'aritmetica — senza un
+vantaggio, un libro al 100% e oltre di volatilità perde in mediana, e ogni tanto raddoppia. **Non è un
+miglioramento dell'Oracolo: è la stessa scommessa con una posta tre volte più grande**, e la pagina lo dirà con
+queste parole.
+
+### E. Il fine settimana: Kalshi scambia, il greggio no
+
+Dal venerdì alle 17:00 di New York alla domenica alle 18:00 i future sono chiusi e i mercati di Kalshi restano
+aperti; le notizie di una guerra arrivano spesso lì. La domanda: la mossa di Kalshi nel fine settimana dice
+qualcosa del lunedì?
+
+1. **L'indice** è `deescalation`, letto come lo legge l'Oracolo (tre scale, orizzonte 90 giorni, mercati quotati
+   entro 10 centesimi, la media delle componenti presenti), ma sulle **candele orarie**: la quotazione di un
+   mercato all'istante `t` è il denaro e la lettera di chiusura della sua ultima candela che finisce entro `t`, se
+   non più vecchia di 48 ore.
+2. **`W`**: l'indice alla domenica 17:00 di New York meno l'indice al venerdì 17:00, sulle componenti presenti in
+   entrambe le letture. È la finestra in cui il greggio **non scambia**: Kalshi non può star seguendo il prezzo.
+3. **Il greggio**: il fondo sul Brent (BNO), che ha un'apertura vera. `G` = apertura del lunedì / chiusura del
+   venerdì − 1 (il gap); `C` = chiusura del lunedì / apertura del lunedì − 1 (la continuazione). Festivo: la
+   prima seduta dopo.
+4. **Campione**: tutti i fine settimana dal primo in cui l'indice ha almeno due componenti ai due istanti fino a
+   quello del 7-8 novembre. Quello del 14-15 novembre è in corso mentre scrivo ed è il primo dal vivo.
+5. **H1 (controllo)**: la pendenza di `G` su `W` è negativa — più de-escalation, apertura più bassa. Si riportano
+   pendenza, t (errori robusti), R², n, e la correlazione di rango.
+6. **H2 (quella che conterebbe)**: `W` contro `C`. Se l'apertura ha già prezzato tutto, zero.
+7. **Che cosa può decidere questa misura.** Nessun libro: il filtro corretto del capitolo 15 E chiede almeno un
+   anno di sedute e qui ci sono una trentina di fine settimana. Decide **solo che cosa dice la pagina la
+   domenica**: se H1 ha |t| ≥ 2 su almeno 25 fine settimana, accanto alla mossa del fine settimana la pagina
+   mostra il gap che la regressione implica, con la deviazione standard dei residui come fascia; altrimenti mostra
+   la mossa e la frase «su n fine settimana la mossa non ha detto niente di affidabile sull'apertura».
+8. **Vicini che non decidono**: `W` fino al lunedì alle 9:00 (comprende la notte in cui il greggio scambia);
+   `G` contro il `W` del fine settimana **precedente** (il placebo); le due metà del campione.
+
+Dal vivo (`engine/desk/weekend.py`): il tick scrive il valore dell'indice alla prima lettura dopo le 17:00 di
+New York del venerdì; il lavoro `watch` del fine settimana, che già legge i mercati ogni ora, lo confronta con la
+lettura corrente. Se quel segno manca, il confronto è con la prima lettura del sabato UTC e lo dice.
+
+**Prior.** H1 vera ma debole (il greggio apre dove le notizie lo mettono, e Kalshi legge le stesse notizie); H2
+zero. Probabilità che H1 abbia |t| ≥ 2: una su due.
+
+### F. Il petrolio come segnale per le azioni e le obbligazioni
+
+Driesprong, Jacobsen e Maat (JFE 2008): le variazioni del prezzo del petrolio predicono, col segno opposto, i
+rendimenti azionari del mese dopo, e la relazione si rafforza con qualche giorno di ritardo — una reazione
+lenta. Hamilton (2003): conta l'aumento **netto**, il prezzo sopra il massimo dei tre anni precedenti. Il desk ha
+due libri candidati su SPY e TLT che leggono solo il proprio prezzo, e quarant'anni di WTI.
+
+1. **La manica `oil_lag`.** `z = ln(P_t / P_{t−21}) / (σ_t · √21)`, con `P` l'indice investibile del WTI del desk
+   (`data.series["MCL"]`, dal 1986) e `σ_t` la sua volatilità giornaliera esponenziale (la stessa `ew_vol` di ogni
+   manica). Previsione `= −12,5 · z`, limitata a ±20: 12,5 è 10 diviso 0,8, il valore assoluto medio di una
+   normale standard, cioè la normalizzazione di Carver scritta prima di guardare. Letta **alla chiusura
+   precedente**, come rame e dollaro. Stesso segno per SPY e per TLT (petrolio su: inflazione, tassi su,
+   obbligazioni giù).
+2. **Il banco**: il replay del desk (`run_backtest`, costi veri, riempimento all'apertura dopo, allocatore
+   acceso), sui libri `equities` e `bonds` come sono. Tre righe per mercato: (i) il libro com'è (trend,
+   accelerazione, skew); (ii) la sola manica del petrolio; (iii) le due fonti a metà peso ciascuna, combinate
+   dalla regola per fonte del desk.
+3. **Il filtro, tutte**: (1) la manica sola ha uno Sharpe dopo i costi positivo sull'intera storia, in **entrambe
+   le metà** e **dal gennaio 2009** (dopo la pubblicazione); (2) la combinazione (iii) batte il libro (i) in
+   entrambe le metà; (3) la manica ritardata di una seduta non cambia segno (la lezione del capitolo 15 E, questa
+   volta fra le condizioni). Se passa, entra nei due libri candidati in una fase successiva, perché cambia
+   l'impronta del replay. Se una cade, è bocciata e resta scritta.
+4. **La regola di Hamilton per le azioni.** `NOPI_t = max(0, ln(P_t / max(P negli ultimi 756 giorni di borsa prima
+   di t)))` sul WTI. Dopo un giorno con `NOPI > 0`, il rischio del libro azionario per 0,5 per 252 sedute: la forma
+   dell'interruttore del run-up, presa in prestito e non stimata. Filtro: quello del capitolo 9 B — alza lo
+   Sharpe in entrambe le metà, o resta spenta.
+
+**Prior.** (1) cade dopo il 2009: è il destino più comune di un predittore pubblicato. La regola di Hamilton
+cade nella prima metà: fra il 2004 e il 2007 il petrolio fece nuovi massimi e le azioni salirono. Probabilità che
+la manica passi: una su cinque; che passi la regola di Hamilton: una su quattro.
+
+### G. La struttura a termine della volatilità e la diagonale: una misura che comincia oggi
+
+Nessun libro. Ogni lettura di B archivia anche, per scadenza fra 4 e 75 giorni, la volatilità implicita alla pari
+(interpolata al forward fra i due strike vicini) e, una volta per seduta — la prima catena dopo le 15:00 di New
+York — tutte le opzioni fuori dal denaro quotate entro il 25% (`state/desk/chain-YYYY-MM.jsonl`: strike, denaro,
+lettera, delta). È la storia giornaliera di quotazioni vere che il progetto non ha (le catene grezze si tengono
+una a settimana).
+
+La diagonale registrata, da misurare su quell'archivio dopo 60 sedute e non prima: comprata una put sulla
+scadenza più vicina a 60 giorni (fra 45 e 75) con il delta più vicino a −0,30; venduta una put sulla scadenza più
+vicina a 7 giorni (fra 4 e 10) con il delta più vicino a −0,20, rivenduta ogni venerdì; ogni prezzo a un quarto
+del denaro-lettera dal lato cattivo. Si confronta con l'opzione comprata dal Rocket negli stessi giorni.
+
+**Prior**, rovesciato rispetto al 14 novembre: con la settimana più a buon mercato delle cinque settimane, la
+diagonale oggi non ha il vantaggio che le avevo attribuito.
+
+### H. Quando riapre: la scala di Kalshi e la curva
+
+Due letture mostrate una accanto all'altra, nessuna regola.
+
+1. **Kalshi**: la scala «lo stretto torna normale prima del…» è una funzione di ripartizione nella data. La
+   **data mediana** è dove attraversa il 50% (interpolata fra le scadenze; «oltre l'ultima scadenza» se non lo
+   attraversa), con la probabilità entro 3, 6 e 12 mesi.
+2. **La curva del Brent** (i dodici contratti mensili): il mese entro cui è sparita **metà** del premio fra il
+   primo e l'ultimo contratto, `(P_1 − P_m) / (P_1 − P_12) ≥ 0,5`. Solo in backwardation.
+
+Sono due cose diverse — Kalshi regola sul conteggio AIS, la curva mescola le scorte — e la pagina lo scrive.
+
+### I. Il giorno della riapertura: scritto prima
+
+Nessuna regola nuova per i libri core: su zero episodi qualunque regola sarebbe un racconto, e una regola
+dell'allocatore entra dopo una misura. Quello che si scrive prima è **che cosa il desk farà da solo**, perché
+quel giorno non lo si decida guardando lo schermo (`docs/STRATEGIES.md`, «Il giorno della riapertura»):
+
+- la volatilità sale e ogni libro si rimpicciolisce da solo; il trend cambia segno col suo ritardo (settimane);
+  il carry quando la curva si appiattisce; l'interruttore del run-up resta acceso fino alla sua data; la regola
+  dello stretto toglie il dimezzamento del fine settimana solo quando i transiti AIS risalgono, e PortWatch
+  pubblica con una settimana di ritardo;
+- l'Oracolo e l'Oracle 3x leggeranno un indice che salta: la previsione va a −20 (corto) per una settimana, poi
+  le scale si regolano e spariscono dalle componenti — una scala che si regola non è una mossa — e il libro
+  torna a zero;
+- **che cosa non si fa quel giorno**: non si azzera un libro, non si tocca una scala, non si accende o spegne una
+  regola dell'allocatore; quello che il giorno insegna si scrive, e si registra una regola dopo.
+
+Sulla pagina, il bilancio dell'evento (C 1) dice ogni giorno quanto varrebbe quel giorno per ciascun libro.
+
+### J. Il radar: i segnali che vengono prima, e le anomalie
+
+Una sezione sola in cima al sito raccoglie quello che il desk misura e che può muoversi **prima** del prezzo, o
+segnalare che qualcosa non torna. Ogni riquadro: un numero, una frase, quando è stato letto e da dove. Regole
+delle segnalazioni, dichiarate (un'impronta, mai un verdetto):
+
+1. **Kalshi**: l'indice di de-escalation, il cambiamento a un giorno e a una settimana, le allerte di attività
+   anomala (capitolo 9 F, esistenti).
+2. **Due stati** (B) e **bilancio dell'evento** (C).
+3. **Fine settimana** (E): segnalato quando |W| ≥ 5 punti.
+4. **Quando riapre** (H).
+5. **Volatilità a termine** (G): segnalata quando la scadenza più vicina (4-10 giorni) supera di 5 punti quella
+   più vicina a 45 giorni — un evento prezzato a giorni.
+6. **Brent-WTI**: la differenza fra i due contratti del desk; segnalata quando la sua variazione a 5 sedute è
+   oltre 3 deviazioni standard delle variazioni a 5 sedute delle ultime 252 — una dislocazione fra i due greggi,
+   che è anche il rischio di base dei libri su /MCL.
+7. **Il sistema**: fonti rosse o gialle, l'età dell'ultimo tick, libri fermati: una riga, verde se non c'è niente.
+
+Le soglie (5 punti, 5 punti di volatilità, 3 deviazioni) sono numeri tondi dichiarati; il tasso di segnalazioni
+si conta per 60 sedute e si rivede una volta, come per l'allerta del capitolo 9 F.
+
+### K. Che cosa non cambia
+
+I quattro libri core, i dieci candidati, i libri Kalshi e Claude esistenti, il Rocket, le sette maniche,
+l'allocatore, i veicoli: niente. L'impronta del replay deve restare `b66ecbb82b75`, e si verifica prima di
+pubblicare. Il sito cambia aspetto e ordine (nero, il radar in cima), non i numeri.
+
+### L. Che cosa decide il proprietario
+
+1. Se l'Oracle 3x resta acceso dopo aver visto le probabilità di D 6 sulla sua pagina.
+2. Se, dopo 60 sedute di archivio, il bilancio dell'evento va proposto come regola dell'allocatore per i libri
+   core (servirebbe comunque una misura, che allora esisterà).
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
@@ -2766,3 +3044,17 @@ Pakistan e Qatar, lo stretto resta chiuso finché le condizioni non sono accetta
 [CNBC, 16 ottobre](https://www.cnbc.com/2026/10/16/oil-price-today-iran-strait-hormuz-ukraine-russia.html)
 (l'Ucraina colpisce le raffinerie russe: un secondo canale di offerta). I prezzi e le probabilità citati nel
 capitolo sono quelli dell'export del desk del 23 ottobre alle 03:18 UTC, non di queste pagine.
+
+Fase 22 (15 novembre 2026): Melick e Thomas, [Recovering an asset's implied PDF from option prices: an application
+to crude oil during the Gulf crisis](https://econpapers.repec.org/RePEc:cup:jfinqa:v:32:y:1997:i:01:p:91-115_00),
+Journal of Financial and Quantitative Analysis 1997 (letto il riassunto; il numero di lognormali, tre, è ricordato
+e non riletto); Ritchey, *Call option valuation for discrete normal mixtures*, Journal of Financial Research 1990,
+e Bahra, *Implied risk-neutral probability density functions from option prices*, Bank of England 1997 (ricordati:
+la mistura di due lognormali e l'instabilità dei suoi pesi); Driesprong, Jacobsen e Maat,
+[Striking oil: another puzzle?](https://econpapers.repec.org/RePEc:eee:jfinec:v:89:y:2008:i:2:p:307-327), Journal
+of Financial Economics 2008 (letto il riassunto il 15 novembre 2026); Hamilton, *What is an oil shock?*, Journal of
+Econometrics 2003 (ricordato: l'aumento netto sul massimo dei tre anni). Il contesto del 13-14 novembre:
+[OilPrice, l'accordo mediato dal Qatar e il Brent a 94 $](https://oilprice.com/Latest-Energy-News/World-News/Oil-Sinks-to-94-as-Irans-8-Billion-Hormuz-Deal-Heads-to-Trump.html) ·
+[Straits, la nota del 13 novembre](https://straits.live/briefs/2026-11-13) ·
+[EIA, Short-Term Energy Outlook di aprile 2026](https://www.eia.gov/pressroom/releases/press586.php). I prezzi e le
+probabilità del capitolo sono quelli dell'export del desk e della catena Cboe del 13 novembre, non di queste pagine.
