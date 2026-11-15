@@ -412,6 +412,11 @@ attempts, and the runner's word on whether it has a key), `state/desk/backtest.j
 candidate: the paper broker's `account.json`, `positions.json`, `trades`, `orders`, `equity` logs; `opzioni`:
 `book.json`, `monitor.json`, `trades`, `decisions`, `equity`, `smile`; `rocket`: `book.json` with its lives in
 `epochs`, `monitor.json`, `trades`, `decisions`, `equity`).
+Phase 22 adds `state/desk/twostate-*.jsonl` (one reading of the option chain per download that has new quotes,
+about 3 kB and seven a session), `state/desk/chain-*.jsonl` (the out-of-the-money quotes themselves, ONE per US
+session, about 26 kB - deliberately the largest desk log, because a daily history of real option quotes is
+exactly what the project lacked for 17 G), `state/desk/weekend.json` (the weekend in progress) and
+`state/desk/weekend-*.jsonl` (one record per finished weekend).
 Rotation: monthly rollover of jsonl files. Raw snapshots are trimmed by every tick (intraday tables keep one
 copy, option chains one a week, daily tables the last two plus the first of each ISO week). The weekly job
 squashes the branch's git history to one commit (`scripts/data_branch.sh squash`): the audit trail lives

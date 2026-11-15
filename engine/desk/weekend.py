@@ -165,9 +165,11 @@ def update(raw: RawStore, store: StateStore, now: datetime) -> dict[str, Any]:
         mark["late_hours"] = round(late, 2)
         state = {"weekend": weekend, "close": iso(close), "until": iso(last_instant), "mark": mark}
         out["mark"] = mark["source"]
-    if components and seen <= last_instant and iso(seen) >= str((state.get("mark") or {}).get("ts") or ""):
+    mark_ts = str(((state.get("mark") or {}).get("ts")) or "")
+    seen_ts = iso(seen) or ""
+    if components and seen <= last_instant and seen_ts >= mark_ts:
         change, common = change_of(components, (state.get("mark") or {}).get("components") or {})
-        state["latest"] = {"ts": iso(seen), "components": components}
+        state["latest"] = {"ts": seen_ts, "components": components}
         state["change"] = None if change is None else round(change, 5)
         state["common"] = common
         mark_components = (state.get("mark") or {}).get("components") or {}
@@ -187,7 +189,7 @@ def _pts(x: float | None) -> str:
     return "n/a" if x is None or not math.isfinite(x) else f"{x * 100:+.1f} points"
 
 
-def block(store: StateStore, now: datetime, gaps: Mapping[str, Mapping[str, float]] | None = None) -> dict[str, Any]:
+def block(store: StateStore, now: datetime, gaps: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
     """The weekend watch for the page: the weekend in progress or the last one, whether it is flagged, the
     sentence the measurement allows, and the finished weekends with what the Brent fund did at the next open
     (``gaps``: weekend -> {"gap", "continuation"}, facts the export reads off the fund's daily bars)."""
