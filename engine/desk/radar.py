@@ -316,7 +316,7 @@ def reopening_tile(reading: prediction.Reading | None, data: DeskData, now: date
     if bz is not None and not bz.empty:
         row = bz.dropna(how="all").iloc[-1].dropna()
         closes = {str(k): float(v) for k, v in row.items()}
-        curve_day = pd.Timestamp(row.name).date().isoformat()
+        curve_day = pd.Timestamp(str(row.name)).date().isoformat()
     curve = curve_half_life(closes, today) if closes else None
     parts = []
     if ladder:
@@ -516,7 +516,7 @@ def system_tile(health: Mapping[str, Any], books: Iterable[Mapping[str, Any]], n
 
 
 # ----------------------------------------------------------------------------------------------- the block
-def weekend_gaps(data: DeskData) -> dict[str, dict[str, float]]:
+def weekend_gaps(data: DeskData) -> dict[str, dict[str, Any]]:
     """For every Friday of the Brent fund's history since 2026: the next session's gap and continuation (facts
     the weekend tile's history shows beside each logged weekend)."""
     bno = data.series.get("BNO")
@@ -524,7 +524,7 @@ def weekend_gaps(data: DeskData) -> dict[str, dict[str, float]]:
         return {}
     bars = bno.bars[["open", "close"]].dropna()
     days = [pd.Timestamp(d).date() for d in bars.index]
-    out: dict[str, dict[str, float]] = {}
+    out: dict[str, dict[str, Any]] = {}
     for i in range(1, len(days)):
         if (days[i] - days[i - 1]).days < 3 or days[i].year < 2026:
             continue
