@@ -71,7 +71,7 @@ const PAGE = 25;
 function head(b: Book): string {
   const st = bookState(b);
   const tags = [groupLabel(groupOf(b))];
-  if (b.kind === "lottery") tags.push("Risk rules suspended");
+  if (b.kind === "lottery" || b.lottery) tags.push("Risk rules suspended");
   else if (isSpeculative(b)) tags.push("Speculative: no backtest");
   else if (b.experimental) tags.push("Experimental");
   if (b.role_change) tags.push(`${b.role_change.role} since ${longDay(b.role_change.since)}`);
@@ -810,6 +810,39 @@ function historyFor(b: Book, doc: DeskDoc, loaded: BookHistory | null): { h: Boo
   return { h: loaded, warning: "" };
 }
 
+/** A linear lottery book (phase 22, the Oracle 3x): what is suspended, what it would feel, the model's odds. */
+function linearLotterySection(b: Book): string {
+  const l = b.lottery;
+  if (!l) return "";
+  const o = l.odds;
+  const p = (x: number): string => `${num(x * 100, x < 0.1 ? 1 : 0)} in 100`;
+  const row = (label: string, r: NonNullable<typeof o>["no_edge"]): string =>
+    `<tr><th scope="row">${label}</th><td class="n">${num(r.median_multiple, 2)}x</td><td class="n">${p(r.p_double)}</td><td class="n">${p(
+      r.p_gain,
+    )}</td><td class="n">${p(r.p_lose_half)}</td><td class="n">${num(r.p10_multiple, 2)}x to ${num(r.p90_multiple, 2)}x</td></tr>`;
+  const table = o
+    ? `<div class="t-scroll"><table class="t-table">
+        <thead><tr><th>Three months of this book</th><th class="n">Median</th><th class="n">Doubles</th><th class="n">Ends up</th><th class="n">Loses half</th><th class="n">8 paths in 10</th></tr></thead>
+        <tbody>${row("If the rule has no edge (the prior)", o.no_edge)}${row("If the last eight months repeat", o.as_measured)}</tbody>
+      </table></div>
+      <p class="d-fine">A model (≈): ${o.sessions} sessions of one war (${escapeHtml(o.span)}) resampled in blocks. On that archive the rule measured a Sharpe of ${num(
+        o.measured.sharpe_after_costs,
+        2,
+      )} with a standard error of ${num(o.measured.sharpe_se, 2)}, which is indistinguishable from zero; volatility ${percent(
+        o.measured.volatility,
+        0,
+      )} a year, worst day ${signedPercent(o.measured.worst_day, 1)}.</p>`
+    : "";
+  const e = b.event_budget;
+  const budget = e
+    ? `<p>${escapeHtml(e.text ?? "")}: today at most ${num(e.cap_long ?? null, 2)}x long and ${num(e.cap_short ?? null, 2)}x short.</p>`
+    : "";
+  return section(
+    "A lottery, and why",
+    `<p>Suspended for this book alone, on ${escapeHtml(l.decided)}: ${escapeHtml(l.suspended)}. ${escapeHtml(l.note ?? "")}</p>${budget}${table}`,
+  );
+}
+
 export async function renderBook(el: HTMLElement, id: string): Promise<void> {
   const [loaded, hist] = await Promise.all([load<DeskDoc>("desk.json"), load<BookHistory>(`books/${encodeURIComponent(id)}.json`)]);
   if (!el.isConnected) return; // the reader went elsewhere while the data came: nothing to draw
@@ -837,6 +870,7 @@ export async function renderBook(el: HTMLElement, id: string): Promise<void> {
     ${figures(b)}
     ${nowSection(b, h, doc)}
     ${b.kind === "lottery" ? `${newLifeSection(b)}${oddsSection(b)}` : ""}
+    ${linearLotterySection(b)}
     ${chartSection(b, h)}
     ${historySection(b, h, doc, warning)}
     ${rulesSection(b)}

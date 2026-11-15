@@ -365,6 +365,10 @@ export interface Book {
   distributions?: Num;
   /** The book's return on a gap of the vehicle's price ("-20%" -> fraction of equity), before any stop. */
   stress?: Record<string, Num>;
+  /** Phase 22: the options' own moves applied to this book; the event budget and the lottery block of the Oracle 3x. */
+  scenarios?: BookScenarios;
+  event_budget?: { budget: number; cap_long: Num; cap_short: Num; basis: string; text: string | null };
+  lottery?: LinearLottery;
   last_decision?: DecisionRecord | null;
   decision_owed?: boolean;
   last_roll?: string | null;
@@ -755,6 +759,85 @@ export interface DeskDoc {
   oracle?: OracleBlock | null;
   /** The Claude analyst the Claude books read (phase 17); null when no book is on it. */
   analyst?: AnalystBlock | null;
+  /** Phase 22: the signals that can move before the price, and what does not add up (engine/desk/radar.py). */
+  radar?: RadarBlock | null;
+}
+
+export interface RadarQuantile {
+  level: string;
+  move: Num;
+  brent?: Num;
+  wti?: Num;
+}
+/** One tile of the radar: the engine's sentence, whether a declared rule flags it, and the few figures its kind has. */
+export interface RadarTile {
+  id: string;
+  label: string;
+  flag: boolean;
+  text?: string;
+  asof?: string | null;
+  source?: string;
+  approx?: boolean;
+  error?: string;
+  value?: Num;
+  change?: Num;
+  change_day?: Num;
+  change_week?: Num;
+  phase?: string;
+  mark_note?: string | null;
+  state?: string;
+  expiry?: string;
+  quantiles?: RadarQuantile[];
+  tails?: Record<string, Num>;
+  median?: string | null;
+  gap?: Num;
+  near?: { dte: number; atm_vol: number };
+  far?: { dte: number; atm_vol: number };
+  z?: Num;
+  asleep?: boolean;
+}
+export interface RadarBlock {
+  generated_at?: string;
+  tiles: RadarTile[];
+  flagged: string[];
+  summary?: string;
+  note?: string;
+  error?: string;
+}
+/** What the options' moves would cost or pay an oil book (phase 22): a straight line on today's size. */
+export interface BookScenarios {
+  expiry?: string;
+  dte?: number;
+  tail_moves?: { low: number; high: number } | null;
+  tail?: { low: number; high: number } | null;
+  state_moves?: { low: number; high: number } | null;
+  states?: { low: number; high: number } | null;
+}
+export interface LotteryOddsRow {
+  p_double: number;
+  p_up_50: number;
+  p_gain: number;
+  p_lose_half: number;
+  p_touch_half: number;
+  p_dead: number;
+  median_multiple: number;
+  p10_multiple: number;
+  p90_multiple: number;
+}
+/** A linear lottery book (phase 22, the Oracle 3x): the rule suspended, by whom, the model's odds. */
+export interface LinearLottery {
+  suspended: string;
+  decided: string;
+  note?: string;
+  odds?: {
+    span: string;
+    sessions: number;
+    horizon_sessions: number;
+    measured: { sharpe_after_costs: number; sharpe_se: number; volatility: number; worst_day: number; mean_exposure: number; max_exposure: number };
+    as_measured: LotteryOddsRow;
+    no_edge: LotteryOddsRow;
+    source?: string;
+  } | null;
 }
 
 /** One market of a Claude analyst's reading: the forecast (-20..+20 for the next five sessions), its confidence, up to

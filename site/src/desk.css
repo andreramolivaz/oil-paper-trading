@@ -381,3 +381,54 @@ tr[data-href]:hover > * { background: var(--surface-1); }
 @media (forced-colors: active) {
   .r-seg, .r-key { forced-color-adjust: none; }
 }
+
+/* ---------- the radar (phase 22): where oil is, what is unusual, what a big move would do ---------- */
+.r-market { display: flex; flex-wrap: wrap; gap: 6px 28px; margin: 14px 0 0; align-items: baseline; }
+.r-quote { display: flex; align-items: baseline; gap: 8px; }
+.r-qlabel { font-size: var(--t-sm); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.r-qprice { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.r-qchg { font-size: var(--t-sm); font-weight: 600; font-variant-numeric: tabular-nums; }
+.r-qchg.up { color: var(--pos); } .r-qchg.down { color: var(--neg); }
+
+.r-dot { display: inline-block; inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--good-ink); flex-shrink: 0; }
+.flag > .r-dot, .flag > header .r-dot { background: var(--warning-ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning-ink) 22%, transparent); }
+.r-summary { display: flex; align-items: center; gap: 10px; font-size: var(--t-lg); font-weight: 600; margin: 4px 0 14px; }
+.r-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 640px) { .r-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1000px) { .r-grid { grid-template-columns: repeat(3, 1fr); } }
+.r-tile {
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px;
+  display: flex; flex-direction: column; min-inline-size: 0;
+}
+.r-tile.flag { border-color: color-mix(in srgb, var(--warning-ink) 60%, var(--border)); }
+.r-tile header { display: flex; align-items: center; gap: 8px; }
+.r-tile h3 { font-size: var(--t-sm); font-weight: 600; color: var(--text-secondary); flex: 1; }
+.r-badge {
+  font-size: var(--t-micro); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: #000; background: var(--warning-ink); border-radius: 999px; padding: 1px 8px;
+}
+.r-value { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+.r-sub { font-size: var(--t-xs); color: var(--text-muted); margin: 2px 0 0; }
+.r-text { font-size: var(--t-sm); color: var(--text-secondary); margin: 10px 0 0; text-wrap: pretty; flex: 1; }
+.r-note { font-size: var(--t-xs); color: var(--warning-ink); margin: 6px 0 0; }
+.r-src { margin: 10px 0 0; font-size: var(--t-micro); }
+
+.r-range { margin: 14px 0 2px; }
+.r-rtrack { position: relative; block-size: 12px; background: var(--surface-3); border-radius: 6px; }
+.r-r90, .r-r50 { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
+.r-r90 { background: color-mix(in srgb, var(--ink-line) 35%, transparent); }
+.r-r50 { background: var(--ink-line); }
+.r-rnow { position: absolute; top: -4px; bottom: -4px; inline-size: 2px; margin-left: -1px; background: var(--text-primary); }
+.r-rlabs { position: relative; block-size: 18px; margin-top: 4px; font-size: var(--t-xs); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.r-rlab { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.r-rlab.lo { transform: none; } .r-rlab.hi { transform: translateX(-100%); }
+.r-rkey { font-size: var(--t-micro); color: var(--text-muted); margin: 2px 0 0; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.r-rkey i { display: inline-block; inline-size: 12px; block-size: 8px; border-radius: 2px; margin-left: 6px; }
+.r-rkey i:first-child { margin-left: 0; }
+.r-rkey .k50 { background: var(--ink-line); } .r-rkey .k90 { background: color-mix(in srgb, var(--ink-line) 35%, transparent); }
+.r-rkey .know { inline-size: 2px; block-size: 12px; background: var(--text-primary); }
+
+.r-scn, .r-scn-none { margin-top: 16px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.r-scn-h { font-weight: 650; margin: 0 0 8px; }
+.r-scn-t { max-width: 620px; }
+.r-scn-t thead th { background: var(--surface-1); }

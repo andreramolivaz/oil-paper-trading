@@ -338,6 +338,52 @@ ribassista (spread di call) non ha mostrato margine nella simulazione e non vien
 
 Numeri, sensibilità e ciò che è stato scartato: `docs/RESEARCH.md` e la pagina **Backtest** del sito.
 
+### Il libro «Oracle 3x» (`oracle_3x` in `config/books.yaml`, fase 22) — una lotteria lineare
+
+Chiesto dal proprietario il 14 novembre 2026 («più leva su Kalshi»). Dentro le regole dure non c'era spazio: la
+taglia è `previsione/10 × obiettivo di volatilità × moltiplicatore dell'allocatore / volatilità`, e con il tetto
+di 0,50 sull'obiettivo, la volatilità al 48% e l'interruttore del run-up acceso, perfino una previsione **massima**
+vuole 1,04x. Quindi è stato fatto quello che si era fatto per il Rocket: **un libro solo in cui una regola dura è
+sospesa, per decisione del proprietario**, fuori da ogni totale, mai promosso, senza backtest.
+
+- **La regola sospesa, una sola**: «nessun obiettivo di volatilità sopra 0,50». Questo libro ha 1,50, tre volte il
+  tetto. Nient'altro cambia: stessa manica (l'indice di de-escalation di Kalshi, scala −2 per punto, soglia di un
+  punto, orizzonte 90 giorni, variazione a 7 giorni), stessa formula, stesso moltiplicatore dell'allocatore. **È
+  l'Oracolo moltiplicato per tre in ogni momento**, e come l'Oracolo si rimpicciolisce quando la volatilità sale.
+- **Il veicolo** è il micro future sul WTI (/MCL): un fondo si ferma a 2x per il Regolamento T, il micro ha un
+  margine del 10%. Un contratto è 0,88x del conto, quindi fra uno e sei contratti il libro ha la granularità che
+  all'Oracolo sul fondo mancava.
+- **I tetti che restano**: 10x duro, 3x prima di una chiusura (dimezzato dalla regola dello stretto: 1,5x oggi),
+  interruttore giornaliero al 15%, morte al 5% del capitale, margine e stop-out del veicolo. E uno nuovo, il
+  **bilancio dell'evento**: l'esposizione da un lato non supera mai `0,50 / |mossa avversa|`, dove la mossa avversa
+  è quella che le opzioni prezzano per lo stato sfavorevole quando la catena mostra due stati, e altrimenti la più
+  grande variazione giornaliera dell'ultimo anno. Sui dati di novembre il tetto del giorno è stato fra 1,50x e
+  3,05x, e ha tagliato la taglia voluta in 57 giorni su 149.
+- **Che cosa aspettarsi** (modello, ≈; `docs/RESEARCH.md` 17 M4). Se la regola non ha vantaggio — il prior — in tre
+  mesi la mediana è **0,92x**, raddoppia 2,6 volte su 100 e perde metà 6,9 volte su 100. Se gli ultimi otto mesi si
+  ripetessero: mediana 1,24x, raddoppia 11 su 100. Sull'archivio la regola ha misurato uno Sharpe di **+1,40 con un
+  errore standard di 1,72**: indistinguibile da zero, come la stessa regola a rischio normale (+0,91 ± 1,4).
+- **Tesi.** Nessuna, oltre a quella dell'Oracolo. **È la stessa scommessa con una posta tre volte più grande, non
+  una migliore**, e la sua pagina lo dice con queste parole.
+
+### Il giorno della riapertura dello stretto — che cosa farà il desk, scritto prima (fase 22)
+
+Nessuna regola nuova: su zero episodi qualunque regola sarebbe un racconto. Questo è il **comportamento già
+programmato**, messo per iscritto il 15 novembre 2026 perché quel giorno non si decida guardando lo schermo
+(`docs/RESEARCH.md` 17 I).
+
+- **I libri core.** La volatilità salta e ogni libro si rimpicciolisce da solo (la taglia ha la volatilità al
+  denominatore). Il trend cambia segno con il suo ritardo, settimane; il carry quando la curva si appiattisce.
+  L'interruttore del run-up resta acceso fino alla sua data. La regola dello stretto toglie il dimezzamento del
+  fine settimana solo quando i transiti AIS risalgono, e PortWatch pubblica con una settimana di ritardo: per
+  qualche giorno il desk sarà ancora in «stretto chiuso» mentre i giornali dicono il contrario.
+- **L'Oracolo e l'Oracle 3x** leggeranno un indice che salta: la previsione va a −20 (corto) per circa una
+  settimana, poi le scadenze delle scale si regolano, quei mercati spariscono dalle componenti — una scala che si
+  regola non è una mossa — e il libro torna verso zero.
+- **Che cosa non si fa quel giorno**: non si azzera un libro, non si tocca una scala, non si accende o spegne una
+  regola dell'allocatore. Quello che il giorno insegna si scrive; una regola si registra dopo, e si misura prima
+  di entrare.
+
 ### Il «Rocket» (`engine/desk/rocket.py`, `rocket_book` in `config/books.yaml`, fase 19) — una lotteria
 
 Chiesto dal proprietario il 22 ottobre 2026: un conto da **1 000 $** che punta a 10 000 in tre mesi, a leva, che si

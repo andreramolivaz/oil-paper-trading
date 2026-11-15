@@ -259,6 +259,39 @@ Hughes. Scartate: Stooq, Nasdaq CHRIS, OPEC XML. La serie futures EIA è cessata
   contratti sotto i 15 ¢ rendono −80% per dollaro, −67% con il segnale: nessun lato Kalshi entra). La revisione
   indipendente (14 J, `docs/VALIDATION.md`) ha trovato undici difetti, tutti corretti prima della prima decisione.
 
+- [x] 20. Che cosa vale davvero il desk, chiesto di notte (23 ottobre 2026, su «1,23 è valido?» e «ha senso
+  investirci?»; `docs/RESEARCH.md` capitolo 15). Nessuna regola cambiata: una misura e tre verdetti scritti. Lo
+  Sharpe del replay porta un errore standard che nessuna pagina mostrava, e ora lo mostra; la regola giornaliera
+  su Kalshi non passa il filtro e non entra; le pagine dicono quanto poco si sa invece di esibire un numero.
+- [x] 21. L'Oracolo da muto a operativo (24 ottobre 2026, su «voglio che l'Oracolo sia un libro attivo, utile,
+  aggressivo»; `docs/RESEARCH.md` capitolo 16, registrato prima di misurare). La diagnosi: non era prudente, era
+  **muto** - un contratto /MCL è 0,9 volte un conto da 10 000 $, quindi in otto decisioni non aveva mai potuto
+  comprare nulla. Una riga di configurazione: dal future al fondo BNO con SCO per lo short, tutto il resto della
+  regola del capitolo 10 identico. Misurato una volta: sul fondo la stessa regola tiene una posizione nell'85%
+  delle sedute contro il 19% sul future. Impronta invariata (b66ecbb82b75).
+- [x] 22. Cinque idee, un libro, una regola e il nero (15 novembre 2026, su «ci sono altre strategie che avrebbe
+  senso implementare, non stupide e non scontate, che permettano di vedere il lungo?» e poi «fai tutto, design
+  nero, più leva su Kalshi e i segnali che anticipano il mercato o le anomalie»; `docs/RESEARCH.md` capitolo 17 A-L
+  registrato e spinto prima di calcolare un numero, risultati in 17 M). Due risultati, due bocciature e un
+  rifiuto, tutti scritti:
+  - **la lettura a due stati** della catena di opzioni (`engine/desk/twostate.py`): la mistura segue il sorriso
+    l'89% meglio di una lognormale sola e **cade sulla condizione di separazione** scritta prima - due gobbe che si
+    sovrappongono non sono due prezzi. La pagina dice «uno stato» e mostra i quantili che la stessa curva dà bene;
+  - **il fine settimana** (`engine/desk/weekend.py`): su 34 fine settimana la direzione c'è (rango −0,50, p 0,003),
+    la misura no (t −1,86, sotto il 2 richiesto). La pagina mostra la mossa e lo dice. Nessun libro la legge;
+  - **il petrolio come segnale per SPY e TLT**: la manica da sola regge anche dopo il 2009, ma la combinazione non
+    batte il libro in entrambe le metà: **bocciata**. La regola di Hamilton passa il filtro per +0,02 di Sharpe
+    contro un errore standard di 0,19 e **non è stata accesa**: la decisione è del proprietario (17 L 2);
+  - **Oracle 3x** (`oracle_3x`): la regola dell'Oracolo a un obiettivo di volatilità di 1,50 - l'unica regola dura
+    sospesa, per un libro solo, per decisione del proprietario - su /MCL, con il nuovo **bilancio dell'evento** fra
+    i suoi tetti. Fuori da ogni totale, mai promosso, senza backtest, con accanto le probabilità senza vantaggio;
+  - **il radar** (`engine/desk/radar.py`): sette riquadri in cima alla pagina, ognuno con una soglia tonda scritta
+    prima; e il **nero vero** come fondo del sito.
+
+  Nessun libro core cambia, nessuna manica si aggiunge, nessuna regola dell'allocatore si accende: impronta ancora
+  b66ecbb82b75. L'unico comportamento scritto senza una misura è quello del **giorno della riapertura dello
+  stretto** (`docs/STRATEGIES.md`), messo per iscritto prima che accada.
+
 ## Cosa ha richiesto una correzione rispetto al piano iniziale
 
 Queste sono le cose che solo l'esecuzione reale ha fatto emergere; sono documentate nei commit e nel codice.

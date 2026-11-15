@@ -5,8 +5,8 @@ segnali (il prezzo del greggio, la curva dei future, il rame e il dollaro), e la
 simulati da 10.000 $ che differiscono per quanta leva usano e per il lato short; dal 13 ottobre 2026 tre libri
 **candidati** (oro, rame, agricoltura) girano accanto a loro con le stesse regole. Tutto è pubblicato su un sito
 in inglese: <https://andreramolivaz.github.io/oil-paper-trading/>. Dal 16 ottobre la pagina principale («Desk») dice
-in una frase quanti libri hanno una posizione aperta, elenca le posizioni e mostra i libri in quattro gruppi (il
-nucleo, i candidati, i libri su Kalshi, i libri Claude) con un filtro da cliccare; ogni libro apre la sua pagina con
+in una frase quanti libri hanno una posizione aperta, elenca le posizioni e mostra i libri in cinque gruppi (il
+nucleo, i candidati, i libri su Kalshi, i libri Claude, le lotterie) con un filtro da cliccare; ogni libro apre la sua pagina con
 tutta la sua storia (ogni eseguito, ogni decisione con le sue parole, le vite prima di un reset). Ciò che i libri
 leggono - mercato, previsione, indici di Kalshi, l'analista Claude, allocatore, mercati a eventi con le allerte - è
 sulla pagina «Signals».
@@ -215,6 +215,52 @@ chiude le posizioni all'ultimo prezzo e riparte da 10.000 $.
 Dal sito, pagina **Reset**: se salvi nel tuo browser un token fine-grained con il solo permesso
 *Actions: write* su questo repository, il pulsante avvia il workflow direttamente; altrimenti apre la pagina del
 workflow su GitHub, dove parte con un clic. **Il token resta nel tuo browser e non finisce mai nel repository.**
+
+## Il radar: che cosa si muove prima del prezzo
+
+Dal 15 novembre 2026 la pagina «Desk» si apre con il **prezzo di Brent e WTI** e poi con sette riquadri
+(`docs/RESEARCH.md` capitolo 17 J). Ognuno ha un numero grande, la frase del motore, la fonte e l'ora; un pallino
+giallo segnala che qualcosa è fuori dalla sua soglia, e **la soglia è un numero tondo scritto prima della prima
+lettura**. È un'impronta, mai un verdetto: nessun libro negozia su questi riquadri.
+
+| Riquadro | Che cosa dice |
+|---|---|
+| **Kalshi** | la probabilità di de-escalation entro 90 giorni, la variazione in un giorno e in una settimana, le allerte di attività anomala |
+| **Che cosa prezzano le opzioni** | dove il mercato delle opzioni mette il Brent alla scadenza di riferimento: la fascia che contiene 9 casi su 10, il mezzo, e se la catena mostra uno o due stati |
+| **Il fine settimana** | Kalshi scambia quando il greggio è chiuso: di quanto si sono mosse le probabilità da venerdì sera. Segnalato oltre i 5 punti |
+| **Quando riapre lo stretto** | la data mediana secondo le scale di Kalshi, accanto al mese in cui metà del premio della curva del Brent è sparito. Due cose diverse, mai sommate |
+| **Volatilità per scadenza** | se le opzioni che scadono fra pochi giorni costano più di quelle a 45: vuol dire che il mercato prezza un evento a giorni |
+| **Brent contro WTI** | la differenza fra i due greggi e quanto si è mossa in una settimana rispetto a un anno di settimane. È anche il rischio di base dei libri che negoziano il WTI per una view sul Brent |
+| **Il desk stesso** | ultimo giro, fonti non verdi, libri fermati: una riga, verde se non c'è niente |
+
+Sotto i riquadri c'è una tabella sola: **se il petrolio facesse la mossa che le opzioni danno 1 volta su 20**, in giù
+e in su, quanto perderebbe o guadagnerebbe ogni libro che ha petrolio in mano, in dollari. È una retta sulla taglia
+di oggi (nessuno stop, nessun ridimensionamento per strada) e un modello di quotazioni in ritardo: la pagina lo
+marca «≈».
+
+Due cose misurate una volta sola e scritte accanto ai numeri, perché non promettano più di quello che sono:
+
+- **Il fine settimana** (34 fine settimana, marzo-novembre 2026): quando le probabilità di de-escalation salgono, il
+  lunedì il Brent apre più in basso più spesso che no (correlazione di rango −0,50), ma **di quanto non si legge** e
+  quello che il fondo fa dopo l'apertura non c'entra. La pagina scrive esattamente questo.
+- **I due stati** (catena del 13 novembre): la curva a due gobbe segue il sorriso delle opzioni meglio di una sola,
+  ma le due gobbe si sovrappongono, quindi **non sono due prezzi** e la pagina dice «uno stato». La condizione che
+  lo ha stabilito era scritta prima di guardare.
+
+## L'Oracle 3x: la stessa scommessa, la posta per tre
+
+Dal 15 novembre 2026, su richiesta del proprietario («più leva su Kalshi»), c'è un secondo conto a parte da
+**10 000 $** (`docs/RESEARCH.md` capitolo 17 D). Legge **lo stesso identico segnale dell'Oracolo** - l'indice di
+de-escalation di Kalshi - con la stessa formula, ma con un obiettivo di volatilità del 150% invece del 50%: è
+l'unica regola dura sospesa, per questo libro solo, per decisione del proprietario. Negozia il micro future sul
+WTI, long e short, e resta sotto il tetto duro di 10x, sotto il 3x prima di una chiusura (1,5x oggi) e sotto il
+**bilancio dell'evento**: mai più di metà del conto sulla mossa avversa che le opzioni prezzano.
+
+**Non è un Oracolo migliore: è lo stesso, con una posta tre volte più grande**, e la sua pagina lo scrive. Il
+modello (≈) dice che su tre mesi, **se la regola non ha vantaggio**, la mediana finisce a 0,92x, raddoppia 2,6
+volte su 100 e perde metà 6,9 volte su 100. Sull'archivio da marzo la regola ha misurato uno Sharpe di +1,40 con
+un errore standard di 1,72: non si distingue da zero. Come il Rocket, non entra in nessun totale e non sarà mai
+promosso.
 
 ## Il Rocket: una lotteria da 1 000 $
 

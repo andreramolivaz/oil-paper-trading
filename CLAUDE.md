@@ -33,6 +33,15 @@ There are two systems in this repository and it matters which one you are touchi
   1 000 $ LOTTERY the owner asked for, BUYS USO calls or puts in the Dynamic's direction when Kalshi's de-escalation
   index agrees, half the account a bet, with the project's risk rules suspended for it alone: its own group
   ("Lottery"), out of every total, never promoted, restarted by the `rocket-reset` workflow (a button on its page).
+  Since phase 22 a SECOND lottery, `oracle_3x` (`role: lottery`, `forecast: kalshi`, 10 000 $ on /MCL), runs the
+  Oracle's rule at a volatility target of 1.50 - the one hard rule ("no volatility target above 0.50") suspended
+  for that book alone, on the owner's decision of 14 November 2026: same sleeve, same formula, same allocator
+  multiplier, so it is the Oracle times three at every moment, with the 10x hard cap, the pre-closure ceiling and
+  one ceiling more, the EVENT BUDGET (`engine/desk/twostate.py`): never more than half the account on the adverse
+  move the options price. Also phase 22: the TWO-STATE READING of the WTI fund's option chain (`twostate.py`,
+  archived every tick, the out-of-the-money quotes once a session), the WEEKEND WATCH (`weekend.py`: Kalshi trades
+  while crude is closed - a fact on the page, measured on 34 weekends, no book reads it) and the RADAR
+  (`radar.py`: seven tiles at the top of the desk page, what can move before the price and what does not add up).
   The desk page shows what every book holds, each book's own page its whole history, the signals page what they read.
 * **The first system** (`engine/strategies`, `engine/portfolio`, `engine/backtest/session.py`, ...) is 21
   strategies on shadow accounts behind a seven-condition validation gate. Nothing passed, so its master account
@@ -416,7 +425,9 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   `weekend_max_leverage` before a closure, the vehicle's margin); there is no gate, the ceiling IS the policy.
 - A linear book's size is `forecast / 10 * vol_target * m / vol`, nothing else, where `m` is the allocator's
   multiplier (1 by default; 0.5 under the bubble switch; 0 for a retired book; NEVER above 1), the same rule
-  for every book, written daily to the state and the terminal. No vol target above 0.50, and the targets are
+  for every book, written daily to the state and the terminal. No vol target above 0.50 - except in a book with
+  `role: lottery`, where the owner may suspend that one rule up to 1.50 (phase 22, `oracle_3x`), enforced when
+  the configuration is read; such a book is out of every total, never promoted and has no backtest. The targets are
   NOT raised because a backtest measured a higher Sharpe: part of that is selection. An allocator rule is
   switched on only after it was measured on the replay (`docs/RESEARCH.md` ch. 9 B), and the backtest always
   reports the books with and without it (`without_allocator`).
@@ -452,6 +463,21 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   (`total`, `total_candidates`), never promoted, no row in any backtest table. Its rule is the one written in
   `docs/RESEARCH.md` 14 A before it was measured; changing it is a new registration. It is shown as a lottery with
   the model's odds beside it, everywhere.
+- The Oracle 3x (phase 22) is the second book whose risk rules are suspended, by the owner's decision of 14
+  November 2026 and for it alone: the volatility target is 1.50 instead of 0.50. Nothing else changes - the same
+  Kalshi sleeve, the same sizing formula, the same allocator multiplier, the 10x hard cap, the pre-closure ceiling,
+  the 15 % daily breaker, the 5 % floor, the vehicle's margin - and ONE ceiling is added, the event budget: the
+  exposure on a side never exceeds `event_budget / |adverse move|`, from the two-state reading of the option chain
+  when it is valid and at most 26 hours old, else from the largest one-session move of the last 252. Out of every
+  total, never promoted, no backtest, shown as a lottery with the model's odds (with and without an edge) beside
+  it. Its rule is the one written in `docs/RESEARCH.md` 17 D before it was measured.
+- The two-state reading (phase 22, `engine/desk/twostate.py`) is a MODEL of delayed option quotes and is labelled
+  `approx` everywhere. It says "two states" only when all five declared conditions hold (17 B 6); on 13 November
+  the mixture fitted every quote inside its bid-ask and still failed the separation condition, and the page said
+  one state. Nothing but the event budget of one lottery book reads it, and no core book's size depends on it.
+- The weekend watch and the radar (phase 22, `weekend.py`, `radar.py`) are facts shown on the page, never signals:
+  a flag is a footprint by a declared round-number threshold, and no book trades on any of it. The weekend's one
+  measurement (34 weekends, 17 M2) found the direction right and the size unreadable, so the page says exactly that.
 - The options book only opens defined-risk structures: max loss per structure ≤ 5% of equity, at most two open,
   priced on real quotes less than 45 minutes old, never at a price the feed did not bracket.
 - Margin as the vehicle has it (10% for /MCL, 50% for a fund; the first system keeps 10%); stop-out when
@@ -491,8 +517,8 @@ First system: `tests/test_leverage_invariants.py`, `tests/test_no_lookahead.py`.
   no ALL-CAPS labels; colour only for sign (green and red), state, and what can be clicked (magenta, `--accent`).
   The three group colours are the validated series slots 1-3 (`groupColor`), in the engine's fixed group order.
 
-## State of play (2026-10-23)
-Phases 1-19 of `docs/PLAN.md` are implemented (17 waits for the owner's `ANTHROPIC_API_KEY` to take a reading; 18 was
+## State of play (2026-11-15)
+Phases 1-22 of `docs/PLAN.md` are implemented (17 waits for the owner's `ANTHROPIC_API_KEY` to take a reading; 18 was
 research and changed no book; 19 added the Rocket, a lottery outside every total). Phase 10 (8 October) added the desk after three days of a flat
 account with zero trades. The four causes, all fixed and pinned by `tests/test_tick_job.py`:
 1. nothing was promoted, so the master's weight was zero by construction (now: the desk books trade);
@@ -1126,6 +1152,50 @@ as it did in chapter 10 H. The leverage ceiling falls 10x -> 2x (Reg T on a fund
 only because the book is flat: **change a vehicle only on a flat book**, or the old one is left an orphan.
 The fingerprint is unchanged (`b66ecbb82b75`: the Kalshi books are not replayed), and the tick test now pins
 that the Oracle decides beside the fund books instead of sharing the futures book's silence.
+
+Phase 22 (15 November, on the owner's "are there other strategies worth implementing - not stupid, not obvious -
+that let me see the long run?" and then "do it all, black design, clearer, more leverage on Kalshi and the signals
+that get ahead of the market or of system anomalies"; `docs/RESEARCH.md` chapter 17 A-L, registered and pushed as
+9c8071b before a number was computed, with the two corrections to what I had told him by chat written at the top).
+Five ideas, one book, one rule and a redesign. Measured once (17 M), the honest tally is **two results, two
+rejections and one refusal**:
+
+* **The option chain is NOT pricing two states** (17 M1). The mixture of two lognormals fits the real chain of
+  13 November 89 % better than one lognormal and prices every quote inside its bid-ask - and fails the separation
+  condition written before the fit: its two humps are 5.8 points apart while the wider one is 29 % wide. A smooth
+  description of the smile, not two prices. The page says "one state" and shows what the same fit does give: the
+  options' own quantiles (Brent 72 $ to 126 $ by 31 December, 9 chances in 10) and the term structure (36 % at 5
+  days against 47 % at 48: nothing priced for the next days, so the diagonal of 17 G has no edge today either).
+* **The weekend: direction yes, size no** (17 M2, 34 weekends on Kalshi's hourly candles). Rank correlation −0.50
+  (p 0.003), robust t −1.86 - under the 2 the page rule asked for - and 0.93 in the second half; what the fund did
+  after Monday's open is noise (t +0.26); the placebo is clean (+0.09). So the page shows the move and the sentence
+  "on 34 weekends the move told nothing reliable about the open", and no book reads it.
+* **Oil as a signal for SPY and TLT: rejected, and the surprise is in the detail** (17 M3). Against my prior, the
+  sleeve alone has a positive Sharpe on the whole history, in both halves AND since 2009 (equities +0.48, bonds
+  +0.31 after publication): Driesprong-Jacobsen-Maat halved but did not die. It fails condition (2): mixed at half
+  weight it does not beat the book in both halves, on either market - the two sources take turns instead of adding
+  up, which is what an SE of 0.19 cannot tell from chance. Hamilton's net-increase rule PASSED the registered
+  filter (+0.62 -> +0.64, both halves up) and I did **not** switch it on: +0.02 against an SE of 0.19 is a tenth of
+  what the measurement can resolve, and the rule is on today, so switching it on would halve the equity book's risk
+  on the strength of nothing. The older rule wins - a result that cannot be told from zero is not a result - and
+  the decision is the owner's (17 L 2). This is the one place a registered filter was passed and not used, and it
+  is written there in full.
+* **Oracle 3x** (17 M4): the Oracle's rule at a volatility target of 1.50 on /MCL, the one hard rule suspended for
+  one book by the owner's decision, 10 000 $, out of every total. Sharpe +1.40 **± 1.72** on the archive: the same
+  coin as the 0.91 ± 1.4 of chapter 16, with a stake three times larger. The page leads with the no-edge odds (over
+  three months: median 0.92x, doubles 2.6 in 100, loses half 6.9 in 100), not the flattering ones. The ceilings
+  bite: a ceiling cut the wanted size on 57 of 149 days, and the new event budget (half the account on the adverse
+  move the options price) is one of them.
+* **The radar** (17 J): seven tiles at the top of the desk page - Kalshi's odds, what the options price, the
+  weekend, when the strait reopens, volatility by expiry, Brent against WTI, the desk itself - each a figure, the
+  engine's own sentence, a source and a stamp. A flag is a footprint by a declared round-number threshold, never a
+  verdict. Below it, what the options' 1-in-20 move would cost or pay every book that holds oil.
+* **The design**: true black (`--surface-0: #000`), the two quotes large above the headline, the radar as cards.
+  Nothing in the numbers changed; the fingerprint is still `b66ecbb82b75`, checked after every edit.
+
+What phase 22 did NOT do, on purpose: no core book changed, no sleeve was added, no allocator rule was switched on,
+no scale was touched. The one behaviour written down without a measurement is what the desk will do by itself on
+the day the strait reopens (17 I, `docs/STRATEGIES.md`), written so that nobody decides it looking at the screen.
 
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the

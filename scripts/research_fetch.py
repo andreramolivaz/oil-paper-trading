@@ -162,7 +162,54 @@ def _kalshi_trades(out: Path) -> int:
     return 0
 
 
-def _kalshi_history(out: Path, series_arg: str | None = None, since_arg: str = "2026-01-01") -> int:
+def _kalshi_known_markets(history: dict, known_path: str | None, since: int) -> int:
+    """Kalshi's listing forgets a market a few weeks after it settles: the markets an EARLIER download knew
+    (``--known``, e.g. tests/fixtures/kalshi_history_2026-10-15.json) and this one does not list are asked for by
+    name, with their hourly candles (the historical endpoint still serves them). Returns how many were added."""
+    if not known_path:
+        return 0
+    from engine.core.errors import DataUnavailable
+    from engine.data.adapters.kalshi import CANDLE_HOUR, HOURLY_WINDOW_DAYS, KalshiAdapter, _unix
+
+    adapter = KalshiAdapter()
+    known = json.loads(Path(known_path).read_text(encoding="utf-8"))
+    added = 0
+    for series_ticker, block in (known.get("series") or {}).items():
+        mine = history["series"].get(series_ticker)
+        if mine is None:
+            continue
+        have = {str(m.get("ticker")) for m in mine["markets"]}
+        for m in block.get("markets") or []:
+            ticker = str(m.get("ticker"))
+            if ticker in have:
+                continue
+            start = max(since, _unix(m.get("open_time")) or since)
+            stop = min(history["until"], _unix(m.get("close_time")) or history["until"]) + 86_400
+            rows: list[dict] = []
+            try:
+                cursor = start
+                while cursor < stop:
+                    upto = min(cursor + HOURLY_WINDOW_DAYS * 86_400, stop)
+                    rows += adapter.fetch_candlesticks(series_ticker, ticker, cursor, upto, CANDLE_HOUR)
+                    cursor = upto
+            except DataUnavailable as exc:
+                history.setdefault("failed", {})[ticker] = str(exc)[:160]
+                print(f"FAIL kalshi/known {ticker}: {exc}", flush=True)
+                continue
+            mine["markets"].append(m)
+            mine["candles"][ticker] = list({int(r["end_ts"]): r for r in rows}.values())
+            added += 1
+            print(f"ok   kalshi/known {ticker} ({m.get('yes_sub_title')}): {len(rows)} hourly candles", flush=True)
+    return added
+
+
+def _kalshi_history(
+    out: Path,
+    series_arg: str | None = None,
+    since_arg: str = "2026-01-01",
+    hourly: bool = False,
+    known: str | None = None,
+) -> int:
     """The daily candlesticks of every market, open or settled, of the event series the desk reads (the three
     the speculative book's index is made of first, then the other strait and supply series), from 2026-01-01:
     what the archive would hold had the desk read those markets every day since (phase 14, the backfill). One
@@ -179,11 +226,20 @@ def _kalshi_history(out: Path, series_arg: str | None = None, since_arg: str = "
         others = ["KXCLOSEHORMUZ", "KXHORMUZRETURN", "KXHORMUZWEEKLY", "KXMAXSHIPSHORMUZ", "KXOPECCUTS", "KXSAUDICRUDE"]
         series = [*ALL_SERIES, *others]
     since = int(datetime.combine(date.fromisoformat(since_arg), datetime.min.time(), tzinfo=UTC).timestamp())
-    history = KalshiAdapter().fetch_history(series, since)
-    (out / "history.json").write_text(json.dumps(history, indent=0))
+    if hourly:
+        # phase 22 (docs/RESEARCH.md 17 E): the HOURLY candles, to read the markets at an instant of the weekend
+        from engine.data.adapters.kalshi import CANDLE_HOUR
+
+        history = KalshiAdapter().fetch_history(series, since, period=CANDLE_HOUR)
+        _kalshi_known_markets(history, known, since)
+        (out / "history_hourly.json").write_text(json.dumps(history, indent=0))
+    else:
+        history = KalshiAdapter().fetch_history(series, since)
+        (out / "history.json").write_text(json.dumps(history, indent=0))
     for ticker, block in history["series"].items():
         n_candles = sum(len(v) for v in block["candles"].values())
-        print(f"ok   kalshi/history {ticker}: {len(block['markets'])} markets, {n_candles} daily candles", flush=True)
+        kind = "hourly" if hourly else "daily"
+        print(f"ok   kalshi/history {ticker}: {len(block['markets'])} markets, {n_candles} {kind} candles", flush=True)
     if history.get("failed"):
         print(f"FAIL kalshi/history {len(history['failed'])} failed: {list(history['failed'])[:10]}", flush=True)
     return 0
@@ -194,7 +250,7 @@ def main() -> int:
     parser.add_argument("--out", default="out/research")
     parser.add_argument(
         "--only",
-        choices=["all", "satellites", "kalshi", "kalshi-trades", "kalshi-history"],
+        choices=["all", "satellites", "kalshi", "kalshi-trades", "kalshi-history", "kalshi-hourly"],
         default="all",
         help="'satellites': only the daily tables of DAILY_SATELLITES (phase 12 research), a few dozen requests; "
         "'kalshi': the prediction market's catalogue (series, open markets) as JSON; 'kalshi-trades': the open "
@@ -203,6 +259,11 @@ def main() -> int:
     )
     parser.add_argument("--series", default=None, help="kalshi-history: a comma-separated list of series tickers")
     parser.add_argument("--since", default="2026-01-01", help="kalshi-history: the first day (ISO date)")
+    parser.add_argument(
+        "--known",
+        default=None,
+        help="kalshi-hourly: an earlier history download whose settled markets to ask for by name",
+    )
     args = parser.parse_args()
     out = Path(args.out)
     yahoo = YahooAdapter(min_interval=1.3, retries=2, backoff=4.0)
@@ -225,6 +286,8 @@ def main() -> int:
         return _kalshi_trades(out / "kalshi")
     if args.only == "kalshi-history":
         return _kalshi_history(out / "kalshi", args.series, args.since)
+    if args.only == "kalshi-hourly":
+        return _kalshi_history(out / "kalshi", args.series, args.since, hourly=True, known=args.known)
     if args.only == "satellites":
         for symbol in DAILY_SATELLITES:
             run(

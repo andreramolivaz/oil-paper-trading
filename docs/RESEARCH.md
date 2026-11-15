@@ -2890,9 +2890,164 @@ pubblicare. Il sito cambia aspetto e ordine (nero, il radar in cima), non i nume
 
 ### L. Che cosa decide il proprietario
 
-1. Se l'Oracle 3x resta acceso dopo aver visto le probabilità di D 6 sulla sua pagina.
-2. Se, dopo 60 sedute di archivio, il bilancio dell'evento va proposto come regola dell'allocatore per i libri
+1. Se l'Oracle 3x resta acceso dopo aver visto le probabilità di M4 sulla sua pagina: senza vantaggio la mediana
+   di tre mesi è 0,92x e due percorsi su cento raddoppiano.
+2. Se la regola di Hamilton (M3) va accesa sul libro azionario: ha passato il filtro scritto prima, per +0,02 di
+   Sharpe contro un errore standard di 0,19, ed è accesa oggi. Io l'ho lasciata spenta e ho scritto perché.
+3. Se, dopo 60 sedute di archivio, il bilancio dell'evento va proposto come regola dell'allocatore per i libri
    core (servirebbe comunque una misura, che allora esisterà).
+
+### M. I risultati, misurati una volta sola (15 novembre 2026)
+
+Ogni misura è stata fatta una volta, con le regole della sezione che la riguarda, e nessuna regola è stata
+toccata dopo aver visto un numero. Dove il verdetto è diverso dal prior, il prior resta scritto.
+
+#### M1. Le opzioni: la mistura descrive il sorriso, ma i suoi due pezzi non sono due stati
+
+Catena USO del 13 novembre, 21:17 UTC (fondo a 145,60 $), scadenza di riferimento 31 dicembre, 48 giorni, 27 put
+e 23 call entro il filtro, forward 145,75 $.
+
+| | errore medio (in mezzi denaro-lettera) | quotazioni colpite dentro il denaro-lettera |
+| --- | --- | --- |
+| una lognormale (volatilità 49,0%) | 2,47 | 52% |
+| mistura di due | **0,28** | **100%** |
+
+La mistura descrive il sorriso l'89% meglio: supera largamente la condizione (b), che ne chiedeva il 30%. E
+**cade sulla condizione (d)**: i due pezzi sono a 5,8 punti percentuali l'uno dall'altro (−1,35% e +4,40% dal
+forward, peso 76,5% sul basso) mentre il più largo dei due è spesso 0,76 di volatilità, cioè il 29% su 48 giorni.
+Sono due gobbe che si sovrappongono: una curva liscia che segue il sorriso, non due prezzi che il mercato tiene
+separati. **Il 13 novembre il mercato non prezzava due stati**, e la condizione scritta prima l'ha detto.
+
+Perciò la pagina mostra l'altra cosa che quella stessa mistura dà bene, perché prezza tutte le quotazioni: i
+quantili. Per il 31 dicembre, in rendimento sul forward e in dollari di Brent al prezzo del desk:
+
+| | 5% | 25% | 50% | 75% | 95% |
+| --- | --- | --- | --- | --- | --- |
+| mossa | −25,6% | −11,7% | −1,9% | +9,2% | +31,5% |
+| Brent | 72 $ | 85 $ | 94 $ | 105 $ | 126 $ |
+
+Un calo del 20% o più pesa il 10,3%, un rialzo del 20% o più l'11,2%. Sono probabilità **neutrali al rischio**:
+contengono il premio che chi compra protezione paga, quindi non sono una previsione di frequenze, e la pagina lo
+scrive accanto.
+
+La struttura a termine, lo stesso giorno: 36,2% a 5 giorni, 40,8% a 7, 44,0% a 21, 47,1% a 48, 46,7% a 63. **Non
+è invertita**: la settimana costa 11 punti meno delle sette settimane. La correzione della sezione A (b) era
+giusta e la diagonale della sezione G non ha, oggi, il vantaggio che le avevo attribuito il 14 novembre. La
+segnalazione 5 del radar resta accesa come regola e oggi è spenta come fatto.
+
+**Il prior era sbagliato per metà**: lo stato leggero non è l'alto, perché non ci sono stati; ma l'instabilità che
+temevo si vede già nel fatto che la separazione cade.
+
+#### M2. Il fine settimana: la direzione sì, la misura no
+
+34 fine settimana, dal 20 marzo al 6 novembre 2026, sulle candele orarie di Kalshi e sulle barre del fondo Brent.
+La ricostruzione oraria dell'indice è stata controllata contro l'archivio giornaliero del runner su 35 giorni
+presi a caso: scarto medio 0,0 punti. Mossa media del fine settimana 3,2 punti (sei fine settimana oltre i 5),
+gap medio del lunedì 2,7% (massimo 7,5%).
+
+| | n | pendenza | t robusto | R² | correlazione di rango |
+| --- | --- | --- | --- | --- | --- |
+| **H1** gap del lunedì su W | 34 | −0,242 % per punto | **−1,86** | 0,115 | **−0,50** (p 0,003) |
+| **H2** lunedì apertura→chiusura su W | 34 | +0,011 | +0,26 | 0,001 | −0,10 (p 0,58) |
+| H1, prima metà | 17 | −0,343 | −3,32 | 0,201 | −0,49 |
+| H1, seconda metà | 17 | −0,150 | −0,93 | 0,055 | −0,55 |
+| vicino: W fino al lunedì 09:00 | 34 | −0,286 | −3,45 | 0,179 | −0,47 |
+| vicino: W del fine settimana prima (placebo) | 33 | +0,009 | +0,09 | 0,000 | +0,13 |
+| vicino: venerdì chiusura → lunedì chiusura | 34 | −0,230 | −1,42 | 0,066 | −0,44 |
+
+Il segno è quello atteso e **il rango è significativo** (p 0,003): quando le probabilità di de-escalation salgono
+nel fine settimana, il lunedì il Brent apre più in basso più spesso che no. Ma il |t| della pendenza è 1,86,
+**sotto il 2 che la regola 17 E 7 chiedeva**, e cade a 0,93 nella seconda metà: la *misura* del gap non si legge
+dalla *misura* della mossa. H2 è zero, come da prior: l'apertura ha già prezzato tutto.
+
+Il placebo è pulito (t +0,09): la relazione non è un artefatto della costruzione. Il vicino che arriva fino al
+lunedì mattina ha un t di −3,45, ma comprende la notte in cui il greggio scambia, quindi misura anche Kalshi che
+segue il prezzo: per questo non decideva nulla, ed è scritto perché si veda la differenza.
+
+**Verdetto per la regola scritta prima: la pagina mostra la mossa e la frase «su 34 fine settimana la mossa non ha
+detto niente di affidabile sull'apertura».** Nessun libro la legge. Prior (una su due che H1 superasse il 2):
+rispettato.
+
+#### M3. Il petrolio come segnale per azioni e obbligazioni: la manica passa due filtri su tre, e non entra
+
+Replay del desk, costi veri, riempimento all'apertura successiva, allocatore acceso. SPY dal 1994 (8 213 sedute),
+TLT dal 2003.
+
+| | Sharpe (ES) | prima metà | seconda metà | dal 2009 | perdita massima |
+| --- | --- | --- | --- | --- | --- |
+| **Azioni (SPY)** — il libro com'è | +0,62 (0,19) | +0,53 | +0,70 | +0,67 | −10% |
+| la sola manica del petrolio | +0,55 (0,19) | +0,60 | +0,49 | **+0,48** | −21% |
+| le due fonti a metà peso | +0,59 (0,19) | +0,78 | +0,43 | +0,46 | −17% |
+| **Obbligazioni (TLT)** — il libro com'è | +0,36 (0,22) | +0,54 | +0,14 | +0,33 | −16% |
+| la sola manica del petrolio | +0,42 (0,22) | +0,48 | +0,35 | **+0,31** | −19% |
+| le due fonti a metà peso | +0,44 (0,22) | +0,40 | +0,48 | +0,42 | −15% |
+
+**La sorpresa, contro il mio prior (una su cinque)**: la condizione (1) **passa** su tutti e due i mercati. La
+manica da sola ha uno Sharpe positivo sull'intera storia, in entrambe le metà **e dal 2009**, cioè dopo la
+pubblicazione del lavoro che l'ha descritta. L'effetto di Driesprong, Jacobsen e Maat non è sparito dopo il 2008:
+si è dimezzato (azioni +0,60 → +0,48) e c'è ancora. Anche la (3) passa: ritardata di una seduta la manica non
+cambia segno (azioni +0,51, obbligazioni +0,55), quindi non vive di un solo giorno di reazione.
+
+**Cade la (2)**, e su tutti e due: mescolare le due fonti a metà peso non batte il libro in **entrambe** le metà.
+Azioni: +0,78 contro +0,53 nella prima, +0,43 contro +0,70 nella seconda. Obbligazioni: peggio nella prima,
+meglio nella seconda. Le due fonti si danno il cambio invece di sommarsi, e quale delle due comandi dipende dal
+periodo: è esattamente la forma che un errore standard di 0,19 non distingue dal caso.
+
+**Verdetto: bocciata, nessun libro cambia.** Resta scritta, con il numero che conta per chi la riprenderà: la
+manica *da sola* regge dal 2009, la *combinazione* no.
+
+**La regola di Hamilton passa il filtro per lettera, e non viene accesa.** Il prezzo a pronti del WTI sopra il
+massimo dei tre anni precedenti, il rischio del libro azionario dimezzato per 252 sedute: Sharpe da +0,62 a
++0,64, prima metà +0,53 → +0,54, seconda +0,70 → +0,72. Il filtro del capitolo 9 B chiedeva «alza lo Sharpe in
+entrambe le metà»: lo fa. Ma il guadagno è **+0,02 contro un errore standard di 0,19**, cioè un decimo di quello
+che la misura può risolvere su 32 anni, e la regola oggi è **accesa** (lo è sul 40% delle sedute): accenderla
+vorrebbe dire dimezzare adesso il rischio del libro azionario sulla forza di niente. La regola più vecchia del
+progetto — *un risultato che non si distingue da zero non è un risultato* — batte il filtro scritto per questa
+fase, e la decisione va al proprietario (sezione L), scritta qui perché si veda che il filtro è passato e che non
+l'ho usato. Il prior (una su quattro, e «cade nella prima metà») era sbagliato nel merito: non cade, è solo
+troppo piccola per contare.
+
+#### M4. Oracle 3x: la stessa moneta, la posta per tre
+
+La regola dell'Oracolo sul micro future, obiettivo di volatilità 1,50, contratti interi, costi veri, dal 18 marzo
+al 13 novembre 2026 (167 sedute, 149 con una previsione).
+
+- **Sharpe dopo i costi +1,40, errore standard 1,72**; metà +1,48 e +1,40. Passa il filtro (Sharpe non negativo),
+  e 1,40 ± 1,72 non si distingue da zero: è la stessa moneta del capitolo 16 C, dove la stessa regola a rischio
+  normale aveva misurato +0,91 ± 1,4.
+- Rendimento netto +80% su un conto fisso da 10 000 $; volatilità 86% l'anno; giornata peggiore −13,1%, migliore
+  +19,9%; esposizione media tenuta 1,35x, massima 3,00x.
+- **I tetti mordono**: su 149 giorni con una previsione, 57 volte la taglia voluta è stata tagliata da un tetto
+  (il massimo voluto è stato 4,46x). Il tetto del giorno è stato fra 1,50x e 3,05x: quasi sempre il 3x prima
+  della chiusura dimezzato dalla regola dello stretto, oppure il bilancio dell'evento sul ripiego (metà conto
+  sulla più grande mossa giornaliera dell'anno, 16%, cioè 3,05x).
+- **Le probabilità su tre mesi** (ricampionamento a blocchi di 5 sedute, 20 000 percorsi, seme 7):
+
+| | mediana | raddoppia | finisce in utile | perde metà | 8 percorsi su 10 |
+| --- | --- | --- | --- | --- | --- |
+| se gli ultimi otto mesi si ripetessero | 1,24x | 11 su 100 | 70 su 100 | 1,3 su 100 | da 0,74x a 2,07x |
+| **se la regola non ha vantaggio** (media tolta) | **0,92x** | 2,6 su 100 | 41 su 100 | 6,9 su 100 | da 0,54x a 1,54x |
+
+La seconda riga è il prior, ed è quella che la pagina mette per prima: senza vantaggio la mediana perde l'8% in
+tre mesi e due percorsi su cento raddoppiano. Nessun percorso muore (il 5% del capitale) in tre mesi, perché
+l'interruttore giornaliero al 15% e i tetti tagliano prima. **Il prior era giusto**: moltiplicare per tre non
+cambia lo Sharpe, triplica la volatilità, e l'aritmetica fa il resto.
+
+#### M5. Quando riapre, il 15 novembre
+
+Kalshi: mediana **ottobre 2027**; 9,3% entro tre mesi, 28,9% entro sei, 52,7% entro un anno. La curva del Brent
+(13 novembre): metà del premio fra gennaio 2027 (95,84 $) e dicembre 2027 (79,98 $) è sparita entro il contratto
+di **maggio 2027**. La curva vede il ritorno alla normalità prima di Kalshi — cinque mesi prima — ed è quello che
+ci si aspetta da due cose diverse: Kalshi regola sul conteggio AIS delle navi, la curva mescola scorte, domanda e
+chi paga per avere il barile adesso. Mostrate accanto, mai sommate.
+
+#### M6. Che cosa cambia nel sistema, in breve
+
+Niente nei quattro libri core, nei dieci candidati, nei libri Kalshi e Claude, nel Rocket, nelle sette maniche,
+nell'allocatore. **L'impronta del replay è ancora `b66ecbb82b75`**, verificata dopo ogni modifica. Si aggiungono:
+la lettura a due stati e il suo archivio (una lettura per catena, le quotazioni fuori dal denaro una volta per
+seduta), la sorveglianza del fine settimana, il radar di sette riquadri in cima alla pagina, il bilancio
+dell'evento sul solo Oracle 3x, e il libro Oracle 3x: 10 000 $, lotteria, fuori da ogni totale.
 
 ## Fonti
 

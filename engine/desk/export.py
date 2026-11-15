@@ -23,7 +23,7 @@ from engine.core.config import RiskConfig, Settings
 from engine.core.store import StateStore, dumps
 from engine.core.timeutil import ensure_utc, iso, parse_iso
 from engine.data.raw_store import RawStore
-from engine.desk import analyst, oracle
+from engine.desk import analyst, lottery, oracle, twostate
 from engine.desk import signals as sg
 from engine.desk.allocator import (
     AllocatorConfig,
@@ -45,9 +45,11 @@ from engine.desk.live import (
     desk_store,
     last_quote,
     latest_price,
+    set_event_caps,
 )
 from engine.desk.options import MONITOR_FILE, STATE_FILE, load_options_config, options_store, session_day
 from engine.desk.prediction import configured_series, latest_reading, prediction_block
+from engine.desk.radar import radar_block
 from engine.desk.report import BACKTEST_FILE
 from engine.desk.rocket import MODEL_ODDS, RESET_WORKFLOW, load_rocket_config, occ_parts, rocket_store
 from engine.desk.rocket import MONITOR_FILE as ROCKET_MONITOR
@@ -92,7 +94,7 @@ GROUPS: tuple[tuple[str, str, str], ...] = (
     (
         "lottery",
         "Lottery",
-        "1 000 dollars on bought options with the risk rules suspended, out of every total: most lives lose",
+        "the books in which the owner suspended a risk rule, out of every total: most lives lose",
     ),
 )
 STRESS_MOVES = (-0.30, -0.20, -0.10, 0.10, 0.20)  # gaps of the vehicle's price the books are revalued on
@@ -170,6 +172,10 @@ def book_group(role: str | None, configured_role: str | None, forecast: str | No
     Kalshi books, the Claude books - (the lifecycle never promotes them); then the role the book has TODAY, the one
     `total` counts it under - a candidate the lifecycle promoted is judged with the core and is shown there - except
     a retired book, which stays in the group of its configured role."""
+    if configured_role == "lottery":
+        # a book in which a hard rule is suspended (phase 22: the Oracle 3x) is shown with the Rocket, whatever
+        # forecast it reads: out of every total
+        return "lottery"
     if forecast == oracle.FAMILY:
         return "kalshi"
     if forecast and forecast != FORECAST_DESK:
@@ -1299,6 +1305,11 @@ def build_desk_payload(
         b.pop("_daily", None)  # the books' daily closes made the group curves; the page has its own curve
     today = now.astimezone(NEW_YORK).date()
     market = market_block(data, now)
+    try:  # phase 22: what the options' moves would cost or pay each oil book, the lottery book's own blocks
+        _event_blocks(desk, data, linear, settings.state_dir, now)
+    except Exception as exc:  # a view on the side: it costs the books these fields, never their rows
+        log.warning("event blocks skipped: %s", exc)
+    health = health_block(store, now)
     payload = {
         "generated_at": iso(now),
         "disclaimer": DISCLAIMER,
@@ -1320,7 +1331,7 @@ def build_desk_payload(
         "fills": fills_block(
             settings.state_dir, desk, options_cfg.id if options_cfg else None, rocket_cfg.id if rocket_cfg else None
         ),
-        "health": health_block(store, now),
+        "health": health,
         "backtest": backtest_summary(settings.state_dir),
         "calendar": {
             "today_ny": today.isoformat(),
@@ -1334,6 +1345,8 @@ def build_desk_payload(
         "oracle": _oracle_or_error(desk, settings.state_dir, now),
         # the Claude analyst's reading the books on it read (phase 17), null without such a book
         "analyst": _analyst_or_error(desk, settings, now),
+        # phase 22: the signals that can move before the price, and what does not add up, for the top of the page
+        "radar": _radar_or_error(desk_store(settings.state_dir), raw, data, market, health, books, now),
         "prediction_markets": prediction_block(
             latest_reading(raw),
             now,
@@ -1348,6 +1361,71 @@ def build_desk_payload(
     }
     cleaned: dict[str, Any] = _clean(payload)
     return cleaned
+
+
+OIL_VEHICLES = ("BNO", "MCL")
+
+
+def _event_blocks(desk: Desk, data: DeskData, rows: list[dict[str, Any]], state_dir: Path, now: datetime) -> None:
+    """Phase 22 (docs/RESEARCH.md 17 C, D), added to the linear books' rows in place:
+
+    * ``scenarios`` on every book that holds oil exposure through BNO or /MCL: what the options' one-in-twenty
+      moves by their headline expiry would cost or pay the book (``tail``), and - only when the chain shows two
+      states - what each state would (``states``). A straight line in the move: no convexity, no change of size
+      on the way, before any stop. A model of delayed quotes: approx.
+    * ``event_budget`` on a book that has one: today's ceilings by side, computed as the tick computes them.
+    * ``lottery`` on a linear lottery book: the rule suspended, by whom, the model's odds.
+    """
+    reading = twostate.latest_reading(desk_store(state_dir))
+    head = twostate.headline_of(reading)
+    tails, states = twostate.tail_moves(reading), twostate.state_moves(reading)
+    by_id = {str(r["id"]): r for r in rows}
+    for book in desk.books.values():
+        row = by_id.get(book.id)
+        if row is None:
+            continue
+        if book.cfg.vehicle in OIL_VEHICLES and head is not None and row.get("exposure") is not None:
+            exposure, equity = float(row["exposure"]), float(row["equity"] or 0.0)
+            row["scenarios"] = {
+                "expiry": head.get("expiry"),
+                "dte": head.get("dte"),
+                "asof": None if reading is None else reading.get("ts"),
+                "tail_moves": None if tails is None else {"low": tails[0], "high": tails[1]},
+                "tail": twostate.scenario_pnl(exposure, equity, tails),
+                "state_moves": None if states is None else {"low": states[0], "high": states[1]},
+                "states": twostate.scenario_pnl(exposure, equity, states),
+                "approx": True,
+            }
+        if book.event_budget is not None:
+            series = data.series.get(book.cfg.vehicle)
+            day = decision_day(book.vehicle, now)
+            words = None if series is None else set_event_caps(desk, book, series.returns, day, now)
+            row["event_budget"] = {
+                "budget": book.event_budget,
+                "cap_long": _r(book.event_cap_long, 3),
+                "cap_short": _r(book.event_cap_short, 3),
+                "basis": "two states" if states is not None else "largest one-session move of the last year",
+                "text": words,
+            }
+        if book.cfg.role == "lottery":
+            row["lottery"] = lottery.block(book.id, book.cfg.vol_target)
+
+
+def _radar_or_error(
+    store: StateStore,
+    raw: RawStore,
+    data: DeskData,
+    market: dict[str, Any],
+    health: dict[str, Any],
+    books: list[dict[str, Any]],
+    now: datetime,
+) -> dict[str, Any] | None:
+    """The radar block, or an entry that says it failed: a view on the side must never cost the page."""
+    try:
+        return radar_block(store, raw, data, market, health, books, now)
+    except Exception as exc:
+        log.exception("radar block failed")
+        return {"error": f"{type(exc).__name__}: {exc}"[:200], "tiles": [], "flagged": []}
 
 
 def _oracle_or_error(desk: Desk, state_dir: Path, now: datetime) -> dict[str, Any] | None:
