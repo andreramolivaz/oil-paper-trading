@@ -119,7 +119,8 @@ def kalshi_tile(
         text = (
             f"The crowd gives {index * 100:.0f}% to de-escalation within 90 days"
             + (f" ({', '.join(moves)})" if moves else "")
-            + ". Rising odds are what the Oracle books read as bearish for oil."
+            + ". Rising odds are what the Oracle books read as bearish for oil - on the archive's reading of the "
+            "day, taken the evening before, so a book's rationale can quote a slightly different number than this one."
         )
         if flag:
             text += f" {len(recent)} unusual-activity alert{'s' if len(recent) != 1 else ''} in the last two days."
@@ -436,15 +437,19 @@ def spread_tile(data: DeskData, raw: RawStore, market: Mapping[str, Any]) -> dic
     flag = z is not None and abs(z) >= SPREAD_FLAG_SD
     value = base["value"]
     where = "n/a" if value is None else f"{float(value):+.2f} $ a barrel"
+    basis = " It is also the basis risk of the books that trade WTI for a Brent view."
     if z is None:
         text = f"Brent minus WTI: {where}."
+    elif abs(z) < 0.5:
+        # the two funds moved together: saying "gained 0.0 %, 0.0 standard deviations" reads like a broken number
+        text = f"Brent minus WTI: {where}. The two funds moved together this week, as they usually do.{basis}"
     else:
         side = "gained" if last > 0 else "lost"
         text = (
             f"Brent minus WTI: {where}. Over five sessions the Brent fund has {side} {abs(last) * 100:.1f}% against "
             f"the WTI fund, {abs(z):.1f} standard deviations of a normal week"
             + (": a dislocation between the two crudes." if flag else ", inside the usual range.")
-            + " It is also the basis risk of the books that trade WTI for a Brent view."
+            + basis
         )
     return {
         **base,
