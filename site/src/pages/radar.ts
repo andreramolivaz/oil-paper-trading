@@ -18,7 +18,7 @@ function quote(label: string, q: { price: number | null; change: number | null; 
   return `<div class="r-quote">
     <span class="r-qlabel">${escapeHtml(label)}</span>
     <span class="r-qprice">${usd(q.price, 2)}</span>
-    <span class="r-qchg ${tone(q.change)}">${signedPercent(q.change, 1)} today</span>
+    <span class="r-qchg ${tone(q.change)}">${signedPercent(q.change, 1)}<span class="r-qday"> today</span></span>
   </div>`;
 }
 
@@ -93,20 +93,29 @@ function rangeBar(t: RadarTile): string {
   </div>`;
 }
 
+/** One tile: the label and the figure always, the sentence and the source behind a tap. A flagged tile opens
+ *  itself - on a phone the whole radar is otherwise four screens of prose nobody reads twice. */
 function tileCard(t: RadarTile): string {
   const f = figure(t);
   const extra = t.id === "options" ? rangeBar(t) : "";
   const note = t.mark_note ? `<p class="r-note">${escapeHtml(t.mark_note)}.</p>` : "";
   return `<article class="r-tile${t.flag ? " flag" : ""}" id="radar-${escapeHtml(t.id)}">
-    <header><span class="r-dot" aria-hidden="true"></span><h3>${escapeHtml(t.label)}</h3>${
-      t.flag ? '<span class="r-badge">Look</span>' : ""
-    }</header>
-    <p class="r-value">${escapeHtml(f.value)}</p>
-    ${f.sub ? `<p class="r-sub">${escapeHtml(f.sub)}</p>` : ""}
-    ${extra}
-    <p class="r-text">${escapeHtml(t.text ?? "")}</p>
-    ${note}
-    <p class="r-src">${src(t.source, t.asof, !!t.approx)}</p>
+    <details${t.flag ? " open" : ""}>
+      <summary>
+        <span class="r-head"><span class="r-dot" aria-hidden="true"></span><h3>${escapeHtml(t.label)}</h3>${
+          t.flag ? '<span class="r-badge">Look</span>' : ""
+        }</span>
+        <span class="r-fig"><b class="r-value">${escapeHtml(f.value)}</b>${
+          f.sub ? `<small class="r-sub">${escapeHtml(f.sub)}</small>` : ""
+        }</span>
+      </summary>
+      <div class="r-body">
+        ${extra}
+        <p class="r-text">${escapeHtml(t.text ?? "")}</p>
+        ${note}
+        <p class="r-src">${src(t.source, t.asof, !!t.approx)}</p>
+      </div>
+    </details>
   </article>`;
 }
 
@@ -136,7 +145,7 @@ function scenarios(doc: DeskDoc): string {
       )}</th></tr></thead>
       <tbody>${body}</tbody>
     </table></div>
-    <p class="d-fine">A straight line on today's size: no stop, no resizing on the way. A model of delayed option quotes (≈).</p>
+    <p class="d-fine">A straight line on today's size, before any stop (≈).</p>
   </div>`;
 }
 
@@ -144,14 +153,15 @@ export function radarSection(doc: DeskDoc): string {
   const r = doc.radar;
   if (!r || !r.tiles?.length) return "";
   const n = r.flagged?.length ?? 0;
-  const summary = `<p class="r-summary${n ? " flag" : ""}"><span class="r-dot" aria-hidden="true"></span>${escapeHtml(r.summary ?? "")}</p>`;
+  const summary = `<p class="r-summary${n ? " flag" : ""}"><span class="r-dot" aria-hidden="true"></span>${escapeHtml(
+    r.summary ?? "",
+  )}</p>`;
   const order = ["kalshi", "options", "weekend", "reopening", "term", "spread", "system"];
   const tiles = [...r.tiles].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   return section(
-    "Radar: what moves before the price",
-    `${summary}<div class="r-grid">${tiles.map(tileCard).join("")}</div>${scenarios(doc)}
-     <p class="d-fine">${escapeHtml(r.note ?? "")}</p>`,
-    "",
+    "Radar",
+    `${summary}<div class="r-grid">${tiles.map(tileCard).join("")}</div>${scenarios(doc)}`,
+    "what can move before the price - tap a card for the reading behind it; a mark is a declared threshold, never a verdict",
     "radar",
   );
 }

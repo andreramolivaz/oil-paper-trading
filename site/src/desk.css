@@ -200,6 +200,10 @@ tr[data-href]:hover > * { background: var(--surface-1); }
 
 /* ---------- phone ---------- */
 @media (max-width: 720px) {
+  /* the filter: one row that scrolls sideways, not three rows of chips */
+  .seg { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .seg::-webkit-scrollbar { display: none; }
+  .seg button { flex: 0 0 auto; white-space: nowrap; }
   .d-ghead { grid-template-columns: 1fr; }
   .d-gfig { justify-content: flex-start; }
   .d-colhead { display: none; }
@@ -391,27 +395,48 @@ tr[data-href]:hover > * { background: var(--surface-1); }
 .r-qchg.up { color: var(--pos); } .r-qchg.down { color: var(--neg); }
 
 .r-dot { display: inline-block; inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--good-ink); flex-shrink: 0; }
-.flag > .r-dot, .flag > header .r-dot { background: var(--warning-ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning-ink) 22%, transparent); }
-.r-summary { display: flex; align-items: center; gap: 10px; font-size: var(--t-lg); font-weight: 600; margin: 4px 0 14px; }
-.r-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.flag .r-dot { background: var(--warning-ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning-ink) 22%, transparent); }
+.r-summary { display: flex; align-items: center; gap: 10px; font-size: var(--t-base); font-weight: 600; margin: 4px 0 12px; flex-wrap: wrap; }
+.r-summary small { flex-basis: 100%; font-size: var(--t-xs); font-weight: 450; color: var(--text-muted); margin-left: 18px; }
+.r-grid { display: grid; grid-template-columns: 1fr; gap: 8px; align-items: start; }
 @media (min-width: 640px) { .r-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1000px) { .r-grid { grid-template-columns: repeat(3, 1fr); } }
-.r-tile {
-  background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px;
-  display: flex; flex-direction: column; min-inline-size: 0;
-}
+.r-tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; min-inline-size: 0; }
+/* the page's generic <details> is a bordered card: inside a tile or a book list it must be neither */
+.r-tile > details, .d-quiet { border: none; border-radius: 0; background: transparent; padding: 0; }
 .r-tile.flag { border-color: color-mix(in srgb, var(--warning-ink) 60%, var(--border)); }
-.r-tile header { display: flex; align-items: center; gap: 8px; }
-.r-tile h3 { font-size: var(--t-sm); font-weight: 600; color: var(--text-secondary); flex: 1; }
+/* The summary IS the tile on a phone: a label on the left, the one figure on the right, the reading behind a tap. */
+.r-tile > details > summary {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px;
+  padding: 11px 14px; cursor: pointer; list-style: none;
+}
+.r-tile > details > summary::-webkit-details-marker { display: none; }
+.r-tile > details[open] > summary { padding-bottom: 4px; }
+.r-tile > details > summary:hover h3, .r-tile > details > summary:focus-visible h3 { color: var(--accent); }
+.r-head { display: flex; align-items: center; gap: 8px; min-inline-size: 0; }
+.r-tile h3 { font-size: var(--t-sm); font-weight: 600; color: var(--text-secondary); }
+.r-fig { display: flex; flex-direction: column; align-items: flex-end; text-align: right; min-inline-size: 0; }
 .r-badge {
   font-size: var(--t-micro); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
   color: #000; background: var(--warning-ink); border-radius: 999px; padding: 1px 8px;
 }
-.r-value { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; margin: 10px 0 0; font-variant-numeric: tabular-nums; }
-.r-sub { font-size: var(--t-xs); color: var(--text-muted); margin: 2px 0 0; }
-.r-text { font-size: var(--t-sm); color: var(--text-secondary); margin: 10px 0 0; text-wrap: pretty; flex: 1; }
+.r-value { font-size: var(--t-lg); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; margin: 0; font-variant-numeric: tabular-nums; }
+.r-sub { font-size: var(--t-micro); color: var(--text-muted); margin: 1px 0 0; }
+.r-body { padding: 0 14px 12px; }
+.r-text { font-size: var(--t-sm); color: var(--text-secondary); margin: 6px 0 0; text-wrap: pretty; }
 .r-note { font-size: var(--t-xs); color: var(--warning-ink); margin: 6px 0 0; }
-.r-src { margin: 10px 0 0; font-size: var(--t-micro); }
+.r-src { margin: 8px 0 0; font-size: var(--t-micro); }
+
+/* A group's books that sit in cash: one line, open on a tap. */
+.d-quiet { margin-top: 0 !important; }
+.d-quiet > summary {
+  list-style: none; cursor: pointer; padding: 9px 8px; font-size: var(--t-xs); font-weight: 450; color: var(--text-muted);
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.d-quiet > summary::-webkit-details-marker { display: none; }
+.d-quiet > summary::before { content: "+ "; color: var(--accent); font-weight: 700; }
+.d-quiet[open] > summary::before { content: "− "; }
+.d-quiet > summary:hover, .d-quiet > summary:focus-visible { color: var(--accent); }
 
 .r-range { margin: 14px 0 2px; }
 .r-rtrack { position: relative; block-size: 12px; background: var(--surface-3); border-radius: 6px; }
@@ -432,3 +457,14 @@ tr[data-href]:hover > * { background: var(--surface-1); }
 .r-scn-h { font-weight: 650; margin: 0 0 8px; }
 .r-scn-t { max-width: 620px; }
 .r-scn-t thead th { background: var(--surface-1); }
+
+/* phone: the two quotes on one line. Stacked and large they cost a third of the first screen, and this block
+   must sit AFTER the radar's own rules - the phone block above comes first in the file and would lose. */
+@media (max-width: 720px) {
+  .r-market { gap: 4px 12px; margin-top: 10px; flex-wrap: nowrap; }
+  .r-quote { gap: 6px; flex: 0 0 auto; white-space: nowrap; }
+  .r-qlabel { font-size: var(--t-micro); letter-spacing: 0.04em; }
+  .r-qprice { font-size: var(--t-xl); }
+  .r-qchg { font-size: var(--t-xs); }
+  .r-qday { display: none; }
+}

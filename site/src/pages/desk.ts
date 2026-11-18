@@ -12,7 +12,6 @@ import { load } from "../data";
 import type { Book, BookHistory, BookPosition, DeskDoc, FillRow, OptionStructure, PortfolioGroup } from "../desk";
 import {
   ANALYST_MARKETS,
-  GROUP_WORDS,
   analystStatus,
   bookState,
   chevron,
@@ -85,16 +84,6 @@ function groupsOf(doc: DeskDoc): PortfolioGroup[] {
 }
 
 // ---------------------------------------------------------------------------------------------- the headline
-function groupPhrase(g: PortfolioGroup): string {
-  const w = GROUP_WORDS[g.id] ?? { noun: `the ${escapeHtml(g.label)}`, verb: "are" };
-  if (g.pnl === null || g.pnl === undefined) return `${w.noun}: no total yet`;
-  if (g.pnl === 0) return `${w.noun} ${w.verb} flat`;
-  const up = g.pnl > 0;
-  const since = g.curve.length ? ` since ${escapeHtml(longDay(g.curve[0]!.t))}` : "";
-  return `${w.noun} ${w.verb} ${up ? "up" : "down"} <b class="${up ? "up" : "down"}">${usd(Math.abs(g.pnl), 2)}</b>
-    <span class="d-pct">(${signedPercent(g.pnl_pct, 2)})</span>${since}`;
-}
-
 function listWords(parts: string[]): string {
   if (parts.length <= 1) return parts.join("");
   return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
@@ -110,7 +99,10 @@ function hero(doc: DeskDoc, groups: PortfolioGroup[]): string {
       : open === n
         ? `All ${n} books hold a position.`
         : `${open} of ${n} books hold a position.`;
-  const lede = listWords(groups.map(groupPhrase));
+  // the five group phrases used to be recited here and again in each group's own header, 200 px below
+  const total = groups.reduce((sum, g) => sum + (g.equity ?? 0), 0);
+  const day = groups.reduce((sum, g) => sum + (g.pnl_day ?? 0), 0);
+  const lede = `${usd(total, 0)} across the books, ${signedUsd(day, 0)} today`;
   const waiting = queued
     ? ` ${queued === 1 ? "One order waits" : `${queued} orders wait`} for the next half-hour bar to fill.`
     : "";
@@ -122,10 +114,10 @@ function hero(doc: DeskDoc, groups: PortfolioGroup[]): string {
     : "";
   return `<header class="d-hero">
     <h1 class="d-headline">${escapeHtml(headline)}</h1>
-    <p class="d-lede">${lede.charAt(0).toUpperCase()}${lede.slice(1)}.${waiting}</p>
-    <p class="d-fine">Each book is its own paper account${
-      capital ? `, started with ${usd(capital, 0)}${apart}` : ""
-    }, trading real prices with real costs. No real money, no broker.</p>
+    <p class="d-lede">${lede}.${waiting}</p>
+    <p class="d-fine">${
+      capital ? `Paper accounts of ${usd(capital, 0)}${apart}` : "Paper accounts"
+    }: real prices, real costs, no real money.</p>
   </header>`;
 }
 
@@ -226,6 +218,22 @@ function bookRow(b: Book): string {
   </li>`;
 }
 
+/** The books of one group. What holds something is listed; what sits in cash folds away, because on a phone
+ *  twenty-three rows of "in cash" are four screens between you and the next thing worth reading. */
+function bookList(members: Book[]): string {
+  const busy = members.filter((b) => isHolding(b) || (b.pending?.length ?? 0) > 0);
+  const quiet = members.filter((b) => !busy.includes(b));
+  const list = (bs: Book[]): string => `<ul class="d-list">${bs.map(bookRow).join("")}</ul>`;
+  if (!quiet.length) return list(members);
+  if (!busy.length)
+    return `<details class="d-quiet"><summary>${quiet.length} book${
+      quiet.length === 1 ? "" : "s"
+    }, all in cash</summary>${list(quiet)}</details>`;
+  return `${list(busy)}<details class="d-quiet"><summary>${quiet.length} other book${
+    quiet.length === 1 ? "" : "s"
+  }, in cash</summary>${list(quiet)}</details>`;
+}
+
 function groupBlock(doc: DeskDoc, g: PortfolioGroup, ids: string[]): string {
   const byId = new Map(doc.books.map((b) => [b.id, b]));
   const members = g.books.map((id) => byId.get(id)).filter((b): b is Book => !!b);
@@ -250,7 +258,7 @@ function groupBlock(doc: DeskDoc, g: PortfolioGroup, ids: string[]): string {
       ${g.id === "lottery" ? lotteryLine(members) : ""}
     </header>
     <div class="d-colhead" aria-hidden="true"><span>Book</span><span>Holding</span><span>Exposure</span><span>Equity</span><span>Since the start</span><span>Today</span><span></span></div>
-    <ul class="d-list">${members.map(bookRow).join("")}</ul>
+    ${bookList(members)}
   </section>`;
 }
 
@@ -447,7 +455,7 @@ function drawPnl(root: HTMLElement, groups: PortfolioGroup[]): void {
 }
 
 // ---------------------------------------------------------------------------------------------- activity
-const FILLS_SHOWN = 8;
+const FILLS_SHOWN = 4;
 const FILLS_PAGE = 50;
 
 function fillRow(f: FillRow, names: Map<string, string>, hidden = false): string {

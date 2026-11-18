@@ -1197,6 +1197,17 @@ rejections and one refusal**:
   verdict. Below it, what the options' 1-in-20 move would cost or pay every book that holds oil.
 * **The design**: true black (`--surface-0: #000`), the two quotes large above the headline, the radar as cards.
   Nothing in the numbers changed; the fingerprint is still `b66ecbb82b75`, checked after every edit.
+  **The phone pass (18 November, on the owner's "I use it on a phone and it feels like infinite scrolling")**:
+  the desk page measured 9 424 px on a 390 px screen (11.2 screens) and is now 5 842 px (6.9), with nothing
+  removed - everything that left the first read is one tap away. What changed, all in `site/src`: a radar tile is
+  a `<details>` whose summary is the label and the one figure, the sentence and the source behind a tap (a flagged
+  tile opens itself); a group's books that sit in cash fold into "+ N other books, in cash" (`bookList`), because
+  twenty-three "in cash" rows were four screens; the hero's five group phrases, recited again 200 px below in each
+  group's own header, became one line of total and day; the two quotes share one line on a phone and the filter
+  chips one scrolling row; the latest fills show 4 instead of 8. Two CSS things worth knowing: the phone block of
+  `desk.css` comes BEFORE the radar's own rules, so an override of them at the same specificity must be appended at
+  the END of the file (the first attempt silently lost and made the strip taller), and the page's generic
+  `details` is a bordered card, which a tile and a book list each have to undo.
 
 What phase 22 did NOT do, on purpose: no core book changed, no sleeve was added, no allocator rule was switched on,
 no scale was touched. The one behaviour written down without a measurement is what the desk will do by itself on
