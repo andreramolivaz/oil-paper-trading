@@ -3049,6 +3049,237 @@ la lettura a due stati e il suo archivio (una lettura per catena, le quotazioni 
 seduta), la sorveglianza del fine settimana, il radar di sette riquadri in cima alla pagina, il bilancio
 dell'evento sul solo Oracle 3x, e il libro Oracle 3x: 10 000 $, lotteria, fuori da ogni totale.
 
+## 18. Fase 23 (20 novembre 2026, 04:30 UTC): i tre libri Kalshi — una sleeve in più, il moltiplicatore che manca, la banda morta nelle unità giuste — registrati prima di misurare
+
+Il proprietario, il 19 novembre sera, dopo quattro domande sul funzionamento dei libri Kalshi e sulla liquidità
+dei mercati a evento: «cosa aggiungeresti quindi alle strategie e indici per renderlo più efficiente e più
+mercati? per migliorare la parte delle 3 strategie di Kalshi». E, avuta la proposta: «vai fallo».
+
+Questo capitolo registra regole, prior e filtri **prima** di calcolare un numero. La sezione I si scrive dopo la
+misura, e la misura è una. Nessuna delle regole qui tocca un libro core, un veicolo o `config/risk.yaml`:
+l'impronta del backtest resta `b66ecbb82b75` e va verificata dopo ogni modifica.
+
+### A. Che cosa avevo già visto quando ho scritto queste regole
+
+Va detto per intero, perché decide quanto valgono i prior.
+
+1. **Il record dal vivo dei libri Kalshi**, letto sull'export pubblico del 20 novembre alle 03:18 UTC: l'Oracolo a
+   10 717,01 $ (+7,17% in 29 sedute, Sharpe dal vivo +3,94 con errore standard 2,95), Oracle equities a
+   10 246,37 $, Oracle utilities a 10 268,82 $, l'Oracle 3x a 9 511,48 $ (−4,9% in quattro sedute, mentre l'1x
+   faceva +0,70% sulle stesse giornate). Il gruppo Kalshi è l'unico in utile del desk.
+2. **Le tre letture di ieri**: de-escalation 16,5% contro 24,4% sette giorni prima (−7,9 punti, sleeve +15,8);
+   percorso della Fed +41 bp contro +41 bp (+0,4 bp, **dentro la banda morta**, sleeve 0); recessione 20,6% contro
+   19,8% (+0,9 punti, **dentro la banda morta**, sleeve 0). Due libri su tre erano quindi in contanti ieri, e il
+   libro utilities è muto spesso.
+3. **Le quotazioni di stanotte dei mercati Kalshi archiviati e non letti**, guardate per rispondere a una domanda
+   del proprietario sulla liquidità. In particolare la scala dei transiti settimanali nello stretto
+   (`KXHORMUZWEEKLY`): «sopra 12» a 0,76/0,80 con 15 456 contratti scambiati e 6 848 di posizioni aperte, «sopra
+   10» a 0,93/0,96 con 4 887 contratti. **È il mercato petrolifero più liquido di Kalshi**, e questo è il motivo
+   per cui la sezione D propone quella sleeve e non un'altra.
+4. Che `Book.combined_forecast` fa la media con segno delle sleeve **senza moltiplicatore di diversificazione**:
+   sta scritto nella docstring del metodo, «No diversification multiplier».
+5. Che la banda morta vale `DEADBAND = 0,01` (un punto percentuale) per de-escalation e recessione e `1.0` (un
+   punto base) per il percorso della Fed: lo stesso numero tondo in due unità diverse.
+6. Che l'archivio ha 324 giorni dal 1° gennaio 2026 (286 ricostruiti dalle candele, il resto letti dal vivo), e
+   che delle 18 serie scaricate ogni ora solo 5 entrano in un indice.
+
+**Quello che non ho guardato, e che le sezioni C, D ed E misureranno**: se una qualunque di queste quantità
+preveda un rendimento. La liquidità di `KXHORMUZWEEKLY` l'ho vista; la sua correlazione con la de-escalation, la
+sua capacità di anticipare il petrolio e la sua storia utilizzabile no. La distinzione conta: ho scelto **dove
+guardare** sulla base di quanto è scambiato un mercato, non di quanto avrebbe reso.
+
+**Una cosa va ammessa subito.** Le sezioni D ed E nascono dopo aver visto il libro utilities stare zitto e il
+libro equities muoversi poco. È esattamente la posizione in cui il capitolo 16 avvertiva di non sistemare i
+parametri guardando il risultato. Quello che le rende accettabili, e che va giudicato come tale:
+la sezione E deriva il suo numero in modo da **riprodurre la scelta già fatta** sulla de-escalation, e lo applica
+a **tutti e tre** gli indici insieme, non solo a quello che dà fastidio; la sezione D aggiunge una fonte di
+informazione nuova invece di allargare una che c'è. Se i filtri non passano, resta scritto che non passano.
+
+### B. La diagnosi: perché i tre libri sono deboli
+
+Quattro cose, due delle quali si tolgono senza inventare niente.
+
+1. **Una sleeve a testa.** Oracolo: de-escalation. Oracle utilities: Fed. Solo Oracle equities ne ha due (Fed +,
+   recessione −). Il capitolo 7 ha già misurato dove nasce uno Sharpe migliore su questo desk: i libri core sono
+   passati da 0,39 / 0,37 / 0,45 a 0,56 / 0,77 / 0,64 **aggiungendo fonti indipendenti**, non leva né parametri.
+   I libri Kalshi quella lezione non l'hanno ricevuta.
+2. **Manca il moltiplicatore di diversificazione** (sezione C). Un libro con due sleeve concordi punta quanto uno
+   con una sleeve sola: è sotto-dimensionato per costruzione rispetto alla regola che i libri core usano già.
+3. **La banda morta è nell'unità sbagliata** (sezione E): 1,0 su una scala che si muove di 6,3 punti a settimana
+   e 1,0 su una che si misura in punti base.
+4. **Tredici serie su diciotto sono archiviate e non lette** (sezioni D e G).
+
+### C. Il moltiplicatore di diversificazione sui libri non-desk
+
+**La regola.** Per un libro con `forecast` diverso da `desk`, la previsione combinata diventa la media con segno
+di oggi **moltiplicata per**
+
+> `FDM = 1 / sqrt( Σ_i Σ_j v_i v_j ρ_ij )`
+
+dove `v` sono i pesi assoluti normalizzati a somma 1 **delle sole sleeve che hanno un valore oggi** e `ρ_ij` è la
+correlazione fra le serie giornaliere delle sleeve **con il segno che il libro dà loro**, misurata una volta
+sull'archivio intero e poi fissata come costante dichiarata in `oracle.py`. È la formula di Carver, la stessa che
+produce l'1,75 dei libri core. Arrotondata a due decimali. **Tetto 1,75**, il valore dei libri core: nessun libro
+Kalshi può puntare più di quanto il desk si concede con sette sleeve. Il risultato resta tagliato a ±20 come
+adesso.
+
+**Conseguenze automatiche.** Con una sola sleeve `FDM = 1` esattamente, per costruzione: l'Oracolo, l'Oracle 3x e
+Oracle utilities non cambiano di un centesimo. Cambia solo Oracle equities, e solo quando entrambe le sue sleeve
+hanno un valore.
+
+**Prior.** Aiuta poco e raramente, perché le due sleeve di Oracle equities sono fuori dalla banda morta insieme di
+rado. Il rischio è l'altro lato della stessa medaglia: posta più grande, volatilità e perdita massima più grandi.
+Mi aspetto un effetto piccolo e positivo, e non escludo che sia negativo per caso su un campione così corto.
+
+**Filtro, scritto prima** (tutte e tre):
+
+1. le decisioni di un libro con una sleeve sola sono **identiche carattere per carattere** prima e dopo — è un
+   controllo esatto, non statistico: se cambia qualcosa c'è un errore e si torna indietro;
+2. lo Sharpe dopo i costi di Oracle equities sull'archivio **non scende in nessuna delle due metà**;
+3. il tetto di 1,75 non viene mai raggiunto (se lo fosse, vuol dire che le sleeve misurano correlazione negativa
+   forte e la formula sta amplificando rumore: in quel caso non entra e resta scritto perché).
+
+Se (2) non passa, la coerenza con i libri core **non basta**: non si accende, come il capitolo 17 non ha acceso
+la regola di Hamilton pur avendo passato il suo filtro.
+
+### D. Una quarta sleeve: l'intensità dello stretto (`strait_flow`)
+
+**Perché questa e non un'altra.** È una quantità **fisica** (quante navi passano adesso) invece che politica
+(ci sarà la pace entro 90 giorni); si risolve **ogni settimana**, quindi produce una cinquantina di osservazioni
+l'anno invece di quattro; ed è il mercato petrolifero più scambiato di Kalshi (sezione A3).
+
+**La regola.**
+
+1. **Componente**: `KXHORMUZWEEKLY`, la scala sul numero di transiti della settimana («sopra 5», «sopra 10»,
+   «sopra 12», …). Se e solo se ha una storia utilizzabile, si aggiunge `KXMAXSHIPSHORMUZ` come seconda
+   componente con lo stesso trattamento, e l'indice è la media delle componenti presenti in entrambe le letture —
+   come fa la de-escalation.
+2. **Lettura**: la **mediana della folla**, cioè il numero di transiti al quale la scala attraversa il 50%,
+   interpolando linearmente fra i due strike che lo circondano (lo stesso meccanismo che `prediction.ladder_median`
+   usa già per le scale di prezzo). Una lettura senza due strike che circondano il 50% non ha valore quel giorno.
+3. **Segnale**: la variazione sulla lettura di **7 giorni prima** (riferimento: la più recente fra 7 e 10 giorni
+   prima), come per gli altri tre indici. Il confronto a sette giorni toglie per costruzione l'effetto del giorno
+   della settimana, che altrimenti inquinerebbe tutto: un mercato settimanale letto il lunedì e letto il venerdì
+   non dice la stessa cosa.
+4. **Segno e scala**: meno navi attese vuol dire meno offerta, quindi petrolio più caro. Previsione
+   `F = −4 × (variazione della mediana in navi)`, tagliata a ±20. Il 4 è un numero tondo dichiarato adesso,
+   sottoposto **una volta** al controllo di normalizzazione di Carver come in fase 15 (media di |F| vicina a 10) e
+   corretto solo se sbagliato di un fattore due, con il nuovo valore ancora un numero tondo.
+5. **Banda morta**: quella della sezione E.
+6. **Chi la legge**: l'**Oracolo**, con segno +1, accanto alla de-escalation. E di conseguenza l'**Oracle 3x**,
+   perché la sua registrazione (capitolo 17 D) dice «stessa sleeve, stessa formula»: se l'Oracolo cambia regola,
+   il 3x la segue, o smette di essere l'Oracolo per tre e diventa un libro diverso senza che nessuno l'abbia
+   deciso.
+7. **Archivio**: la serie entra in `ALL_SERIES`, quindi il lavoro di ricostruzione (`kalshi-backfill`) la copre
+   dalla prossima esecuzione.
+
+**Prior.** Due cose, e tutte e due negative. La prima: mi aspetto una **correlazione alta** con la de-escalation —
+è la stessa storia (lo stretto) vista da una finestra più vicina, e due sleeve che dicono la stessa cosa non
+aggiungono niente, aumentano solo la posta. La seconda, più concreta: **l'elenco di Kalshi dimentica i mercati
+liquidati poche settimane dopo**, e una serie settimanale liquida un mercato a settimana — quindi la storia
+ricostruibile potrebbe essere di poche settimane, e la risposta onesta sarebbe «non misurabile oggi».
+
+**Filtro, scritto prima** (tutte e quattro):
+
+1. almeno **120 letture giornaliere** con un valore della sleeve; sotto questa soglia la sleeve **non entra** e si
+   scrive che l'archivio non basta ancora, con il numero di letture trovate;
+2. il valore assoluto della correlazione fra la sleeve e quella di de-escalation, sulle giornate che hanno
+   entrambe, è **sotto 0,5**;
+3. l'Oracolo con due sleeve ha uno Sharpe dopo i costi **più alto in entrambe le metà** dell'archivio di quello
+   con una sola;
+4. la media di |F| della sleeve è fra 5 e 20 dopo la scala dichiarata (il controllo del punto 4 della regola).
+
+### E. La banda morta nelle unità proprie di ciascun indice
+
+**La regola.** Per ogni indice, `banda = 0,16 × (media di |variazione settimanale| di quell'indice)`, misurata una
+volta sull'archivio intero, arrotondata a due cifre significative e poi fissata come costante dichiarata.
+
+**Da dove viene lo 0,16.** La de-escalation si muove in media di 6,3 punti a settimana (misurato nel capitolo 10 H,
+su 143 sedute) e ha oggi una banda di 1,0 punti: il rapporto è `1,0 / 6,3 = 0,159`. Il numero **non è scelto
+adesso**: è la scelta già fatta a ottobre, espressa in una forma che si può trasportare su un indice che si misura
+in punti base o in navi. Questo è il punto che rende la sezione difendibile, ed è anche il suo punto di rottura:
+
+**Ancora obbligatoria.** Se la banda così ricavata per la de-escalation **non ricade entro il 10% di 1,0 punti**,
+la regola è sbagliata e **non si applica a nessun indice**, nemmeno a quelli dove farebbe comodo. In quel caso
+tutto resta com'è e si scrive il numero trovato.
+
+**Prior.** Si sveglia soprattutto il percorso della Fed, che oggi è muto quasi sempre; la recessione cambia poco;
+la de-escalation per costruzione non cambia. Il rischio è noto e va misurato: una banda più stretta vuol dire più
+giri, e i giri costano.
+
+**Filtro, scritto prima** (tutte e tre):
+
+1. l'ancora della de-escalation (sopra) regge;
+2. per ciascuno dei tre indici, il libro che lo legge **non peggiora lo Sharpe dopo i costi in nessuna delle due
+   metà** dell'archivio;
+3. il numero di giri all'anno di ciascun libro non più che raddoppia.
+
+Se (2) o (3) cadono per un indice, la banda di **quell'indice** resta quella di oggi e si scrive perché. La regola
+si applica o non si applica indice per indice, ma il numero 0,16 è uno solo per tutti.
+
+### F. Le scale da rimisurare: la scadenza che il progetto si è dato
+
+Non è un'idea nuova, è un appuntamento già preso: il capitolo 10 dice che la scala della de-escalation si
+rimisura dopo 60 letture, il capitolo 11 dice lo stesso per Fed e recessione a 60 letture dal vivo per sleeve.
+L'archivio ha 324 giorni. Il controllo è quello già dichiarato — **media di |F| vicina a 10, si tocca solo se
+sbagliata di un fattore due, e il nuovo valore è ancora un numero tondo** — e si fa su tutte e tre le sleeve
+insieme, con la sleeve nuova della sezione D se entra. Qualunque cosa esca, il numero va scritto qui.
+
+### G. Più serie da archiviare: nessuna decisione, solo memoria
+
+Si rifà la ricerca nel catalogo (a ottobre erano 15 011 serie) e si aggiungono alla lista scaricata ogni ora
+**tutte** le serie che soddisfano due condizioni dichiarate adesso: (a) hanno almeno sei mesi di candele
+giornaliere disponibili, (b) parlano di petrolio, di energia, di Medio Oriente o della politica monetaria
+americana. Nessun indice le legge, nessun libro le negozia: l'unico effetto è l'archivio.
+
+**La condizione che impedisce di barare dopo**: una serie si aggiunge **senza guardare se avrebbe previsto
+qualcosa**. Il criterio è il tema e la lunghezza della storia, e basta. Se fra sei mesi una di queste serie
+diventerà una sleeve, lo sarà con una regola registrata allora e misurata una volta sola.
+
+Il motivo per farlo adesso è quello già pagato una volta: **l'elenco di Kalshi dimentica i mercati liquidati**, e
+quello che non si chiede oggi non si recupera. L'indice della Fed ha un passato che parte dal 18 giugno 2026 solo
+per questo.
+
+### H. La sorpresa EIA: registrata come candidata, non accesa
+
+`KXEIACRUDEW` è la previsione della folla sulle scorte settimanali di greggio, e ha una proprietà interessante:
+il mercato riprezza il **martedì sera sul dato API**, il giorno prima del dato ufficiale EIA del mercoledì. La
+differenza fra la mediana della folla e il dato della settimana prima sarebbe una «sorpresa attesa».
+
+**Non si accende**, per due motivi scritti adesso. Il primo: le scorte come segnale sono già state misurate
+**due volte nel capitolo 7 e rifiutate due volte**. Il secondo: il mercato è morto sei giorni su sette (stanotte
+un contratto scambiato su tutta la scala), quindi la lettura giornaliera che il desk archivia sarebbe ferma per
+costruzione. Resta qui come candidata per il giorno in cui qualcuno vorrà misurarla, con il suo prior già scritto:
+non funzionerà.
+
+### I. Che cosa non si fa, e perché
+
+* **Altra leva.** La domanda è già stata risposta dai fatti: l'Oracle 3x ha la posta tripla della stessa regola ed
+  è a −4,9% in quattro sedute mentre l'1x fa +0,70%. Niente di quello che c'è qui aumenta un obiettivo di
+  volatilità.
+* **Operare sui contratti Kalshi.** Le quotazioni di stanotte: WTI «tra 79 e 79,99 $» si compra a 5 centesimi e si
+  rivende a 2; Brent «sopra 78,99 $» ha lettera 1,00 e volume zero; i transiti settimanali «almeno 7» hanno denaro
+  0,13 e lettera 0,68. Il capitolo 14 I aveva già misurato −80% per dollaro sotto i 15 centesimi e −6% dopo le fee
+  nella fascia 15-70 nella direzione del Dinamico. Resta fuori, e il fare mercato resta fuori perimetro come al
+  capitolo 15 F finché non esiste un archivio del book.
+* **Un quarto libro sullo stesso indice.** Non è diversificazione, è la stessa scommessa due volte: l'Oracolo e
+  l'Oracle 3x hanno correlazione 1 per costruzione e lo dimostrano ogni giorno.
+* **Toccare la scala della de-escalation adesso.** Il libro è a +7,17% dopo 29 sedute. Cambiare il parametro di
+  una regola dopo averla vista guadagnare è il modo più efficace di ingannarsi, e la sezione F lo farà solo con il
+  controllo dichiarato in anticipo (media di |F|, fattore due), che non guarda i rendimenti.
+* **Toccare i libri core.** Nessuna riga di questo capitolo entra nella previsione a sette sleeve, nei veicoli o
+  nelle regole di conto. L'impronta resta `b66ecbb82b75`.
+
+### L. Il limite che vale per tutto il capitolo
+
+L'archivio ha 324 giorni, di cui 286 ricostruiti dalle candele e poco più di un mese letti dal vivo dal tick.
+Trecento sedute sono 1,2 anni: l'errore standard di uno Sharpe misurato lì è circa 0,9. **Nessuno dei numeri che
+la sezione M riporterà potrà distinguere 0 da 1.** I filtri di questo capitolo chiedono quindi coerenza (entrambe
+le metà, correlazione bassa, controlli esatti) e non significatività, perché la significatività su questi dati non
+è ottenibile e pretenderla sarebbe finta precisione. Resta vero quello che il capitolo 15 ha già scritto al
+proprietario: con questi dati il desk non si distingue da un fondo indicizzato, e nessuna regola di questo
+capitolo cambia quella frase.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
