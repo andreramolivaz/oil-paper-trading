@@ -283,6 +283,11 @@ def test_the_books_on_file_are_the_registered_ones_and_stay_out_of_the_replay():
         "KXFEDDECISION",
         "KXRECSSNBER",
     )
+    # phase 23: the backfill also keeps the past of the REGISTERED candidates (docs/RESEARCH.md 18 M4), because
+    # Kalshi's listing forgets a settled market and a weekly series settles one a week. No index reads them.
+    assert oracle.CANDIDATE_SERIES == ("KXHORMUZWEEKLY", "KXMAXSHIPSHORMUZ")
+    assert (*oracle.ALL_SERIES, *oracle.CANDIDATE_SERIES) == oracle.BACKFILL_SERIES
+    assert not set(oracle.CANDIDATE_SERIES) & {s for spec in oracle.INDICES.values() for s in spec.components}
     with pytest.raises(ValueError, match="unknown sleeves"):
         BookConfig(**{**EQUITIES.__dict__, "sleeves": {"fedpath": 1.0, "weather": 1.0}})
 

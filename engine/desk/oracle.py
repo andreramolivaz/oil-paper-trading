@@ -161,6 +161,14 @@ SLEEVES: tuple[str, ...] = tuple(INDICES)
 DEFAULT_WEIGHTS: dict[str, float] = {SLEEVE: 1.0}  # a kalshi book without `sleeves` is the oil book of phase 14
 # every series an index reads: what the tick downloads hourly and the backfill fills
 ALL_SERIES: tuple[str, ...] = tuple(dict.fromkeys(s for spec in INDICES.values() for s in spec.components))
+# The series a REGISTERED candidate index would read, which no index reads yet (docs/RESEARCH.md 18 D and 18 M4:
+# the strait's weekly transits, measurable when the archive reaches 120 readings, around 1 January 2027). No book
+# reads them and no forecast is built on them; they are here so that `kalshi_backfill` keeps their past, because
+# Kalshi's listing forgets a settled market after a few weeks and a weekly series settles one every week - what
+# is not reconstructed now cannot be reconstructed in January.
+CANDIDATE_SERIES: tuple[str, ...] = ("KXHORMUZWEEKLY", "KXMAXSHIPSHORMUZ")
+# what the backfill job asks Kalshi for: the index components and the registered candidates
+BACKFILL_SERIES: tuple[str, ...] = tuple(dict.fromkeys(ALL_SERIES + CANDIDATE_SERIES))
 
 
 def spec_of(sleeve: str) -> IndexSpec:

@@ -129,12 +129,16 @@ desk:
   # Hourly; archived in state/desk/kalshi-*.jsonl by the tick (one record per event and UTC day). No core book
   # reads it; the speculative candidate books read their indices on the archive (engine/desk/oracle.py): the
   # strait and US-Iran ladders (phase 14), the FOMC meetings and the yearly recession markets (phase 15).
+  # KXIRANCRUDE has been in the page's "Supply" group since phase 13 and was never in this list (phase 23 found
+  # it, docs/RESEARCH.md 18 M5): a repair, not an addition - the decision to archive it was taken in October.
+  # Nothing else was added: 18 M5 measured the catalogue and not one candidate series reaches the six months of
+  # reconstructable history the registered criterion asks for, because Kalshi's listing forgets settled markets.
   kalshi:
     - adapter: kalshi
       series: [KXBRENTD, KXBRENTW, KXBRENTMON, KXWTI, KXWTIW, KXWTIMONTHLY,
                KXCLOSEHORMUZ, KXHORMUZRETURN, KXHORMUZNORM, KXHORMUZWEEKLY, KXMAXSHIPSHORMUZ,
                KXUSAIRANAGREEMENT, KXUSIRANMEETING, KXOPECCUTS, KXEIACRUDEW, KXSAUDICRUDE,
-               KXFEDDECISION, KXRECSSNBER]
+               KXIRANCRUDE, KXFEDDECISION, KXRECSSNBER]
 
 # Refreshed on every tick: what the paper brokers fill and mark against.
 desk_intraday:

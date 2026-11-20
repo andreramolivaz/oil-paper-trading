@@ -1213,6 +1213,54 @@ What phase 22 did NOT do, on purpose: no core book changed, no sleeve was added,
 no scale was touched. The one behaviour written down without a measurement is what the desk will do by itself on
 the day the strait reopens (17 I, `docs/STRATEGIES.md`), written so that nobody decides it looking at the screen.
 
+Phase 23 (20 November, on the owner's "what would you add to the strategies and the indices to make it more efficient,
+and more markets? to improve the three Kalshi strategies" and then "go, do it"; `docs/RESEARCH.md` chapter 18,
+registered and pushed as 8824dc7 before a number was computed). **Four measurements, no book changed** - the fourth
+time the honest answer to "add something" has been "the filter says no", and the one that cost the most to write is
+the one where my own prior was wrong. The diagnosis first: the three Kalshi books have one sleeve each, get no
+diversification multiplier (`Book.combined_forecast` says so in its docstring), carry a deadband of 1.0 in points for
+one index and 1.0 in basis points for another, and read 5 of the 18 series the tick downloads every hour.
+
+* **The deadband stays as it is, on every index** (18 M1). The rule registered was `0.16 x mean |weekly change|`,
+  the ratio the de-escalation index already has (1.0 point over the 6.3 of chapter 10 H), with an obligatory anchor:
+  if the de-escalation band does not come back within 10 % of 1.0, the rule is wrong and applies nowhere. On the whole
+  archive the index moves **5.41** points a week, not 6.3 - the 6.3 was measured on 143 sessions of a short, agitated
+  window - so the band comes back at **0.87, thirteen per cent out. It applies to no index**, not even to the Fed
+  path, which is the one it would have woken up. Written beside it: with chapter 10's own 6.3 the anchor would have
+  held by construction, which is exactly the circularity the anchor existed to catch.
+* **The scales stay where they are** (18 M2). The appointment phases 14 and 15 set for 60 readings, kept: mean |F| is
+  **8.46 / 8.48 / 7.87** against Carver's 10, all inside the declared factor of two. The round numbers chosen in
+  October on much less archive hold on 324 days.
+* **Carver's multiplier does not go on** (18 M3). The two sleeves of `oracle_equities` correlate **+0.23** over 104
+  days, so the formula gives **FDM 1.28** - but the book is **already at its ceiling on 44 % of the sessions it
+  decides, 51 % with the multiplier**. A long-only book at a 0.50 volatility target with a 2x cap on an equity fund
+  lives against its ceiling: half the extra size is thrown away there and the extra turnover is paid anyway. The
+  Sharpe falls in the first half (0.70 -> 0.43) and the filter says no. The Sharpe is not the argument (SE 2.39, a
+  0.13 difference is nothing); the ceiling is, and it is mechanical.
+* **The strait-intensity sleeve does not enter, and the prior was wrong** (18 M4). Filter (1) asked for 120 daily
+  readings: there are **77**. The reconstruction from Kalshi's candles reaches back only to **5 September** - the
+  listing forgets settled markets and a weekly series settles one a week - which is the second prior of section D,
+  come true. But the first prior was wrong: I wrote "I expect a high correlation with de-escalation, it is the same
+  story through a nearer window", and the correlation is **+0.01** over 49 days. How many ships pass this week and
+  what the crowd gives to peace within ninety days are **two independent pieces of information**. The sleeve is
+  re-measured with the same four filters, untouched, when the archive reaches 120 readings: **around 1 January 2027**.
+* **Not one new series either, and the criterion was the thing at fault** (18 M5). The catalogue has 16 757 series
+  (15 011 in October); 711 match the theme, 211 of those recur, and about 110 of THOSE are the price of gasoline
+  state by state. Of the 23 real candidates left, **zero reach the six months of reconstructable history the
+  registered criterion asks for** - the longest is `KXEFFR` at 140 days, and five have no candle at all - because
+  Kalshi's listing forgets settled markets, so a series' past starts where its listing starts. Applied literally
+  (a filter is not widened after it fails): nothing enters on section G's authority. The corrected criterion is
+  written in 18 M5 for the owner to decide, and the lesson is the chapter's: **on Kalshi history is not asked for,
+  it is accumulated** - what is not archived today cannot be measured in the spring.
+* **What did change, and neither is a bet**: `kalshi-backfill` now keeps the past of the registered candidates
+  (`oracle.CANDIDATE_SERIES`, `BACKFILL_SERIES`), without which January's archive would hold FEWER readings than
+  today's and the measurement registered in 18 D could not happen at all; and `KXIRANCRUDE` enters the download
+  list - it has been in the page's "Supply" group since phase 13 and was never asked for, so the page has had a
+  slot for that figure and the figure has never arrived. A repair, not an addition.
+
+The fingerprint is `b66ecbb82b75` before and after, checked. `scripts/research_phase23.py` is the measurement, and
+`docs/RESEARCH.md` 18 M has every number with the command that produced it.
+
 Read the Actions runs, do not assume them. Every CI run up to 3cf52aa was a **startup failure** — a
 job-level `if: ${{ hashFiles(...) }}`, which GitHub rejects at parse time, so no job ever ran and the
 failure looked like a normal red cross. The giveaway: the run's name was the file path instead of `ci`.

@@ -3280,6 +3280,190 @@ le metà, correlazione bassa, controlli esatti) e non significatività, perché 
 proprietario: con questi dati il desk non si distingue da un fondo indicizzato, e nessuna regola di questo
 capitolo cambia quella frase.
 
+### M. La misura, fatta una volta: quattro filtri, nessun libro cambia
+
+Comando (`scripts/research_phase23.py`, 20 novembre 2026, archivio del ramo dati fino al 19 novembre più la
+ricostruzione delle candele dei transiti scaricata dal runner alle 04:20 UTC):
+
+```
+PYTHONPATH=. python scripts/research_phase23.py --state <ramo-dati>/state --archive <ramo-dati>/state/desk \
+    --history hormuz_history.json --until 2026-11-19
+```
+
+L'archivio: 324 giorni, de-escalation 312 letture con un valore dal 13 gennaio, percorso della Fed 156 dal
+18 giugno, recessione 324 dal 1° gennaio, intensità dello stretto 77 dal 5 settembre.
+
+**Il bilancio: quattro misure, nessun libro cambia.** Tre filtri non passano, uno è un appuntamento che si chiude
+con «non si tocca niente», e l'unica cosa che entra è quella che non aveva filtro perché non decide nulla
+(sezione G). Due risultati sono però informativi, e uno è contro il mio pronostico.
+
+#### M1. La banda morta: l'ancora non regge, e quindi non si applica a nessun indice
+
+| indice | media \|variazione settimanale\| | banda ricavata | banda di oggi |
+|---|---|---|---|
+| de-escalation | 5,41 punti (305 settimane) | **0,87** | 1,00 |
+| percorso della Fed | 4,11 bp (149 settimane) | 0,66 | 1,00 |
+| recessione | 2,36 punti (317 settimane) | 0,38 | 1,00 |
+
+L'ancora obbligatoria della sezione E chiedeva che la de-escalation tornasse entro il 10% di 1,0 punti. Torna a
+**0,87: tredici per cento sotto. Non regge, e per la regola scritta prima la banda non cambia per nessun
+indice** — nemmeno per il percorso della Fed, che è l'unico dove avrebbe fatto comodo e che resta muto come
+prima.
+
+**Perché non regge.** Lo 0,16 è stato ricavato dai 6,3 punti a settimana misurati nel capitolo 10 H su
+143 sedute fra il 18 marzo e il 12 ottobre: una finestra corta e agitata, che contiene luglio. Sull'archivio
+intero — gennaio compreso, cioè i mesi in cui lo stretto non era il centro del mondo — la stessa quantità vale
+5,41. **Il rapporto non si trasporta perché il numero da cui l'ho ricavato dipendeva dalla finestra.** Va detto
+anche l'altro lato: se avessi usato il 6,3 del capitolo 10 al posto della misura sull'archivio intero, l'ancora
+avrebbe retto per costruzione e la regola si sarebbe accesa. Sarebbe stato circolare, ed è esattamente il motivo
+per cui l'ancora era scritta prima.
+
+Resta scritto qui, per chi tornerà sul problema: i tre indici hanno banda uguale in numero e diversissima in
+sostanza — 1,0 su 5,41, 1,0 su 4,11, 1,0 su 2,36 — e quindi la recessione è la più imbavagliata delle tre. Chi
+vorrà cambiarlo dovrà registrare una regola che non dipenda da una finestra scelta.
+
+#### M2. Le scale: l'appuntamento è onorato, non si tocca niente
+
+| sleeve | media \|F\| | quando parla | sedute |
+|---|---|---|---|
+| de-escalation | 8,46 | 9,64 (186 su 212) | 212 |
+| percorso della Fed | 8,48 | 11,31 (78 su 104) | 104 |
+| recessione | 7,87 | 10,64 (162 su 219) | 219 |
+
+Il controllo dichiarato nelle fasi 14 e 15 è la normalizzazione di Carver: media di |F| vicina a 10, si tocca
+solo se sbagliata di un fattore due. **Tutte e tre stanno fra 7,9 e 8,5, cioè dentro.** Nessuna scala cambia.
+È il risultato più noioso del capitolo ed è una buona notizia: i numeri tondi scelti a ottobre su molto meno
+archivio reggono su 324 giorni.
+
+#### M3. Il moltiplicatore di diversificazione: il libro è già al suo tetto
+
+Le due sleeve di Oracle equities (Fed +1, recessione −1) hanno un valore insieme su **104 giorni** e correlano
+**+0,23**: la formula di Carver dà **FDM 1,28**, sotto il tetto di 1,75.
+
+| | Sharpe prima | Sharpe dopo |
+|---|---|---|
+| finestra intera | +1,70 (SE 2,39) | +1,57 |
+| prima metà | +0,70 | +0,43 |
+| seconda metà | +3,24 | +3,28 |
+
+Il filtro (2) chiedeva che non scendesse in nessuna delle due metà. Scende nella prima. **Non si accende.**
+
+Ma il numero che spiega la cosa non è lo Sharpe — con un errore standard di 2,39 una differenza di 0,13 non si
+distingue da zero, e dirlo sarebbe finta precisione. Il numero che spiega è questo: **il libro è già al suo
+tetto sul 44% delle sedute in cui decide, e sul 51% con il moltiplicatore.** Un libro solo lungo, con obiettivo
+di volatilità 0,50 e tetto 2x su un fondo azionario poco volatile, vive contro il suo soffitto: metà della posta
+in più la butta via al tetto e il costo del giro lo paga comunque. **Il moltiplicatore non ha spazio per
+costruzione**, non per sfortuna, e questo è un fatto meccanico che non dipende dal campione.
+
+Resta vero che i libri Kalshi restano incoerenti con i libri core su questo punto, e resta scritto che è una
+scelta e non una dimenticanza. Il giorno in cui un libro non-desk avrà sleeve abbastanza numerose da non vivere
+al tetto, la domanda si riapre con questi numeri già sul tavolo.
+
+#### M4. La sleeve dell'intensità dello stretto: non entra, ma il prior era sbagliato
+
+**Filtro (1): 77 letture contro le 120 registrate. Non entra.** La ricostruzione dalle candele arriva solo al
+**5 settembre 2026**: l'elenco di Kalshi dimentica i mercati liquidati, una serie settimanale ne liquida uno a
+settimana, e indietro non si va. È esattamente il secondo prior della sezione D, e si è avverato.
+
+Il resto si misura lo stesso, perché il filtro (1) è decisivo ma gli altri numeri restano utili a chi tornerà:
+
+* la sleeve parla su **49 sedute su 53**, con media di |F| **8,92** — filtro (4) passato, la scala dichiarata di
+  −4 per nave non si tocca;
+* **la correlazione con la de-escalation è +0,01** su 49 giorni. Filtro (2) passato con enorme margine, **e il
+  mio pronostico era sbagliato**: avevo scritto «mi aspetto una correlazione alta, è la stessa storia vista da
+  una finestra più vicina». Non lo è. Quante navi passano questa settimana e quanto il mercato dà alla pace
+  entro novanta giorni sono **due informazioni indipendenti**. Questo è il risultato più interessante del
+  capitolo, ed è l'unico che aumenta davvero le probabilità che la sleeve serva a qualcosa;
+* filtro (3), l'Oracolo con una sleeve contro due su 53 sedute: finestra intera +0,88 → **+1,54**, prima metà
+  −3,40 → **+0,63**, seconda metà +3,78 → **+2,29**. Sale in una metà e scende nell'altra: **il filtro (3) non
+  passa comunque**, e su ventisei sedute per metà non potrebbe dire niente nemmeno se passasse.
+
+**Quando si riapre.** Il tick archivia questa serie ogni giorno dal 14 ottobre, e la ricostruzione ha riempito
+indietro fino al 5 settembre: le 120 letture arrivano **intorno al 1° gennaio 2027**. Allora si rimisura con
+questi stessi quattro filtri, senza toccarli, e la scala resta −4 per nave come dichiarata oggi. Perché la misura
+sia possibile, la serie va però archiviata **anche** dalla ricostruzione: `KXHORMUZWEEKLY` entra in `ALL_SERIES`
+solo se diventa la componente di un indice, e oggi non lo è — quindi la sezione G la mette nella lista
+scaricata ogni ora (dove già era) e il lavoro di ricostruzione resta quello che è. Niente di tutto questo tocca
+un libro.
+
+#### M5. Le serie nuove: **zero passano**, e il criterio era inesigibile
+
+Il catalogo, riscaricato dal runner il 20 novembre alle 04:48 UTC: **16 757 serie** (erano 15 011 a ottobre).
+Con le parole chiave della sezione G — petrolio, energia, Medio Oriente, politica monetaria americana — ne
+restano **711**; di queste **211 sono ricorrenti** (giornaliere, settimanali, mensili, trimestrali) e il resto
+sono eventi unici. Fra le 211, **circa 110 sono il prezzo della benzina stato per stato** (Alabama, Alaska,
+Arizona…): cinquanta copie della stessa quantità nazionale, che è già nella lista.
+
+Due esclusioni meccaniche, dichiarate qui prima di guardare le storie, perché 711 serie non sono scaricabili a
+una chiamata al secondo né archiviabili ogni ora: (i) una serie che è la copia per singolo stato o città di una
+serie nazionale non si aggiunge, si tiene la nazionale; (ii) una serie **giornaliera** non si aggiunge, perché
+crea un evento al giorno e dominerebbe l'archivio. Restano **23 candidate**, scaricate con le loro candele.
+
+**Nessuna delle 23 arriva a sei mesi di storia.** Le più lunghe:
+
+| serie | giorni ricostruibili | dal | mesi |
+|---|---|---|---|
+| `KXEFFR` (Fed funds) | 140 | 2 luglio | 4,6 |
+| `KXDOTPLOT` (dot plot) | 137 | 21 giugno | 4,5 |
+| `KXMAXSHIPSHORMUZ` | 79 | 2 settembre | 2,6 |
+| `KXHORMUZPEAK` | 78 | 15 agosto | 2,6 |
+
+e sotto, tutto il resto fra 33 e 77 giorni; cinque serie (`KXHOILW`, `KXHOILMON`, `KXJETFUEL`, `KXNOTE10M`,
+`KXTNOTEW`) **non hanno nemmeno una candela**, perché i loro mercati si liquidano in fretta e l'elenco li ha già
+dimenticati. **Zero su 23. La sezione G non aggiunge nessuna serie.**
+
+**Il criterio era sbagliato, e va detto come tale.** La condizione (a) chiedeva un passato che Kalshi **non
+tiene**: l'elenco dimentica un mercato poche settimane dopo che si è liquidato, quindi la storia ricostruibile di
+qualunque serie comincia dove comincia il suo elenco — due o tre mesi fa per quasi tutte. Applicata alla lettera,
+quella condizione vieta per sempre di aggiungere qualunque serie, comprese le diciotto che il desk scarica già
+(`KXHORMUZWEEKLY` ne ha 77, come dice 18 M4). Non è un filtro sulla qualità, è una porta murata.
+
+Si applica lo stesso, alla lettera, perché un filtro non si allarga dopo averlo visto fallire: **oggi non entra
+nessuna serie sull'autorità della sezione G.** Il criterio corretto è scritto qui per la prossima volta, e la
+decisione se applicarlo è del proprietario:
+
+> (a) la serie è **ricorrente** e ha oggi almeno un mercato aperto con volume vero; (b) parla di petrolio,
+> energia, Medio Oriente o politica monetaria americana; (c) non è la copia per stato o città di una nazionale;
+> (d) non è una scala di prezzo su una quantità che il desk legge già dai suoi dati (i rendimenti del Treasury, il
+> gas, il diesel), che il capitolo 11 aveva già escluso per costruzione dagli indici. **La storia non si chiede
+> al passato: si accumula in avanti**, quindi una serie aggiunta oggi è misurabile fra sei mesi, e una non
+> aggiunta non lo sarà mai.
+
+Con quel criterio entrerebbero le quindici serie dei punti di strozzatura (Suez, Bab el-Mandeb, Panama, i due
+massimi di Hormuz), dell'offerta ufficiale (riserve strategiche americane, esportazioni, scorte di benzina,
+utilizzo delle raffinerie, produzione iraniana, venezuelana, riserve cinesi) e della politica monetaria (Fed
+funds, condizioni finanziarie di Chicago, dot plot): da diciotto chiamate l'ora si passerebbe a trentatré, una
+al secondo, su un passo che il tick fa una volta ogni sessanta minuti.
+
+**Una cosa entra lo stesso, ed è una riparazione, non un'aggiunta.** `KXIRANCRUDE` — la produzione di greggio
+iraniana — è nel gruppo «Supply» della pagina dei segnali **dalla fase 13** (`prediction.GROUPS`, 14 ottobre) e
+non è mai stata nella lista scaricata: la pagina ha un posto per quel dato e il dato non arriva mai. La decisione
+di archiviarla è di ottobre; quello che mancava era una riga di configurazione.
+
+Resta una sola voce nei gruppi della pagina che non viene scaricata, `KXBRENTWEX`: esiste nel catalogo, ma è un
+evento unico e una scala di prezzo sul Brent, cioè esattamente le due classi che il criterio corretto esclude.
+Si lascia dov'è — un gruppo che non riceve mai quella serie non fa danno — e si scrive qui perché, così nessuno
+la scambi per un secondo buco.
+
+#### M6. Che cosa cambia davvero
+
+**Niente, di quello che il capitolo proponeva.** Nessuna sleeve, nessuna banda, nessuna scala, nessun
+moltiplicatore, e — contro ogni aspettativa, compresa la mia — nemmeno una serie nuova: tutte e quattro le misure
+e il censimento del catalogo finiscono con un no. I ventitré libri del desk prendono le stesse decisioni di ieri e
+l'impronta del backtest è `b66ecbb82b75`.
+
+Due cose cambiano davvero, e nessuna delle due è una scommessa:
+
+1. **Il lavoro di ricostruzione tiene il passato dei candidati registrati** (`oracle.CANDIDATE_SERIES`,
+   `BACKFILL_SERIES`). Finché la sleeve dei transiti non è un indice, la sua serie non era coperta da
+   `kalshi-backfill`, e quei giorni spariscono man mano che Kalshi dimentica i mercati liquidati. Senza questa
+   riga, a gennaio l'archivio avrebbe **meno** letture di oggi invece che di più, e la misura registrata in 18 D
+   non si potrebbe fare.
+2. **`KXIRANCRUDE` entra nella lista scaricata** (18 M6): una riparazione vecchia di un mese, non un'aggiunta.
+
+E resta scritta una lezione che vale più delle quattro misure: **su Kalshi la storia non si chiede, si accumula.**
+Chi vorrà misurare qualcosa in primavera deve archiviarlo adesso.
+
 ## Fonti
 
 Strumenti e regole di negoziazione (verificati l'8 ottobre 2026):
