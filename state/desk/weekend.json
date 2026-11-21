@@ -1,0 +1,32 @@
+{
+  "weekend": "2026-11-20",
+  "close": "2026-11-20T22:00:00Z",
+  "until": "2026-11-22T22:00:00Z",
+  "mark": {
+    "ts": "2026-11-20T22:18:38.413904Z",
+    "components": {
+      "KXHORMUZNORM": 0.07928571428571429,
+      "KXUSAIRANAGREEMENT": 0.07928571428571429,
+      "KXUSIRANMEETING": 0.3148214285714286
+    },
+    "source": "reading",
+    "late_hours": 0.31
+  },
+  "latest": {
+    "ts": "2026-11-21T09:38:05.964273Z",
+    "components": {
+      "KXHORMUZNORM": 0.08071428571428571,
+      "KXUSAIRANAGREEMENT": 0.0892857142857143,
+      "KXUSIRANMEETING": 0.32892857142857146
+    }
+  },
+  "change": 0.00851,
+  "common": [
+    "KXHORMUZNORM",
+    "KXUSAIRANAGREEMENT",
+    "KXUSIRANMEETING"
+  ],
+  "index_mark": 0.1578,
+  "index_last": 0.16631,
+  "over": false
+}

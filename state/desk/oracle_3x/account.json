@@ -1,0 +1,64 @@
+{
+  "account_id": "desk-oracle_3x",
+  "epoch": 1,
+  "cash": 9711.440481032112,
+  "positions": {
+    "CLF27": {
+      "instrument": "CLF27",
+      "qty_bbl": 100.0,
+      "avg_price": 84.39570102278486,
+      "opened_ts": "2026-11-16T03:30:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 88.20999908447266,
+      "low_water": 80.77999877929688,
+      "strategies": [
+        "deescalation"
+      ],
+      "last_price": 83.62000274658203,
+      "last_ts": "2026-11-20T23:18:38.917525Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10150.063706055871,
+  "day_start_equity": 9538.480517139149,
+  "day_start_date": "2026-11-20",
+  "last_mark_ts": "2026-11-20T23:18:38.917525Z",
+  "last_prices": {
+    "CLF27": 83.62000274658203
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-11-20T22:00:00Z",
+  "pending": [],
+  "processed_keys": [
+    "44574afc36335ec9ed433f2bd02df1fa84aea6a7",
+    "4c3154d7e3dab180462852a0ca0855d61e4392fe",
+    "974f01e7bf0ef4744474fdb804fcd9ebbc31b568",
+    "fdc921bff581e4b888427d7d9fe65fbf18444ac9"
+  ],
+  "n_fills": 4,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-11-16T02:33:17.848644Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 8968.480059375477,
+  "epoch_n_fills": 4,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": -282.2095189678862,
+  "total_commission": 6.35,
+  "total_slippage_usd": 12.779987457308732,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "CLF27": 300.0
+  },
+  "distributions_seen": {},
+  "last_equity": 9633.870653411828,
+  "last_bar_ts": {
+    "CLF27|30m": "2026-11-20T22:00:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

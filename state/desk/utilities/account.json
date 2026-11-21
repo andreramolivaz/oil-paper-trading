@@ -1,0 +1,86 @@
+{
+  "account_id": "desk-utilities",
+  "epoch": 1,
+  "cash": 9999.71276516886,
+  "positions": {
+    "XLU": {
+      "instrument": "XLU",
+      "qty_bbl": 210.0,
+      "avg_price": 43.1143091282378,
+      "opened_ts": "2026-10-16T20:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 44.400001525878906,
+      "low_water": 41.279998779296875,
+      "strategies": [
+        "skew",
+        "accel",
+        "trend"
+      ],
+      "last_price": 42.689998626708984,
+      "last_ts": "2026-11-20T23:18:38.917525Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10265.146820648548,
+  "day_start_equity": 9977.886108978626,
+  "day_start_date": "2026-11-20",
+  "last_mark_ts": "2026-11-20T23:18:38.917525Z",
+  "last_prices": {
+    "XLU": 42.689998626708984
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-11-20T21:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "14650bd531580a00294339f217c64ec4d77e7bd2",
+    "1f9a17077f0d9bf4232efd740d2076c2749bc31d",
+    "3cc48eaf5bab5d93c2d1b54a1a082eced2c426e1",
+    "4c8a190a8c26a64463699faa7ac574d8f34a532b",
+    "5703d66ad269effef71862ab683d156ea28721f9",
+    "63fc33b0ec285a7cda9312d325c2ce48bef4d013",
+    "648d17e51f28f38f2ce96de077384ccae8a69b46",
+    "6f57c26aecf6288af0e590128c2a27f94aa58006",
+    "7aff703b421c6f3e1f4a89118daf2a340bd6a97f",
+    "b024a877edcf979e0ab13036285b389831ca68e0",
+    "b912b7e114a89812f8cf127c12f0ff913dd190cd",
+    "c74599926da18ab605af7c93bb19fad2288f2924",
+    "ca232e4150f84c102d64d41832a3b676a6b184c0",
+    "ce27d6dda93dda55d8a42fa602cc4c3938afd0bb",
+    "da55627febbc872828a35d6d36d8934cc87d022d",
+    "e2f12d970759523f346a810d63233e27c8795d1a",
+    "ec3eb47b7775339fd2f5bed8eeb5f74879bb149b",
+    "ef5862145c1173fe2f85b6a08fa78714e9710f4a",
+    "f1741918ab168cce8d27d6f978215ca5256a38e8",
+    "f5eec82efeb52be4f3b104dab05d8adb18e2ca90",
+    "fae0a41a5e514f5d8402989254adc90c9857f448",
+    "fafad43cc74f8271642403c6dce34141ea45abde"
+  ],
+  "n_fills": 22,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-14T01:22:57.606296Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9910.60755984781,
+  "epoch_n_fills": 22,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": -0.287234831139358,
+  "total_commission": 0.0,
+  "total_slippage_usd": 0.9343331575586757,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "XLU": 212.0
+  },
+  "distributions_seen": {
+    "XLU": "2026-11-20"
+  },
+  "last_equity": 9910.60755984781,
+  "last_bar_ts": {
+    "XLU|30m": "2026-11-20T21:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

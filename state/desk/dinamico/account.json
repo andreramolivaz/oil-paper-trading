@@ -1,0 +1,92 @@
+{
+  "account_id": "desk-dinamico",
+  "epoch": 1,
+  "cash": 9812.908526869134,
+  "positions": {
+    "SCO": {
+      "instrument": "SCO",
+      "qty_bbl": 18.0,
+      "avg_price": 20.880246462954762,
+      "opened_ts": "2026-11-17T21:00:00Z",
+      "stop_price": null,
+      "target_price": null,
+      "trailing_pct": null,
+      "high_water": 21.72100067138672,
+      "low_water": 20.43000030517578,
+      "strategies": [
+        "accel",
+        "carry_momentum",
+        "copper",
+        "dollar"
+      ],
+      "last_price": 20.540000915527344,
+      "last_ts": "2026-11-20T23:18:38.917525Z"
+    }
+  },
+  "status": "active",
+  "peak_equity": 10521.873546535506,
+  "day_start_equity": 9808.405480074853,
+  "day_start_date": "2026-11-20",
+  "last_mark_ts": "2026-11-20T23:18:38.917525Z",
+  "last_prices": {
+    "BNO": 59.02000045776367,
+    "SCO": 20.540000915527344
+  },
+  "last_price_source": "yahoo (10-15 min delay)",
+  "last_price_asof": "2026-11-20T21:30:00Z",
+  "pending": [],
+  "processed_keys": [
+    "04b8992f16b588bac019858ae18c67f9165c6975",
+    "085828d35231a4be8dc67732c816458d583abf73",
+    "0fb7ec843281d7af2dff13e45bf3146192a119ac",
+    "1504ee421124a51fb19eed8c9e2fb0073a7e8125",
+    "1f2d9fe792273a7884c5996ef5645bbcd9cc4c40",
+    "2e493239ea261f69e4b274227c1f6f106a3596d0",
+    "34bb19c1611545ef9e9edafbb3ac116545a07e2d",
+    "3b2e1638e8e2536659b9d49d533b016990143900",
+    "45d826a51acc913695518b617b50a84ad8eab152",
+    "47a76220ec9516c1a7874b5c98fe049949e8e652",
+    "4dd64276556f4ac80702c5e437e92efd47ff0cd5",
+    "5d6640a8cd1789f5d79027713926db44a411c42c",
+    "67a19752ff686874d6bcb8fb086ed3f6919fabe4",
+    "77f0eb3cd93380d65471e8c971b43dbd7427cbc4",
+    "81439aafa74961329064c32e8474918e4ddcdbeb",
+    "850c204239ed6d94f7c8b5fadf6ce6ab321b9cf2",
+    "8b8c281ec82606ea12de68469e08214eb3a98235",
+    "8c8599653bcd2f4bebe7c550af272b2049c853d4",
+    "8df4f3365815f36f8de4d0f8aa71ecaf656ebf01",
+    "8f606278066322efbf7a7088ac1446810b37692f",
+    "90a3c56074adb9a004e44f0d7de8c8aade2654c5",
+    "961734d060ece1a2f7854dade2c3bb3af25a28a2",
+    "c3b8700dfd5652736026ad4297473f9d6aa26cbf",
+    "d1d3638bcee859c4dfeb9c470fe40e711c3515d0",
+    "dbe4fd960678fa38047b85c0a5d3d6b9ab1b1165",
+    "ea2837a591d33527d20fd466edb9be4923179a68",
+    "fa27abefd7f6d6db980e88d46384dbdea094ff17"
+  ],
+  "n_fills": 27,
+  "breaker_until": null,
+  "epoch_started_ts": "2026-10-08T21:19:21.847468Z",
+  "epoch_start_equity": 10000.0,
+  "epoch_min_equity": 9781.922013821144,
+  "epoch_n_fills": 27,
+  "epoch_ended_ts": null,
+  "epoch_end_reason": null,
+  "epoch_archived": false,
+  "realized_pnl": -187.09147313086874,
+  "total_commission": 0.0,
+  "total_slippage_usd": 5.241535379582142,
+  "total_financing": 0.0,
+  "total_distributions": 0.0,
+  "day_start_positions": {
+    "SCO": 12.0
+  },
+  "distributions_seen": {},
+  "last_equity": 9806.78410701544,
+  "last_bar_ts": {
+    "BNO|30m": "2026-11-20T21:30:00Z",
+    "SCO|30m": "2026-11-20T21:30:00Z"
+  },
+  "rejections": [],
+  "last_reject_reason": ""
+}

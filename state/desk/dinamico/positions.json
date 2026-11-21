@@ -1,0 +1,21 @@
+[
+  {
+    "instrument": "SCO",
+    "qty_bbl": 18.0,
+    "avg_price": 20.880246462954762,
+    "opened_ts": "2026-11-17T21:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 21.72100067138672,
+    "low_water": 20.43000030517578,
+    "strategies": [
+      "accel",
+      "carry_momentum",
+      "copper",
+      "dollar"
+    ],
+    "last_price": 20.540000915527344,
+    "last_ts": "2026-11-20T23:18:38.917525Z"
+  }
+]

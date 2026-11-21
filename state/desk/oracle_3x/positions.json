@@ -1,0 +1,18 @@
+[
+  {
+    "instrument": "CLF27",
+    "qty_bbl": 100.0,
+    "avg_price": 84.39570102278486,
+    "opened_ts": "2026-11-16T03:30:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 88.20999908447266,
+    "low_water": 80.77999877929688,
+    "strategies": [
+      "deescalation"
+    ],
+    "last_price": 83.62000274658203,
+    "last_ts": "2026-11-20T23:18:38.917525Z"
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+    "instrument": "BNO",
+    "qty_bbl": 91.0,
+    "avg_price": 58.997549679649005,
+    "opened_ts": "2026-11-10T21:00:00Z",
+    "stop_price": null,
+    "target_price": null,
+    "trailing_pct": null,
+    "high_water": 61.679901123046875,
+    "low_water": 57.32099914550781,
+    "strategies": [
+      "deescalation"
+    ],
+    "last_price": 59.02000045776367,
+    "last_ts": "2026-11-20T23:18:38.917525Z"
+  }
+]
